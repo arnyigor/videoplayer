@@ -6,9 +6,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import okhttp3.MultipartBody
-import okhttp3.RequestBody
+import okhttp3.ResponseBody
+import okio.Buffer
+import okio.GzipSource
 import org.jsoup.Jsoup
+import java.nio.charset.StandardCharsets.UTF_8
 import javax.inject.Inject
 
 
@@ -20,22 +22,50 @@ class VideoRepositoryImpl @Inject constructor(
         const val SEARCH_RESULT_LINKS = "div.th-item a"
     }
 
-    override fun searchVideo(): Flow<String> {
+    override fun searchVideo(search: String): Flow<String> {
         return flow {
-            val requestBody: RequestBody = MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("story", "мстители")
-                .build()
-            emit(videoApiService.searchVideo(requestBody))
+            val value = videoApiService.searchVideo(search)
+            emit(value)
         }.flowOn(Dispatchers.IO)
-            .map {
-                val doc = Jsoup.parse(it)
+            .map { body ->
+                val result = responseToStringConvert(body)
+                val doc = Jsoup.parse(result)
                 val searchResult = doc.getElementById(SEARCH_RESULT_CONTENT_ID)
                 val links = searchResult.select(SEARCH_RESULT_LINKS)
                 val results = links.size
-                println(results)
-                println(links)
                 results.toString()
             }
+    }
+
+    override fun all(): Flow<String> {
+        return flow {
+            emit(videoApiService.requestMainpage())
+        }.flowOn(Dispatchers.IO)
+            .map { body ->
+                val result = responseToStringConvert(body)
+                val doc = Jsoup.parse(result)
+                val links = doc.body()
+                    .getElementById("owl-top")
+                    .select(".th-item a")
+                StringBuilder().apply {
+                    for (link in links) {
+                        append(link.text())
+                        append("\n")
+                        append(link.attr("href"))
+                        append("\n")
+                    }
+                }.toString()
+            }
+    }
+
+    private fun responseToStringConvert(res: ResponseBody): String {
+        val source = res.source()
+        val origin = source.buffer
+        var clone = origin.clone()
+        GzipSource(clone.clone()).use { gzippedResponseBody ->
+            clone = Buffer()
+            clone.writeAll(gzippedResponseBody)
+        }
+        return clone.readString(UTF_8)
     }
 }

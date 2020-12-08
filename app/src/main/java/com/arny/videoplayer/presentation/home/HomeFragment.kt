@@ -25,7 +25,15 @@ class HomeFragment : Fragment() {
     private val binding by viewBinding { FHomeBinding.bind(it).also(::initBinding) }
 
     private fun initBinding(binding: FHomeBinding) = with(binding) {
-
+        vm.loading.observe(this@HomeFragment, { loading ->
+            binding.pbLoading.isVisible = loading
+        })
+        vm.text.observe(this@HomeFragment, {
+            binding.tvInfo.text = it
+        })
+        binding.tvInfo.setOnClickListener {
+            vm.restartLoading()
+        }
     }
 
     override fun onAttach(context: Context) {
@@ -42,15 +50,7 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        vm.loading.observe(this, { loading ->
-            binding.pbLoading.isVisible = loading
-        })
-        vm.text.observe(this, {
-            binding.tvInfo.text = it
-        })
-        binding.tvInfo.setOnClickListener {
-            vm.restartLoading()
-        }
+
     }
 
 }

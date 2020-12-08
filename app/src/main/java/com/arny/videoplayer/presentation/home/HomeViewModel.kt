@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 class HomeViewModel(
     private val videoRepository: VideoRepository
 ) : ViewModel() {
-    val loading = mutableLiveData(true)
+    val loading = mutableLiveData(false)
     val text = mutableLiveData<String>()
 
     init {
@@ -24,12 +24,13 @@ class HomeViewModel(
         viewModelScope.launch {
             if (loading.value == true) return@launch
             loading.value = true
-            videoRepository.searchVideo()
+            videoRepository.all()
                 .onCompletion {
                     loading.value = false
                 }
                 .catch {
-                    println("Thread:${Thread.currentThread().name},error:${it.message}")
+                    it.printStackTrace()
+                    text.value = "Ошибка запроса:${it.cause?.stackTraceToString()}"
                 }
                 .collect {
                     text.value = it

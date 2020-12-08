@@ -3,6 +3,7 @@ package com.arny.videoplayer.di
 import com.arny.videoplayer.VideoApp
 import com.arny.videoplayer.data.di.DataModule
 import com.arny.videoplayer.data.network.NetworkModule
+import com.arny.videoplayer.di.modules.AppModule
 import com.arny.videoplayer.di.modules.UiModule
 import dagger.BindsInstance
 import dagger.Component
@@ -14,6 +15,7 @@ import javax.inject.Singleton
 @Component(
     modules = [
         AndroidSupportInjectionModule::class,
+        AppModule::class,
         UiModule::class,
         DataModule::class,
         NetworkModule::class

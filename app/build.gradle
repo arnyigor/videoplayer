@@ -16,6 +16,7 @@ dependencies {
     okhttp()
     material()
     retrofit()
+    retrofitHtmlConverter()
     appcompat()
     constraintlayout()
     jsoup()
