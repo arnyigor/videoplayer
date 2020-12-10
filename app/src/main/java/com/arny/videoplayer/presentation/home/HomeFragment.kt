@@ -5,11 +5,16 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.arny.videoplayer.R
+import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.databinding.FHomeBinding
 import com.arny.videoplayer.presentation.utils.viewBinding
+import com.xwray.groupie.GroupAdapter
+import com.xwray.groupie.GroupieViewHolder
 import dagger.android.support.AndroidSupportInjection
 import javax.inject.Inject
 
@@ -24,14 +29,33 @@ class HomeFragment : Fragment() {
 
     private val binding by viewBinding { FHomeBinding.bind(it).also(::initBinding) }
 
+    private lateinit var groupAdapter: GroupAdapter<GroupieViewHolder>
+
     private fun initBinding(binding: FHomeBinding) = with(binding) {
+        groupAdapter = GroupAdapter<GroupieViewHolder>()
+        rcVideoList.also {
+            it.adapter = groupAdapter
+            it.layoutManager = LinearLayoutManager(requireContext())
+        }
         vm.loading.observe(this@HomeFragment, { loading ->
             binding.pbLoading.isVisible = loading
         })
-        vm.text.observe(this@HomeFragment, {
-            binding.tvInfo.text = it
+        vm.result.observe(this@HomeFragment, { result ->
+            when (result) {
+                is DataResult.Success -> {
+                    groupAdapter.addAll(result.data)
+                }
+                is DataResult.Error -> {
+                    Toast.makeText(
+                        requireContext(),
+                        result.throwable.message,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
         })
-        binding.tvInfo.setOnClickListener {
+        swiperefresh.setOnRefreshListener {
+            swiperefresh.isRefreshing = false
             vm.restartLoading()
         }
     }
@@ -47,10 +71,4 @@ class HomeFragment : Fragment() {
     ): View {
         return inflater.inflate(R.layout.f_home, container, false)
     }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-    }
-
 }

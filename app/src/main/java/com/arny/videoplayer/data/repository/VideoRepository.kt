@@ -1,8 +1,9 @@
 package com.arny.videoplayer.data.repository
 
+import com.arny.videoplayer.di.models.Video
 import kotlinx.coroutines.flow.Flow
 
 interface VideoRepository {
     fun searchVideo(search: String): Flow<String>
-    fun all(): Flow<String>
+    fun getAllVideos(): Flow<List<Video>>
 }

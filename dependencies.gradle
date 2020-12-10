@@ -110,12 +110,12 @@ ext {
         kapt "com.google.dagger:dagger-android-processor:$version"
     }}
 
-    glide = { version = GLIDE -> Alias {
+    glide = { version = '4.11.0' -> Alias {
         implementation "com.github.bumptech.glide:glide:$version"
+        kapt "com.github.bumptech.glide:compiler:$version"
         implementation("com.github.bumptech.glide:okhttp3-integration:$version") {
             exclude group: 'glide-parent'
         }
-        kapt "com.github.bumptech.glide:compiler:$version"
     }}
 
     appcompat = { version = '1.2.0' -> Alias {
@@ -128,6 +128,10 @@ ext {
 
     constraintlayout = { version = '2.0.2' -> Alias {
         implementation "androidx.constraintlayout:constraintlayout:$version"
+    }}
+
+    swiperefresh = { version = '1.1.0' -> Alias {
+        implementation "androidx.swiperefreshlayout:swiperefreshlayout:$version"
     }}
 
     viewpager2 = { version = '1.0.0' -> Alias {
@@ -150,8 +154,10 @@ ext {
         implementation "com.google.android.material:material:$version"
     }}
 
-    groupie = { version = '2.7.0' -> Alias {
+    groupie = { version = '2.8.1' -> Alias {
         implementation "com.xwray:groupie:$version"
+        implementation "com.xwray:groupie-kotlin-android-extensions:$version"
+        implementation "com.xwray:groupie-viewbinding:$version"
     }}
 
     leakcanary = { version = '2.4' -> Alias {

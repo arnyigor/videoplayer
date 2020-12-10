@@ -2,10 +2,13 @@ package com.arny.videoplayer.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.data.repository.VideoRepository
+import com.arny.videoplayer.presentation.models.VideoItem
 import com.arny.videoplayer.presentation.utils.mutableLiveData
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 
@@ -14,7 +17,7 @@ class HomeViewModel(
     private val videoRepository: VideoRepository
 ) : ViewModel() {
     val loading = mutableLiveData(false)
-    val text = mutableLiveData<String>()
+    val result = mutableLiveData<DataResult<List<VideoItem>>>()
 
     init {
         restartLoading()
@@ -24,16 +27,16 @@ class HomeViewModel(
         viewModelScope.launch {
             if (loading.value == true) return@launch
             loading.value = true
-            videoRepository.all()
+            videoRepository.getAllVideos()
+                .map { list -> list.map { VideoItem(it) } }
                 .onCompletion {
                     loading.value = false
                 }
                 .catch {
-                    it.printStackTrace()
-                    text.value = "Ошибка запроса:${it.cause?.stackTraceToString()}"
+                    result.value = DataResult.Error(it)
                 }
                 .collect {
-                    text.value = it
+                    result.value = DataResult.Success(it)
                 }
         }
     }
