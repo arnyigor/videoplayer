@@ -1,6 +1,8 @@
 package com.arny.videoplayer.data.repository
 
+import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.data.models.M3u8Response
+import com.arny.videoplayer.data.models.toResult
 import com.arny.videoplayer.data.network.ResponseBodyConverter
 import com.arny.videoplayer.data.network.VideoApiService
 import com.arny.videoplayer.data.utils.fromJson
@@ -59,10 +61,13 @@ class VideoRepositoryImpl @Inject constructor(
 
 
     @FlowPreview
-    override fun loadVideo(video: Video): Flow<Video> {
+    override fun loadVideo(video: Video): Flow<DataResult<Video>> {
         return flow {
             emit(getFullVideo(video))
         }.flowOn(Dispatchers.IO)
+            .map {
+                it.toResult()
+            }
     }
 
     private suspend fun getFullVideo(video: Video): Video {
@@ -78,7 +83,7 @@ class VideoRepositoryImpl @Inject constructor(
         val iframeDataBody = responseBodyConverter.convert(iFrameBody)
         requireNotNull(iframeDataBody)
         val index = "index.m3u8"
-        val m3u8Result = iframeDataBody.body()
+        val m3u8Result = "https://" + iframeDataBody.body()
             .getElementById("nativeplayer")
             .attr("data-config")
             .fromJson(M3u8Response::class.java)

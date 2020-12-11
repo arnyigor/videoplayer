@@ -47,6 +47,10 @@ ext {
         implementation "com.google.firebase:firebase-bom:$version"
     }}
 
+    exomedia = { version = '4.3.0' -> Alias {
+        implementation "com.devbrackets.android:exomedia:$version"
+    }}
+
     cicerone = { version = '6.6' -> Alias {
         implementation "com.github.terrakok:cicerone:$version"
     }}

@@ -24,7 +24,7 @@ class DetailsViewModel @Inject constructor(
             videoRepository.loadVideo(video)
                 .onCompletion { loading.value = false }
                 .catch { result.value = DataResult.Error(it) }
-                .collect { println(it) }
+                .collect { res -> result.value = res }
         }
     }
 }

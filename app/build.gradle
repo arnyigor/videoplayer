@@ -28,4 +28,5 @@ dependencies {
     appcompat()
     constraintlayout()
     jsoup()
+    exomedia()
 }
