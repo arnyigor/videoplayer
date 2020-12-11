@@ -5,11 +5,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.navArgs
 import com.arny.videoplayer.R
 import com.arny.videoplayer.databinding.DetailsFragmentBinding
-import com.arny.videoplayer.presentation.home.HomeViewModel
 import com.arny.videoplayer.presentation.utils.viewBinding
 import dagger.android.support.AndroidSupportInjection
 import javax.inject.Inject
@@ -23,15 +23,21 @@ class DetailsFragment : Fragment() {
     }
 
     @Inject
-    lateinit var vm: HomeViewModel
+    lateinit var vm: DetailsViewModel
 
     private val binding by viewBinding { DetailsFragmentBinding.bind(it).also(::initBinding) }
 
 
     private fun initBinding(binding: DetailsFragmentBinding) = with(binding) {
+        vm.loading.observe(this@DetailsFragment, { load ->
+            pbLoadingVideo.isVisible = load
+        })
         val video = args.video
         tvVideoTitle.text = video.title
         tvVideoUrl.text = video.url
+        tvVideoUrl.setOnClickListener {
+            vm.loadVideo(video)
+        }
     }
 
     override fun onAttach(context: Context) {

@@ -6,4 +6,5 @@ import kotlinx.coroutines.flow.Flow
 interface VideoRepository {
     fun searchVideo(search: String): Flow<String>
     fun getAllVideos(): Flow<List<Video>>
+    fun loadVideo(video: Video): Flow<Video>
 }

@@ -4,11 +4,15 @@ import android.os.Parcel
 import android.os.Parcelable
 
 data class Video(
-    val title: String?,
-    val url: String?,
-    val img: String?
+    val title: String,
+    val url: String? = null,
+    val img: String? = null,
+    val detailUrl: String? = null,
+    val playUrl: String? = null,
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
+        parcel.readString() ?: "",
+        parcel.readString(),
         parcel.readString(),
         parcel.readString(),
         parcel.readString()
@@ -18,6 +22,8 @@ data class Video(
         parcel.writeString(title)
         parcel.writeString(url)
         parcel.writeString(img)
+        parcel.writeString(detailUrl)
+        parcel.writeString(playUrl)
     }
 
     override fun describeContents(): Int {
@@ -33,5 +39,4 @@ data class Video(
             return arrayOfNulls(size)
         }
     }
-
 }

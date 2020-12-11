@@ -1,14 +1,16 @@
 package com.arny.videoplayer.data.repository
 
+import com.arny.videoplayer.data.models.M3u8Response
 import com.arny.videoplayer.data.network.ResponseBodyConverter
 import com.arny.videoplayer.data.network.VideoApiService
+import com.arny.videoplayer.data.utils.fromJson
 import com.arny.videoplayer.di.models.Video
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import org.jsoup.Jsoup
 import javax.inject.Inject
 
 
@@ -27,7 +29,8 @@ class VideoRepositoryImpl @Inject constructor(
             emit(value)
         }.flowOn(Dispatchers.IO)
             .map { body ->
-                val doc = Jsoup.parse(responseBodyConverter.convert(body))
+                val doc = responseBodyConverter.convert(body)
+                requireNotNull(doc)
                 val searchResult = doc.getElementById(SEARCH_RESULT_CONTENT_ID)
                 val links = searchResult.select(SEARCH_RESULT_LINKS)
                 val results = links.size
@@ -40,7 +43,8 @@ class VideoRepositoryImpl @Inject constructor(
             emit(videoApiService.requestMainpage())
         }.flowOn(Dispatchers.IO)
             .map { body ->
-                val doc = Jsoup.parse(responseBodyConverter.convert(body))
+                val doc = responseBodyConverter.convert(body)
+                requireNotNull(doc)
                 val links = doc.body()
                     .getElementById("owl-top")
                     .select(".th-item a")
@@ -51,5 +55,39 @@ class VideoRepositoryImpl @Inject constructor(
                     }
                 }
             }
+    }
+
+
+    @FlowPreview
+    override fun loadVideo(video: Video): Flow<Video> {
+        return flow {
+            emit(getFullVideo(video))
+        }.flowOn(Dispatchers.IO)
+    }
+
+    private suspend fun getFullVideo(video: Video): Video {
+        val body = videoApiService.getVideoDetails(video.url)
+        val detailsDoc = responseBodyConverter.convert(body)
+        requireNotNull(detailsDoc)
+        val iFrameUrl = detailsDoc.body()
+            .getElementById("dle-content")
+            .select(".fmain")
+            .first()
+            .select("iframe").attr("src")
+        val iFrameBody = videoApiService.getIframeData(iFrameUrl)
+        val iframeDataBody = responseBodyConverter.convert(iFrameBody)
+        requireNotNull(iframeDataBody)
+        val index = "index.m3u8"
+        val m3u8Result = iframeDataBody.body()
+            .getElementById("nativeplayer")
+            .attr("data-config")
+            .fromJson(M3u8Response::class.java)
+            ?.hls
+            ?.substringAfter("//")
+            ?.substringBeforeLast("/$index") + "/720/$index"
+        println(m3u8Result)
+        return video.copy(
+            playUrl = m3u8Result
+        )
     }
 }
