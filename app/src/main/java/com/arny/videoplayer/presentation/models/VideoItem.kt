@@ -8,11 +8,11 @@ import com.bumptech.glide.Glide
 
 import com.xwray.groupie.viewbinding.BindableItem
 
-class VideoItem(private val video: Video) : BindableItem<IHomeVideoBinding>() {
+class VideoItem(val video: Video) : BindableItem<IHomeVideoBinding>() {
 
     override fun bind(binding: IHomeVideoBinding, position: Int) {
         with(binding) {
-            tvVideoTitle.text = video.name
+            tvVideoTitle.text = video.title
             Glide.with(ivVideoIcon)
                 .load(video.img)
                 .into(ivVideoIcon)

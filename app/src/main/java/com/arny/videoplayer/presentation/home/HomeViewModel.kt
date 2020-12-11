@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-
-class HomeViewModel(
-    private val videoRepository: VideoRepository
+class HomeViewModel  @Inject constructor(
+    private val videoRepository: VideoRepository,
 ) : ViewModel() {
     val loading = mutableLiveData(false)
     val result = mutableLiveData<DataResult<List<VideoItem>>>()

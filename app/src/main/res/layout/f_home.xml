@@ -13,6 +13,7 @@
         android:autofillHints="true"
         android:drawableEnd="@android:drawable/ic_menu_search"
         android:inputType="text"
+        app:drawableTint="@color/black"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />

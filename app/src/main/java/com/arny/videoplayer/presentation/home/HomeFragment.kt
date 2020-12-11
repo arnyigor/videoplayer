@@ -8,10 +8,12 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.arny.videoplayer.R
 import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.databinding.FHomeBinding
+import com.arny.videoplayer.presentation.models.VideoItem
 import com.arny.videoplayer.presentation.utils.viewBinding
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
@@ -33,6 +35,11 @@ class HomeFragment : Fragment() {
 
     private fun initBinding(binding: FHomeBinding) = with(binding) {
         groupAdapter = GroupAdapter<GroupieViewHolder>()
+        groupAdapter.setOnItemClickListener { item, _ ->
+            val video = (item as VideoItem).video
+            binding.root.findNavController()
+                .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(video))
+        }
         rcVideoList.also {
             it.adapter = groupAdapter
             it.layoutManager = LinearLayoutManager(requireContext())

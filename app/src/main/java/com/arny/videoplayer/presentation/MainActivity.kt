@@ -3,7 +3,6 @@ package com.arny.videoplayer.presentation
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.arny.videoplayer.R
-import com.arny.videoplayer.presentation.home.HomeFragment
 import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
@@ -20,10 +19,5 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         AndroidInjection.inject(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.flContainer, HomeFragment.getInstance())
-                .commitNow()
-        }
     }
 }

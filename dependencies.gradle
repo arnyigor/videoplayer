@@ -38,12 +38,17 @@ ext {
         implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$version"
     }}
 
+    navigation = { version = '2.3.2' -> Alias {
+        implementation "androidx.navigation:navigation-fragment-ktx:$version"
+        implementation "androidx.navigation:navigation-ui-ktx:$version"
+    }}
+
     firebaseBom = { version = '26.0.0' -> Alias {
-        implementation platform("com.google.firebase:firebase-bom:$version")
+        implementation "com.google.firebase:firebase-bom:$version"
     }}
 
     cicerone = { version = '6.6' -> Alias {
-        implementation platform("com.github.terrakok:cicerone:$version")
+        implementation "com.github.terrakok:cicerone:$version"
     }}
 
     firebaseDatabase = { version = '19.2.1' -> Alias {
