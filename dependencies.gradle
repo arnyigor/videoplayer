@@ -80,7 +80,6 @@ ext {
     coroutines = { version = '1.4.2' -> Alias {
         implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$version"
         implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$version"
-//        implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core-common:1.3.8"
     }}
 
     rxjava2 = { version = '2.2.15' -> Alias {

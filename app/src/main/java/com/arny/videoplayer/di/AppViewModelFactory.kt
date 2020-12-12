@@ -1,4 +1,4 @@
-package com.arny.videoplayer.presentation.utils
+package com.arny.videoplayer.di
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider

@@ -90,7 +90,7 @@ class VideoRepositoryImpl @Inject constructor(
 
     private suspend fun getFullVideo(video: Video): Video {
         val headers = mapOf("Referer" to "${VIDEO_BASE_URL}index.php")
-        val body = videoApiService.getVideoDetails(video.url, headers)
+        val body = videoApiService.getVideoDetails(video.infoUrl, headers)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
         val iFrameUrl = getIframeUrl(detailsDoc)
@@ -100,7 +100,7 @@ class VideoRepositoryImpl @Inject constructor(
         val hlsList = getHlsList(iframeDoc)
         val hlsQualityMap = getQualityMap(hlsList)
         return video.copy(
-            playUrl = hlsQualityMap["720"]
+            videoUrl = hlsQualityMap["720"]
         )
     }
 

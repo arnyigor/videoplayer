@@ -15,6 +15,7 @@ import androidx.navigation.fragment.navArgs
 import com.arny.videoplayer.R
 import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.databinding.DetailsFragmentBinding
+import com.arny.videoplayer.di.models.Video
 import com.arny.videoplayer.presentation.utils.hideSystemBar
 import com.arny.videoplayer.presentation.utils.showSystemBar
 import com.arny.videoplayer.presentation.utils.viewBinding
@@ -29,16 +30,12 @@ import javax.inject.Inject
 
 class DetailsFragment : Fragment() {
 
-    private var playWhenReady: Boolean = false
-    private var currentPosition: Long = 0
-    private var playUrl: String? = null
+    private var currentVideo: Video? = null
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
 
     companion object {
-        private const val KEY_PLAYER_POSITION = "KEY_PLAYER_POSITION"
-        private const val KEY_PLAYER_PLAY_WHEN_READY = "KEY_PLAYER_PLAY_WHEN_READY"
-        private const val KEY_PLAYER_PLAY_URL = "KEY_PLAYER_PLAY_URL"
+        private const val KEY_VIDEO = "KEY_VIDEO"
         fun getInstance() = DetailsFragment()
     }
 
@@ -48,8 +45,6 @@ class DetailsFragment : Fragment() {
     private val binding by viewBinding { DetailsFragmentBinding.bind(it).also(::initBinding) }
 
     private fun initBinding(binding: DetailsFragmentBinding) = with(binding) {
-        exoPlayer = SimpleExoPlayer.Builder(requireContext()).build()
-        plVideoPLayer.player = exoPlayer
         val video = args.video
         vm.loadVideo(video)
         vm.loading.observe(this@DetailsFragment, { load ->
@@ -59,7 +54,12 @@ class DetailsFragment : Fragment() {
         vm.data.observe(this@DetailsFragment, { dataResult ->
             when (dataResult) {
                 is DataResult.Success -> {
-                    playUrl = dataResult.data.playUrl
+                    val data = dataResult.data
+//                    val hasPosition = currentVideo?.currentPosition ?: 0L != 0L
+                    val sameVideo = currentVideo?.videoUrl == data.videoUrl
+                    if (!sameVideo) {
+                        currentVideo = data
+                    }
                     initPlayer()
                 }
                 is DataResult.Error -> {
@@ -76,27 +76,29 @@ class DetailsFragment : Fragment() {
     }
 
     private fun initPlayer() {
-        playUrl?.let { url ->
+        currentVideo?.videoUrl?.let { url ->
+            exoPlayer = SimpleExoPlayer.Builder(requireContext()).build()
             binding.plVideoPLayer.player = exoPlayer
             val dataSourceFactory: DataSource.Factory = DefaultHttpDataSourceFactory()
             val hlsMediaSource: HlsMediaSource = HlsMediaSource.Factory(dataSourceFactory)
                 .createMediaSource(MediaItem.fromUri(url))
-//            exoPlayer?.setMediaItem(MediaItem.fromUri(Uri.parse(playUrl)), false)
             exoPlayer?.setMediaSource(hlsMediaSource);
             exoPlayer?.prepare()
         }
     }
 
     private fun restorePlayerState() {
-        exoPlayer?.seekTo(currentPosition)
-        exoPlayer?.playWhenReady = playWhenReady
+        currentVideo?.let { video ->
+            exoPlayer?.seekTo(video.currentPosition)
+            exoPlayer?.playWhenReady = video.playWhenReady
+        }
     }
 
     private fun releasePlayer() {
         if (exoPlayer != null) {
             exoPlayer?.stop()
-            currentPosition = exoPlayer?.contentPosition ?: 0
-            playWhenReady = exoPlayer?.playWhenReady ?: false
+            currentVideo?.currentPosition = exoPlayer?.contentPosition ?: 0
+            currentVideo?.playWhenReady = exoPlayer?.playWhenReady ?: false
             binding.plVideoPLayer.player = null
             exoPlayer?.release()
             exoPlayer = null
@@ -104,18 +106,12 @@ class DetailsFragment : Fragment() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putLong(KEY_PLAYER_POSITION, currentPosition)
-        outState.putBoolean(KEY_PLAYER_PLAY_WHEN_READY, playWhenReady)
-        outState.putString(KEY_PLAYER_PLAY_URL, playUrl)
+        outState.putParcelable(KEY_VIDEO, currentVideo)
     }
 
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
         super.onViewStateRestored(savedInstanceState)
-        savedInstanceState?.let {
-            currentPosition = it.getLong(KEY_PLAYER_POSITION)
-            playWhenReady = it.getBoolean(KEY_PLAYER_PLAY_WHEN_READY)
-            playUrl = it.getString(KEY_PLAYER_PLAY_URL)
-        }
+        currentVideo = savedInstanceState?.getParcelable(KEY_VIDEO)
     }
 
     override fun onStart() {

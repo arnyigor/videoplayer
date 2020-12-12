@@ -16,6 +16,7 @@ class DetailsViewModel @Inject constructor(
     private val videoRepository: VideoRepository
 ) : ViewModel() {
     val loading = mutableLiveData(false)
+    private var currentVideo: Video? = null
     val data = mutableLiveData<DataResult<Video>?>()
     fun loadVideo(video: Video) {
         viewModelScope.launch {
@@ -25,7 +26,12 @@ class DetailsViewModel @Inject constructor(
                 videoRepository.loadVideo(video)
                     .onCompletion { loading.value = false }
                     .catch { data.value = DataResult.Error(it) }
-                    .collect { res -> data.value = res }
+                    .collect { res ->
+                        if (res is DataResult.Success) {
+                            currentVideo = res.data
+                        }
+                        data.value = res
+                    }
             }
         }
     }
