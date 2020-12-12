@@ -16,15 +16,17 @@ class DetailsViewModel @Inject constructor(
     private val videoRepository: VideoRepository
 ) : ViewModel() {
     val loading = mutableLiveData(false)
-    val result = mutableLiveData<DataResult<Video>>()
+    val data = mutableLiveData<DataResult<Video>?>()
     fun loadVideo(video: Video) {
         viewModelScope.launch {
             if (loading.value == true) return@launch
-            loading.value = true
-            videoRepository.loadVideo(video)
-                .onCompletion { loading.value = false }
-                .catch { result.value = DataResult.Error(it) }
-                .collect { res -> result.value = res }
+            if (data.value == null) {
+                loading.value = true
+                videoRepository.loadVideo(video)
+                    .onCompletion { loading.value = false }
+                    .catch { data.value = DataResult.Error(it) }
+                    .collect { res -> data.value = res }
+            }
         }
     }
 }
