@@ -2,6 +2,7 @@ package com.arny.videoplayer.presentation.home
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,6 +15,8 @@ import com.arny.videoplayer.R
 import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.databinding.FHomeBinding
 import com.arny.videoplayer.presentation.models.VideoItem
+import com.arny.videoplayer.presentation.utils.setDrawableRightListener
+import com.arny.videoplayer.presentation.utils.setEnterPressListener
 import com.arny.videoplayer.presentation.utils.viewBinding
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
@@ -45,12 +48,22 @@ class HomeFragment : Fragment() {
             it.layoutManager = LinearLayoutManager(requireContext())
         }
         vm.loading.observe(this@HomeFragment, { loading ->
-            binding.pbLoading.isVisible = loading
+            pbLoading.isVisible = loading
+            edtSearch.isVisible = !loading
         })
+        edtSearch.setDrawableRightListener {
+            vm.search(edtSearch.text.toString())
+        }
+        edtSearch.setEnterPressListener {
+            vm.search(edtSearch.text.toString())
+        }
         vm.result.observe(this@HomeFragment, { result ->
             when (result) {
                 is DataResult.Success -> {
-                    groupAdapter.addAll(result.data)
+                    val data = result.data
+                    Log.d(HomeFragment::class.java.simpleName, "initBinding: ${data.map { it.video }}");
+                    groupAdapter.clear()
+                    groupAdapter.addAll(data)
                 }
                 is DataResult.Error -> {
                     Toast.makeText(

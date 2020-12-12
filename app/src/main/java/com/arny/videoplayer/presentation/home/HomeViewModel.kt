@@ -40,4 +40,22 @@ class HomeViewModel  @Inject constructor(
                 }
         }
     }
+
+    fun search(search: String) {
+        viewModelScope.launch {
+            if (loading.value == true) return@launch
+            loading.value = true
+            videoRepository.searchVideo(search)
+                .map { list -> list.map { VideoItem(it) } }
+                .onCompletion {
+                    loading.value = false
+                }
+                .catch {
+                    result.value = DataResult.Error(it)
+                }
+                .collect {
+                    result.value = DataResult.Success(it)
+                }
+        }
+    }
 }

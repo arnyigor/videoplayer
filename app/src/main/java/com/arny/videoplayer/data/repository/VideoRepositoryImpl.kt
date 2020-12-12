@@ -3,6 +3,7 @@ package com.arny.videoplayer.data.repository
 import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.data.models.M3u8Response
 import com.arny.videoplayer.data.models.toResult
+import com.arny.videoplayer.data.network.NetworkModule.Companion.VIDEO_BASE_URL
 import com.arny.videoplayer.data.network.ResponseBodyConverter
 import com.arny.videoplayer.data.network.VideoApiService
 import com.arny.videoplayer.data.utils.fromJson
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import javax.inject.Inject
 
 
@@ -20,44 +23,63 @@ class VideoRepositoryImpl @Inject constructor(
     private val videoApiService: VideoApiService,
     private val responseBodyConverter: ResponseBodyConverter
 ) : VideoRepository {
-    private companion object {
-        const val SEARCH_RESULT_CONTENT_ID = "dle-content"
-        const val SEARCH_RESULT_LINKS = "div.th-item a"
-    }
 
-    override fun searchVideo(search: String): Flow<String> {
+    override fun searchVideo(search: String): Flow<List<Video>> {
         return flow {
-            val value = videoApiService.searchVideo(search)
-            emit(value)
+            emit(
+                videoApiService.searchVideo(
+                    "search",
+                    "search",
+                    "0",
+                    "0",
+                    "1",
+                    search,
+                    mapOf(
+                        "Content-Type" to "application/x-www-form-urlencoded",
+                    )
+                )
+            )
         }.flowOn(Dispatchers.IO)
             .map { body ->
                 val doc = responseBodyConverter.convert(body)
                 requireNotNull(doc)
-                val searchResult = doc.getElementById(SEARCH_RESULT_CONTENT_ID)
-                val links = searchResult.select(SEARCH_RESULT_LINKS)
-                val results = links.size
-                results.toString()
-            }
-    }
-
-    override fun getAllVideos(): Flow<List<Video>> {
-        return flow {
-            emit(videoApiService.requestMainpage())
-        }.flowOn(Dispatchers.IO)
-            .map { body ->
-                val doc = responseBodyConverter.convert(body)
-                requireNotNull(doc)
-                val links = doc.body()
-                    .getElementById("owl-top")
-                    .select(".th-item a")
                 mutableListOf<Video>().apply {
-                    for (link in links) {
-                        val imgUrl = "https:" + link.select("img").first().attr("src").toString()
-                        add(Video(link.text(), link.attr("href"), imgUrl))
+                    for (link in getSearchResultLinks(doc)) {
+                        add(getVideoFromLink(link))
                     }
                 }
             }
     }
+
+    private fun getSearchResultLinks(doc: Document) = doc.getElementById("dle-content")
+        .select(".th-item a")
+
+    override fun getAllVideos(): Flow<List<Video>> {
+        return flow {
+            emit(videoApiService.requestMainpage(VIDEO_BASE_URL))
+        }.flowOn(Dispatchers.IO)
+            .map { body ->
+                val doc = responseBodyConverter.convert(body)
+                requireNotNull(doc)
+                mutableListOf<Video>().apply {
+                    for (link in getLinks(doc)) {
+                        add(getVideoFromLink(link))
+                    }
+                }
+            }
+    }
+
+    private fun getVideoFromLink(link: Element) =
+        Video(link.text(), link.attr("href"), getImgUrl(link))
+
+    private fun getLinks(doc: Document) = doc.body()
+        .select(".content").first()
+        .select(".sect").first()
+        .select(".sect-items").first()
+        .select(".th-item a")
+
+    private fun getImgUrl(link: Element) = link.select(".th-img").first()
+        .select("img").first().attr("src").toString()
 
 
     @FlowPreview
@@ -71,7 +93,7 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getFullVideo(video: Video): Video {
-        val body = videoApiService.getVideoDetails(video.url)
+        val body = videoApiService.getVideoDetails(video.url, "${VIDEO_BASE_URL}index.php")
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
         val iFrameUrl = detailsDoc.body()
@@ -79,7 +101,7 @@ class VideoRepositoryImpl @Inject constructor(
             .select(".fmain")
             .first()
             .select("iframe").attr("src")
-        val iFrameBody = videoApiService.getIframeData(iFrameUrl)
+        val iFrameBody = videoApiService.getIframeData(iFrameUrl, "${VIDEO_BASE_URL}index.php")
         val iframeDataBody = responseBodyConverter.convert(iFrameBody)
         requireNotNull(iframeDataBody)
         val index = "index.m3u8"

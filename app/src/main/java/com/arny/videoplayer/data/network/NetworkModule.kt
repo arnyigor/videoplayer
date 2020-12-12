@@ -22,7 +22,8 @@ abstract class NetworkModule {
     abstract fun bindsResponseBodyConverter(converter: ResponseBodyConverterImpl): ResponseBodyConverter
 
     companion object {
-        private const val VIDEO_BASE_URL = "https://my.lordfilms.to/"
+        const val VIDEO_BASE_URL = "http://al.lordfilms-s.pw/"
+//        const val VIDEO_BASE_URL = "https://my.lordfilms.to/"
 
         @Provides
         @Singleton
@@ -53,9 +54,6 @@ abstract class NetworkModule {
                         )
                         .header(
                             "Connection", "keep-alive"
-                        )
-                        .header(
-                            "Content-Type", "text/html; charset=UTF-8;"
                         )
                         .header(
                             "Accept",

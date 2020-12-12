@@ -19,15 +19,14 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:text="Мстители. Война бесконечности" />
 
-    <com.devbrackets.android.exomedia.ui.widget.VideoView
-        android:id="@+id/video_view"
+    <com.google.android.exoplayer2.ui.StyledPlayerView
+        android:id="@+id/plVideoPLayer"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/tvVideoTitle"
-        app:useDefaultControls="true" />
+        app:layout_constraintTop_toBottomOf="@+id/tvVideoTitle" />
 
     <ProgressBar
         android:id="@+id/pbLoadingVideo"
