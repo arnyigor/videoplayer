@@ -3,6 +3,7 @@ package com.arny.videoplayer.data.repository
 import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.data.models.M3u8Response
 import com.arny.videoplayer.data.models.toResult
+import com.arny.videoplayer.data.network.NetworkModule.Companion.VIDEO_BASE_URL
 import com.arny.videoplayer.data.network.ResponseBodyConverter
 import com.arny.videoplayer.data.network.VideoApiService
 import com.arny.videoplayer.data.utils.fromJson
@@ -22,12 +23,8 @@ class VideoRepositoryImpl @Inject constructor(
     private val videoApiService: VideoApiService,
     private val responseBodyConverter: ResponseBodyConverter
 ) : VideoRepository {
-    private companion object {
-        const val SEARCH_RESULT_CONTENT_ID = "dle-content"
-        const val SEARCH_RESULT_LINKS = "div.th-item a"
-    }
 
-    override fun searchVideo(search: String): Flow<String> {
+    override fun searchVideo(search: String): Flow<MutableList<Video>> {
         return flow {
             emit(
                 videoApiService.searchVideo(
@@ -94,7 +91,8 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getFullVideo(video: Video): Video {
-        val body = videoApiService.getVideoDetails(video.url)
+        val headers = mapOf("Referer" to "${VIDEO_BASE_URL}index.php")
+        val body = videoApiService.getVideoDetails(video.url, headers)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
         val iFrameUrl = detailsDoc.body()
@@ -102,11 +100,11 @@ class VideoRepositoryImpl @Inject constructor(
             .select(".fmain")
             .first()
             .select("iframe").attr("src")
-        val iFrameBody = videoApiService.getIframeData(iFrameUrl)
-        val iframeDataBody = responseBodyConverter.convert(iFrameBody)
-        requireNotNull(iframeDataBody)
+        val iFrameBody = videoApiService.getIframeData(iFrameUrl, headers)
+        val iframeDoc = responseBodyConverter.convert(iFrameBody)
+        requireNotNull(iframeDoc)
         val index = "index.m3u8"
-        val m3u8Result = "https://" + iframeDataBody.body()
+        val m3u8Result = "https://" + iframeDoc.body()
             .getElementById("nativeplayer")
             .attr("data-config")
             .fromJson(M3u8Response::class.java)

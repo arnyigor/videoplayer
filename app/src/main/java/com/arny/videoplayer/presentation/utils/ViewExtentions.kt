@@ -3,6 +3,7 @@ package com.arny.videoplayer.presentation.utils
 import android.annotation.SuppressLint
 import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.TextView
 
@@ -24,7 +25,7 @@ fun EditText.setDrawableRightListener(onClick: () -> Unit) {
 fun EditText.setEnterPressListener(onEnterPressed: () -> Unit) {
     this.setOnKeyListener { _, keyCode, event ->
         if ((event.action == KeyEvent.ACTION_DOWN) &&
-            (keyCode == KeyEvent.KEYCODE_ENTER)
+            (keyCode == EditorInfo.IME_ACTION_DONE)
         ) {
             onEnterPressed()
             return@setOnKeyListener true
