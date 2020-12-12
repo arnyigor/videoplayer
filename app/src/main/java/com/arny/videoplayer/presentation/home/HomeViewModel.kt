@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-class HomeViewModel  @Inject constructor(
+class HomeViewModel @Inject constructor(
     private val videoRepository: VideoRepository,
 ) : ViewModel() {
     val loading = mutableLiveData(false)
@@ -28,6 +28,32 @@ class HomeViewModel  @Inject constructor(
             if (loading.value == true) return@launch
             loading.value = true
             videoRepository.getAllVideos()
+                .map { list -> list.map { VideoItem(it) } }
+                .onCompletion {
+                    loading.value = false
+                }
+                .catch {
+                    result.value = DataResult.Error(it)
+                }
+                .collect {
+                    result.value = DataResult.Success(it)
+                }
+        }
+    }
+
+    fun search(search: String) {
+        if (search.isBlank()) {
+            restartLoading()
+        } else {
+            searchVideo(search)
+        }
+    }
+
+    private fun searchVideo(search: String) {
+        viewModelScope.launch {
+            if (loading.value == true) return@launch
+            loading.value = true
+            videoRepository.searchVideo(search)
                 .map { list -> list.map { VideoItem(it) } }
                 .onCompletion {
                     loading.value = false

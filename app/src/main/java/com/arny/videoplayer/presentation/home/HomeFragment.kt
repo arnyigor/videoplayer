@@ -14,6 +14,8 @@ import com.arny.videoplayer.R
 import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.databinding.FHomeBinding
 import com.arny.videoplayer.presentation.models.VideoItem
+import com.arny.videoplayer.presentation.utils.setDrawableRightListener
+import com.arny.videoplayer.presentation.utils.setEnterPressListener
 import com.arny.videoplayer.presentation.utils.viewBinding
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
@@ -34,6 +36,21 @@ class HomeFragment : Fragment() {
     private lateinit var groupAdapter: GroupAdapter<GroupieViewHolder>
 
     private fun initBinding(binding: FHomeBinding) = with(binding) {
+        initList(binding)
+        vm.loading.observe(this@HomeFragment, { loading ->
+            pbLoading.isVisible = loading
+            edtSearch.isVisible = !loading
+        })
+        swiperefresh.setOnRefreshListener {
+            swiperefresh.isRefreshing = false
+            vm.restartLoading()
+        }
+        edtSearch.setDrawableRightListener { searchVideo() }
+        edtSearch.setEnterPressListener { searchVideo() }
+        viewResult()
+    }
+
+    private fun FHomeBinding.initList(binding: FHomeBinding) {
         groupAdapter = GroupAdapter<GroupieViewHolder>()
         groupAdapter.setOnItemClickListener { item, _ ->
             val video = (item as VideoItem).video
@@ -44,27 +61,35 @@ class HomeFragment : Fragment() {
             it.adapter = groupAdapter
             it.layoutManager = LinearLayoutManager(requireContext())
         }
-        vm.loading.observe(this@HomeFragment, { loading ->
-            binding.pbLoading.isVisible = loading
-        })
+    }
+
+    private fun viewResult() {
         vm.result.observe(this@HomeFragment, { result ->
             when (result) {
                 is DataResult.Success -> {
-                    groupAdapter.addAll(result.data)
+                    val data = result.data
+                    groupAdapter.clear()
+                    groupAdapter.addAll(data)
+                    val emptyData = data.isEmpty()
+                    binding.rcVideoList.isVisible = !emptyData
+                    binding.tvEmptyView.isVisible = emptyData
                 }
                 is DataResult.Error -> {
+                    val throwable = result.throwable
                     Toast.makeText(
                         requireContext(),
-                        result.throwable.message,
+                        throwable.message,
                         Toast.LENGTH_SHORT
                     ).show()
+                    throwable.printStackTrace()
                 }
             }
         })
-        swiperefresh.setOnRefreshListener {
-            swiperefresh.isRefreshing = false
-            vm.restartLoading()
-        }
+    }
+
+    private fun FHomeBinding.searchVideo() {
+        tvEmptyView.isVisible = false
+        vm.search(edtSearch.text.toString())
     }
 
     override fun onAttach(context: Context) {
