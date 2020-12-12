@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">VideoPlayer</string>
+    <string name="app_name">Домашний кинотеатр</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
     <string name="film_not_found">К сожалению ничего не найдено</string>
