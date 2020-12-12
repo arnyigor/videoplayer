@@ -1,8 +1,6 @@
 package com.arny.videoplayer.data.network
 
-import android.content.Context
 import com.arny.videoplayer.BuildConfig
-import com.readystatesoftware.chuck.ChuckInterceptor
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -23,7 +21,6 @@ abstract class NetworkModule {
 
     companion object {
         const val VIDEO_BASE_URL = "http://al.lordfilms-s.pw/"
-//        const val VIDEO_BASE_URL = "https://my.lordfilms.to/"
 
         @Provides
         @Singleton
@@ -36,12 +33,11 @@ abstract class NetworkModule {
 
         @Provides
         @Singleton
-        fun providesOkHttpClient(interceptor: Interceptor, context: Context): OkHttpClient {
+        fun providesOkHttpClient(interceptor: Interceptor): OkHttpClient {
             return OkHttpClient.Builder().writeTimeout(3, TimeUnit.MINUTES)
                 .readTimeout(3, TimeUnit.MINUTES)
                 .callTimeout(3, TimeUnit.MINUTES)
                 .addInterceptor(interceptor)
-                .addInterceptor(ChuckInterceptor(context))
                 .addInterceptor(Interceptor { chain ->
                     val original: Request = chain.request()
                     val request: Request = original.newBuilder()

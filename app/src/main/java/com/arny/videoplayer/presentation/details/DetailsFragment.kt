@@ -15,6 +15,8 @@ import androidx.navigation.fragment.navArgs
 import com.arny.videoplayer.R
 import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.databinding.DetailsFragmentBinding
+import com.arny.videoplayer.presentation.utils.hideSystemBar
+import com.arny.videoplayer.presentation.utils.showSystemBar
 import com.arny.videoplayer.presentation.utils.viewBinding
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -53,8 +55,7 @@ class DetailsFragment : Fragment() {
         vm.loading.observe(this@DetailsFragment, { load ->
             pbLoadingVideo.isVisible = load
         })
-        tvVideoTitle.text = video.title
-
+        requireActivity().title = video.title
         vm.data.observe(this@DetailsFragment, { dataResult ->
             when (dataResult) {
                 is DataResult.Success -> {
@@ -127,7 +128,10 @@ class DetailsFragment : Fragment() {
         if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
             val appCompatActivity = activity as AppCompatActivity?
             appCompatActivity?.supportActionBar?.hide()
-            appCompatActivity?.window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            appCompatActivity?.hideSystemBar()
+            val window = appCompatActivity?.window
+            window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         restorePlayerState()
     }
@@ -142,7 +146,10 @@ class DetailsFragment : Fragment() {
         if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
             val appCompatActivity = activity as AppCompatActivity?
             appCompatActivity?.supportActionBar?.show()
-            appCompatActivity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+            appCompatActivity?.showSystemBar()
+            val window = appCompatActivity?.window
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
     }
 
