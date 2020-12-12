@@ -1,12 +1,10 @@
 package com.arny.videoplayer.data.repository
 
 import com.arny.videoplayer.data.models.DataResult
-import com.arny.videoplayer.data.models.M3u8Response
 import com.arny.videoplayer.data.models.toResult
 import com.arny.videoplayer.data.network.NetworkModule.Companion.VIDEO_BASE_URL
 import com.arny.videoplayer.data.network.ResponseBodyConverter
 import com.arny.videoplayer.data.network.VideoApiService
-import com.arny.videoplayer.data.utils.fromJson
 import com.arny.videoplayer.di.models.Video
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -95,25 +93,68 @@ class VideoRepositoryImpl @Inject constructor(
         val body = videoApiService.getVideoDetails(video.url, headers)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
-        val iFrameUrl = detailsDoc.body()
-            .getElementById("dle-content")
-            .select(".fmain")
-            .first()
-            .select("iframe").attr("src")
-        val iFrameBody = videoApiService.getIframeData(iFrameUrl, headers)
-        val iframeDoc = responseBodyConverter.convert(iFrameBody)
+        val iFrameUrl = getIframeUrl(detailsDoc)
+        val iFrameResponse = getUrlData(iFrameUrl)
+        val iframeDoc = responseBodyConverter.convert(iFrameResponse)
         requireNotNull(iframeDoc)
-        val index = "index.m3u8"
-        val m3u8Result = "https://" + iframeDoc.body()
-            .getElementById("nativeplayer")
-            .attr("data-config")
-            .fromJson(M3u8Response::class.java)
-            ?.hls
-            ?.substringAfter("//")
-            ?.substringBeforeLast("/$index") + "/720/$index"
-        println(m3u8Result)
+        val hlsList = getHlsList(iframeDoc)
+        val hlsQualityMap = getQualityMap(hlsList)
         return video.copy(
-            playUrl = m3u8Result
+            playUrl = hlsQualityMap["720"]
         )
     }
+
+    suspend fun getVideoByQuality(qualityUrl: String?) {
+        val urlData = getUrlData(qualityUrl)
+
+    }
+
+    private fun getQualityMap(hlsList: String): HashMap<String, String> {
+        val hlss = hlsList
+            .replace("\n", "")
+            .replace("\t", "")
+            .replace("\\s+".toRegex(), "")
+            .substringAfter("hlsList:{")
+            .substringBefore("}")
+            .split(",")
+            .map { it.substring(1, it.length - 1).replace("\"", "") }
+        val videoQualityMap = hashMapOf<String, String>()
+        for (hls in hlss) {
+            val quality = hls.substringBefore(":")
+            val link = hls.substringAfter(":")
+            if (quality.isNotBlank() && link.isNotBlank()) {
+                videoQualityMap[quality] = link
+            }
+        }
+        return videoQualityMap
+    }
+
+    private fun getHlsList(iframeDoc: Document): String {
+        val hlsList = iframeDoc
+            .getElementsByTag("script")
+            .dataNodes()
+            .map { it.wholeData }
+            .find { it.contains("hlsList") }
+        requireNotNull(hlsList)
+        return hlsList
+    }
+
+    private fun getIframeUrl(detailsDoc: Document): String? {
+        val iFrameUrl = detailsDoc.body()
+            .getElementById("dle-content")
+            .select(".fmain").first()
+            .select(".fplayer").first()
+            .select(".video-box").getOrNull(1)
+            ?.select("iframe")?.attr("src")
+        return iFrameUrl
+    }
+
+
+    private suspend fun getUrlData(url: String?) = videoApiService.getUrlData(
+        url,
+        mapOf(
+            "Accept-Encoding" to "gzip, deflate, br",
+            "Host" to "apilordfilms-s.multikland.net",
+        )
+    )
 }

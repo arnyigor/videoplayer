@@ -26,7 +26,7 @@ interface VideoApiService {
     ): ResponseBody
 
     @GET
-    suspend fun getIframeData(
+    suspend fun getUrlData(
         @Url url: String?,
         @HeaderMap headers: Map<String, String>
     ): ResponseBody

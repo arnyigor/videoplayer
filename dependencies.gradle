@@ -56,6 +56,7 @@ ext {
         implementation "com.google.android.exoplayer:exoplayer-core:$version"
         implementation "com.google.android.exoplayer:exoplayer-dash:$version"
         implementation "com.google.android.exoplayer:exoplayer-ui:$version"
+        implementation "com.google.android.exoplayer:exoplayer-hls:$version"
     }}
 
     cicerone = { version = '6.6' -> Alias {

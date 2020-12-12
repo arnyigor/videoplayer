@@ -2,7 +2,6 @@ package com.arny.videoplayer.presentation.details
 
 import android.content.Context
 import android.content.res.Configuration.*
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -19,6 +18,9 @@ import com.arny.videoplayer.databinding.DetailsFragmentBinding
 import com.arny.videoplayer.presentation.utils.viewBinding
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.SimpleExoPlayer
+import com.google.android.exoplayer2.source.hls.HlsMediaSource
+import com.google.android.exoplayer2.upstream.DataSource
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import dagger.android.support.AndroidSupportInjection
 import javax.inject.Inject
 
@@ -59,19 +61,27 @@ class DetailsFragment : Fragment() {
                     playUrl = dataResult.data.playUrl
                     initPlayer()
                 }
-                is DataResult.Error -> Toast.makeText(
-                    requireContext(),
-                    dataResult.throwable.message,
-                    Toast.LENGTH_SHORT
-                ).show()
+                is DataResult.Error -> {
+                    val throwable = dataResult.throwable
+                    throwable.printStackTrace()
+                    Toast.makeText(
+                        requireContext(),
+                        throwable.message,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         })
     }
 
     private fun initPlayer() {
-        playUrl?.let {
+        playUrl?.let { url ->
             binding.plVideoPLayer.player = exoPlayer
-            exoPlayer?.setMediaItem(MediaItem.fromUri(Uri.parse(playUrl)), false)
+            val dataSourceFactory: DataSource.Factory = DefaultHttpDataSourceFactory()
+            val hlsMediaSource: HlsMediaSource = HlsMediaSource.Factory(dataSourceFactory)
+                .createMediaSource(MediaItem.fromUri(url))
+//            exoPlayer?.setMediaItem(MediaItem.fromUri(Uri.parse(playUrl)), false)
+            exoPlayer?.setMediaSource(hlsMediaSource);
             exoPlayer?.prepare()
         }
     }
