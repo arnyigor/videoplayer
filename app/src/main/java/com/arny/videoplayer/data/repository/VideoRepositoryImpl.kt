@@ -3,7 +3,6 @@ package com.arny.videoplayer.data.repository
 import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.data.models.M3u8Response
 import com.arny.videoplayer.data.models.toResult
-import com.arny.videoplayer.data.network.NetworkModule.Companion.VIDEO_BASE_URL
 import com.arny.videoplayer.data.network.ResponseBodyConverter
 import com.arny.videoplayer.data.network.VideoApiService
 import com.arny.videoplayer.data.utils.fromJson
@@ -23,20 +22,21 @@ class VideoRepositoryImpl @Inject constructor(
     private val videoApiService: VideoApiService,
     private val responseBodyConverter: ResponseBodyConverter
 ) : VideoRepository {
+    private companion object {
+        const val SEARCH_RESULT_CONTENT_ID = "dle-content"
+        const val SEARCH_RESULT_LINKS = "div.th-item a"
+    }
 
-    override fun searchVideo(search: String): Flow<List<Video>> {
+    override fun searchVideo(search: String): Flow<String> {
         return flow {
             emit(
                 videoApiService.searchVideo(
-                    "search",
-                    "search",
-                    "0",
-                    "0",
-                    "1",
-                    search,
-                    mapOf(
-                        "Content-Type" to "application/x-www-form-urlencoded",
-                    )
+                    story = search,
+                    doAction = "search",
+                    subaction = "search",
+                    search_start = "0",
+                    full_search = "0",
+                    result_from = "1"
                 )
             )
         }.flowOn(Dispatchers.IO)
@@ -51,12 +51,13 @@ class VideoRepositoryImpl @Inject constructor(
             }
     }
 
-    private fun getSearchResultLinks(doc: Document) = doc.getElementById("dle-content")
-        .select(".th-item a")
+    private fun getSearchResultLinks(doc: Document) =
+        doc.getElementById("dle-content")
+            .select(".th-item a")
 
     override fun getAllVideos(): Flow<List<Video>> {
         return flow {
-            emit(videoApiService.requestMainpage(VIDEO_BASE_URL))
+            emit(videoApiService.requestMainpage())
         }.flowOn(Dispatchers.IO)
             .map { body ->
                 val doc = responseBodyConverter.convert(body)
@@ -93,7 +94,7 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getFullVideo(video: Video): Video {
-        val body = videoApiService.getVideoDetails(video.url, "${VIDEO_BASE_URL}index.php")
+        val body = videoApiService.getVideoDetails(video.url)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
         val iFrameUrl = detailsDoc.body()
@@ -101,7 +102,7 @@ class VideoRepositoryImpl @Inject constructor(
             .select(".fmain")
             .first()
             .select("iframe").attr("src")
-        val iFrameBody = videoApiService.getIframeData(iFrameUrl, "${VIDEO_BASE_URL}index.php")
+        val iFrameBody = videoApiService.getIframeData(iFrameUrl)
         val iframeDataBody = responseBodyConverter.convert(iFrameBody)
         requireNotNull(iframeDataBody)
         val index = "index.m3u8"

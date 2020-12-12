@@ -17,13 +17,19 @@ interface VideoApiService {
         @HeaderMap headers: Map<String, String>
     ): ResponseBody
 
-    @GET
-    suspend fun requestMainpage(@Url url: String?): ResponseBody
+    @GET("/index.php")
+    suspend fun requestMainpage(): ResponseBody
 
+    @Headers(
+        "Referer: https://my.lordfilm.so/index.php",
+    )
     @GET
-    suspend fun getVideoDetails(@Url url: String?, @Header("Referer") referer: String): ResponseBody
+    suspend fun getVideoDetails(@Url url: String?): ResponseBody
 
+    @Headers(
+        "Referer: https://my.lordfilm.so/index.php",
+    )
     @GET
-    suspend fun getIframeData(@Url url: String?, @Header("Referer") referer: String): ResponseBody
+    suspend fun getIframeData(@Url url: String?): ResponseBody
 
 }

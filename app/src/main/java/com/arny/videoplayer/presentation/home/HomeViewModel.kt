@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-class HomeViewModel  @Inject constructor(
+class HomeViewModel @Inject constructor(
     private val videoRepository: VideoRepository,
 ) : ViewModel() {
     val loading = mutableLiveData(false)
@@ -42,6 +42,14 @@ class HomeViewModel  @Inject constructor(
     }
 
     fun search(search: String) {
+        if (search.isBlank()) {
+            restartLoading()
+        } else {
+            searchVideo(search)
+        }
+    }
+
+    private fun searchVideo(search: String) {
         viewModelScope.launch {
             if (loading.value == true) return@launch
             loading.value = true

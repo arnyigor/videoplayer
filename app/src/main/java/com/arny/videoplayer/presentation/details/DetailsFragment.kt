@@ -3,9 +3,7 @@ package com.arny.videoplayer.presentation.details
 import android.content.Context
 import android.content.res.Configuration.*
 import android.net.Uri
-import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -19,21 +17,24 @@ import com.arny.videoplayer.R
 import com.arny.videoplayer.data.models.DataResult
 import com.arny.videoplayer.databinding.DetailsFragmentBinding
 import com.arny.videoplayer.presentation.utils.viewBinding
-import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 import dagger.android.support.AndroidSupportInjection
 import javax.inject.Inject
 
 
-class DetailsFragment : Fragment(), Player.EventListener {
+class DetailsFragment : Fragment() {
 
+    private var playWhenReady: Boolean = false
+    private var currentPosition: Long = 0
     private var playUrl: String? = null
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
 
     companion object {
+        private const val KEY_PLAYER_POSITION = "KEY_PLAYER_POSITION"
+        private const val KEY_PLAYER_PLAY_WHEN_READY = "KEY_PLAYER_PLAY_WHEN_READY"
+        private const val KEY_PLAYER_PLAY_URL = "KEY_PLAYER_PLAY_URL"
         fun getInstance() = DetailsFragment()
     }
 
@@ -44,7 +45,6 @@ class DetailsFragment : Fragment(), Player.EventListener {
 
     private fun initBinding(binding: DetailsFragmentBinding) = with(binding) {
         exoPlayer = SimpleExoPlayer.Builder(requireContext()).build()
-        exoPlayer?.addListener(this@DetailsFragment)
         plVideoPLayer.player = exoPlayer
         val video = args.video
         vm.loadVideo(video)
@@ -68,29 +68,48 @@ class DetailsFragment : Fragment(), Player.EventListener {
         })
     }
 
-    override fun onIsPlayingChanged(isPlaying: Boolean) {
-        Log.d(DetailsFragment::class.java.canonicalName, "onIsPlayingChanged:$isPlaying ");
-    }
-
-    override fun onPlayerError(error: ExoPlaybackException) {
-        Log.e(
-            DetailsFragment::class.java.canonicalName,
-            "ExoPlaybackException:${error.sourceException.message} "
-        );
-    }
-
     private fun initPlayer() {
         playUrl?.let {
+            binding.plVideoPLayer.player = exoPlayer
             exoPlayer?.setMediaItem(MediaItem.fromUri(Uri.parse(playUrl)), false)
             exoPlayer?.prepare()
         }
     }
 
+    private fun restorePlayerState() {
+        exoPlayer?.seekTo(currentPosition)
+        exoPlayer?.playWhenReady = playWhenReady
+    }
+
     private fun releasePlayer() {
         if (exoPlayer != null) {
+            exoPlayer?.stop()
+            currentPosition = exoPlayer?.contentPosition ?: 0
+            playWhenReady = exoPlayer?.playWhenReady ?: false
+            binding.plVideoPLayer.player = null
             exoPlayer?.release()
             exoPlayer = null
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putLong(KEY_PLAYER_POSITION, currentPosition)
+        outState.putBoolean(KEY_PLAYER_PLAY_WHEN_READY, playWhenReady)
+        outState.putString(KEY_PLAYER_PLAY_URL, playUrl)
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        savedInstanceState?.let {
+            currentPosition = it.getLong(KEY_PLAYER_POSITION)
+            playWhenReady = it.getBoolean(KEY_PLAYER_PLAY_WHEN_READY)
+            playUrl = it.getString(KEY_PLAYER_PLAY_URL)
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        initPlayer()
     }
 
     override fun onResume() {
@@ -100,9 +119,12 @@ class DetailsFragment : Fragment(), Player.EventListener {
             appCompatActivity?.supportActionBar?.hide()
             appCompatActivity?.window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
         }
-        if (SDK_INT <= 23 || exoPlayer == null) {
-            initPlayer()
-        }
+        restorePlayerState()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        releasePlayer()
     }
 
     override fun onStop() {
@@ -112,29 +134,6 @@ class DetailsFragment : Fragment(), Player.EventListener {
             appCompatActivity?.supportActionBar?.show()
             appCompatActivity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
         }
-        if (SDK_INT > 23) {
-            releasePlayer()
-        }
-    }
-
-
-    override fun onStart() {
-        super.onStart()
-        if (SDK_INT > 23) {
-            initPlayer()
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        if (SDK_INT <= 23) {
-            releasePlayer()
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        exoPlayer?.release()
     }
 
     override fun onAttach(context: Context) {
