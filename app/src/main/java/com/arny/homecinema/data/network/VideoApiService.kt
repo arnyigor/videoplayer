@@ -20,6 +20,9 @@ interface VideoApiService {
     suspend fun requestMainpage(): ResponseBody
 
     @GET
+    suspend fun requestMainpage(@Url url: String?): ResponseBody
+
+    @GET
     suspend fun getVideoDetails(
         @Url url: String?,
         @HeaderMap headers: Map<String, String>

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import javax.inject.Inject
@@ -53,16 +54,24 @@ class VideoRepositoryImpl @Inject constructor(
             .select(".th-item a")
 
     override fun getAllVideos(): Flow<DataResult<MainPageContent>> {
-        return flow {
-            emit(videoApiService.requestMainpage())
-        }.map { body ->
-            val doc = responseBodyConverter.convert(body)
-            requireNotNull(doc)
-            val mainVideos = getMainVideos(doc)
-            val searchLInks = getSearchLInks(doc)
-            MainPageContent(mainVideos, searchLInks).toResult()
-        }
+        return flow { emit(videoApiService.requestMainpage()) }
+            .map(::getMainPageContent)
             .flowOn(Dispatchers.IO)
+    }
+
+    override fun getAllVideos(type: String?): Flow<DataResult<MainPageContent>> {
+        return flow {
+            val url = VIDEO_BASE_URL + type?.substringAfter("/")
+            emit(videoApiService.requestMainpage(url))
+        }
+            .map(::getMainPageContent)
+            .flowOn(Dispatchers.IO)
+    }
+
+    private fun getMainPageContent(body: ResponseBody): DataResult<MainPageContent> {
+        val doc = responseBodyConverter.convert(body)
+        requireNotNull(doc)
+        return MainPageContent(getMainVideos(doc), getSearchLInks(doc)).toResult()
     }
 
     private fun getSearchLInks(doc: Document): MutableList<VideoSearchLink> {
