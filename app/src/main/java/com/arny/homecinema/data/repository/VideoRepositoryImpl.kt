@@ -1,7 +1,6 @@
 package com.arny.homecinema.data.repository
 
-import com.arny.homecinema.data.models.DataResult
-import com.arny.homecinema.data.models.toResult
+import com.arny.homecinema.data.models.*
 import com.arny.homecinema.data.network.NetworkModule.Companion.VIDEO_BASE_URL
 import com.arny.homecinema.data.network.ResponseBodyConverter
 import com.arny.homecinema.data.network.VideoApiService
@@ -132,15 +131,28 @@ class VideoRepositoryImpl @Inject constructor(
         val iframeDoc = responseBodyConverter.convert(iFrameResponse)
         requireNotNull(iframeDoc)
         val hlsList = getHlsList(iframeDoc)
+        val serial = getSerialQualityMap(hlsList)
         val hlsQualityMap = getQualityMap(hlsList)
         return video.copy(
             videoUrl = hlsQualityMap["720"]
         )
     }
 
-    suspend fun getVideoByQuality(qualityUrl: String?) {
-        val urlData = getUrlData(qualityUrl)
+    private fun getSerialQualityMap(hlsList: String): SerialData {
+        val filter = hlsList.replace("\n", "")
+            .replace("\t", "")
+            .replace("\\s+".toRegex(), " ")
+            .substringAfter("seasons:[{")
+            .substringBefore("}]}]")
+            .split("\"season\":")
+            .filter { it.isNotBlank() }
+        val data = SerialData()
+        for (hls in filter) {
+            val quality = hls.substringBefore(":")
+            val link = hls.substringAfter(":")
 
+        }
+        return SerialData()
     }
 
     private fun getQualityMap(hlsList: String): HashMap<String, String> {
@@ -183,6 +195,50 @@ class VideoRepositoryImpl @Inject constructor(
         return iFrameUrl
     }
 
+    private fun parsingSerialData(hlsList: String): SerialData {
+        val seasons = mutableListOf<SerialSeason>()
+        hlsList.replace("\n", "")
+            .replace("\t", "")
+            .replace("\\s+".toRegex(), " ")
+            .substringAfter("seasons:[{")
+            .substringBefore("}]}]")
+            .split("\"season\":")
+            .asSequence()
+            .filter { it.isNotBlank() }
+            .forEach { seasonData ->
+                val seasonIdEnd = seasonData.indexOf(",\"blocked\"")
+                val id = seasonData.substring(0, seasonIdEnd).toIntOrNull() ?: 0
+                val episodes = mutableListOf<SerialEpisode>()
+                seasonData.substringAfter("episodes\":")
+                    .substringAfter("[{\"")
+                    .substringBeforeLast("]")
+                    .split("episode\":\"")
+                    .asSequence()
+                    .filterNot { it.isBlank() }
+                    .map { it.substringBeforeLast("},{\"") }
+                    .forEach { episodeData ->
+                        val episodeId = episodeData.substring(0,1).toIntOrNull() ?: 0
+                        val videoQualityMap = hashMapOf<String, String>()
+                        val title = episodeData.substringAfter("\"title\":").replace("\"", "")
+                        episodeData
+                            .substringAfter("hlsList\":{")
+                            .substringBefore("},\"audio\"")
+                            .split(",")
+                            .asSequence()
+                            .map { it.substring(1, it.length - 1).replace("\"", "") }
+                            .forEach { hls ->
+                                val quality = hls.substringBefore(":")
+                                val link = hls.substringAfter(":")
+                                if (quality.isNotBlank() && link.isNotBlank()) {
+                                    videoQualityMap[quality] = link
+                                }
+                            }
+                        episodes.add(SerialEpisode(episodeId, title, videoQualityMap))
+                    }
+                seasons.add(SerialSeason(id, episodes))
+            }
+        return SerialData(seasons)
+    }
 
     private suspend fun getUrlData(url: String?) = videoApiService.getUrlData(
         url,
