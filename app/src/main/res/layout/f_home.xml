@@ -10,14 +10,22 @@
         android:id="@+id/edtSearch"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_margin="8dp"
         android:autofillHints="true"
-        android:drawableEnd="@android:drawable/ic_menu_search"
         android:imeOptions="actionDone"
         android:inputType="text"
-        app:drawableTint="@color/black"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/btnSearch"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/btnSearch"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:text="@string/home_search"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/edtSearch" />
 
     <TextView
         android:id="@+id/tvEmptyView"
@@ -33,13 +41,13 @@
         app:layout_constraintTop_toBottomOf="@+id/edtSearch" />
 
     <androidx.appcompat.widget.AppCompatSpinner
-        android:layout_width="0dp"
         android:id="@+id/acsLinks"
-        android:layout_marginTop="8dp"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/edtSearch" />
+        app:layout_constraintTop_toBottomOf="@+id/btnSearch" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swiperefresh"

@@ -14,7 +14,6 @@ import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.databinding.FHomeBinding
 import com.arny.homecinema.presentation.models.VideoItem
-import com.arny.homecinema.presentation.utils.setDrawableRightListener
 import com.arny.homecinema.presentation.utils.setEnterPressListener
 import com.arny.homecinema.presentation.utils.viewBinding
 import com.xwray.groupie.GroupAdapter
@@ -55,7 +54,7 @@ class HomeFragment : Fragment() {
             swiperefresh.isRefreshing = false
             vm.restartLoading()
         }
-        edtSearch.setDrawableRightListener { searchVideo() }
+        btnSearch.setOnClickListener { searchVideo() }
         edtSearch.setEnterPressListener { searchVideo() }
         searchLinksSpinnerAdapter = SearchLinksSpinnerAdapter(requireContext())
         acsLinks.adapter = searchLinksSpinnerAdapter
