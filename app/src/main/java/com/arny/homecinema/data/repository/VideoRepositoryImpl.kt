@@ -119,60 +119,65 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getFullMovie(movie: Movie): Movie {
+        val resultDoc = getResultDoc(movie)
+        val hlsList = getHlsList(resultDoc)
+        return when (val type = getMovieType(movie)) {
+            MovieType.CINEMA -> {
+                val hlsQualityMap = getQualityMap(hlsList)
+                val selectedQuality = getMinQualityKey(hlsQualityMap)
+                movie.copy(
+                    type = type,
+                    video = Video(
+                        hlsList = hlsQualityMap,
+                        selectedHls = selectedQuality,
+                        videoUrl = hlsQualityMap[selectedQuality]
+                    )
+                )
+            }
+            MovieType.SERIAL -> {
+                val serialData = parsingSerialData(hlsList)
+                val firstSeason = serialData.seasons?.minByOrNull { it.id ?: 0 }
+                val firstEpisode = firstSeason?.episodes?.minByOrNull { it.id ?: 0 }
+                val hlsQualityMap = firstEpisode?.hlsList
+                val selectedQuality = getMinQualityKey(hlsQualityMap)
+                movie.copy(
+                    type = type,
+                    video = Video(
+                        hlsList = hlsQualityMap,
+                        selectedHls = selectedQuality,
+                        videoUrl = hlsQualityMap?.get(selectedQuality)
+                    ),
+                    serialData = serialData
+                )
+            }
+        }
+    }
+
+    private suspend fun getResultDoc(movie: Movie): Document {
         val headers = mapOf("Referer" to "${VIDEO_BASE_URL}index.php")
-        val body = videoApiService.getVideoDetails(movie.infoUrl, headers)
+        val body = videoApiService.getVideoDetails(movie.detailUrl, headers)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
         val iFrameUrl = getIframeUrl(detailsDoc)
         val iFrameResponse = getUrlData(iFrameUrl)
-        val iframeDoc = responseBodyConverter.convert(iFrameResponse)
-        requireNotNull(iframeDoc)
-        val hlsList = getHlsList(iframeDoc)
-        val serial = getSerialData(hlsList)
-        val hlsQualityMap = getQualityMap(hlsList)
-        // TODO: 15.12.2020 получить данные о типе (CINEMA или SERIAL),пока что CINEMA
-        val type = MovieType.CINEMA
-        return when (type) {
-            MovieType.CINEMA -> {
-                val selectedQuality = getMinQualityKey(hlsQualityMap)
-                val video = Video(
-                    hlsList = hlsQualityMap,
-                    selectedHls = selectedQuality,
-                    videoUrl = hlsQualityMap[selectedQuality]
-                )
-                movie.copy(
-                    type = type,
-                    video = video
-                )
-            }
-            MovieType.SERIAL ->
-                movie.copy(
-                    type = type,
-                    serialData = serial
-                )
+        val resultDoc = responseBodyConverter.convert(iFrameResponse)
+        requireNotNull(resultDoc)
+        return resultDoc
+    }
+
+    private fun getMovieType(movie: Movie): MovieType {
+        val groupValues = "^\\d+-\\b(\\w+)\\b-.*".toRegex()
+            .find(movie.detailUrl?.substringAfter(VIDEO_BASE_URL).toString())?.groupValues
+        return when (groupValues?.getOrNull(1)) {
+            "film" -> MovieType.CINEMA
+            "serial" -> MovieType.SERIAL
+            else -> MovieType.CINEMA
         }
     }
 
-    private fun getMinQualityKey(hlsQualityMap: HashMap<String, String>): String {
-        val keys = hlsQualityMap.keys
-        return keys.map { it.toIntOrNull() ?: 0 }.minOrNull()?.toString() ?: keys.first()
-    }
-
-    private fun getSerialData(hlsList: String): SerialData {
-        val filter = hlsList.replace("\n", "")
-            .replace("\t", "")
-            .replace("\\s+".toRegex(), " ")
-            .substringAfter("seasons:[{")
-            .substringBefore("}]}]")
-            .split("\"season\":")
-            .filter { it.isNotBlank() }
-        val data = SerialData()
-        for (hls in filter) {
-            val quality = hls.substringBefore(":")
-            val link = hls.substringAfter(":")
-
-        }
-        return data
+    private fun getMinQualityKey(hlsQualityMap: HashMap<String, String>?): String? {
+        val keys = hlsQualityMap?.keys
+        return keys?.map { it.toIntOrNull() ?: 0 }?.minOrNull()?.toString() ?: keys?.first()
     }
 
     private fun getQualityMap(hlsList: String): HashMap<String, String> {

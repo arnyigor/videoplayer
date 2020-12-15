@@ -109,7 +109,6 @@ class DetailsFragment : Fragment() {
         lifecycleScope.launch {
             val data = dataResult.data
             if (data.video != currentVideo) {
-                // TODO: 15.12.2020 выбрать видео из hlsList
                 currentVideo = data.video
             }
             initPlayer()

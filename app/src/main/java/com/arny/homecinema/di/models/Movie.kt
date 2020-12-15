@@ -6,7 +6,7 @@ import android.os.Parcelable
 data class Movie(
     val title: String,
     val type: MovieType,
-    val infoUrl: String? = null,
+    val detailUrl: String? = null,
     val img: String? = null,
     val video: Video? = null,
     val serialData: SerialData? = null
@@ -23,7 +23,7 @@ data class Movie(
     override fun writeToParcel(parcel: Parcel, flags: Int) {
         parcel.writeString(title)
         parcel.writeInt(type.type)
-        parcel.writeString(infoUrl)
+        parcel.writeString(detailUrl)
         parcel.writeString(img)
         parcel.writeParcelable(video, flags)
         parcel.writeParcelable(serialData, flags)
