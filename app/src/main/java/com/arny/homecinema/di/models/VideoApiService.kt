@@ -1,4 +1,4 @@
-package com.arny.homecinema.data.network
+package com.arny.homecinema.di.models
 
 import okhttp3.ResponseBody
 import retrofit2.http.*

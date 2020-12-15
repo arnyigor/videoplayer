@@ -10,12 +10,13 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.navArgs
 import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.databinding.DetailsFragmentBinding
+import com.arny.homecinema.di.models.Movie
 import com.arny.homecinema.di.models.Video
 import com.arny.homecinema.presentation.utils.hideSystemBar
 import com.arny.homecinema.presentation.utils.showSystemBar
@@ -30,6 +31,7 @@ import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException
 import com.google.android.exoplayer2.upstream.HttpDataSource.InvalidResponseCodeException
 import dagger.android.support.AndroidSupportInjection
+import kotlinx.coroutines.launch
 import java.io.IOException
 import javax.inject.Inject
 
@@ -55,16 +57,13 @@ class DetailsFragment : Fragment() {
             if (error.type == ExoPlaybackException.TYPE_SOURCE) {
                 val cause: IOException = error.sourceException
                 if (cause is HttpDataSourceException) {
-                    // An HTTP error occurred.
                     val httpError = cause
-                    // This is the request for which the error occurred.
                     val requestDataSpec = httpError.dataSpec
-                    // It's possible to find out more about the error both by casting and by
-                    // querying the cause.
-                    Log.d(DetailsFragment::class.java.simpleName, "onPlayerError: httpError:$httpError")
+                    Log.d(
+                        DetailsFragment::class.java.simpleName,
+                        "onPlayerError: httpError:$httpError"
+                    )
                     if (httpError is InvalidResponseCodeException) {
-                        // Cast to InvalidResponseCodeException and retrieve the response code,
-                        // message and headers.
                         Log.d(
                             DetailsFragment::class.java.simpleName,
                             "onPlayerError: responseMessage:${httpError.responseMessage}"
@@ -74,9 +73,6 @@ class DetailsFragment : Fragment() {
                             DetailsFragment::class.java.simpleName,
                             "onPlayerError: cause:${httpError.cause}"
                         )
-
-                        // Try calling httpError.getCause() to retrieve the underlying cause,
-                        // although note that it may be null.
                     }
                 }
             }
@@ -89,22 +85,12 @@ class DetailsFragment : Fragment() {
 
     private fun initBinding(binding: DetailsFragmentBinding) {
         return with(binding) {
-            val video = args.video
-            vm.loadVideo(video)
-            vm.loading.observe(this@DetailsFragment, { load ->
-                pbLoadingVideo.isVisible = load
-            })
-            requireActivity().title = video.title
+            val movie = args.movie
+            vm.loadVideo(movie)
+            requireActivity().title = movie.title
             vm.data.observe(this@DetailsFragment, { dataResult ->
                 when (dataResult) {
-                    is DataResult.Success -> {
-                        val data = dataResult.data
-                        val sameVideo = currentVideo?.videoUrl == data.videoUrl
-                        if (!sameVideo) {
-                            currentVideo = data
-                        }
-                        initPlayer()
-                    }
+                    is DataResult.Success -> onMovieLoaded(dataResult)
                     is DataResult.Error -> {
                         val throwable = dataResult.throwable
                         throwable.printStackTrace()
@@ -116,6 +102,17 @@ class DetailsFragment : Fragment() {
                     }
                 }
             })
+        }
+    }
+
+    private fun onMovieLoaded(dataResult: DataResult.Success<Movie>) {
+        lifecycleScope.launch {
+            val data = dataResult.data
+            if (data.video != currentVideo) {
+                // TODO: 15.12.2020 выбрать видео из hlsList
+                currentVideo = data.video
+            }
+            initPlayer()
         }
     }
 

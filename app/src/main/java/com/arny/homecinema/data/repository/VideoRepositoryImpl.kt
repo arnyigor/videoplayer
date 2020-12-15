@@ -1,12 +1,10 @@
 package com.arny.homecinema.data.repository
 
-import com.arny.homecinema.data.models.*
+import com.arny.homecinema.data.models.DataResult
+import com.arny.homecinema.data.models.toResult
 import com.arny.homecinema.data.network.NetworkModule.Companion.VIDEO_BASE_URL
 import com.arny.homecinema.data.network.ResponseBodyConverter
-import com.arny.homecinema.data.network.VideoApiService
-import com.arny.homecinema.di.models.MainPageContent
-import com.arny.homecinema.di.models.Video
-import com.arny.homecinema.di.models.VideoSearchLink
+import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +22,7 @@ class VideoRepositoryImpl @Inject constructor(
     private val responseBodyConverter: ResponseBodyConverter
 ) : VideoRepository {
 
-    override fun searchVideo(search: String): Flow<MutableList<Video>> {
+    override fun searchMovie(search: String): Flow<MutableList<Movie>> {
         return flow {
             emit(
                 videoApiService.searchVideo(
@@ -40,7 +38,8 @@ class VideoRepositoryImpl @Inject constructor(
             .map { body ->
                 val doc = responseBodyConverter.convert(body)
                 requireNotNull(doc)
-                mutableListOf<Video>().apply {
+                // TODO: 15.12.2020 добавить тип сериал или фильм
+                mutableListOf<Movie>().apply {
                     for (link in getSearchResultLinks(doc)) {
                         add(getVideoFromLink(link))
                     }
@@ -81,8 +80,8 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun getMainVideos(doc: Document): MutableList<Video> {
-        return mutableListOf<Video>().apply {
+    private fun getMainVideos(doc: Document): MutableList<Movie> {
+        return mutableListOf<Movie>().apply {
             for (link in getLinks(doc)) {
                 add(getVideoFromLink(link))
             }
@@ -90,7 +89,7 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private fun getVideoFromLink(link: Element) =
-        Video(link.text(), link.attr("href"), getImgUrl(link))
+        Movie(link.text(), MovieType.CINEMA, link.attr("href"), getImgUrl(link))
 
     private fun getLinks(doc: Document) = doc.body()
         .select(".content").first()
@@ -112,18 +111,16 @@ class VideoRepositoryImpl @Inject constructor(
 
 
     @FlowPreview
-    override fun loadVideo(video: Video): Flow<DataResult<Video>> {
+    override fun loadMovie(movie: Movie): Flow<DataResult<Movie>> {
         return flow {
-            emit(getFullVideo(video))
+            emit(getFullMovie(movie))
         }.flowOn(Dispatchers.IO)
-            .map {
-                it.toResult()
-            }
+            .map { it.toResult() }
     }
 
-    private suspend fun getFullVideo(video: Video): Video {
+    private suspend fun getFullMovie(movie: Movie): Movie {
         val headers = mapOf("Referer" to "${VIDEO_BASE_URL}index.php")
-        val body = videoApiService.getVideoDetails(video.infoUrl, headers)
+        val body = videoApiService.getVideoDetails(movie.infoUrl, headers)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
         val iFrameUrl = getIframeUrl(detailsDoc)
@@ -131,14 +128,37 @@ class VideoRepositoryImpl @Inject constructor(
         val iframeDoc = responseBodyConverter.convert(iFrameResponse)
         requireNotNull(iframeDoc)
         val hlsList = getHlsList(iframeDoc)
-        val serial = getSerialQualityMap(hlsList)
+        val serial = getSerialData(hlsList)
         val hlsQualityMap = getQualityMap(hlsList)
-        return video.copy(
-            videoUrl = hlsQualityMap["720"]
-        )
+        // TODO: 15.12.2020 получить данные о типе (CINEMA или SERIAL),пока что CINEMA
+        val type = MovieType.CINEMA
+        return when (type) {
+            MovieType.CINEMA -> {
+                val selectedQuality = getMinQualityKey(hlsQualityMap)
+                val video = Video(
+                    hlsList = hlsQualityMap,
+                    selectedHls = selectedQuality,
+                    videoUrl = hlsQualityMap[selectedQuality]
+                )
+                movie.copy(
+                    type = type,
+                    video = video
+                )
+            }
+            MovieType.SERIAL ->
+                movie.copy(
+                    type = type,
+                    serialData = serial
+                )
+        }
     }
 
-    private fun getSerialQualityMap(hlsList: String): SerialData {
+    private fun getMinQualityKey(hlsQualityMap: HashMap<String, String>): String {
+        val keys = hlsQualityMap.keys
+        return keys.map { it.toIntOrNull() ?: 0 }.minOrNull()?.toString() ?: keys.first()
+    }
+
+    private fun getSerialData(hlsList: String): SerialData {
         val filter = hlsList.replace("\n", "")
             .replace("\t", "")
             .replace("\\s+".toRegex(), " ")
@@ -152,7 +172,7 @@ class VideoRepositoryImpl @Inject constructor(
             val link = hls.substringAfter(":")
 
         }
-        return SerialData()
+        return data
     }
 
     private fun getQualityMap(hlsList: String): HashMap<String, String> {
@@ -186,13 +206,12 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private fun getIframeUrl(detailsDoc: Document): String? {
-        val iFrameUrl = detailsDoc.body()
+        return detailsDoc.body()
             .getElementById("dle-content")
             .select(".fmain").first()
             .select(".fplayer").first()
             .select(".video-box").getOrNull(1)
             ?.select("iframe")?.attr("src")
-        return iFrameUrl
     }
 
     private fun parsingSerialData(hlsList: String): SerialData {

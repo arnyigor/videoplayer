@@ -1,6 +1,7 @@
 package com.arny.homecinema.data.network
 
 import com.arny.homecinema.BuildConfig
+import com.arny.homecinema.di.models.VideoApiService
 import dagger.Binds
 import dagger.Module
 import dagger.Provides

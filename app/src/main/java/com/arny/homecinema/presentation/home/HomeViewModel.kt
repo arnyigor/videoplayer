@@ -53,7 +53,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             if (loading.value == true) return@launch
             loading.value = true
-            videoRepository.searchVideo(search)
+            videoRepository.searchMovie(search)
                 .onCompletion {
                     loading.value = false
                 }

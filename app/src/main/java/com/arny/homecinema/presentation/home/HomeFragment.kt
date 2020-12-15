@@ -77,7 +77,7 @@ class HomeFragment : Fragment() {
     private fun FHomeBinding.initList(binding: FHomeBinding) {
         groupAdapter = GroupAdapter<GroupieViewHolder>()
         groupAdapter.setOnItemClickListener { item, _ ->
-            val video = (item as VideoItem).video
+            val video = (item as VideoItem).movie
             binding.root.findNavController()
                 .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(video))
         }
@@ -92,7 +92,7 @@ class HomeFragment : Fragment() {
             when (result) {
                 is DataResult.Success -> {
                     val content = result.data
-                    val data = content.videos
+                    val data = content.movies
                     val items = data?.map { VideoItem(it) }
                     fillAdapter(items)
                     emptyData = data?.isEmpty() ?: true

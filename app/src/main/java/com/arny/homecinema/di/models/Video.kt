@@ -4,29 +4,26 @@ import android.os.Parcel
 import android.os.Parcelable
 
 data class Video(
-    val title: String,
-    val infoUrl: String? = null,
-    val img: String? = null,
     var videoUrl: String? = null,
     var currentPosition: Long = 0,
     var playWhenReady: Boolean = false,
+    val hlsList: HashMap<String, String>? = null,
+    val selectedHls: String? = null
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
-        parcel.readString() ?: "",
-        parcel.readString(),
-        parcel.readString(),
-        parcel.readString(),
-        parcel.readLong(),
-        parcel.readByte() != 0.toByte()
+        videoUrl = parcel.readString(),
+        currentPosition = parcel.readLong(),
+        playWhenReady = parcel.readByte() != 0.toByte(),
+        hlsList = parcel.readSerializable() as? (HashMap<String, String>),
+        selectedHls = parcel.readString()
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
-        parcel.writeString(title)
-        parcel.writeString(infoUrl)
-        parcel.writeString(img)
         parcel.writeString(videoUrl)
         parcel.writeLong(currentPosition)
         parcel.writeByte(if (playWhenReady) 1 else 0)
+        parcel.writeSerializable(hlsList)
+        parcel.writeString(selectedHls)
     }
 
     override fun describeContents(): Int {

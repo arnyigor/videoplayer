@@ -22,7 +22,7 @@
         android:label="details_fragment"
         tools:layout="@layout/details_fragment" >
         <argument
-            android:name="video"
-            app:argType="com.arny.homecinema.di.models.Video" />
+            android:name="movie"
+            app:argType="com.arny.homecinema.di.models.Movie" />
     </fragment>
 </navigation>
