@@ -2,13 +2,15 @@ package com.arny.homecinema.presentation.utils
 
 import android.os.Build
 import android.view.View
+import android.widget.Toast
 import androidx.annotation.IdRes
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentTransaction
 
-fun AppCompatActivity.hideSystemBar(){
+fun AppCompatActivity.hideSystemBar() {
     val window = this.window
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         window.setDecorFitsSystemWindows(false)
@@ -17,7 +19,7 @@ fun AppCompatActivity.hideSystemBar(){
     }
 }
 
-fun AppCompatActivity.showSystemBar(){
+fun AppCompatActivity.showSystemBar() {
     val window = this.window
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         window.setDecorFitsSystemWindows(true)
@@ -51,6 +53,14 @@ fun AppCompatActivity.replaceFragment(
 
 fun AppCompatActivity.getFragmentByTag(tag: String?): Fragment? {
     return supportFragmentManager.findFragmentByTag(tag)
+}
+
+fun Fragment.toast(@StringRes res: Int) {
+    Toast.makeText(
+        requireContext(),
+        getString(res),
+        Toast.LENGTH_SHORT
+    ).show()
 }
 
 /**

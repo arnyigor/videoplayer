@@ -17,6 +17,7 @@ import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.databinding.DetailsFragmentBinding
 import com.arny.homecinema.di.models.Movie
+import com.arny.homecinema.di.models.MovieType
 import com.arny.homecinema.di.models.Video
 import com.arny.homecinema.presentation.utils.hideSystemBar
 import com.arny.homecinema.presentation.utils.showSystemBar
@@ -25,11 +26,15 @@ import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
+import com.google.android.exoplayer2.source.TrackGroupArray
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
+import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
+import com.google.android.exoplayer2.trackselection.TrackSelectionArray
 import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException
 import com.google.android.exoplayer2.upstream.HttpDataSource.InvalidResponseCodeException
+import com.google.android.exoplayer2.util.EventLogger
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -38,6 +43,7 @@ import javax.inject.Inject
 
 class DetailsFragment : Fragment() {
 
+    private var trackSelector: DefaultTrackSelector? = null
     private var currentVideo: Video? = null
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
@@ -78,8 +84,27 @@ class DetailsFragment : Fragment() {
             }
         }
 
+        override fun onTracksChanged(
+            trackGroups: TrackGroupArray,
+            trackSelections: TrackSelectionArray
+        ) {
+            val mappedTrackInfo = trackSelector?.currentMappedTrackInfo
+            if (mappedTrackInfo != null) {
+                Log.d(
+                    DetailsFragment::class.java.simpleName,
+                    "onPlayerError: mappedTrackInfo:$mappedTrackInfo"
+                )
+            }
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            val window = requireActivity().window
             Log.d(DetailsFragment::class.java.simpleName, "onPlayerError: isPlaying:$isPlaying")
+            if (isPlaying) {
+                window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else {
+                window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            }
         }
     }
 
@@ -107,25 +132,53 @@ class DetailsFragment : Fragment() {
 
     private fun onMovieLoaded(dataResult: DataResult.Success<Movie>) {
         lifecycleScope.launch {
-            val data = dataResult.data
-            if (data.video != currentVideo) {
-                currentVideo = data.video
-            }
-            initPlayer()
+            initPlayer(dataResult.data)
         }
     }
 
-    private fun initPlayer() {
-        currentVideo?.videoUrl?.let { url ->
-            exoPlayer = SimpleExoPlayer.Builder(requireContext()).build()
+    private fun initPlayer(movie: Movie? = null) {
+        if (movie != null && movie.video != currentVideo) {
+            currentVideo = movie.video
+        }
+        currentVideo?.let { video ->
+            trackSelector = DefaultTrackSelector(requireContext())
+            exoPlayer = SimpleExoPlayer.Builder(requireContext())
+                .setTrackSelector(trackSelector!!)
+                .build()
+            exoPlayer?.addAnalyticsListener(EventLogger(trackSelector))
             exoPlayer?.addListener(playerListener)
             binding.plVideoPLayer.player = exoPlayer
-            val dataSourceFactory: DataSource.Factory = DefaultHttpDataSourceFactory()
-            val hlsMediaSource: HlsMediaSource = HlsMediaSource.Factory(dataSourceFactory)
-                .createMediaSource(MediaItem.fromUri(url))
-            exoPlayer?.setMediaSource(hlsMediaSource);
+            when (movie?.type) {
+                MovieType.CINEMA -> {
+                    exoPlayer?.setMediaSource(createSource(video.videoUrl, video.id))
+                }
+                MovieType.SERIAL -> {
+                    movie.serialData
+                        ?.seasons
+                        ?.flatMap { it.episodes ?: emptyList() }
+                        ?.asSequence()
+                        ?.forEach { episode ->
+                            val keys = episode.hlsList?.keys
+                            val minQualityKey = keys?.map { it.toIntOrNull() ?: 0 }
+                                ?.minByOrNull { it }?.toString() ?: keys?.first()
+                            episode.hlsList?.get(minQualityKey)?.let {
+                                exoPlayer?.addMediaSource(createSource(it, episode.id))
+                            }
+                        }
+                }
+            }
             exoPlayer?.prepare()
         }
+    }
+
+    private fun createSource(url: String?, id: Int?): HlsMediaSource {
+        val dataSourceFactory: DataSource.Factory = DefaultHttpDataSourceFactory()
+        val item = MediaItem.Builder()
+            .setUri(url)
+            .setMediaId(id.toString())
+            .build()
+        return HlsMediaSource.Factory(dataSourceFactory)
+            .createMediaSource(item)
     }
 
     private fun restorePlayerState() {
@@ -169,7 +222,6 @@ class DetailsFragment : Fragment() {
             appCompatActivity?.hideSystemBar()
             val window = appCompatActivity?.window
             window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
-            window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         restorePlayerState()
     }

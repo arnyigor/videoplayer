@@ -121,6 +121,7 @@ class VideoRepositoryImpl @Inject constructor(
     private suspend fun getFullMovie(movie: Movie): Movie {
         val resultDoc = getResultDoc(movie)
         val hlsList = getHlsList(resultDoc)
+        val movieId = getMovieId(movie)
         return when (val type = getMovieType(movie)) {
             MovieType.CINEMA -> {
                 val hlsQualityMap = getQualityMap(hlsList)
@@ -128,9 +129,10 @@ class VideoRepositoryImpl @Inject constructor(
                 movie.copy(
                     type = type,
                     video = Video(
+                        id = movieId,
+                        videoUrl = hlsQualityMap[selectedQuality],
                         hlsList = hlsQualityMap,
-                        selectedHls = selectedQuality,
-                        videoUrl = hlsQualityMap[selectedQuality]
+                        selectedHls = selectedQuality
                     )
                 )
             }
@@ -143,9 +145,10 @@ class VideoRepositoryImpl @Inject constructor(
                 movie.copy(
                     type = type,
                     video = Video(
+                        id = firstEpisode?.id,
+                        videoUrl = hlsQualityMap?.get(selectedQuality),
                         hlsList = hlsQualityMap,
-                        selectedHls = selectedQuality,
-                        videoUrl = hlsQualityMap?.get(selectedQuality)
+                        selectedHls = selectedQuality
                     ),
                     serialData = serialData
                 )
@@ -173,6 +176,12 @@ class VideoRepositoryImpl @Inject constructor(
             "serial" -> MovieType.SERIAL
             else -> MovieType.CINEMA
         }
+    }
+
+    private fun getMovieId(movie: Movie): Int? {
+        val groupValues = "^(\\d+)-\\b\\w+\\b-.*".toRegex()
+            .find(movie.detailUrl?.substringAfter(VIDEO_BASE_URL).toString())?.groupValues
+        return groupValues?.getOrNull(1)?.toIntOrNull()
     }
 
     private fun getMinQualityKey(hlsQualityMap: HashMap<String, String>?): String? {
@@ -230,6 +239,7 @@ class VideoRepositoryImpl @Inject constructor(
             .asSequence()
             .filter { it.isNotBlank() }
             .forEach { seasonData -> fillSeason(seasonData, seasons) }
+        seasons.sortBy { it.id }
         return SerialData(seasons)
     }
 
@@ -248,6 +258,7 @@ class VideoRepositoryImpl @Inject constructor(
             .filterNot { it.isBlank() }
             .map { it.substringBeforeLast("},{\"") }
             .forEach { episodeData -> fillEpisode(episodeData, episodes) }
+        episodes.sortBy { it.id }
         seasons.add(SerialSeason(id, episodes))
     }
 

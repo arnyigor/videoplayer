@@ -4,4 +4,5 @@
     <string name="previous">Previous</string>
     <string name="film_not_found">К сожалению ничего не найдено</string>
     <string name="home_search">Поиск</string>
+    <string name="video_url_not_found">URL видео не найден</string>
 </resources>
