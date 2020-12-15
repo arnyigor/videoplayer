@@ -3,6 +3,7 @@ package com.arny.homecinema.presentation.details
 import android.content.Context
 import android.content.res.Configuration.*
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -19,12 +20,17 @@ import com.arny.homecinema.di.models.Video
 import com.arny.homecinema.presentation.utils.hideSystemBar
 import com.arny.homecinema.presentation.utils.showSystemBar
 import com.arny.homecinema.presentation.utils.viewBinding
+import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
+import com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException
+import com.google.android.exoplayer2.upstream.HttpDataSource.InvalidResponseCodeException
 import dagger.android.support.AndroidSupportInjection
+import java.io.IOException
 import javax.inject.Inject
 
 
@@ -44,40 +50,79 @@ class DetailsFragment : Fragment() {
 
     private val binding by viewBinding { DetailsFragmentBinding.bind(it).also(::initBinding) }
 
-    private fun initBinding(binding: DetailsFragmentBinding) = with(binding) {
-        val video = args.video
-        vm.loadVideo(video)
-        vm.loading.observe(this@DetailsFragment, { load ->
-            pbLoadingVideo.isVisible = load
-        })
-        requireActivity().title = video.title
-        vm.data.observe(this@DetailsFragment, { dataResult ->
-            when (dataResult) {
-                is DataResult.Success -> {
-                    val data = dataResult.data
-//                    val hasPosition = currentVideo?.currentPosition ?: 0L != 0L
-                    val sameVideo = currentVideo?.videoUrl == data.videoUrl
-                    if (!sameVideo) {
-                        currentVideo = data
+    private val playerListener = object : Player.EventListener {
+        override fun onPlayerError(error: ExoPlaybackException) {
+            if (error.type == ExoPlaybackException.TYPE_SOURCE) {
+                val cause: IOException = error.sourceException
+                if (cause is HttpDataSourceException) {
+                    // An HTTP error occurred.
+                    val httpError = cause
+                    // This is the request for which the error occurred.
+                    val requestDataSpec = httpError.dataSpec
+                    // It's possible to find out more about the error both by casting and by
+                    // querying the cause.
+                    Log.d(DetailsFragment::class.java.simpleName, "onPlayerError: httpError:$httpError")
+                    if (httpError is InvalidResponseCodeException) {
+                        // Cast to InvalidResponseCodeException and retrieve the response code,
+                        // message and headers.
+                        Log.d(
+                            DetailsFragment::class.java.simpleName,
+                            "onPlayerError: responseMessage:${httpError.responseMessage}"
+                        )
+                    } else {
+                        Log.d(
+                            DetailsFragment::class.java.simpleName,
+                            "onPlayerError: cause:${httpError.cause}"
+                        )
+
+                        // Try calling httpError.getCause() to retrieve the underlying cause,
+                        // although note that it may be null.
                     }
-                    initPlayer()
-                }
-                is DataResult.Error -> {
-                    val throwable = dataResult.throwable
-                    throwable.printStackTrace()
-                    Toast.makeText(
-                        requireContext(),
-                        throwable.message,
-                        Toast.LENGTH_SHORT
-                    ).show()
                 }
             }
-        })
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            Log.d(DetailsFragment::class.java.simpleName, "onPlayerError: isPlaying:$isPlaying")
+        }
+    }
+
+    private fun initBinding(binding: DetailsFragmentBinding) {
+        return with(binding) {
+            val video = args.video
+            vm.loadVideo(video)
+            vm.loading.observe(this@DetailsFragment, { load ->
+                pbLoadingVideo.isVisible = load
+            })
+            requireActivity().title = video.title
+            vm.data.observe(this@DetailsFragment, { dataResult ->
+                when (dataResult) {
+                    is DataResult.Success -> {
+                        val data = dataResult.data
+                        val sameVideo = currentVideo?.videoUrl == data.videoUrl
+                        if (!sameVideo) {
+                            currentVideo = data
+                        }
+                        initPlayer()
+                    }
+                    is DataResult.Error -> {
+                        val throwable = dataResult.throwable
+                        throwable.printStackTrace()
+                        Toast.makeText(
+                            requireContext(),
+                            throwable.message,
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            })
+        }
     }
 
     private fun initPlayer() {
         currentVideo?.videoUrl?.let { url ->
             exoPlayer = SimpleExoPlayer.Builder(requireContext()).build()
+            exoPlayer?.addListener(playerListener)
             binding.plVideoPLayer.player = exoPlayer
             val dataSourceFactory: DataSource.Factory = DefaultHttpDataSourceFactory()
             val hlsMediaSource: HlsMediaSource = HlsMediaSource.Factory(dataSourceFactory)
@@ -96,6 +141,7 @@ class DetailsFragment : Fragment() {
 
     private fun releasePlayer() {
         if (exoPlayer != null) {
+            exoPlayer?.removeListener(playerListener)
             exoPlayer?.stop()
             currentVideo?.currentPosition = exoPlayer?.contentPosition ?: 0
             currentVideo?.playWhenReady = exoPlayer?.playWhenReady ?: false

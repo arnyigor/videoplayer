@@ -205,39 +205,54 @@ class VideoRepositoryImpl @Inject constructor(
             .split("\"season\":")
             .asSequence()
             .filter { it.isNotBlank() }
-            .forEach { seasonData ->
-                val seasonIdEnd = seasonData.indexOf(",\"blocked\"")
-                val id = seasonData.substring(0, seasonIdEnd).toIntOrNull() ?: 0
-                val episodes = mutableListOf<SerialEpisode>()
-                seasonData.substringAfter("episodes\":")
-                    .substringAfter("[{\"")
-                    .substringBeforeLast("]")
-                    .split("episode\":\"")
-                    .asSequence()
-                    .filterNot { it.isBlank() }
-                    .map { it.substringBeforeLast("},{\"") }
-                    .forEach { episodeData ->
-                        val episodeId = episodeData.substring(0,1).toIntOrNull() ?: 0
-                        val videoQualityMap = hashMapOf<String, String>()
-                        val title = episodeData.substringAfter("\"title\":").replace("\"", "")
-                        episodeData
-                            .substringAfter("hlsList\":{")
-                            .substringBefore("},\"audio\"")
-                            .split(",")
-                            .asSequence()
-                            .map { it.substring(1, it.length - 1).replace("\"", "") }
-                            .forEach { hls ->
-                                val quality = hls.substringBefore(":")
-                                val link = hls.substringAfter(":")
-                                if (quality.isNotBlank() && link.isNotBlank()) {
-                                    videoQualityMap[quality] = link
-                                }
-                            }
-                        episodes.add(SerialEpisode(episodeId, title, videoQualityMap))
-                    }
-                seasons.add(SerialSeason(id, episodes))
-            }
+            .forEach { seasonData -> fillSeason(seasonData, seasons) }
         return SerialData(seasons)
+    }
+
+    private fun fillSeason(
+        seasonData: String,
+        seasons: MutableList<SerialSeason>
+    ) {
+        val seasonIdEnd = seasonData.indexOf(",\"blocked\"")
+        val id = seasonData.substring(0, seasonIdEnd).toIntOrNull() ?: 0
+        val episodes = mutableListOf<SerialEpisode>()
+        seasonData.substringAfter("episodes\":")
+            .substringAfter("[{\"")
+            .substringBeforeLast("]")
+            .split("episode\":\"")
+            .asSequence()
+            .filterNot { it.isBlank() }
+            .map { it.substringBeforeLast("},{\"") }
+            .forEach { episodeData -> fillEpisode(episodeData, episodes) }
+        seasons.add(SerialSeason(id, episodes))
+    }
+
+    private fun fillEpisode(
+        episodeData: String,
+        episodes: MutableList<SerialEpisode>
+    ) {
+        val episodeId = episodeData.substring(0, 1).toIntOrNull() ?: 0
+        val videoQualityMap = hashMapOf<String, String>()
+        val title = episodeData.substringAfter("\"title\":").replace("\"", "")
+        episodeData
+            .substringAfter("hlsList\":{")
+            .substringBefore("},\"audio\"")
+            .split(",")
+            .asSequence()
+            .map { it.substring(1, it.length - 1).replace("\"", "") }
+            .forEach { hls -> fillQualityMap(hls, videoQualityMap) }
+        episodes.add(SerialEpisode(episodeId, title, videoQualityMap))
+    }
+
+    private fun fillQualityMap(
+        hls: String,
+        videoQualityMap: HashMap<String, String>
+    ) {
+        val quality = hls.substringBefore(":")
+        val link = hls.substringAfter(":")
+        if (quality.isNotBlank() && link.isNotBlank()) {
+            videoQualityMap[quality] = link
+        }
     }
 
     private suspend fun getUrlData(url: String?) = videoApiService.getUrlData(
