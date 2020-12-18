@@ -2,6 +2,7 @@ package com.arny.homecinema.data.repository
 
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.models.toResult
+import com.arny.homecinema.data.network.IHostStore
 import com.arny.homecinema.data.network.NetworkModule.Companion.VIDEO_BASE_URL
 import com.arny.homecinema.data.network.ResponseBodyConverter
 import com.arny.homecinema.di.models.*
@@ -19,7 +20,8 @@ import javax.inject.Inject
 
 class VideoRepositoryImpl @Inject constructor(
     private val videoApiService: VideoApiService,
-    private val responseBodyConverter: ResponseBodyConverter
+    private val responseBodyConverter: ResponseBodyConverter,
+    private val hostStore: IHostStore
 ) : VideoRepository {
 
     override fun searchMovie(search: String): Flow<MutableList<Movie>> {
@@ -52,12 +54,14 @@ class VideoRepositoryImpl @Inject constructor(
             .select(".th-item a")
 
     override fun getAllVideos(): Flow<DataResult<MainPageContent>> {
+//        hostStore.host = "test.ru"
         return flow { emit(videoApiService.requestMainpage()) }
             .map(::getMainPageContent)
             .flowOn(Dispatchers.IO)
     }
 
     override fun getAllVideos(type: String?): Flow<DataResult<MainPageContent>> {
+//        hostStore.host = "test.ru"
         return flow {
             val url = VIDEO_BASE_URL + type?.substringAfter("/")
             emit(videoApiService.requestMainpage(url))

@@ -1,16 +1,18 @@
 package com.arny.homecinema.data.network
 
+import android.content.Context
 import com.arny.homecinema.BuildConfig
 import com.arny.homecinema.di.models.VideoApiService
+import com.readystatesoftware.chuck.ChuckInterceptor
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 
 
@@ -18,7 +20,12 @@ import javax.inject.Singleton
 abstract class NetworkModule {
 
     @Binds
+    @Singleton
     abstract fun bindsResponseBodyConverter(converter: ResponseBodyConverterImpl): ResponseBodyConverter
+
+    @Binds
+    @Singleton
+    abstract fun bindsHostStore(hostStore: HostStore): IHostStore
 
     companion object {
         const val VIDEO_BASE_URL = "http://al.lordfilms-s.pw/"
@@ -34,37 +41,36 @@ abstract class NetworkModule {
 
         @Provides
         @Singleton
-        fun providesOkHttpClient(interceptor: Interceptor): OkHttpClient {
+        fun providesOkHttpClient(
+            context: Context,
+            @Named("debugInterceptor") debugInterceptor: Interceptor,
+            @Named("headersInterceptor") headersInterceptor: Interceptor,
+            @Named("hostInterceptor") hostInterceptor: Interceptor
+        ): OkHttpClient {
             return OkHttpClient.Builder().writeTimeout(3, TimeUnit.MINUTES)
                 .readTimeout(3, TimeUnit.MINUTES)
                 .callTimeout(3, TimeUnit.MINUTES)
-                .addInterceptor(interceptor)
-                .addInterceptor(Interceptor { chain ->
-                    val original: Request = chain.request()
-                    val request: Request = original.newBuilder()
-                        .header(
-                            "User-Agent",
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
-                        )
-                        .header(
-                            "Accept-Encoding", "gzip, deflate, br"
-                        )
-                        .header(
-                            "Connection", "keep-alive"
-                        )
-                        .header(
-                            "Accept",
-                            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"
-                        )
-                        .method(original.method, original.body)
-                        .build()
-                    chain.proceed(request)
-                })
+                .addInterceptor(ChuckInterceptor(context))
+                .addInterceptor(hostInterceptor)
+                .addInterceptor(debugInterceptor)
+                .addInterceptor(headersInterceptor)
+                .cache(null)
                 .build()
         }
 
+        @Provides
+        @Named("headersInterceptor")
+        @Singleton
+        fun provideHeadersInterceptor(): Interceptor = HeadersInterceptor()
 
         @Provides
+        @Singleton
+        @Named("hostInterceptor")
+        fun provideHostInterceptor(hostStore: IHostStore): Interceptor =
+            HostSelectorInterceptor(hostStore)
+
+        @Provides
+        @Named("debugInterceptor")
         @Singleton
         fun provideInterceptor(): Interceptor = if (BuildConfig.DEBUG)
             HttpLoggingInterceptor().apply {

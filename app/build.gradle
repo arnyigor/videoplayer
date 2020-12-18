@@ -23,7 +23,7 @@ dependencies {
     navigation()
     groupie()
     retrofit()
-    retrofitHtmlConverter()
+    chuck()
     appcompat()
     constraintlayout()
     jsoup()
