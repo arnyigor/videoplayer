@@ -2,6 +2,7 @@ package com.arny.homecinema.data.network
 
 import android.content.Context
 import com.arny.homecinema.BuildConfig
+import com.arny.homecinema.data.network.HostStore.HOSTS.LORDFILM_AL_HOST
 import com.arny.homecinema.di.models.VideoApiService
 import com.readystatesoftware.chuck.ChuckInterceptor
 import dagger.Binds
@@ -28,13 +29,12 @@ abstract class NetworkModule {
     abstract fun bindsHostStore(hostStore: HostStore): IHostStore
 
     companion object {
-        const val VIDEO_BASE_URL = "http://al.lordfilms-s.pw/"
 
         @Provides
         @Singleton
         fun provideRetrofit(client: OkHttpClient): Retrofit {
             return Retrofit.Builder()
-                .baseUrl(VIDEO_BASE_URL)
+                .baseUrl(LORDFILM_AL_HOST.toBaseUrl())
                 .client(client)
                 .build()
         }
