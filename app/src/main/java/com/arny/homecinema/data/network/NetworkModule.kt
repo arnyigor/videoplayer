@@ -3,6 +3,10 @@ package com.arny.homecinema.data.network
 import android.content.Context
 import com.arny.homecinema.BuildConfig
 import com.arny.homecinema.data.network.HostStore.HOSTS.LORDFILM_AL_HOST
+import com.arny.homecinema.data.network.docparser.DocumentParserFactory
+import com.arny.homecinema.data.network.docparser.IDocumentParserFactory
+import com.arny.homecinema.data.network.headers.HeadersFactory
+import com.arny.homecinema.data.network.headers.IHeadersFactory
 import com.arny.homecinema.di.models.VideoApiService
 import com.readystatesoftware.chuck.ChuckInterceptor
 import dagger.Binds
@@ -27,6 +31,14 @@ abstract class NetworkModule {
     @Binds
     @Singleton
     abstract fun bindsHostStore(hostStore: HostStore): IHostStore
+
+    @Binds
+    @Singleton
+    abstract fun bindsDocumentParserFactory(factory: DocumentParserFactory): IDocumentParserFactory
+
+    @Binds
+    @Singleton
+    abstract fun bindsHeadesFactory(factory: HeadersFactory): IHeadersFactory
 
     companion object {
 
@@ -61,7 +73,8 @@ abstract class NetworkModule {
         @Provides
         @Named("headersInterceptor")
         @Singleton
-        fun provideHeadersInterceptor(): Interceptor = HeadersInterceptor()
+        fun provideHeadersInterceptor(hostStore: IHostStore): Interceptor =
+            HeadersInterceptor(hostStore)
 
         @Provides
         @Singleton
@@ -74,7 +87,7 @@ abstract class NetworkModule {
         @Singleton
         fun provideInterceptor(): Interceptor = if (BuildConfig.DEBUG)
             HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
+                level = HttpLoggingInterceptor.Level.HEADERS
             } else HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.NONE
         }

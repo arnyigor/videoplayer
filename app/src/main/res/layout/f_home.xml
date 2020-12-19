@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     tools:context=".presentation.home.HomeFragment">
 
-    <EditText
+    <androidx.appcompat.widget.AppCompatEditText
         android:id="@+id/edtSearch"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -38,7 +38,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/edtSearch" />
+        app:layout_constraintTop_toBottomOf="@+id/acsLinks" />
 
     <androidx.appcompat.widget.AppCompatSpinner
         android:id="@+id/acsLinks"
@@ -76,6 +76,5 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
-
 
 </androidx.constraintlayout.widget.ConstraintLayout>

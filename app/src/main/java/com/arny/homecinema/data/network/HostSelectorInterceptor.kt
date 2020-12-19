@@ -14,10 +14,13 @@ class HostSelectorInterceptor @Inject constructor(
         var request: Request = chain.request()
         val reqUrl: String = request.url.host
         val host = hostStore.host
+        val scheme = if (hostStore.baseUrl.contains("https")) "https" else "http"
         if (host != null && reqUrl != host) {
             val newUrl: HttpUrl = request.url.newBuilder()
+                .scheme(scheme)
                 .host(host)
                 .build()
+            newUrl.isHttps
             request = request.newBuilder()
                 .url(newUrl)
                 .build()

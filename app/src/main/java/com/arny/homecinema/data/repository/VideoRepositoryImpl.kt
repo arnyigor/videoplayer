@@ -2,9 +2,11 @@ package com.arny.homecinema.data.repository
 
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.models.toResult
+import com.arny.homecinema.data.network.HostStore
 import com.arny.homecinema.data.network.IHostStore
-import com.arny.homecinema.data.network.NetworkModule.Companion.VIDEO_BASE_URL
 import com.arny.homecinema.data.network.ResponseBodyConverter
+import com.arny.homecinema.data.network.docparser.IDocumentParserFactory
+import com.arny.homecinema.data.network.headers.IHeadersFactory
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -21,7 +23,9 @@ import javax.inject.Inject
 class VideoRepositoryImpl @Inject constructor(
     private val videoApiService: VideoApiService,
     private val responseBodyConverter: ResponseBodyConverter,
-    private val hostStore: IHostStore
+    private val hostStore: IHostStore,
+    private val parserFactory: IDocumentParserFactory,
+    private val headersFactory: IHeadersFactory,
 ) : VideoRepository {
 
     override fun searchMovie(search: String): Flow<MutableList<Movie>> {
@@ -29,11 +33,6 @@ class VideoRepositoryImpl @Inject constructor(
             emit(
                 videoApiService.searchVideo(
                     story = search,
-                    doAction = "search",
-                    subaction = "search",
-                    search_start = "0",
-                    full_search = "0",
-                    result_from = "1"
                 )
             )
         }.flowOn(Dispatchers.IO)
@@ -49,22 +48,23 @@ class VideoRepositoryImpl @Inject constructor(
             }
     }
 
-    private fun getSearchResultLinks(doc: Document) =
-        doc.getElementById("dle-content")
-            .select(".th-item a")
+    private fun getSearchResultLinks(doc: Document) = parserFactory.createDocumentParser(hostStore)
+        .getSearchResultLinks(doc)
 
     override fun getAllVideos(): Flow<DataResult<MainPageContent>> {
-//        hostStore.host = "test.ru"
-        return flow { emit(videoApiService.requestMainpage()) }
+        // TODO перед этим выбрать host
+        hostStore.host = HostStore.LORDFILM_AL_HOST
+        return flow {
+            emit(videoApiService.requestMainPage(hostStore.baseUrl, hostStore.mainPageHeaders))
+        }
             .map(::getMainPageContent)
             .flowOn(Dispatchers.IO)
     }
 
-    override fun getAllVideos(type: String?): Flow<DataResult<MainPageContent>> {
-//        hostStore.host = "test.ru"
+    override fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>> {
         return flow {
-            val url = VIDEO_BASE_URL + type?.substringAfter("/")
-            emit(videoApiService.requestMainpage(url))
+            val url = hostStore.baseUrl + type?.substringAfter("/")
+            emit(videoApiService.requestTyped(url))
         }
             .map(::getMainPageContent)
             .flowOn(Dispatchers.IO)
@@ -86,7 +86,7 @@ class VideoRepositoryImpl @Inject constructor(
 
     private fun getMainVideos(doc: Document): MutableList<Movie> {
         return mutableListOf<Movie>().apply {
-            for (link in getLinks(doc)) {
+            for (link in getMainPageLinks(doc)) {
                 add(getVideoFromLink(link))
             }
         }
@@ -95,24 +95,18 @@ class VideoRepositoryImpl @Inject constructor(
     private fun getVideoFromLink(link: Element) =
         Movie(link.text(), MovieType.CINEMA, link.attr("href"), getImgUrl(link))
 
-    private fun getLinks(doc: Document) = doc.body()
-        .select(".content").first()
-        .select(".sect").first()
-        .select(".sect-items").first()
-        .select(".th-item a")
-
+    private fun getMainPageLinks(doc: Document) = parserFactory
+        .createDocumentParser(hostStore)
+        .getMainPageLinks(doc)
 
     private fun getVideoSearchFromLink(link: Element) =
         VideoSearchLink(link.text(), link.attr("href"))
 
+    private fun getMenuItems(doc: Document) = parserFactory.createDocumentParser(hostStore)
+        .getMenuItems(doc)
 
-    private fun getMenuItems(doc: Document) = doc.body()
-        .getElementById("header")
-        .select(".hmenu li a")
-
-    private fun getImgUrl(link: Element) = link.select(".th-img").first()
-        .select("img").first().attr("src").toString()
-
+    private fun getImgUrl(link: Element) = parserFactory.createDocumentParser(hostStore)
+        .getImgUrl(link, hostStore.baseUrl)
 
     @FlowPreview
     override fun loadMovie(movie: Movie): Flow<DataResult<Movie>> {
@@ -161,30 +155,32 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getResultDoc(movie: Movie): Document {
-        val headers = mapOf("Referer" to "${VIDEO_BASE_URL}index.php")
+        val headers = headersFactory.createHeaders(hostStore).detailHeaders
         val body = videoApiService.getVideoDetails(movie.detailUrl, headers)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
         val iFrameUrl = getIframeUrl(detailsDoc)
-        val iFrameResponse = getUrlData(iFrameUrl)
+        val iFrameResponse = videoApiService.getUrlData(
+            iFrameUrl,
+            headersFactory.createHeaders(hostStore).iFrameHeaders
+        )
         val resultDoc = responseBodyConverter.convert(iFrameResponse)
         requireNotNull(resultDoc)
         return resultDoc
     }
 
     private fun getMovieType(movie: Movie): MovieType {
-        val groupValues = "^\\d+-\\b(\\w+)\\b-.*".toRegex()
-            .find(movie.detailUrl?.substringAfter(VIDEO_BASE_URL).toString())?.groupValues
-        return when (groupValues?.getOrNull(1)) {
-            "film" -> MovieType.CINEMA
-            "serial" -> MovieType.SERIAL
+        val link = movie.detailUrl?.substringAfter("//")?.substringAfter("/") ?: ""
+        return when {
+            link.contains("-film-") -> MovieType.CINEMA
+            link.contains("-serial-") -> MovieType.SERIAL
             else -> MovieType.CINEMA
         }
     }
 
     private fun getMovieId(movie: Movie): Int? {
         val groupValues = "^(\\d+)-\\b\\w+\\b-.*".toRegex()
-            .find(movie.detailUrl?.substringAfter(VIDEO_BASE_URL).toString())?.groupValues
+            .find(movie.detailUrl?.substringAfter(hostStore.baseUrl).toString())?.groupValues
         return groupValues?.getOrNull(1)?.toIntOrNull()
     }
 
@@ -213,23 +209,11 @@ class VideoRepositoryImpl @Inject constructor(
         return videoQualityMap
     }
 
-    private fun getHlsList(iframeDoc: Document): String {
-        val hlsList = iframeDoc
-            .getElementsByTag("script")
-            .dataNodes()
-            .map { it.wholeData }
-            .find { it.contains("hlsList") }
-        requireNotNull(hlsList)
-        return hlsList
-    }
+    private fun getHlsList(doc: Document): String =
+        parserFactory.createDocumentParser(hostStore).getHlsList(doc)
 
     private fun getIframeUrl(detailsDoc: Document): String? {
-        return detailsDoc.body()
-            .getElementById("dle-content")
-            .select(".fmain").first()
-            .select(".fplayer").first()
-            .select(".video-box").getOrNull(1)
-            ?.select("iframe")?.attr("src")
+        return parserFactory.createDocumentParser(hostStore).getIframeUrl(detailsDoc)
     }
 
     private fun parsingSerialData(hlsList: String): SerialData {
@@ -294,11 +278,4 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    private suspend fun getUrlData(url: String?) = videoApiService.getUrlData(
-        url,
-        mapOf(
-            "Accept-Encoding" to "gzip, deflate, br",
-            "Host" to "apilordfilms-s.multikland.net",
-        )
-    )
 }
