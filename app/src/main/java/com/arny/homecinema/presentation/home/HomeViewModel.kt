@@ -19,6 +19,7 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
     val loading = mutableLiveData(false)
     val result = mutableLiveData<DataResult<MainPageContent>>()
+    val hostsData = mutableLiveData<DataResult<Pair<Array<String>, Int>>>()
 
     init {
         restartLoading()
@@ -79,6 +80,25 @@ class HomeViewModel @Inject constructor(
                 }
                 .collect {
                     result.value = it
+                }
+        }
+    }
+
+    fun selectHost(source: String) {
+        viewModelScope.launch {
+            videoRepository.setHost(source)
+            restartLoading()
+        }
+    }
+
+    fun requestHosts() {
+        viewModelScope.launch {
+            videoRepository.getAllHosts()
+                .catch {
+                    hostsData.value = DataResult.Error(it)
+                }
+                .collect {
+                    hostsData.value = it
                 }
         }
     }

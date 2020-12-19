@@ -9,6 +9,7 @@ class DocumentParserFactory @Inject constructor() : IDocumentParserFactory {
         return when (hostStore.host) {
             HostStore.LORDFILM_AL_HOST -> AlLordFilmDocumentParser()
             HostStore.LORDFILM_20_ZONE_HOST -> LordFilm14ZoneDocumentParser(hostStore.host)
+            HostStore.LORDFILM_19DEC_HOST -> LordFilm19DecDocumentParser(hostStore.host)
             else -> AlLordFilmDocumentParser()
         }
     }

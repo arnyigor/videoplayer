@@ -5,4 +5,5 @@
     <string name="film_not_found">К сожалению ничего не найдено</string>
     <string name="home_search">Поиск</string>
     <string name="video_url_not_found">URL видео не найден</string>
+    <string name="home_choose_source">Выбрать источник</string>
 </resources>

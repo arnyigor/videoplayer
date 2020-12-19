@@ -9,6 +9,7 @@ class HeadersFactory @Inject constructor() : IHeadersFactory {
         return when (hostStore.host) {
             HostStore.LORDFILM_AL_HOST -> AlRequestHeaders(hostStore)
             HostStore.LORDFILM_20_ZONE_HOST -> Lord14RequestHeaders()
+            HostStore.LORDFILM_19DEC_HOST -> Lord19DecRequestHeaders(hostStore)
             else -> AlRequestHeaders(hostStore)
         }
     }

@@ -2,7 +2,6 @@ package com.arny.homecinema.data.repository
 
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.models.toResult
-import com.arny.homecinema.data.network.HostStore
 import com.arny.homecinema.data.network.IHostStore
 import com.arny.homecinema.data.network.ResponseBodyConverter
 import com.arny.homecinema.data.network.docparser.IDocumentParserFactory
@@ -18,7 +17,6 @@ import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import javax.inject.Inject
-
 
 class VideoRepositoryImpl @Inject constructor(
     private val videoApiService: VideoApiService,
@@ -52,8 +50,6 @@ class VideoRepositoryImpl @Inject constructor(
         .getSearchResultLinks(doc)
 
     override fun getAllVideos(): Flow<DataResult<MainPageContent>> {
-        // TODO перед этим выбрать host
-        hostStore.host = HostStore.LORDFILM_AL_HOST
         return flow {
             emit(videoApiService.requestMainPage(hostStore.baseUrl, hostStore.mainPageHeaders))
         }
@@ -114,6 +110,23 @@ class VideoRepositoryImpl @Inject constructor(
             emit(getFullMovie(movie))
         }.flowOn(Dispatchers.IO)
             .map { it.toResult() }
+    }
+
+    override fun setHost(source: String) {
+        hostStore.host = source
+    }
+
+    override fun getAllHosts(): Flow<DataResult<Pair<Array<String>, Int>>> {
+        return flow {
+            emit(getHostsData())
+        }.flowOn(Dispatchers.IO)
+            .map { it.toResult() }
+    }
+
+    private fun getHostsData(): Pair<Array<String>, Int> {
+        val current = hostStore.host ?: ""
+        val toTypedArray = hostStore.allHosts.toTypedArray()
+        return toTypedArray to toTypedArray.indexOf(current)
     }
 
     private suspend fun getFullMovie(movie: Movie): Movie {

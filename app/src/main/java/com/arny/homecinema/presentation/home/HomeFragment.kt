@@ -2,10 +2,9 @@ package com.arny.homecinema.presentation.home
 
 import android.content.Context
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.widget.AdapterView
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.navigation.findNavController
@@ -21,6 +20,7 @@ import com.xwray.groupie.GroupieViewHolder
 import dagger.android.support.AndroidSupportInjection
 import javax.inject.Inject
 import kotlin.properties.Delegates
+
 
 class HomeFragment : Fragment() {
 
@@ -49,6 +49,17 @@ class HomeFragment : Fragment() {
             pbLoading.isVisible = loading
             edtSearch.isVisible = !loading
             acsLinks.isVisible = !loading
+        })
+        vm.hostsData.observe(this@HomeFragment, { hostsResult ->
+            when (hostsResult) {
+                is DataResult.Success -> {
+                    val (sources, current) = hostsResult.data
+                    println("hosts data:${sources.toList()}, current:$current")
+                    showAlertDialog(sources, current)
+                }
+                is DataResult.Error -> {
+                }
+            }
         })
         swiperefresh.setOnRefreshListener {
             swiperefresh.isRefreshing = false
@@ -124,10 +135,43 @@ class HomeFragment : Fragment() {
         super.onAttach(context)
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setHasOptionsMenu(true)
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.home_menu, menu)
+        super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_action_choose_source -> {
+                vm.requestHosts()
+                true
+            }
+            else -> false
+        }
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         return inflater.inflate(R.layout.f_home, container, false)
+    }
+
+    private fun showAlertDialog(sources: Array<String>, checkedItem: Int) {
+        var alert: AlertDialog? = null
+        val alertDialog: AlertDialog.Builder = AlertDialog.Builder(requireContext())
+        alertDialog.setTitle(getString(R.string.home_choose_source))
+        alertDialog.setSingleChoiceItems(sources, checkedItem) { _, which ->
+            vm.selectHost(sources[which])
+            alert?.dismiss()
+        }
+        alert = alertDialog.create()
+        alert.setCanceledOnTouchOutside(false)
+        alert.show()
     }
 }
