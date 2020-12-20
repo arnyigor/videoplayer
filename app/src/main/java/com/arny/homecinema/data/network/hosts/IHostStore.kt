@@ -1,4 +1,4 @@
-package com.arny.homecinema.data.network
+package com.arny.homecinema.data.network.hosts
 
 interface IHostStore {
     var host: String?

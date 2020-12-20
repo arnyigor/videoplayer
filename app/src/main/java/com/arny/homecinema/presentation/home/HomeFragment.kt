@@ -45,12 +45,12 @@ class HomeFragment : Fragment() {
 
     private fun initBinding(binding: FHomeBinding) = with(binding) {
         initList(binding)
-        vm.loading.observe(this@HomeFragment, { loading ->
+        vm.loading.observe(viewLifecycleOwner, { loading ->
             pbLoading.isVisible = loading
             edtSearch.isVisible = !loading
             acsLinks.isVisible = !loading
         })
-        vm.hostsData.observe(this@HomeFragment, { hostsResult ->
+        vm.hostsData.observe(viewLifecycleOwner, { hostsResult ->
             when (hostsResult) {
                 is DataResult.Success -> {
                     val (sources, current) = hostsResult.data
@@ -99,7 +99,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun viewResult() {
-        vm.result.observe(this@HomeFragment, { result ->
+        vm.result.observe(viewLifecycleOwner, { result ->
             when (result) {
                 is DataResult.Success -> {
                     val content = result.data

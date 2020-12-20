@@ -63,6 +63,10 @@ ext {
         implementation "com.github.terrakok:cicerone:$version"
     }}
 
+    jodaTime = { version = '2.10.8' -> Alias {
+        implementation "joda-time:joda-time:$version"
+    }}
+
     firebaseDatabase = { version = '19.2.1' -> Alias {
         implementation "com.google.firebase:firebase-database-ktx:$version"
     }}

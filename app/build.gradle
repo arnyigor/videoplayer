@@ -23,6 +23,7 @@ dependencies {
     navigation()
     groupie()
     retrofit()
+    jodaTime()
     chuck()
     appcompat()
     constraintlayout()

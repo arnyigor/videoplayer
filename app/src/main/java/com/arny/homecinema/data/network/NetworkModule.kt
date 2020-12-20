@@ -2,11 +2,16 @@ package com.arny.homecinema.data.network
 
 import android.content.Context
 import com.arny.homecinema.BuildConfig
-import com.arny.homecinema.data.network.HostStore.HOSTS.LORDFILM_AL_HOST
-import com.arny.homecinema.data.network.docparser.DocumentParserFactory
-import com.arny.homecinema.data.network.docparser.IDocumentParserFactory
-import com.arny.homecinema.data.network.headers.HeadersFactory
-import com.arny.homecinema.data.network.headers.IHeadersFactory
+import com.arny.homecinema.data.network.hosts.HostStoreImpl
+import com.arny.homecinema.data.network.hosts.HostStoreImpl.HOSTS.LORDFILM_KINO_I_HOST
+import com.arny.homecinema.data.network.hosts.IHostStore
+import com.arny.homecinema.data.network.hosts.toBaseUrl
+import com.arny.homecinema.data.network.interceptors.HeadersInterceptor
+import com.arny.homecinema.data.network.interceptors.HostSelectorInterceptor
+import com.arny.homecinema.data.network.response.ResponseBodyConverter
+import com.arny.homecinema.data.network.response.ResponseBodyConverterImpl
+import com.arny.homecinema.data.network.sources.IVideoSourceFactory
+import com.arny.homecinema.data.network.sources.VideoSourceFactory
 import com.arny.homecinema.di.models.VideoApiService
 import com.readystatesoftware.chuck.ChuckInterceptor
 import dagger.Binds
@@ -30,15 +35,11 @@ abstract class NetworkModule {
 
     @Binds
     @Singleton
-    abstract fun bindsHostStore(hostStore: HostStore): IHostStore
+    abstract fun bindsHostStore(hostStoreImpl: HostStoreImpl): IHostStore
 
     @Binds
     @Singleton
-    abstract fun bindsDocumentParserFactory(factory: DocumentParserFactory): IDocumentParserFactory
-
-    @Binds
-    @Singleton
-    abstract fun bindsHeadesFactory(factory: HeadersFactory): IHeadersFactory
+    abstract fun bindsDocumentParserFactory(factory: VideoSourceFactory): IVideoSourceFactory
 
     companion object {
 
@@ -46,7 +47,7 @@ abstract class NetworkModule {
         @Singleton
         fun provideRetrofit(client: OkHttpClient): Retrofit {
             return Retrofit.Builder()
-                .baseUrl(LORDFILM_AL_HOST.toBaseUrl())
+                .baseUrl(LORDFILM_KINO_I_HOST.toBaseUrl())
                 .client(client)
                 .build()
         }

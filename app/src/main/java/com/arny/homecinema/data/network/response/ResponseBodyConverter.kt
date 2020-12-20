@@ -1,4 +1,4 @@
-package com.arny.homecinema.data.network
+package com.arny.homecinema.data.network.response
 
 import okhttp3.ResponseBody
 import org.jsoup.nodes.Document

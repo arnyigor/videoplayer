@@ -7,6 +7,7 @@ import com.arny.homecinema.data.models.toResult
 import com.arny.homecinema.data.repository.VideoRepository
 import com.arny.homecinema.di.models.MainPageContent
 import com.arny.homecinema.di.models.VideoSearchLink
+import com.arny.homecinema.presentation.utils.SingleLiveEvent
 import com.arny.homecinema.presentation.utils.mutableLiveData
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
@@ -18,8 +19,8 @@ class HomeViewModel @Inject constructor(
     private val videoRepository: VideoRepository,
 ) : ViewModel() {
     val loading = mutableLiveData(false)
-    val result = mutableLiveData<DataResult<MainPageContent>>()
-    val hostsData = mutableLiveData<DataResult<Pair<Array<String>, Int>>>()
+    val result = SingleLiveEvent<DataResult<MainPageContent>>()
+    val hostsData = SingleLiveEvent<DataResult<Pair<Array<String>, Int>>>()
 
     init {
         restartLoading()

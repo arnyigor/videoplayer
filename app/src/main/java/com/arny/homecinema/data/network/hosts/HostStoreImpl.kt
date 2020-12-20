@@ -1,8 +1,8 @@
-package com.arny.homecinema.data.network
+package com.arny.homecinema.data.network.hosts
 
 import javax.inject.Inject
 
-class HostStore @Inject constructor() : IHostStore {
+class HostStoreImpl @Inject constructor() : IHostStore {
     @Volatile
     override var host: String? = null
     override val baseUrl: String
@@ -22,27 +22,20 @@ class HostStore @Inject constructor() : IHostStore {
     internal companion object HOSTS {
         const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
         const val LORDFILM_AL_BASE_URL = "http://$LORDFILM_AL_HOST/"
-        const val LORDFILM_14_ZONE_HOST = "lord-filmds14s.lordfilm1.zone"
-        const val LORDFILM_14_ZONE_BASE_URL = "https://$LORDFILM_14_ZONE_HOST/"
-        const val LORDFILM_20_ZONE_HOST = "lord-filmds20s.lordfilm1.zone"
-        const val LORDFILM_20_ZONE_BASE_URL = "https://$LORDFILM_20_ZONE_HOST/"
-        const val LORDFILM_19DEC_HOST = "19dec.lordfilma.net"
-        const val LORDFILM_19DEC_BASE_URL = "https://$LORDFILM_19DEC_HOST/"
+        const val LORDFILM_KINO_I_HOST = "kino-i.online"
+        const val LORDFILM_KINO_I_BASE_URL = "https://$LORDFILM_KINO_I_HOST/"
     }
 
     override val allHosts: List<String>
         get() = listOf(
-            LORDFILM_AL_HOST,
-            LORDFILM_19DEC_HOST
+            LORDFILM_KINO_I_HOST
         )
 }
 
 internal fun String?.toBaseUrl(): String {
     return when (this) {
-        HostStore.LORDFILM_AL_HOST -> HostStore.LORDFILM_AL_BASE_URL
-        HostStore.LORDFILM_20_ZONE_HOST -> HostStore.LORDFILM_20_ZONE_BASE_URL
-        HostStore.LORDFILM_14_ZONE_HOST -> HostStore.LORDFILM_14_ZONE_BASE_URL
-        HostStore.LORDFILM_19DEC_HOST -> HostStore.LORDFILM_19DEC_BASE_URL
-        else -> HostStore.LORDFILM_AL_BASE_URL
+        HostStoreImpl.LORDFILM_AL_HOST -> HostStoreImpl.LORDFILM_AL_BASE_URL
+        HostStoreImpl.LORDFILM_KINO_I_HOST -> HostStoreImpl.LORDFILM_KINO_I_BASE_URL
+        else -> HostStoreImpl.LORDFILM_AL_BASE_URL
     }
 }

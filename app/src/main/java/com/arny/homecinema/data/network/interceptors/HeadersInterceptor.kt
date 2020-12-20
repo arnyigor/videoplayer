@@ -1,5 +1,6 @@
-package com.arny.homecinema.data.network
+package com.arny.homecinema.data.network.interceptors
 
+import com.arny.homecinema.data.network.hosts.IHostStore
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
