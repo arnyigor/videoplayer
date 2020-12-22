@@ -1,14 +1,16 @@
 package com.arny.homecinema.data.network.sources
 
+import android.util.Log
+import com.arny.homecinema.R
+import com.arny.homecinema.data.models.DataThrowable
 import com.arny.homecinema.data.network.hosts.IHostStore
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
 import com.arny.homecinema.di.models.*
-import org.joda.time.DateTime
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 
-class KinoIOnlineVideoSource(
+class Lord23sFilmVideoSource(
     private val hostStore: IHostStore,
     private val videoApiService: VideoApiService,
     private val responseBodyConverter: ResponseBodyConverter
@@ -17,14 +19,7 @@ class KinoIOnlineVideoSource(
     override val detailHeaders: Map<String, String>
         get() = mapOf(
             "Referer" to hostStore.baseUrl
-        )
-
-    override fun getMainPageLinks(doc: Document): Elements =
-        doc.body()
-            .getElementById("cols")
-            .getElementById("grid")
-            .getElementById("dle-content")
-            .select(".short")
+        ) + hostStore.baseHeaders
 
     override fun getSearchFields(search: String): Map<String, String> {
         return mapOf(
@@ -34,44 +29,46 @@ class KinoIOnlineVideoSource(
         )
     }
 
-    override val searchUrl: String
-        get() = hostStore.baseUrl
-
     override val searchHeaders: Map<String, String?>
         get() = mapOf(
             "Referer" to hostStore.baseUrl,
             "Origin" to hostStore.baseUrl.substringBeforeLast("/"),
         )
 
+    override val searchUrl: String
+        get() = hostStore.baseUrl
+
+    override fun getMainPageLinks(doc: Document): Elements =
+        doc.body()
+            .select(".content").first()
+            .select(".sect").first()
+            .select(".sect-items").first()
+            .select(".th-item a")
+
     override fun getVideoFromLink(link: Element): Movie {
-        val short = link.select(".short-text")
-        val shortImg = link.select(".short-img").first()
-        val linkElem = short.first().select("a").first()
-        return Movie(
-            linkElem.text(),
-            MovieType.CINEMA,
-            linkElem.attr("href"),
-            shortImg.select("img").first().attr("src").toString()
-        )
+        val title = link.select(".th-desc").first().select(".th-title").first().text()
+        return Movie(title, MovieType.CINEMA, link.attr("href"), getImgUrl(link))
     }
+
+    private fun getImgUrl(link: Element): String =
+        hostStore.baseUrl + link.select(".th-img img").first().attr("src").toString()
+            .substringAfter("/")
 
     override fun getMenuItems(doc: Document): Elements =
         doc.body().getElementById("header").select(".hmenu li a")
 
     override fun getSearchResultLinks(doc: Document): Elements =
-        doc.body()
-            .getElementById("cols")
-            .select(".main").first()
-            .getElementById("dle-content")
-            .select(".short")
+        doc.getElementById("dle-content").select(".th-item a")
 
     override fun getIframeUrl(detailsDoc: Document): String? =
         detailsDoc.body()
             .getElementById("dle-content")
             .select(".fmain").first()
             .select(".fplayer").first()
-            .select(".video-box").getOrNull(1)
-            ?.select("iframe")?.attr("src")
+            .select(".video-box")
+            .select("iframe[src]")
+            .map { it.attr("src") }
+            .first { it.contains("embed") }
 
     override fun getHlsList(doc: Document): String {
         val hlsList = doc
@@ -84,19 +81,27 @@ class KinoIOnlineVideoSource(
     }
 
     override suspend fun getResultDoc(movie: Movie): Document {
-        val detailUrl = movie.detailUrl
-        val extent = detailUrl?.substringAfterLast(".")
-        val baseUrl = detailUrl?.substringBeforeLast(".")
-        val time = DateTime.now().toString("-yyyy-MM-dd-HH")
-        val url = "#$baseUrl.$time.$extent"
-        val body = videoApiService.getVideoDetails(url, detailHeaders)
+        val body = videoApiService.getVideoDetails(movie.detailUrl, detailHeaders)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
         val iFrameUrl = getIframeUrl(detailsDoc)
-        val iFrameResponse = videoApiService.getUrlData(
-            iFrameUrl,
-            hostStore.baseHeaders
+            ?: throw DataThrowable(R.string.video_link_not_found)
+        Log.d(Lord23sFilmVideoSource::class.java.simpleName, "getResultDoc: iFrameUrl:$iFrameUrl")
+        val headerHost = "api.placehere.link"
+        val headers = mapOf(
+            "Host" to headerHost,
+            "Referer" to "https://api1589486608.placehere.link/",
+        ) + hostStore.baseHeaders
+        Log.d(Lord23sFilmVideoSource::class.java.simpleName, "getResultDoc: headerHost:$headerHost")
+        val newIframeUrl = iFrameUrl.replace(
+            "(?<=//)([\\s\\S]+?)(?=/)".toRegex(),
+            headerHost
+        ) + "?host=${hostStore.host}"
+        Log.d(
+            Lord23sFilmVideoSource::class.java.simpleName,
+            "getResultDoc: newIframeUrl:$newIframeUrl"
         )
+        val iFrameResponse = videoApiService.getUrlData(newIframeUrl, headers)
         val resultDoc = responseBodyConverter.convert(iFrameResponse)
         requireNotNull(resultDoc)
         return resultDoc

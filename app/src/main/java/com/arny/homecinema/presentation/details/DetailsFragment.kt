@@ -8,19 +8,20 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.navArgs
 import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
+import com.arny.homecinema.data.models.DataThrowable
 import com.arny.homecinema.databinding.DetailsFragmentBinding
 import com.arny.homecinema.di.models.Movie
 import com.arny.homecinema.di.models.MovieType
 import com.arny.homecinema.di.models.Video
 import com.arny.homecinema.presentation.utils.hideSystemBar
 import com.arny.homecinema.presentation.utils.showSystemBar
+import com.arny.homecinema.presentation.utils.toast
 import com.arny.homecinema.presentation.utils.viewBinding
 import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.MediaItem
@@ -117,13 +118,12 @@ class DetailsFragment : Fragment() {
                 when (dataResult) {
                     is DataResult.Success -> onMovieLoaded(dataResult)
                     is DataResult.Error -> {
-                        val throwable = dataResult.throwable
-                        throwable.printStackTrace()
-                        Toast.makeText(
-                            requireContext(),
-                            throwable.message,
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        toast(
+                            when (val throwable = dataResult.throwable) {
+                                is DataThrowable -> getString(throwable.errorRes)
+                                else -> throwable.message
+                            }
+                        )
                     }
                 }
             })

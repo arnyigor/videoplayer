@@ -23,7 +23,7 @@ class DetailsViewModel @Inject constructor(
             if (loading.value == true) return@launch
             if (data.value == null) {
                 loading.value = true
-                videoRepository.loadMovie(movie)
+                videoRepository.loadMovie(movie, true)
                     .onCompletion { loading.value = false }
                     .catch { data.value = DataResult.Error(it) }
                     .collect { res ->

@@ -23,6 +23,11 @@ class VideoSourceFactory @Inject constructor() : IVideoSourceFactory {
                 videoApiService,
                 responseBodyConverter
             )
+            HostStoreImpl.LORDFILM_23s_HOST -> Lord23sFilmVideoSource(
+                hostStore,
+                videoApiService,
+                responseBodyConverter
+            )
             else -> AlLordFilmVideoSource(
                 hostStore,
                 videoApiService,

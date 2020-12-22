@@ -5,5 +5,5 @@ interface IHostStore {
     val baseUrl: String
     val mainPageHeaders: Map<String, String?>?
     val baseHeaders: Map<String, String>
-    val allHosts: List<String>
+    val availableHosts: List<String>
 }

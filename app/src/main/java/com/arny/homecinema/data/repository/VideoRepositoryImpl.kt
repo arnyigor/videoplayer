@@ -22,19 +22,19 @@ class VideoRepositoryImpl @Inject constructor(
     private val hostStore: IHostStore,
     private val sourceFactory: IVideoSourceFactory,
 ) : VideoRepository {
+    private val moviesStore = MoviesStore
 
     override fun searchMovie(search: String): Flow<MutableList<Movie>> {
         return flow {
-            emit(
-                videoApiService.searchVideo(
-                    story = search,
-                )
-            )
+            emit(videoApiService.searchVideo(
+                getSource().searchUrl,
+                getSource().getSearchFields(search),
+                getSource().searchHeaders,
+            ))
         }.flowOn(Dispatchers.IO)
             .map { body ->
                 val doc = responseBodyConverter.convert(body)
                 requireNotNull(doc)
-                // TODO: 15.12.2020 добавить тип сериал или фильм
                 mutableListOf<Movie>().apply {
                     for (link in getSearchResultLinks(doc)) {
                         add(getVideoFromLink(link))
@@ -71,12 +71,13 @@ class VideoRepositoryImpl @Inject constructor(
     private fun getMainPageContent(body: ResponseBody): DataResult<MainPageContent> {
         val doc = responseBodyConverter.convert(body)
         requireNotNull(doc)
-        return MainPageContent(getMainVideos(doc), null).toResult()
+        return MainPageContent(getMainVideos(doc), getMenuLinks()).toResult()
     }
 
-    private fun getSearchLInks(doc: Document): MutableList<VideoSearchLink> {
+    private fun getMenuLinks(): MutableList<VideoSearchLink> {
+        val menuItems = emptyList<Element>()//getSource().getMenuItems(doc)
         return mutableListOf<VideoSearchLink>().apply {
-            for (link in getSource().getMenuItems(doc)) {
+            for (link in menuItems) {
                 add(getVideoSearchFromLink(link))
             }
         }
@@ -97,9 +98,18 @@ class VideoRepositoryImpl @Inject constructor(
     private fun getVideoSearchFromLink(link: Element) =
         VideoSearchLink(link.text(), link.attr("href"))
 
-    override fun loadMovie(movie: Movie): Flow<DataResult<Movie>> {
+    override fun loadMovie(movie: Movie, cache: Boolean): Flow<DataResult<Movie>> {
         return flow {
-            emit(getFullMovie(movie))
+            val movieInStore = moviesStore.movies.find { it.detailUrl == movie.detailUrl }
+            if (movieInStore != null && cache) {
+                emit(movieInStore)
+            } else {
+                val value = getFullMovie(movie)
+                if (cache) {
+                    moviesStore.movies.add(value)
+                }
+                emit(value)
+            }
         }.flowOn(Dispatchers.IO)
             .map { it.toResult() }
     }
@@ -117,7 +127,7 @@ class VideoRepositoryImpl @Inject constructor(
 
     private fun getHostsData(): Pair<Array<String>, Int> {
         val current = hostStore.host ?: ""
-        val toTypedArray = hostStore.allHosts.toTypedArray()
+        val toTypedArray = hostStore.availableHosts.toTypedArray()
         return toTypedArray to toTypedArray.indexOf(current)
     }
 

@@ -7,7 +7,8 @@ import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 
 interface IVideoSource {
-    val iFrameHeaders: Map<String, String>
+    val searchHeaders: Map<String, String?>
+    val searchUrl: String
     val detailHeaders: Map<String, String>
     fun getMainPageLinks(doc: Document): Elements
     fun getMenuItems(doc: Document): Elements
@@ -18,4 +19,5 @@ interface IVideoSource {
     fun getQualityMap(hlsList: String): HashMap<String, String>
     fun parsingSerialData(hlsList: String): SerialData
     fun getVideoFromLink(link: Element): Movie
+    fun getSearchFields(search: String): Map<String, String>
 }

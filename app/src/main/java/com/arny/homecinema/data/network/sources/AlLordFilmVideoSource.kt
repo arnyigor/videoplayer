@@ -12,15 +12,33 @@ class AlLordFilmVideoSource(
     private val videoApiService: VideoApiService,
     private val responseBodyConverter: ResponseBodyConverter
 ) : IVideoSource {
-    override val iFrameHeaders: Map<String, String>
-        get() = mapOf(
-            "Host" to "apilordfilms-s.multikland.net",
-        )
 
     override val detailHeaders: Map<String, String>
         get() = mapOf(
-            "Referer" to "${hostStore.baseUrl}index.php"
+            "Referer" to hostStore.baseUrl,
+            "Host" to (hostStore.host ?: ""),
         )
+
+    override val searchHeaders: Map<String, String?>
+        get() = mapOf(
+            "Host" to hostStore.host,
+            "Referer" to hostStore.baseUrl,
+            "Origin" to hostStore.baseUrl.substringBeforeLast("/"),
+        )
+
+    override val searchUrl: String
+        get() = hostStore.baseUrl
+
+    override fun getSearchFields(search: String): Map<String, String> {
+        return mapOf(
+            "do" to "search",
+            "subaction" to "search",
+            "story" to search,
+            "search_start" to "0",
+            "full_search" to "0",
+            "result_from" to "1",
+        )
+    }
 
     override fun getMainPageLinks(doc: Document): Elements =
         doc.body()
@@ -65,9 +83,12 @@ class AlLordFilmVideoSource(
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
         val iFrameUrl = getIframeUrl(detailsDoc)
+        val headers = mapOf(
+            "Host" to "apilordfilms-s.multikland.net",
+        ) + hostStore.baseHeaders
         val iFrameResponse = videoApiService.getUrlData(
             iFrameUrl,
-            iFrameHeaders
+            headers
         )
         val resultDoc = responseBodyConverter.convert(iFrameResponse)
         requireNotNull(resultDoc)

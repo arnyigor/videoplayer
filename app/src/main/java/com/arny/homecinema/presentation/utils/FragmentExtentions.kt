@@ -63,6 +63,16 @@ fun Fragment.toast(@StringRes res: Int) {
     ).show()
 }
 
+fun Fragment.toast(text: String?) {
+    text?.let {
+        Toast.makeText(
+            requireContext(),
+            it,
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+}
+
 /**
  * Runs a FragmentTransaction, then calls commit().
  */

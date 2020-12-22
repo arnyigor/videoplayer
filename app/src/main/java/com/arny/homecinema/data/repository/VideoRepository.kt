@@ -9,7 +9,7 @@ interface VideoRepository {
     fun searchMovie(search: String): Flow<MutableList<Movie>>
     fun getAllVideos(): Flow<DataResult<MainPageContent>>
     fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>>
-    fun loadMovie(movie: Movie): Flow<DataResult<Movie>>
+    fun loadMovie(movie: Movie, cache: Boolean): Flow<DataResult<Movie>>
     fun setHost(source: String)
     fun getAllHosts(): Flow<DataResult<Pair<Array<String>, Int>>>
 }

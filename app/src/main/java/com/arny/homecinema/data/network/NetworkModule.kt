@@ -3,9 +3,7 @@ package com.arny.homecinema.data.network
 import android.content.Context
 import com.arny.homecinema.BuildConfig
 import com.arny.homecinema.data.network.hosts.HostStoreImpl
-import com.arny.homecinema.data.network.hosts.HostStoreImpl.HOSTS.LORDFILM_KINO_I_HOST
 import com.arny.homecinema.data.network.hosts.IHostStore
-import com.arny.homecinema.data.network.hosts.toBaseUrl
 import com.arny.homecinema.data.network.interceptors.HeadersInterceptor
 import com.arny.homecinema.data.network.interceptors.HostSelectorInterceptor
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
@@ -47,7 +45,7 @@ abstract class NetworkModule {
         @Singleton
         fun provideRetrofit(client: OkHttpClient): Retrofit {
             return Retrofit.Builder()
-                .baseUrl(LORDFILM_KINO_I_HOST.toBaseUrl())
+                .baseUrl("http://localhost/")
                 .client(client)
                 .build()
         }
@@ -57,14 +55,12 @@ abstract class NetworkModule {
         fun providesOkHttpClient(
             context: Context,
             @Named("debugInterceptor") debugInterceptor: Interceptor,
-            @Named("headersInterceptor") headersInterceptor: Interceptor,
-            @Named("hostInterceptor") hostInterceptor: Interceptor
+            @Named("headersInterceptor") headersInterceptor: Interceptor
         ): OkHttpClient {
             return OkHttpClient.Builder().writeTimeout(3, TimeUnit.MINUTES)
                 .readTimeout(3, TimeUnit.MINUTES)
                 .callTimeout(3, TimeUnit.MINUTES)
                 .addInterceptor(ChuckInterceptor(context))
-                .addInterceptor(hostInterceptor)
                 .addInterceptor(debugInterceptor)
                 .addInterceptor(headersInterceptor)
                 .cache(null)
