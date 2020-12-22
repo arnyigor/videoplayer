@@ -24,13 +24,18 @@ class VideoRepositoryImpl @Inject constructor(
 ) : VideoRepository {
     private val moviesStore = MoviesStore
 
+    @Volatile
+    private var currentMovie: Movie? = null
+
     override fun searchMovie(search: String): Flow<MutableList<Movie>> {
         return flow {
-            emit(videoApiService.searchVideo(
-                getSource().searchUrl,
-                getSource().getSearchFields(search),
-                getSource().searchHeaders,
-            ))
+            emit(
+                videoApiService.searchVideo(
+                    getSource().searchUrl,
+                    getSource().getSearchFields(search),
+                    getSource().searchHeaders,
+                )
+            )
         }.flowOn(Dispatchers.IO)
             .map { body ->
                 val doc = responseBodyConverter.convert(body)
@@ -108,6 +113,7 @@ class VideoRepositoryImpl @Inject constructor(
                 if (cache) {
                     moviesStore.movies.add(value)
                 }
+                currentMovie = value
                 emit(value)
             }
         }.flowOn(Dispatchers.IO)
@@ -167,6 +173,24 @@ class VideoRepositoryImpl @Inject constructor(
                 )
             }
         }
+    }
+
+    override fun onSeasonChanged(position: Int): Flow<DataResult<List<SerialEpisode>>> {
+        return flow {
+            val serialSeason = currentMovie?.serialData?.seasons?.getOrNull(position)
+            val value = serialSeason?.episodes ?: emptyList()
+            moviesStore.currentSeason = serialSeason
+            moviesStore.currentEpisode = value.firstOrNull()
+            emit(value)
+        }.flowOn(Dispatchers.IO)
+            .map { it.toResult() }
+    }
+
+    override fun onEpisodeChanged(position: Int): Flow<DataResult<SerialEpisode?>> {
+        return flow {
+            emit(moviesStore.currentSeason?.episodes?.getOrNull(position))
+        }.flowOn(Dispatchers.IO)
+            .map { it.toResult() }
     }
 
     private fun getMovieType(movie: Movie): MovieType {

@@ -8,6 +8,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -18,6 +19,7 @@ import com.arny.homecinema.data.models.DataThrowable
 import com.arny.homecinema.databinding.DetailsFragmentBinding
 import com.arny.homecinema.di.models.Movie
 import com.arny.homecinema.di.models.MovieType
+import com.arny.homecinema.di.models.SerialEpisode
 import com.arny.homecinema.di.models.Video
 import com.arny.homecinema.presentation.utils.hideSystemBar
 import com.arny.homecinema.presentation.utils.showSystemBar
@@ -41,17 +43,17 @@ import kotlinx.coroutines.launch
 import java.io.IOException
 import javax.inject.Inject
 
-
 class DetailsFragment : Fragment() {
 
     private var trackSelector: DefaultTrackSelector? = null
+    private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
+    private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var currentVideo: Video? = null
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
 
     companion object {
         private const val KEY_VIDEO = "KEY_VIDEO"
-        fun getInstance() = DetailsFragment()
     }
 
     @Inject
@@ -98,6 +100,36 @@ class DetailsFragment : Fragment() {
             }
         }
 
+        override fun onPlaybackStateChanged(state: Int) {
+            when (state) {
+                Player.STATE_IDLE -> {
+                    Log.i(
+                        DetailsFragment::class.java.simpleName,
+                        "onPlaybackStateChanged: STATE_IDLE"
+                    )
+                }
+
+                Player.STATE_BUFFERING -> {
+                    Log.i(
+                        DetailsFragment::class.java.simpleName,
+                        "onPlaybackStateChanged: STATE_BUFFERING"
+                    )
+                }
+                Player.STATE_ENDED -> {
+                    Log.i(
+                        DetailsFragment::class.java.simpleName,
+                        "onPlaybackStateChanged: STATE_ENDED"
+                    )
+                }
+                Player.STATE_READY -> {
+                    Log.i(
+                        DetailsFragment::class.java.simpleName,
+                        "onPlaybackStateChanged: STATE_READY"
+                    )
+                }
+            }
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             val window = requireActivity().window
             Log.d(DetailsFragment::class.java.simpleName, "onPlayerError: isPlaying:$isPlaying")
@@ -112,27 +144,107 @@ class DetailsFragment : Fragment() {
     private fun initBinding(binding: DetailsFragmentBinding) {
         return with(binding) {
             val movie = args.movie
+            initTrackAdapters()
             vm.loadVideo(movie)
             requireActivity().title = movie.title
             vm.data.observe(this@DetailsFragment, { dataResult ->
                 when (dataResult) {
-                    is DataResult.Success -> onMovieLoaded(dataResult)
-                    is DataResult.Error -> {
-                        toast(
-                            when (val throwable = dataResult.throwable) {
-                                is DataThrowable -> getString(throwable.errorRes)
-                                else -> throwable.message
-                            }
-                        )
+                    is DataResult.Success -> onMovieLoaded(dataResult.data)
+                    is DataResult.Error -> toastError(dataResult.throwable)
+                }
+            })
+
+            vm.episodes.observe(this@DetailsFragment, { dataResult ->
+                when (dataResult) {
+                    is DataResult.Success -> {
+                        dataResult.data.firstOrNull()?.let { episode ->
+                            releasePlayer()
+                            onMovieLoaded(
+                                Movie(
+                                    episode.title ?: "",
+                                    MovieType.CINEMA,
+                                    video = getVideoFromSerial(episode)
+                                )
+                            )
+                        }
                     }
+                    is DataResult.Error -> toastError(dataResult.throwable)
+                }
+            })
+
+            vm.episode.observe(this@DetailsFragment, { dataResult ->
+                when (dataResult) {
+                    is DataResult.Success -> {
+                        dataResult.data?.let { episode ->
+                            releasePlayer()
+                            onMovieLoaded(
+                                Movie(
+                                    episode.title ?: "",
+                                    MovieType.CINEMA,
+                                    video = getVideoFromSerial(episode)
+                                )
+                            )
+                        }
+                    }
+                    is DataResult.Error -> toastError(dataResult.throwable)
                 }
             })
         }
     }
 
-    private fun onMovieLoaded(dataResult: DataResult.Success<Movie>) {
+    private fun getVideoFromSerial(episode: SerialEpisode) = Video(
+        episode.id,
+        videoUrl = getUrl(episode, episode.selectedHls),
+        hlsList = episode.hlsList,
+        selectedHls = episode.selectedHls
+    )
+
+    private fun toastError(throwable1: Throwable) {
+        toast(
+            when (throwable1) {
+                is DataThrowable -> getString(throwable1.errorRes)
+                else -> throwable1.message
+            }
+        )
+    }
+
+    private fun DetailsFragmentBinding.initTrackAdapters() {
+        seasonsTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
+        episodesTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
+        // TODO установить список из видео
+        seasonsTracksAdapter?.addAll(resources.getStringArray(R.array.trackSeasons).toList())
+        episodesTracksAdapter?.addAll(resources.getStringArray(R.array.trackEpisodes).toList())
+        spinSeasons.adapter = seasonsTracksAdapter
+        spinEpisodes.adapter = episodesTracksAdapter
+        spinSeasons.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                vm.onSeasonChange(position)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        spinEpisodes.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                vm.onEpisodeChange(position)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun onMovieLoaded(movie: Movie?) {
         lifecycleScope.launch {
-            initPlayer(dataResult.data)
+            initPlayer(movie)
         }
     }
 
@@ -150,7 +262,11 @@ class DetailsFragment : Fragment() {
             binding.plVideoPLayer.player = exoPlayer
             when (movie?.type) {
                 MovieType.CINEMA -> {
-                    exoPlayer?.setMediaSource(createSource(video.videoUrl, video.id))
+                    video.videoUrl?.let {
+                        exoPlayer?.setMediaSource(createSource(it, video.id))
+                    } ?: kotlin.run {
+                        toastError(DataThrowable(R.string.video_link_not_found))
+                    }
                 }
                 MovieType.SERIAL -> {
                     movie.serialData
@@ -158,17 +274,23 @@ class DetailsFragment : Fragment() {
                         ?.flatMap { it.episodes ?: emptyList() }
                         ?.asSequence()
                         ?.forEach { episode ->
-                            val keys = episode.hlsList?.keys
-                            val minQualityKey = keys?.map { it.toIntOrNull() ?: 0 }
-                                ?.minByOrNull { it }?.toString() ?: keys?.first()
-                            episode.hlsList?.get(minQualityKey)?.let {
+                            getUrl(episode)?.let {
                                 exoPlayer?.addMediaSource(createSource(it, episode.id))
+                            } ?: kotlin.run {
+                                toastError(DataThrowable(R.string.video_link_not_found))
                             }
                         }
                 }
             }
             exoPlayer?.prepare()
         }
+    }
+
+    private fun getUrl(episode: SerialEpisode, key: String? = null): String? {
+        val keys = episode.hlsList?.keys
+        val qualityKey = key ?: keys?.map { it.toIntOrNull() ?: 0 }
+            ?.minByOrNull { it }?.toString() ?: keys?.first()
+        return episode.hlsList?.get(qualityKey)
     }
 
     private fun createSource(url: String?, id: Int?): HlsMediaSource {
@@ -238,8 +360,8 @@ class DetailsFragment : Fragment() {
             appCompatActivity?.supportActionBar?.show()
             appCompatActivity?.showSystemBar()
             val window = appCompatActivity?.window
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
 

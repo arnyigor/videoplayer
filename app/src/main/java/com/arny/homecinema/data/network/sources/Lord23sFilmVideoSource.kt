@@ -175,7 +175,19 @@ class Lord23sFilmVideoSource(
             .asSequence()
             .map { it.substring(1, it.length - 1).replace("\"", "") }
             .forEach { hls -> fillQualityMap(hls, videoQualityMap) }
-        episodes.add(SerialEpisode(episodeId, title, videoQualityMap))
+        episodes.add(
+            SerialEpisode(
+                episodeId,
+                title,
+                videoQualityMap,
+                getMinQualityKey(videoQualityMap)
+            )
+        )
+    }
+
+    private fun getMinQualityKey(hlsQualityMap: HashMap<String, String>?): String? {
+        val keys = hlsQualityMap?.keys
+        return keys?.map { it.toIntOrNull() ?: 0 }?.minOrNull()?.toString() ?: keys?.first()
     }
 
     private fun fillQualityMap(
