@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.models.toResult
 import com.arny.homecinema.data.repository.VideoRepository
+import com.arny.homecinema.data.utils.getFullError
 import com.arny.homecinema.di.models.MainPageContent
 import com.arny.homecinema.di.models.VideoSearchLink
 import com.arny.homecinema.presentation.utils.SingleLiveEvent
@@ -35,7 +36,7 @@ class HomeViewModel @Inject constructor(
                     loading.value = false
                 }
                 .catch {
-                    result.value = DataResult.Error(it)
+                    result.value = getFullError(it)
                 }
                 .collect {
                     result.value = it
@@ -60,7 +61,7 @@ class HomeViewModel @Inject constructor(
                     loading.value = false
                 }
                 .catch {
-                    result.value = DataResult.Error(it)
+                    result.value = getFullError(it)
                 }
                 .collect {
                     result.value = MainPageContent(it).toResult()

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.repository.VideoRepository
+import com.arny.homecinema.data.utils.getFullError
 import com.arny.homecinema.di.models.Movie
 import com.arny.homecinema.di.models.SerialEpisode
 import com.arny.homecinema.presentation.utils.SingleLiveEvent
@@ -28,7 +29,7 @@ class DetailsViewModel @Inject constructor(
                 loading.value = true
                 videoRepository.loadMovie(movie, true)
                     .onCompletion { loading.value = false }
-                    .catch { data.value = DataResult.Error(it) }
+                    .catch { data.value = getFullError(it) }
                     .collect { res ->
                         data.value = res
                     }
@@ -40,7 +41,7 @@ class DetailsViewModel @Inject constructor(
         viewModelScope.launch {
             videoRepository.onSeasonChanged(position)
                 .onCompletion { loading.value = false }
-                .catch { data.value = DataResult.Error(it) }
+                .catch { data.value = getFullError(it) }
                 .collect { res ->
                     episodes.value = res
                 }
@@ -51,7 +52,7 @@ class DetailsViewModel @Inject constructor(
         viewModelScope.launch {
             videoRepository.onEpisodeChanged(position)
                 .onCompletion { loading.value = false }
-                .catch { data.value = DataResult.Error(it) }
+                .catch { data.value = getFullError(it) }
                 .collect { res ->
                     episode.value = res
                 }

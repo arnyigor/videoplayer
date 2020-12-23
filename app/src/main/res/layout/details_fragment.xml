@@ -25,33 +25,14 @@
         android:layout_height="match_parent"
         android:layout_marginTop="8dp">
 
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/mtvTitle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:padding="8dp"
-            android:textColor="@color/white"
-            android:textSize="18sp"
-            android:visibility="gone"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="@tools:sample/lorem/random"
-            tools:textColor="@color/black" />
-
         <Spinner
             android:id="@+id/spinSeasons"
             android:layout_width="150dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:layout_marginTop="8dp"
             android:popupBackground="#E6000000"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/mtvTitle"
+            app:layout_constraintTop_toTopOf="parent"
             tools:entries="@array/trackSeasons"
             tools:listitem="@layout/i_track_select_text" />
 
@@ -60,11 +41,25 @@
             android:layout_width="150dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:layout_marginTop="8dp"
             android:popupBackground="#E6000000"
             app:layout_constraintStart_toEndOf="@+id/spinSeasons"
-            app:layout_constraintTop_toBottomOf="@+id/mtvTitle"
+            app:layout_constraintTop_toTopOf="parent"
             tools:entries="@array/trackEpisodes"
             tools:listitem="@layout/i_track_select_text" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/mtvTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:padding="8dp"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@+id/spinEpisodes"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="@tools:sample/lorem/random"
+            tools:textColor="@color/black" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </FrameLayout>

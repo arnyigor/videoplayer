@@ -24,10 +24,6 @@ import kotlin.properties.Delegates
 
 class HomeFragment : Fragment() {
 
-    companion object {
-        fun getInstance() = HomeFragment()
-    }
-
     @Inject
     lateinit var vm: HomeViewModel
 
@@ -54,7 +50,6 @@ class HomeFragment : Fragment() {
             when (hostsResult) {
                 is DataResult.Success -> {
                     val (sources, current) = hostsResult.data
-                    println("hosts data:${sources.toList()}, current:$current")
                     showAlertDialog(sources, current)
                 }
                 is DataResult.Error -> {
@@ -142,12 +137,13 @@ class HomeFragment : Fragment() {
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
         inflater.inflate(R.menu.home_menu, menu)
-        super.onCreateOptionsMenu(menu, inflater);
+        super.onCreateOptionsMenu(menu, inflater)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.menu_action_choose_source -> {
+                emptyData = false
                 vm.requestHosts()
                 true
             }
@@ -171,7 +167,8 @@ class HomeFragment : Fragment() {
             alert?.dismiss()
         }
         alert = alertDialog.create()
-        alert.setCanceledOnTouchOutside(false)
+        alert.setCanceledOnTouchOutside(true)
+        alert.setCancelable(true)
         alert.show()
     }
 }

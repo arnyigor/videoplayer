@@ -49,17 +49,18 @@ class DetailsFragment : Fragment() {
     private var exoPlayer: SimpleExoPlayer? = null
     private var playControlsVisible by Delegates.observable(true) { _, oldValue, newValue ->
         if (oldValue != newValue && activity != null && isAdded) {
-            if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
+            val land = resources.configuration.orientation == ORIENTATION_LANDSCAPE
+            if (land) {
                 setFullScreen(activity as AppCompatActivity?, !newValue)
             }
             binding.spinEpisodes.isVisible = newValue
             binding.spinSeasons.isVisible = newValue
-//            binding.mtvTitle.isVisible = newValue
+            binding.mtvTitle.isVisible = land && newValue
         }
     }
 
-    companion object {
-        private const val KEY_VIDEO = "KEY_VIDEO"
+    private companion object {
+        const val KEY_VIDEO = "KEY_VIDEO"
     }
 
     @Inject
@@ -96,7 +97,6 @@ class DetailsFragment : Fragment() {
             val movie = args.movie
             initTrackAdapters()
             vm.loadVideo(movie)
-            updateTitle(movie.title)
             vm.data.observe(this@DetailsFragment, { dataResult ->
                 when (dataResult) {
                     is DataResult.Success -> onMovieLoaded(dataResult.data)
@@ -110,7 +110,6 @@ class DetailsFragment : Fragment() {
                         dataResult.data.firstOrNull()?.let { episode ->
                             releasePlayer()
                             val title = episode.title ?: ""
-                            updateTitle(title)
                             onMovieLoaded(
                                 Movie(
                                     title,
@@ -130,7 +129,6 @@ class DetailsFragment : Fragment() {
                         dataResult.data?.let { episode ->
                             releasePlayer()
                             val title = episode.title ?: ""
-                            updateTitle(title)
                             onMovieLoaded(
                                 Movie(
                                     title,
@@ -148,8 +146,8 @@ class DetailsFragment : Fragment() {
 
     private fun updateTitle(title: String) {
         requireActivity().title = title
-//        binding.mtvTitle.isVisible = resources.configuration.orientation == ORIENTATION_LANDSCAPE
-//        binding.mtvTitle.text = title
+        binding.mtvTitle.isVisible = resources.configuration.orientation == ORIENTATION_LANDSCAPE
+        binding.mtvTitle.text = title
     }
 
     private fun getVideoFromSerial(episode: SerialEpisode) = Video(
@@ -159,11 +157,11 @@ class DetailsFragment : Fragment() {
         selectedHls = episode.selectedHls
     )
 
-    private fun toastError(throwable: Throwable) {
+    private fun toastError(throwable: Throwable?) {
         toast(
             when (throwable) {
                 is DataThrowable -> getString(throwable.errorRes)
-                else -> throwable.message
+                else -> throwable?.message
             }
         )
     }
@@ -232,6 +230,7 @@ class DetailsFragment : Fragment() {
             when (movie?.type) {
                 MovieType.CINEMA -> playerAddVideoData(video)
                 MovieType.SERIAL -> playerAddSerialdata(movie)
+                else -> playerAddVideoData(video)
             }
             exoPlayer?.prepare()
         }
@@ -287,7 +286,11 @@ class DetailsFragment : Fragment() {
     private fun restorePlayerState() {
         currentVideo?.let { video ->
             exoPlayer?.seekTo(video.currentPosition)
-            exoPlayer?.playWhenReady = video.playWhenReady
+            val playWhenReady = video.playWhenReady
+            exoPlayer?.playWhenReady = playWhenReady
+            if (playWhenReady) {
+                binding.plVideoPLayer.hideController()
+            }
         }
     }
 

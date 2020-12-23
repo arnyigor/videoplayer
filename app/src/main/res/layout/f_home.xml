@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/black"
     tools:context=".presentation.home.HomeFragment">
 
     <androidx.appcompat.widget.AppCompatEditText
@@ -13,10 +14,13 @@
         android:layout_margin="8dp"
         android:autofillHints="true"
         android:imeOptions="actionDone"
+        android:hint="@string/home_search"
         android:inputType="text"
+        android:textColor="@color/white"
         app:layout_constraintEnd_toStartOf="@+id/btnSearch"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="text" />
 
     <Button
         android:id="@+id/btnSearch"
@@ -33,6 +37,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:padding="8dp"
+        android:textColor="@color/white"
         android:text="@string/film_not_found"
         android:textAppearance="@style/TextAppearance.AppCompat"
         android:visibility="gone"
@@ -45,6 +50,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
+        android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/btnSearch" />
@@ -63,6 +69,7 @@
             android:id="@+id/rcVideoList"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
             tools:listitem="@layout/i_home_video" />
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

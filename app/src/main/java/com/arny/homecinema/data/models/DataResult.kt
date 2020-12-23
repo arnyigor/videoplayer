@@ -1,5 +1,6 @@
 package com.arny.homecinema.data.models
 
+import com.arny.homecinema.data.utils.getFullError
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 
@@ -19,14 +20,12 @@ fun <T> T.toResult(): DataResult<T> {
     return try {
         DataResult.Success(this)
     } catch (e: Exception) {
-        DataResult.Error(e)
+        getFullError(e)
     }
 }
 
-fun <T> Throwable.toResult() = DataResult.Error<T>(this)
-
 fun <T> Flow<T>.catchResult(): Flow<T> {
     return this.catch {
-        toResult()
+        getFullError<T>(it)
     }
 }

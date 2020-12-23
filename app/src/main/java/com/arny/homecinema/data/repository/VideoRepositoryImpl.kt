@@ -109,8 +109,8 @@ class VideoRepositoryImpl @Inject constructor(
 
     override fun loadMovie(movie: Movie, cache: Boolean): Flow<DataResult<Movie>> {
         return flow {
-//            val movieInStore = moviesStore.movies.find { it.detailUrl == movie.detailUrl }
-            if (cache) {
+            val movieInStore = moviesStore.movies.find { it.detailUrl == movie.detailUrl }
+            if (movieInStore == null && cache) {
                 val copy = movie.copy(
                     title = "Test",
                     video = Video(
@@ -118,17 +118,16 @@ class VideoRepositoryImpl @Inject constructor(
                         videoUrl = "https://bytopia.storage.videobase.xyz/548fd88349e1d77147dfd886cb0ec328:2020122401/tvseries/f3cc89329ad774c86009272db581f44f33a6a3f0/360.mp4",
                     )
                 )
-                emit(copy)
+                emit(copy.toResult())
             } else {
                 val value = getFullMovie(movie)
                 if (cache) {
                     moviesStore.movies.add(value)
                 }
                 currentMovie = value
-                emit(value)
+                emit(value.toResult())
             }
         }.flowOn(Dispatchers.IO)
-            .map { it.toResult() }
     }
 
     override fun setHost(source: String, resetHost: Boolean) {
