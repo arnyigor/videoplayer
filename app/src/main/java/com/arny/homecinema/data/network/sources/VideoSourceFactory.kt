@@ -1,12 +1,15 @@
 package com.arny.homecinema.data.network.sources
 
+import android.content.Context
 import com.arny.homecinema.data.network.hosts.HostStoreImpl
 import com.arny.homecinema.data.network.hosts.IHostStore
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
 import com.arny.homecinema.di.models.VideoApiService
 import javax.inject.Inject
 
-class VideoSourceFactory @Inject constructor() : IVideoSourceFactory {
+class VideoSourceFactory @Inject constructor(
+    private val context: Context
+) : IVideoSourceFactory {
     override fun createSource(
         hostStore: IHostStore,
         videoApiService: VideoApiService,
@@ -27,6 +30,14 @@ class VideoSourceFactory @Inject constructor() : IVideoSourceFactory {
                 hostStore,
                 videoApiService,
                 responseBodyConverter
+            )
+            HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK -> MockDataVideoSource(
+                hostStore,
+                context
+            )
+            HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK2 -> MockDataVideoSource(
+                hostStore,
+                context
             )
             else -> AlLordFilmVideoSource(
                 hostStore,

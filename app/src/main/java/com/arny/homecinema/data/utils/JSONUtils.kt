@@ -1,6 +1,10 @@
 package com.arny.homecinema.data.utils
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
+import com.google.gson.reflect.TypeToken
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -9,8 +13,22 @@ fun Any?.toJson(): String? {
     return if (this != null) Gson().toJson(this) else null
 }
 
+fun <T> Any?.fromTypedJson(): T? {
+    val typeToken = object : TypeToken<List<T>>() {}.type
+    return Gson().fromJson(this.toString(), typeToken)
+}
+
 fun <T> Any?.fromJson(cls: Class<T>): T? {
     return Gson().fromJson(this.toString(), cls)
+}
+
+fun <T> String?.fromJson(clazz: Class<*>, deserialize: (JsonElement) -> T): T {
+    return GsonBuilder()
+        .registerTypeAdapter(
+            clazz,
+            JsonDeserializer { json, _, _ -> deserialize.invoke(json) }
+        )
+        .create().fromJson<T>(this, clazz)
 }
 
 fun JSONObject.toMap(): HashMap<String, Any> {

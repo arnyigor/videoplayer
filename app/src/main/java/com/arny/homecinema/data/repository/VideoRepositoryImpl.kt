@@ -110,23 +110,18 @@ class VideoRepositoryImpl @Inject constructor(
     override fun loadMovie(movie: Movie, cache: Boolean): Flow<DataResult<Movie>> {
         return flow {
             val movieInStore = moviesStore.movies.find { it.detailUrl == movie.detailUrl }
-            if (movieInStore == null && cache) {
-                val copy = movie.copy(
-                    title = "Test",
-                    video = Video(
-                        id = 1,
-                        videoUrl = "https://bytopia.storage.videobase.xyz/548fd88349e1d77147dfd886cb0ec328:2020122401/tvseries/f3cc89329ad774c86009272db581f44f33a6a3f0/360.mp4",
-                    )
-                )
-                emit(copy.toResult())
+            val movie1 = if (movieInStore != null && cache) {
+                currentMovie = movieInStore
+                currentMovie!!
             } else {
                 val value = getFullMovie(movie)
-                if (cache) {
+                if (cache && !value.video?.videoUrl.isNullOrBlank()) {
                     moviesStore.movies.add(value)
                 }
                 currentMovie = value
-                emit(value.toResult())
+                currentMovie!!
             }
+            emit(movie1.toResult())
         }.flowOn(Dispatchers.IO)
     }
 
@@ -157,10 +152,9 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getFullMovie(movie: Movie): Movie {
-        val resultDoc = getSource().getResultDoc(movie)
-        val hlsList = getSource().getHlsList(resultDoc)
+        val hlsList = getSource().getHlsList(movie)
         val movieId = getMovieId(movie)
-        return when (val type = getMovieType(movie)) {
+        return when (val type = getSource().getMovieType(movie)) {
             MovieType.CINEMA -> {
                 val hlsQualityMap = getSource().getQualityMap(hlsList)
                 val selectedQuality = getMinQualityKey(hlsQualityMap)
@@ -210,15 +204,6 @@ class VideoRepositoryImpl @Inject constructor(
             emit(moviesStore.currentSeason?.episodes?.getOrNull(position))
         }.flowOn(Dispatchers.IO)
             .map { it.toResult() }
-    }
-
-    private fun getMovieType(movie: Movie): MovieType {
-        val link = movie.detailUrl?.substringAfter("//")?.substringAfter("/") ?: ""
-        return when {
-            link.contains("-film-") -> MovieType.CINEMA
-            link.contains("-serial-") -> MovieType.SERIAL
-            else -> MovieType.CINEMA
-        }
     }
 
     private fun getMovieId(movie: Movie): Int? {

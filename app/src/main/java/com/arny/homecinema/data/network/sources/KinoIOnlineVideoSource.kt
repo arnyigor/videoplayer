@@ -34,6 +34,15 @@ class KinoIOnlineVideoSource(
         )
     }
 
+    override fun getMovieType(movie: Movie): MovieType {
+        val link = movie.detailUrl?.substringAfter("//")?.substringAfter("/") ?: ""
+        return when {
+            link.contains("-film-") -> MovieType.CINEMA
+            link.contains("-serial-") -> MovieType.SERIAL
+            else -> MovieType.CINEMA
+        }
+    }
+
     override val searchUrl: String
         get() = hostStore.baseUrl
 
@@ -75,8 +84,8 @@ class KinoIOnlineVideoSource(
             .select(".video-box").getOrNull(1)
             ?.select("iframe")?.attr("src")
 
-    override fun getHlsList(doc: Document): String {
-        val hlsList = doc
+    override suspend fun getHlsList(movie: Movie): String {
+        val hlsList = getResultDoc(movie)
             .getElementsByTag("script")
             .dataNodes()
             .map { it.wholeData }
@@ -85,7 +94,7 @@ class KinoIOnlineVideoSource(
         return hlsList
     }
 
-    override suspend fun getResultDoc(movie: Movie): Document {
+    private suspend fun getResultDoc(movie: Movie): Document {
         val detailUrl = movie.detailUrl
         val extent = detailUrl?.substringAfterLast(".")
         val baseUrl = detailUrl?.substringBeforeLast(".")

@@ -3,7 +3,6 @@ package com.arny.homecinema.presentation.details
 import android.content.Context
 import android.content.res.Configuration.*
 import android.os.Bundle
-import android.util.Log
 import android.view.*
 import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
@@ -23,14 +22,13 @@ import com.arny.homecinema.presentation.utils.hideSystemBar
 import com.arny.homecinema.presentation.utils.showSystemBar
 import com.arny.homecinema.presentation.utils.toast
 import com.arny.homecinema.presentation.utils.viewBinding
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.SimpleExoPlayer
-import com.google.android.exoplayer2.source.TrackGroupArray
+import com.google.android.exoplayer2.*
+import com.google.android.exoplayer2.source.MediaSource
+import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.trackselection.TrackSelectionArray
+import com.google.android.exoplayer2.trackselection.*
 import com.google.android.exoplayer2.upstream.DataSource
+import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.util.EventLogger
 import dagger.android.support.AndroidSupportInjection
@@ -41,7 +39,6 @@ import kotlin.properties.Delegates
 
 class DetailsFragment : Fragment() {
 
-    private var trackSelector: DefaultTrackSelector? = null
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var currentVideo: Video? = null
@@ -69,19 +66,6 @@ class DetailsFragment : Fragment() {
     private val binding by viewBinding { DetailsFragmentBinding.bind(it).also(::initBinding) }
 
     private val playerListener = object : Player.EventListener {
-        override fun onTracksChanged(
-            trackGroups: TrackGroupArray,
-            trackSelections: TrackSelectionArray
-        ) {
-            val mappedTrackInfo = trackSelector?.currentMappedTrackInfo
-            if (mappedTrackInfo != null) {
-                Log.d(
-                    DetailsFragment::class.java.simpleName,
-                    "onPlayerError: mappedTrackInfo:$mappedTrackInfo"
-                )
-            }
-        }
-
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             val window = requireActivity().window
             if (isPlaying) {
@@ -158,6 +142,7 @@ class DetailsFragment : Fragment() {
     )
 
     private fun toastError(throwable: Throwable?) {
+        throwable?.printStackTrace()
         toast(
             when (throwable) {
                 is DataThrowable -> getString(throwable.errorRes)
@@ -212,9 +197,18 @@ class DetailsFragment : Fragment() {
             currentVideo = movie.video
         }
         currentVideo?.let { video ->
-            trackSelector = DefaultTrackSelector(requireContext())
-            exoPlayer = SimpleExoPlayer.Builder(requireContext())
-                .setTrackSelector(trackSelector!!)
+            val adaptiveTrackSelection: TrackSelection.Factory = AdaptiveTrackSelection.Factory()
+            val trackSelector = DefaultTrackSelector(requireContext(), adaptiveTrackSelection)
+            val loadControl =
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
+                    .build()
+            exoPlayer = SimpleExoPlayer.Builder(
+                requireContext(),
+                DefaultRenderersFactory(requireContext())
+            )
+                .setLoadControl(loadControl)
+                .setTrackSelector(trackSelector)
                 .build()
             exoPlayer?.addAnalyticsListener(EventLogger(trackSelector))
             exoPlayer?.addListener(playerListener)
@@ -236,12 +230,75 @@ class DetailsFragment : Fragment() {
         }
     }
 
+    /*  private fun initializePlayer() {
+          if (exoPlayer == null) {
+              val adaptiveTrackSelection: TrackSelection.Factory = AdaptiveTrackSelection.Factory()
+              val trackSelector: TrackSelector =
+                  DefaultTrackSelector(requireContext(), adaptiveTrackSelection)
+              val loadControl =
+                  DefaultLoadControl.Builder()
+                      .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
+                      .build()
+              exoPlayer = SimpleExoPlayer.Builder(
+                  requireContext(),
+                  DefaultRenderersFactory(requireContext())
+              )
+                  .setLoadControl(loadControl)
+                  .setTrackSelector(trackSelector)
+                  .build()
+              exoPlayer?.addListener(playerListener)
+              binding.plVideoPLayer.player = exoPlayer
+          }
+          if (isPlaylist) {
+              if (serialURLs != null) {
+                  binding.plVideoPLayer.setShowPreviousButton(true)
+                  binding.plVideoPLayer.setShowNextButton(true)
+                  val playListMediaSources = emptyList<MediaSource>()
+                  val concatenatingMediaSource = ConcatenatingMediaSource(playListMediaSources)
+                  exoPlayer?.setMediaSource(concatenatingMediaSource)
+                  exoPlayer?.prepare()
+              } else {
+
+                  val uri: Uri = Uri.parse(getString(R.string.sample_video))
+                  exoPlayer?.setMediaSource(buildMediaSource(uri))
+                  exoPlayer?.prepare()
+              }
+          } else {
+              if (videoURL != null) {
+                  val uri: Uri =
+                  val mediaSource = buildMediaSource(uri)
+              }
+              exoPlayer?.setMediaSource(buildMediaSource(uri))
+              exoPlayer?.prepare()
+          }
+      }
+      */
+    private fun buildMediaSource(url: String, id: Int?): MediaSource {
+        val dataSourceFactory: DataSource.Factory =
+            DefaultDataSourceFactory(
+                requireContext(),
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+            )
+        val item = MediaItem.Builder()
+            .setUri(url)
+            .setMediaId(id.toString())
+            .build()
+        return DashMediaSource.Factory(dataSourceFactory)
+            .createMediaSource(item)
+    }
+
     private fun playerAddVideoData(video: Video) {
         video.videoUrl?.let { url ->
-            if (url.contains(".m3u8")) {
-                exoPlayer?.setMediaSource(createSource(url, video.id))
-            } else {
-                exoPlayer?.setMediaItem(MediaItem.fromUri(url))
+            when {
+                url.contains(".m3u8") -> {
+                    exoPlayer?.setMediaSource(createSource(url, video.id))
+                }
+                url.contains(".webm") -> {
+                    exoPlayer?.setMediaSource(buildMediaSource(url, video.id))
+                }
+                else -> {
+                    exoPlayer?.setMediaItem(MediaItem.fromUri(url))
+                }
             }
         } ?: kotlin.run {
             toastError(DataThrowable(R.string.video_link_not_found))
@@ -255,7 +312,7 @@ class DetailsFragment : Fragment() {
             ?.asSequence()
             ?.forEach { episode ->
                 getUrl(episode)?.let { url ->
-                    if (url.contains(".m3u8")) {
+                    if (url.contains(".m3u8") || url.contains(".webm")) {
                         exoPlayer?.addMediaSource(createSource(url, episode.id))
                     } else {
                         exoPlayer?.addMediaItem(MediaItem.fromUri(url))
@@ -264,6 +321,8 @@ class DetailsFragment : Fragment() {
                     toastError(DataThrowable(R.string.video_link_not_found))
                 }
             }
+        binding.plVideoPLayer.setShowPreviousButton(true)
+        binding.plVideoPLayer.setShowNextButton(true)
     }
 
     private fun getUrl(episode: SerialEpisode, key: String? = null): String? {

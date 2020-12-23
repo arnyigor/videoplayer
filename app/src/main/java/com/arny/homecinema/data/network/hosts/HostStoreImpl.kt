@@ -26,13 +26,17 @@ class HostStoreImpl @Inject constructor() : IHostStore {
         const val LORDFILM_KINO_I_BASE_URL = "https://$LORDFILM_KINO_I_HOST/"
         const val LORDFILM_23s_HOST = "lord-filmds23s.lordfilm1.zone"
         const val LORDFILM_23s_BASE_URL = "https://$LORDFILM_23s_HOST/"
+        const val LORDFILM_KINO_I_HOST_MOCK = "kino-i.online.mock"
+        const val LORDFILM_KINO_I_HOST_MOCK2 = "kino-i.online.mock2"
     }
 
     override val availableHosts: List<String>
         get() = listOf(
             LORDFILM_AL_HOST,
             LORDFILM_KINO_I_HOST,
-            LORDFILM_23s_HOST
+            LORDFILM_23s_HOST,
+            LORDFILM_KINO_I_HOST_MOCK,
+            LORDFILM_KINO_I_HOST_MOCK2,
         )
 }
 
@@ -41,6 +45,8 @@ internal fun String?.toBaseUrl(): String {
         HostStoreImpl.LORDFILM_AL_HOST -> HostStoreImpl.LORDFILM_AL_BASE_URL
         HostStoreImpl.LORDFILM_KINO_I_HOST -> HostStoreImpl.LORDFILM_KINO_I_BASE_URL
         HostStoreImpl.LORDFILM_23s_HOST -> HostStoreImpl.LORDFILM_23s_BASE_URL
+        HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK -> HostStoreImpl.LORDFILM_KINO_I_BASE_URL
+        HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK2 -> HostStoreImpl.LORDFILM_KINO_I_BASE_URL
         else -> HostStoreImpl.LORDFILM_AL_BASE_URL
     }
 }

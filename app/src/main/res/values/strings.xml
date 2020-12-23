@@ -14,6 +14,10 @@
         <item>4 сезон</item>
         <item>5 сезон</item>
         <item>6 сезон</item>
+        <item>7 сезон</item>
+        <item>8 сезон</item>
+        <item>9 сезон</item>
+        <item>10 сезон</item>
     </string-array>
 
     <string-array name="trackEpisodes">
@@ -37,6 +41,10 @@
         <item>18 серия</item>
         <item>19 серия</item>
         <item>20 серия</item>
+        <item>21 серия</item>
+        <item>21 серия</item>
+        <item>22 серия</item>
+        <item>23 серия</item>
     </string-array>
 
 </resources>

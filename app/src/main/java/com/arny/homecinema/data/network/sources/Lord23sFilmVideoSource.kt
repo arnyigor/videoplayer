@@ -30,6 +30,15 @@ class Lord23sFilmVideoSource(
         )
     }
 
+    override fun getMovieType(movie: Movie): MovieType {
+        val link = movie.detailUrl?.substringAfter("//")?.substringAfter("/") ?: ""
+        return when {
+            link.contains("-film-") -> MovieType.CINEMA
+            link.contains("-serial-") -> MovieType.SERIAL
+            else -> MovieType.CINEMA
+        }
+    }
+
     override val searchHeaders: Map<String, String?>
         get() = mapOf(
             "Referer" to hostStore.baseUrl,
@@ -71,8 +80,9 @@ class Lord23sFilmVideoSource(
             .map { it.attr("src") }
             .first { it.contains("embed") }
 
-    override fun getHlsList(doc: Document): String {
-        val hlsList = doc
+    override suspend fun getHlsList(movie: Movie): String {
+        val resultDoc = getResultDoc(movie)
+        val hlsList = resultDoc
             .getElementsByTag("script")
             .dataNodes()
             .map { it.wholeData }
@@ -81,7 +91,7 @@ class Lord23sFilmVideoSource(
         return hlsList
     }
 
-    override suspend fun getResultDoc(movie: Movie): Document {
+   private suspend fun getResultDoc(movie: Movie): Document {
         val body = videoApiService.getVideoDetails(movie.detailUrl, detailHeaders)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
