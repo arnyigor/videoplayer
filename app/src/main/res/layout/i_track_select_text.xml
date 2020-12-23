@@ -5,7 +5,8 @@
     android:layout_height="wrap_content"
     android:background="@android:color/transparent"
     android:gravity="center_horizontal"
-    android:padding="8dp"
+    android:padding="10dp"
     android:textColor="@color/white"
+    android:textSize="18sp"
     tools:text="1 сезон"
     tools:textColor="@color/black" />

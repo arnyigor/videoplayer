@@ -4,12 +4,10 @@ import android.content.Context
 import android.content.res.Configuration.*
 import android.os.Bundle
 import android.util.Log
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.view.WindowManager
+import android.view.*
 import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.navArgs
@@ -25,7 +23,6 @@ import com.arny.homecinema.presentation.utils.hideSystemBar
 import com.arny.homecinema.presentation.utils.showSystemBar
 import com.arny.homecinema.presentation.utils.toast
 import com.arny.homecinema.presentation.utils.viewBinding
-import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
@@ -35,13 +32,12 @@ import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray
 import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
-import com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException
-import com.google.android.exoplayer2.upstream.HttpDataSource.InvalidResponseCodeException
 import com.google.android.exoplayer2.util.EventLogger
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
-import java.io.IOException
 import javax.inject.Inject
+import kotlin.properties.Delegates
+
 
 class DetailsFragment : Fragment() {
 
@@ -51,6 +47,16 @@ class DetailsFragment : Fragment() {
     private var currentVideo: Video? = null
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
+    private var playControlsVisible by Delegates.observable(true) { _, oldValue, newValue ->
+        if (oldValue != newValue && activity != null && isAdded) {
+            if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
+                setFullScreen(activity as AppCompatActivity?, !newValue)
+            }
+            binding.spinEpisodes.isVisible = newValue
+            binding.spinSeasons.isVisible = newValue
+//            binding.mtvTitle.isVisible = newValue
+        }
+    }
 
     companion object {
         private const val KEY_VIDEO = "KEY_VIDEO"
@@ -62,31 +68,6 @@ class DetailsFragment : Fragment() {
     private val binding by viewBinding { DetailsFragmentBinding.bind(it).also(::initBinding) }
 
     private val playerListener = object : Player.EventListener {
-        override fun onPlayerError(error: ExoPlaybackException) {
-            if (error.type == ExoPlaybackException.TYPE_SOURCE) {
-                val cause: IOException = error.sourceException
-                if (cause is HttpDataSourceException) {
-                    val httpError = cause
-                    val requestDataSpec = httpError.dataSpec
-                    Log.d(
-                        DetailsFragment::class.java.simpleName,
-                        "onPlayerError: httpError:$httpError"
-                    )
-                    if (httpError is InvalidResponseCodeException) {
-                        Log.d(
-                            DetailsFragment::class.java.simpleName,
-                            "onPlayerError: responseMessage:${httpError.responseMessage}"
-                        )
-                    } else {
-                        Log.d(
-                            DetailsFragment::class.java.simpleName,
-                            "onPlayerError: cause:${httpError.cause}"
-                        )
-                    }
-                }
-            }
-        }
-
         override fun onTracksChanged(
             trackGroups: TrackGroupArray,
             trackSelections: TrackSelectionArray
@@ -100,39 +81,8 @@ class DetailsFragment : Fragment() {
             }
         }
 
-        override fun onPlaybackStateChanged(state: Int) {
-            when (state) {
-                Player.STATE_IDLE -> {
-                    Log.i(
-                        DetailsFragment::class.java.simpleName,
-                        "onPlaybackStateChanged: STATE_IDLE"
-                    )
-                }
-
-                Player.STATE_BUFFERING -> {
-                    Log.i(
-                        DetailsFragment::class.java.simpleName,
-                        "onPlaybackStateChanged: STATE_BUFFERING"
-                    )
-                }
-                Player.STATE_ENDED -> {
-                    Log.i(
-                        DetailsFragment::class.java.simpleName,
-                        "onPlaybackStateChanged: STATE_ENDED"
-                    )
-                }
-                Player.STATE_READY -> {
-                    Log.i(
-                        DetailsFragment::class.java.simpleName,
-                        "onPlaybackStateChanged: STATE_READY"
-                    )
-                }
-            }
-        }
-
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             val window = requireActivity().window
-            Log.d(DetailsFragment::class.java.simpleName, "onPlayerError: isPlaying:$isPlaying")
             if (isPlaying) {
                 window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             } else {
@@ -146,7 +96,7 @@ class DetailsFragment : Fragment() {
             val movie = args.movie
             initTrackAdapters()
             vm.loadVideo(movie)
-            requireActivity().title = movie.title
+            updateTitle(movie.title)
             vm.data.observe(this@DetailsFragment, { dataResult ->
                 when (dataResult) {
                     is DataResult.Success -> onMovieLoaded(dataResult.data)
@@ -159,9 +109,11 @@ class DetailsFragment : Fragment() {
                     is DataResult.Success -> {
                         dataResult.data.firstOrNull()?.let { episode ->
                             releasePlayer()
+                            val title = episode.title ?: ""
+                            updateTitle(title)
                             onMovieLoaded(
                                 Movie(
-                                    episode.title ?: "",
+                                    title,
                                     MovieType.CINEMA,
                                     video = getVideoFromSerial(episode)
                                 )
@@ -177,9 +129,11 @@ class DetailsFragment : Fragment() {
                     is DataResult.Success -> {
                         dataResult.data?.let { episode ->
                             releasePlayer()
+                            val title = episode.title ?: ""
+                            updateTitle(title)
                             onMovieLoaded(
                                 Movie(
-                                    episode.title ?: "",
+                                    title,
                                     MovieType.CINEMA,
                                     video = getVideoFromSerial(episode)
                                 )
@@ -192,6 +146,12 @@ class DetailsFragment : Fragment() {
         }
     }
 
+    private fun updateTitle(title: String) {
+        requireActivity().title = title
+//        binding.mtvTitle.isVisible = resources.configuration.orientation == ORIENTATION_LANDSCAPE
+//        binding.mtvTitle.text = title
+    }
+
     private fun getVideoFromSerial(episode: SerialEpisode) = Video(
         episode.id,
         videoUrl = getUrl(episode, episode.selectedHls),
@@ -199,11 +159,11 @@ class DetailsFragment : Fragment() {
         selectedHls = episode.selectedHls
     )
 
-    private fun toastError(throwable1: Throwable) {
+    private fun toastError(throwable: Throwable) {
         toast(
-            when (throwable1) {
-                is DataThrowable -> getString(throwable1.errorRes)
-                else -> throwable1.message
+            when (throwable) {
+                is DataThrowable -> getString(throwable.errorRes)
+                else -> throwable.message
             }
         )
     }
@@ -249,6 +209,7 @@ class DetailsFragment : Fragment() {
     }
 
     private fun initPlayer(movie: Movie? = null) {
+        movie?.title?.let { updateTitle(it) }
         if (movie != null && movie.video != currentVideo) {
             currentVideo = movie.video
         }
@@ -260,30 +221,50 @@ class DetailsFragment : Fragment() {
             exoPlayer?.addAnalyticsListener(EventLogger(trackSelector))
             exoPlayer?.addListener(playerListener)
             binding.plVideoPLayer.player = exoPlayer
-            when (movie?.type) {
-                MovieType.CINEMA -> {
-                    video.videoUrl?.let {
-                        exoPlayer?.setMediaSource(createSource(it, video.id))
-                    } ?: kotlin.run {
-                        toastError(DataThrowable(R.string.video_link_not_found))
+            binding.plVideoPLayer.setControllerVisibilityListener { viewVisible ->
+                if (activity != null && isAdded) {
+                    playControlsVisible = when (viewVisible) {
+                        View.VISIBLE -> true
+                        else -> false
                     }
                 }
-                MovieType.SERIAL -> {
-                    movie.serialData
-                        ?.seasons
-                        ?.flatMap { it.episodes ?: emptyList() }
-                        ?.asSequence()
-                        ?.forEach { episode ->
-                            getUrl(episode)?.let {
-                                exoPlayer?.addMediaSource(createSource(it, episode.id))
-                            } ?: kotlin.run {
-                                toastError(DataThrowable(R.string.video_link_not_found))
-                            }
-                        }
-                }
+            }
+            when (movie?.type) {
+                MovieType.CINEMA -> playerAddVideoData(video)
+                MovieType.SERIAL -> playerAddSerialdata(movie)
             }
             exoPlayer?.prepare()
         }
+    }
+
+    private fun playerAddVideoData(video: Video) {
+        video.videoUrl?.let { url ->
+            if (url.contains(".m3u8")) {
+                exoPlayer?.setMediaSource(createSource(url, video.id))
+            } else {
+                exoPlayer?.setMediaItem(MediaItem.fromUri(url))
+            }
+        } ?: kotlin.run {
+            toastError(DataThrowable(R.string.video_link_not_found))
+        }
+    }
+
+    private fun playerAddSerialdata(movie: Movie) {
+        movie.serialData
+            ?.seasons
+            ?.flatMap { it.episodes ?: emptyList() }
+            ?.asSequence()
+            ?.forEach { episode ->
+                getUrl(episode)?.let { url ->
+                    if (url.contains(".m3u8")) {
+                        exoPlayer?.addMediaSource(createSource(url, episode.id))
+                    } else {
+                        exoPlayer?.addMediaItem(MediaItem.fromUri(url))
+                    }
+                } ?: kotlin.run {
+                    toastError(DataThrowable(R.string.video_link_not_found))
+                }
+            }
     }
 
     private fun getUrl(episode: SerialEpisode, key: String? = null): String? {
@@ -341,9 +322,7 @@ class DetailsFragment : Fragment() {
         if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
             val appCompatActivity = activity as AppCompatActivity?
             appCompatActivity?.supportActionBar?.hide()
-            appCompatActivity?.hideSystemBar()
-            val window = appCompatActivity?.window
-            window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            setFullScreen(appCompatActivity, true)
         }
         restorePlayerState()
     }
@@ -358,10 +337,19 @@ class DetailsFragment : Fragment() {
         if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
             val appCompatActivity = activity as AppCompatActivity?
             appCompatActivity?.supportActionBar?.show()
-            appCompatActivity?.showSystemBar()
             val window = appCompatActivity?.window
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            setFullScreen(appCompatActivity, false)
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    private fun setFullScreen(appCompatActivity: AppCompatActivity?, setFullScreen: Boolean) {
+        if (setFullScreen) {
+            appCompatActivity?.hideSystemBar()
+            appCompatActivity?.window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+        } else {
+            appCompatActivity?.showSystemBar()
+            appCompatActivity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
         }
     }
 

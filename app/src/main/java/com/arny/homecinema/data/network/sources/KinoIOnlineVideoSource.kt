@@ -51,7 +51,9 @@ class KinoIOnlineVideoSource(
             linkElem.text(),
             MovieType.CINEMA,
             linkElem.attr("href"),
-            shortImg.select("img").first().attr("src").toString()
+            hostStore.baseUrl + shortImg.select("img")
+                .first().attr("src")
+                .toString().substringAfter("/")
         )
     }
 

@@ -5,6 +5,8 @@ import com.arny.homecinema.data.models.toResult
 import com.arny.homecinema.data.network.hosts.IHostStore
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
 import com.arny.homecinema.data.network.sources.IVideoSourceFactory
+import com.arny.homecinema.data.repository.sources.PREFS_CONSTANTS
+import com.arny.homecinema.data.repository.sources.Prefs
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +23,7 @@ class VideoRepositoryImpl @Inject constructor(
     private val responseBodyConverter: ResponseBodyConverter,
     private val hostStore: IHostStore,
     private val sourceFactory: IVideoSourceFactory,
+    private val prefs: Prefs,
 ) : VideoRepository {
     private val moviesStore = MoviesStore
 
@@ -58,6 +61,7 @@ class VideoRepositoryImpl @Inject constructor(
 
     override fun getAllVideos(): Flow<DataResult<MainPageContent>> {
         return flow {
+            getHostsData()
             emit(videoApiService.requestMainPage(hostStore.baseUrl, hostStore.mainPageHeaders))
         }
             .map(::getMainPageContent)
@@ -105,9 +109,16 @@ class VideoRepositoryImpl @Inject constructor(
 
     override fun loadMovie(movie: Movie, cache: Boolean): Flow<DataResult<Movie>> {
         return flow {
-            val movieInStore = moviesStore.movies.find { it.detailUrl == movie.detailUrl }
-            if (movieInStore != null && cache) {
-                emit(movieInStore)
+//            val movieInStore = moviesStore.movies.find { it.detailUrl == movie.detailUrl }
+            if (cache) {
+                val copy = movie.copy(
+                    title = "Test",
+                    video = Video(
+                        id = 1,
+                        videoUrl = "https://bytopia.storage.videobase.xyz/548fd88349e1d77147dfd886cb0ec328:2020122401/tvseries/f3cc89329ad774c86009272db581f44f33a6a3f0/360.mp4",
+                    )
+                )
+                emit(copy)
             } else {
                 val value = getFullMovie(movie)
                 if (cache) {
@@ -120,8 +131,11 @@ class VideoRepositoryImpl @Inject constructor(
             .map { it.toResult() }
     }
 
-    override fun setHost(source: String) {
+    override fun setHost(source: String, resetHost: Boolean) {
         hostStore.host = source
+        if (resetHost) {
+            prefs.put(PREFS_CONSTANTS.PREF_CURRENT_HOST, source)
+        }
     }
 
     override fun getAllHosts(): Flow<DataResult<Pair<Array<String>, Int>>> {
@@ -132,9 +146,15 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private fun getHostsData(): Pair<Array<String>, Int> {
-        val current = hostStore.host ?: ""
+        var currentHost = prefs.get<String>(PREFS_CONSTANTS.PREF_CURRENT_HOST)
+        if (currentHost.isNullOrBlank()) {
+            currentHost = hostStore.availableHosts.first()
+            setHost(currentHost)
+        } else {
+            setHost(currentHost, false)
+        }
         val toTypedArray = hostStore.availableHosts.toTypedArray()
-        return toTypedArray to toTypedArray.indexOf(current)
+        return toTypedArray to toTypedArray.indexOf(currentHost)
     }
 
     private suspend fun getFullMovie(movie: Movie): Movie {

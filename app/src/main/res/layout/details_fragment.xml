@@ -11,6 +11,7 @@
         android:id="@+id/plVideoPLayer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        app:fastforward_increment="5000"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -20,8 +21,27 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/clSerialTrackSelector"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content">
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="8dp">
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/mtvTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:padding="8dp"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="@tools:sample/lorem/random"
+            tools:textColor="@color/black" />
 
         <Spinner
             android:id="@+id/spinSeasons"
@@ -31,7 +51,7 @@
             android:layout_marginTop="8dp"
             android:popupBackground="#E6000000"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/mtvTitle"
             tools:entries="@array/trackSeasons"
             tools:listitem="@layout/i_track_select_text" />
 
@@ -43,7 +63,7 @@
             android:layout_marginTop="8dp"
             android:popupBackground="#E6000000"
             app:layout_constraintStart_toEndOf="@+id/spinSeasons"
-            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/mtvTitle"
             tools:entries="@array/trackEpisodes"
             tools:listitem="@layout/i_track_select_text" />
     </androidx.constraintlayout.widget.ConstraintLayout>

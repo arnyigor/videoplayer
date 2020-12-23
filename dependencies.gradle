@@ -43,6 +43,10 @@ ext {
         implementation "androidx.navigation:navigation-ui-ktx:$version"
     }}
 
+    preference = { version = '1.1.1' -> Alias {
+        implementation "androidx.preference:preference:$version"
+    }}
+
     firebaseBom = { version = '26.0.0' -> Alias {
         implementation "com.google.firebase:firebase-bom:$version"
     }}

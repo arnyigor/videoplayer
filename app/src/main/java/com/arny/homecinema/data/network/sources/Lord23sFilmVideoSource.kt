@@ -10,6 +10,7 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 
+@Deprecated("Blocked")
 class Lord23sFilmVideoSource(
     private val hostStore: IHostStore,
     private val videoApiService: VideoApiService,
