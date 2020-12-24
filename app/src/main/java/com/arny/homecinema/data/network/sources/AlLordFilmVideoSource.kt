@@ -77,9 +77,8 @@ class AlLordFilmVideoSource(
             .select(".video-box").getOrNull(1)
             ?.select("iframe")?.attr("src")
 
-    override suspend fun getHlsList(movie: Movie): String {
-        val hlsList = getResultDoc(movie)
-            .getElementsByTag("script")
+    override suspend fun getHlsList(doc: Document): String {
+        val hlsList = doc.getElementsByTag("script")
             .dataNodes()
             .map { it.wholeData }
             .find { it.contains("hlsList") }
@@ -87,7 +86,11 @@ class AlLordFilmVideoSource(
         return hlsList
     }
 
-    private suspend fun getResultDoc(movie: Movie): Document {
+    override fun getTitle(doc: Document): String? {
+        return doc.body().select("h1").first().text()
+    }
+
+    override suspend fun getResultDoc(movie: Movie): Document {
         val body = videoApiService.getVideoDetails(movie.detailUrl, detailHeaders)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)

@@ -80,9 +80,12 @@ class Lord23sFilmVideoSource(
             .map { it.attr("src") }
             .first { it.contains("embed") }
 
-    override suspend fun getHlsList(movie: Movie): String {
-        val resultDoc = getResultDoc(movie)
-        val hlsList = resultDoc
+    override fun getTitle(doc: Document): String? {
+        return ""
+    }
+
+    override suspend fun getHlsList(doc: Document): String {
+        val hlsList = doc
             .getElementsByTag("script")
             .dataNodes()
             .map { it.wholeData }
@@ -91,7 +94,7 @@ class Lord23sFilmVideoSource(
         return hlsList
     }
 
-   private suspend fun getResultDoc(movie: Movie): Document {
+   override suspend fun getResultDoc(movie: Movie): Document {
         val body = videoApiService.getVideoDetails(movie.detailUrl, detailHeaders)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)

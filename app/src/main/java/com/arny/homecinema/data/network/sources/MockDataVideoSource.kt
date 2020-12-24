@@ -81,7 +81,19 @@ class MockDataVideoSource(
         return context.assets.open(fileName).bufferedReader().use { it.readText() }
     }
 
-    override suspend fun getHlsList(movie: Movie): String = withContext(Dispatchers.IO) {
+    override fun getTitle(doc: Document): String {
+        return when (hostStore.host) {
+            HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK -> "Джокер (2019)"
+            HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK2 -> "Тайны смолвиля"
+            else -> "source_1.txt"
+        }
+    }
+
+    override suspend fun getResultDoc(movie: Movie): Document {
+        return Document("")
+    }
+
+    override suspend fun getHlsList(doc: Document): String = withContext(Dispatchers.IO) {
         val file = when (hostStore.host) {
             HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK -> "source_0.txt"
             HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK2 -> "source_1.txt"
@@ -91,11 +103,18 @@ class MockDataVideoSource(
     }
 
     override fun getQualityMap(hlsList: String): HashMap<String, String> {
-        return hashMapOf()
+        return hashMapOf(
+            "360" to "https://storage.videobase.xyz/6cf11987aea09f1e8029edc22f0b54d9:2020122507/movies/79d011837d439e6e52a294cf6471bbe9eaf3f429/360.mp4",
+            "480" to "https://storage.videobase.xyz/6cf11987aea09f1e8029edc22f0b54d9:2020122507/movies/79d011837d439e6e52a294cf6471bbe9eaf3f429/360.mp4",
+        )
     }
 
     override fun getMovieType(movie: Movie): MovieType {
-        return MovieType.SERIAL
+        return when (hostStore.host) {
+            HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK -> MovieType.CINEMA
+            HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK2 -> MovieType.SERIAL
+            else -> MovieType.SERIAL
+        }
     }
 
     override fun parsingSerialData(hlsList: String): SerialData {

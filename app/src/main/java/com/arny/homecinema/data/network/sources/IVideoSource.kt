@@ -15,10 +15,12 @@ interface IVideoSource {
     fun getMenuItems(doc: Document): Elements
     fun getSearchResultLinks(doc: Document): Elements
     fun getIframeUrl(detailsDoc: Document): String?
-    suspend fun getHlsList(movie: Movie): String
+    suspend fun getHlsList(doc: Document): String
+    suspend fun getResultDoc(movie: Movie): Document
     fun getQualityMap(hlsList: String): HashMap<String, String>
     fun parsingSerialData(hlsList: String): SerialData
     fun getVideoFromLink(link: Element): Movie
     fun getSearchFields(search: String): Map<String, String>
     fun getMovieType(movie: Movie): MovieType
+    fun getTitle(doc: Document): String?
 }

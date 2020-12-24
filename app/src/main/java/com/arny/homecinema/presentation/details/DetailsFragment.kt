@@ -42,6 +42,8 @@ class DetailsFragment : Fragment() {
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var currentVideo: Video? = null
+    private var currentSeasonPosition: Int = 0
+    private var currentEpisodePosition: Int = 0
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
     private var playControlsVisible by Delegates.observable(true) { _, oldValue, newValue ->
@@ -50,14 +52,15 @@ class DetailsFragment : Fragment() {
             if (land) {
                 setFullScreen(activity as AppCompatActivity?, !newValue)
             }
-            binding.spinEpisodes.isVisible = newValue
-            binding.spinSeasons.isVisible = newValue
-            binding.mtvTitle.isVisible = land && newValue
+            setSpinEpisodesVisible(newValue && currentVideo?.type == MovieType.SERIAL)
+            setCustomTitleVisible(land && newValue)
         }
     }
 
     private companion object {
         const val KEY_VIDEO = "KEY_VIDEO"
+        const val KEY_SEASON = "KEY_SEASON"
+        const val KEY_EPISODE = "KEY_EPISODE"
     }
 
     @Inject
@@ -128,17 +131,24 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    private fun updateTitle(title: String) {
-        requireActivity().title = title
-        binding.mtvTitle.isVisible = resources.configuration.orientation == ORIENTATION_LANDSCAPE
-        binding.mtvTitle.text = title
+    private fun updateUI(video: Video) {
+        requireActivity().title = video.title
+        binding.mtvTitle.text = video.title
+        setCustomTitleVisible(resources.configuration.orientation == ORIENTATION_LANDSCAPE)
+        setSpinEpisodesVisible(currentVideo?.type == MovieType.SERIAL)
+    }
+
+    private fun setSpinEpisodesVisible(visible: Boolean) = with(binding) {
+        spinEpisodes.isVisible = visible
+        spinSeasons.isVisible = visible
     }
 
     private fun getVideoFromSerial(episode: SerialEpisode) = Video(
-        episode.id,
         videoUrl = getUrl(episode, episode.selectedHls),
         hlsList = episode.hlsList,
-        selectedHls = episode.selectedHls
+        selectedHls = episode.selectedHls,
+        title = episode.title,
+        type = MovieType.SERIAL
     )
 
     private fun toastError(throwable: Throwable?) {
@@ -159,6 +169,7 @@ class DetailsFragment : Fragment() {
         episodesTracksAdapter?.addAll(resources.getStringArray(R.array.trackEpisodes).toList())
         spinSeasons.adapter = seasonsTracksAdapter
         spinEpisodes.adapter = episodesTracksAdapter
+        spinSeasons.setSelection(currentSeasonPosition, false)
         spinSeasons.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
@@ -166,11 +177,13 @@ class DetailsFragment : Fragment() {
                 position: Int,
                 id: Long
             ) {
+                currentSeasonPosition = position
                 vm.onSeasonChange(position)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+        spinEpisodes.setSelection(currentEpisodePosition, false)
         spinEpisodes.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?,
@@ -178,6 +191,7 @@ class DetailsFragment : Fragment() {
                 position: Int,
                 id: Long
             ) {
+                currentEpisodePosition = position
                 vm.onEpisodeChange(position)
             }
 
@@ -192,11 +206,11 @@ class DetailsFragment : Fragment() {
     }
 
     private fun initPlayer(movie: Movie? = null) {
-        movie?.title?.let { updateTitle(it) }
         if (movie != null && movie.video != currentVideo) {
             currentVideo = movie.video
         }
         currentVideo?.let { video ->
+            updateUI(video)
             val adaptiveTrackSelection: TrackSelection.Factory = AdaptiveTrackSelection.Factory()
             val trackSelector = DefaultTrackSelector(requireContext(), adaptiveTrackSelection)
             val loadControl =
@@ -228,6 +242,10 @@ class DetailsFragment : Fragment() {
             }
             exoPlayer?.prepare()
         }
+    }
+
+    private fun setCustomTitleVisible(visible: Boolean) {
+        binding.mtvTitle.isVisible = visible
     }
 
     /*  private fun initializePlayer() {
@@ -367,11 +385,15 @@ class DetailsFragment : Fragment() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putParcelable(KEY_VIDEO, currentVideo)
+        outState.putInt(KEY_SEASON, currentSeasonPosition)
+        outState.putInt(KEY_EPISODE, currentEpisodePosition)
     }
 
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
         super.onViewStateRestored(savedInstanceState)
         currentVideo = savedInstanceState?.getParcelable(KEY_VIDEO)
+        currentSeasonPosition = savedInstanceState?.getInt(KEY_SEASON) ?: 0
+        currentEpisodePosition = savedInstanceState?.getInt(KEY_EPISODE) ?: 0
     }
 
     override fun onStart() {

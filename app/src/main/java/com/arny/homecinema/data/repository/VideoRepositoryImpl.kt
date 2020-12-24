@@ -5,8 +5,8 @@ import com.arny.homecinema.data.models.toResult
 import com.arny.homecinema.data.network.hosts.IHostStore
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
 import com.arny.homecinema.data.network.sources.IVideoSourceFactory
-import com.arny.homecinema.data.repository.sources.PREFS_CONSTANTS
 import com.arny.homecinema.data.repository.sources.Prefs
+import com.arny.homecinema.data.repository.sources.PrefsConstants
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -107,9 +107,10 @@ class VideoRepositoryImpl @Inject constructor(
     private fun getVideoSearchFromLink(link: Element) =
         VideoSearchLink(link.text(), link.attr("href"))
 
-    override fun loadMovie(movie: Movie, cache: Boolean): Flow<DataResult<Movie>> {
+    override fun loadMovie(movie: Movie): Flow<DataResult<Movie>> {
         return flow {
             val movieInStore = moviesStore.movies.find { it.detailUrl == movie.detailUrl }
+            val cache = prefs.get<Boolean>(PrefsConstants.PREF_CACHE_VIDEO) ?: false
             val movie1 = if (movieInStore != null && cache) {
                 currentMovie = movieInStore
                 currentMovie!!
@@ -128,7 +129,7 @@ class VideoRepositoryImpl @Inject constructor(
     override fun setHost(source: String, resetHost: Boolean) {
         hostStore.host = source
         if (resetHost) {
-            prefs.put(PREFS_CONSTANTS.PREF_CURRENT_HOST, source)
+            prefs.put(PrefsConstants.PREF_CURRENT_HOST, source)
         }
     }
 
@@ -140,7 +141,7 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private fun getHostsData(): Pair<Array<String>, Int> {
-        var currentHost = prefs.get<String>(PREFS_CONSTANTS.PREF_CURRENT_HOST)
+        var currentHost = prefs.get<String>(PrefsConstants.PREF_CURRENT_HOST)
         if (currentHost.isNullOrBlank()) {
             currentHost = hostStore.availableHosts.first()
             setHost(currentHost)
@@ -152,51 +153,80 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getFullMovie(movie: Movie): Movie {
-        val hlsList = getSource().getHlsList(movie)
+        val resultDoc = getSource().getResultDoc(movie)
+        val hlsList = getSource().getHlsList(resultDoc)
+        val title = getSource().getTitle(resultDoc)
         val movieId = getMovieId(movie)
         return when (val type = getSource().getMovieType(movie)) {
-            MovieType.CINEMA -> {
-                val hlsQualityMap = getSource().getQualityMap(hlsList)
-                val selectedQuality = getMinQualityKey(hlsQualityMap)
-                movie.copy(
-                    type = type,
-                    video = Video(
-                        id = movieId,
-                        videoUrl = hlsQualityMap[selectedQuality],
-                        hlsList = hlsQualityMap,
-                        selectedHls = selectedQuality
-                    )
-                )
-            }
-            MovieType.SERIAL -> {
-                val serialData = getSource().parsingSerialData(hlsList)
-                val firstSeason = serialData.seasons?.minByOrNull { it.id ?: 0 }
-                val firstEpisode = firstSeason?.episodes?.minByOrNull { it.id ?: 0 }
-                val hlsQualityMap = firstEpisode?.hlsList
-                val selectedQuality = getMinQualityKey(hlsQualityMap)
-                movie.copy(
-                    type = type,
-                    video = Video(
-                        id = firstEpisode?.id,
-                        videoUrl = hlsQualityMap?.get(selectedQuality),
-                        hlsList = hlsQualityMap,
-                        selectedHls = selectedQuality
-                    ),
-                    serialData = serialData
-                )
-            }
+            MovieType.CINEMA -> returnCinema(hlsList, movie, type, movieId, title)
+            MovieType.SERIAL -> returnSerial(hlsList, movie, type)
         }
+    }
+
+    private fun returnCinema(
+        hlsList: String,
+        movie: Movie,
+        type: MovieType,
+        movieId: Int?,
+        title: String?
+    ): Movie {
+        val hlsQualityMap = getSource().getQualityMap(hlsList)
+        val selectedQuality = getMinQualityKey(hlsQualityMap)
+        return movie.copy(
+            type = type,
+            video = Video(
+                id = movieId,
+                title = title,
+                videoUrl = hlsQualityMap[selectedQuality],
+                hlsList = hlsQualityMap,
+                selectedHls = selectedQuality,
+                type = type
+            )
+        )
+    }
+
+    private fun returnSerial(
+        hlsList: String,
+        movie: Movie,
+        type: MovieType
+    ): Movie {
+        val serialData = getSource().parsingSerialData(hlsList)
+        val firstSeason = serialData.seasons?.minByOrNull { it.id ?: 0 }
+        val episodes = firstSeason?.episodes ?: emptyList()
+        val firstEpisode = episodes.minByOrNull { it.id ?: 0 }
+        val hlsQualityMap = firstEpisode?.hlsList
+        val selectedQuality = getMinQualityKey(hlsQualityMap)
+        updateStore(firstSeason, episodes)
+        return movie.copy(
+            type = type,
+            video = Video(
+                id = firstEpisode?.id,
+                title = firstEpisode?.title,
+                videoUrl = hlsQualityMap?.get(selectedQuality),
+                hlsList = hlsQualityMap,
+                selectedHls = selectedQuality,
+                type = type
+            ),
+            serialData = serialData
+        )
     }
 
     override fun onSeasonChanged(position: Int): Flow<DataResult<List<SerialEpisode>>> {
         return flow {
             val serialSeason = currentMovie?.serialData?.seasons?.getOrNull(position)
             val value = serialSeason?.episodes ?: emptyList()
-            moviesStore.currentSeason = serialSeason
-            moviesStore.currentEpisode = value.firstOrNull()
+            updateStore(serialSeason, value)
             emit(value)
         }.flowOn(Dispatchers.IO)
             .map { it.toResult() }
+    }
+
+    private fun updateStore(
+        firstSeason: SerialSeason?,
+        value: List<SerialEpisode>
+    ) {
+        moviesStore.currentSeason = firstSeason
+        moviesStore.currentEpisode = value.firstOrNull()
     }
 
     override fun onEpisodeChanged(position: Int): Flow<DataResult<SerialEpisode?>> {

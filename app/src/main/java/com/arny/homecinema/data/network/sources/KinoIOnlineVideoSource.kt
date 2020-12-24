@@ -84,8 +84,12 @@ class KinoIOnlineVideoSource(
             .select(".video-box").getOrNull(1)
             ?.select("iframe")?.attr("src")
 
-    override suspend fun getHlsList(movie: Movie): String {
-        val hlsList = getResultDoc(movie)
+    override fun getTitle(doc: Document): String? {
+        return doc.body().select("h1").first().text()
+    }
+
+    override suspend fun getHlsList(doc: Document): String {
+        val hlsList = doc
             .getElementsByTag("script")
             .dataNodes()
             .map { it.wholeData }
@@ -94,7 +98,7 @@ class KinoIOnlineVideoSource(
         return hlsList
     }
 
-    private suspend fun getResultDoc(movie: Movie): Document {
+    override suspend fun getResultDoc(movie: Movie): Document {
         val detailUrl = movie.detailUrl
         val extent = detailUrl?.substringAfterLast(".")
         val baseUrl = detailUrl?.substringBeforeLast(".")

@@ -41,6 +41,7 @@ class HomeFragment : Fragment() {
 
     private fun initBinding(binding: FHomeBinding) = with(binding) {
         initList(binding)
+        requireActivity().title = getString(R.string.app_name)
         vm.loading.observe(viewLifecycleOwner, { loading ->
             pbLoading.isVisible = loading
             edtSearch.isVisible = !loading
