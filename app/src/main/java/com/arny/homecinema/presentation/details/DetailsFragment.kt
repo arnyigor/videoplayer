@@ -47,6 +47,8 @@ class DetailsFragment : Fragment() {
     private var currentVideo: Video? = null
     private var currentSeasonPosition: Int = 0
     private var currentEpisodePosition: Int = 0
+    private var videoStartRestore = false
+    private var videoRestored = false
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
     private var playControlsVisible by Delegates.observable(true) { _, oldValue, newValue ->
@@ -236,14 +238,18 @@ class DetailsFragment : Fragment() {
 
     private fun initPlayer(movie: Movie? = null) {
         movie?.let {
-            if (currentMovie?.uuid != movie.uuid) {
-                currentMovie = movie
-            }
-            if (movie.video != currentVideo) {
-                currentVideo = movie.video
+            if (!videoRestored) {
+                if (currentMovie?.uuid != movie.uuid) {
+                    currentMovie = movie
+                }
+                if (movie.video != currentVideo) {
+                    currentVideo = movie.video
+                }
             }
         }
         currentVideo?.let { video ->
+            if(videoRestored) return@let
+            videoRestored = movie == null && videoStartRestore
             createPlayer()
             binding.plVideoPLayer.player = exoPlayer
             binding.plVideoPLayer.setControllerVisibilityListener { viewVisible ->
@@ -430,6 +436,7 @@ class DetailsFragment : Fragment() {
 
     override fun onStart() {
         super.onStart()
+        videoStartRestore = true
         initPlayer()
     }
 
