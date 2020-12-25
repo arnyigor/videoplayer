@@ -14,10 +14,7 @@ import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.models.DataThrowable
 import com.arny.homecinema.databinding.DetailsFragmentBinding
-import com.arny.homecinema.di.models.Movie
-import com.arny.homecinema.di.models.MovieType
-import com.arny.homecinema.di.models.SerialEpisode
-import com.arny.homecinema.di.models.Video
+import com.arny.homecinema.di.models.*
 import com.arny.homecinema.presentation.utils.hideSystemBar
 import com.arny.homecinema.presentation.utils.showSystemBar
 import com.arny.homecinema.presentation.utils.toast
@@ -36,7 +33,6 @@ import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.properties.Delegates
-
 
 class DetailsFragment : Fragment() {
 
@@ -62,6 +58,39 @@ class DetailsFragment : Fragment() {
         }
     }
 
+    val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
+        override fun onItemSelected(
+            parent: AdapterView<*>?,
+            view: View?,
+            position: Int,
+            id: Long
+        ) {
+            updateCurrentSerialPosition()
+            currentEpisodePosition = 0
+            currentVideo?.currentPosition = 0
+            updatePlayerPosition()
+        }
+
+        override fun onNothingSelected(parent: AdapterView<*>?) {
+        }
+    }
+
+    val episodesChangelistener = object : AdapterView.OnItemSelectedListener {
+        override fun onItemSelected(
+            parent: AdapterView<*>?,
+            view: View?,
+            position: Int,
+            id: Long
+        ) {
+            updateCurrentSerialPosition()
+            currentVideo?.currentPosition = 0
+            updatePlayerPosition()
+        }
+
+        override fun onNothingSelected(parent: AdapterView<*>?) {
+        }
+    }
+
     private companion object {
         const val KEY_MOVIE = "KEY_MOVIE"
         const val KEY_VIDEO = "KEY_VIDEO"
@@ -83,7 +112,7 @@ class DetailsFragment : Fragment() {
             trackGroups: TrackGroupArray,
             trackSelections: TrackSelectionArray
         ) {
-            trackSelector?.let { selector ->
+            trackSelector?.let { _ ->
                 (exoPlayer?.currentTimeline
                     ?.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
                     ?.mediaItem?.playbackProperties?.tag as? HashMap<*, *>)?.let { map ->
@@ -162,44 +191,21 @@ class DetailsFragment : Fragment() {
     private fun DetailsFragmentBinding.initTrackAdapters() {
         seasonsTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
         episodesTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
-        // TODO установить список из видео
-        seasonsTracksAdapter?.addAll(resources.getStringArray(R.array.trackSeasons).toList())
-        episodesTracksAdapter?.addAll(resources.getStringArray(R.array.trackEpisodes).toList())
         spinSeasons.adapter = seasonsTracksAdapter
         spinEpisodes.adapter = episodesTracksAdapter
         spinSeasons.setSelection(currentSeasonPosition, false)
-        spinSeasons.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                updateCurrentSerialPosition()
-                currentEpisodePosition = 0
-                currentVideo?.currentPosition = 0
-                updatePlayerPosition()
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-            }
-        }
         spinEpisodes.setSelection(currentEpisodePosition, false)
-        spinEpisodes.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                updateCurrentSerialPosition()
-                currentVideo?.currentPosition = 0
-                updatePlayerPosition()
-            }
+        addSpinListeners()
+    }
 
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-            }
-        }
+    private fun DetailsFragmentBinding.addSpinListeners() {
+        spinSeasons.onItemSelectedListener = seasonsChangeListener
+        spinEpisodes.onItemSelectedListener = episodesChangelistener
+    }
+
+    private fun DetailsFragmentBinding.clearSpinListeners() {
+        spinSeasons.onItemSelectedListener = null
+        spinEpisodes.onItemSelectedListener = null
     }
 
     private fun updatePlayerPosition() {
@@ -250,6 +256,7 @@ class DetailsFragment : Fragment() {
         currentVideo?.let { video ->
             if (videoRestored) return@let
             videoRestored = movie == null && videoStartRestore
+            updateSpinData(currentMovie?.serialData?.seasons)
             createPlayer()
             binding.plVideoPLayer.player = exoPlayer
             binding.plVideoPLayer.setControllerVisibilityListener { viewVisible ->
@@ -268,6 +275,20 @@ class DetailsFragment : Fragment() {
             exoPlayer?.prepare()
             updatePlayerPosition()
         }
+    }
+
+    private fun updateSpinData(seasons: List<SerialSeason>?) = with(binding) {
+        clearSpinListeners()
+        val seasonsList = seasons?.mapIndexed { index, _ -> "${index + 1} сезон" }
+        seasonsTracksAdapter?.clear()
+        seasonsTracksAdapter?.addAll(seasonsList)
+        val seriesList = seasons?.getOrNull(currentSeasonPosition)
+            ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
+        episodesTracksAdapter?.clear()
+        episodesTracksAdapter?.addAll(seriesList)
+        spinSeasons.setSelection(currentSeasonPosition,false)
+        spinEpisodes.setSelection(currentEpisodePosition,false)
+        addSpinListeners()
     }
 
     private fun createPlayer() {
