@@ -248,7 +248,7 @@ class DetailsFragment : Fragment() {
             }
         }
         currentVideo?.let { video ->
-            if(videoRestored) return@let
+            if (videoRestored) return@let
             videoRestored = movie == null && videoStartRestore
             createPlayer()
             binding.plVideoPLayer.player = exoPlayer
