@@ -13,6 +13,5 @@ interface VideoRepository {
     fun loadMovie(movie: Movie): Flow<DataResult<Movie>>
     fun setHost(source: String,resetHost:Boolean = true)
     fun getAllHosts(): Flow<DataResult<Pair<Array<String>, Int>>>
-    fun onSeasonChanged(position: Int): Flow<DataResult<List<SerialEpisode>>>
-    fun onEpisodeChanged(position: Int): Flow<DataResult<SerialEpisode?>>
+    fun onPlaylistChanged(seasonPosition: Int, episodePosition: Int): Flow<DataResult<SerialEpisode?>>
 }

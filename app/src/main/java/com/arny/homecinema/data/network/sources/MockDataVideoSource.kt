@@ -11,6 +11,8 @@ import kotlinx.coroutines.withContext
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
+import java.util.*
+import kotlin.collections.ArrayList
 
 class MockDataVideoSource(
     private val hostStore: IHostStore,
@@ -50,6 +52,7 @@ class MockDataVideoSource(
         val shortImg = link.select(".short-img").first()
         val linkElem = short.first().select("a").first()
         return Movie(
+            UUID.randomUUID().toString(),
             linkElem.text(),
             MovieType.CINEMA,
             linkElem.attr("href"),

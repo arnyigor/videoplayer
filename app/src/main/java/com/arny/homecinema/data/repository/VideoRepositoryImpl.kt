@@ -211,16 +211,6 @@ class VideoRepositoryImpl @Inject constructor(
         )
     }
 
-    override fun onSeasonChanged(position: Int): Flow<DataResult<List<SerialEpisode>>> {
-        return flow {
-            val serialSeason = currentMovie?.serialData?.seasons?.getOrNull(position)
-            val value = serialSeason?.episodes ?: emptyList()
-            updateStore(serialSeason, value)
-            emit(value)
-        }.flowOn(Dispatchers.IO)
-            .map { it.toResult() }
-    }
-
     private fun updateStore(
         firstSeason: SerialSeason?,
         value: List<SerialEpisode>
@@ -229,9 +219,13 @@ class VideoRepositoryImpl @Inject constructor(
         moviesStore.currentEpisode = value.firstOrNull()
     }
 
-    override fun onEpisodeChanged(position: Int): Flow<DataResult<SerialEpisode?>> {
+    override fun onPlaylistChanged(seasonPosition: Int, episodePosition: Int): Flow<DataResult<SerialEpisode?>> {
         return flow {
-            emit(moviesStore.currentSeason?.episodes?.getOrNull(position))
+            val serialSeason = currentMovie?.serialData?.seasons?.getOrNull(seasonPosition)
+            val value = serialSeason?.episodes ?: emptyList()
+            updateStore(serialSeason, value)
+            val episode = moviesStore.currentSeason?.episodes?.getOrNull(episodePosition)
+            emit(episode)
         }.flowOn(Dispatchers.IO)
             .map { it.toResult() }
     }

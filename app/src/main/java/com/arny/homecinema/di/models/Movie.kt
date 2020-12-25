@@ -3,7 +3,8 @@ package com.arny.homecinema.di.models
 import android.os.Parcel
 import android.os.Parcelable
 
-data class Movie(
+data class Movie constructor(
+    val uuid: String,
     val title: String,
     val type: MovieType,
     val detailUrl: String? = null,
@@ -12,6 +13,7 @@ data class Movie(
     val serialData: SerialData? = null
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
+        parcel.readString() ?: "",
         parcel.readString() ?: "-",
         MovieType.fromValue(parcel.readInt()),
         parcel.readString(),
@@ -21,6 +23,7 @@ data class Movie(
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeString(uuid)
         parcel.writeString(title)
         parcel.writeInt(type.type)
         parcel.writeString(detailUrl)

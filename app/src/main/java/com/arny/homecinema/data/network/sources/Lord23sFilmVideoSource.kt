@@ -9,6 +9,7 @@ import com.arny.homecinema.di.models.*
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
+import java.util.*
 
 @Deprecated("Blocked")
 class Lord23sFilmVideoSource(
@@ -57,7 +58,13 @@ class Lord23sFilmVideoSource(
 
     override fun getVideoFromLink(link: Element): Movie {
         val title = link.select(".th-desc").first().select(".th-title").first().text()
-        return Movie(title, MovieType.CINEMA, link.attr("href"), getImgUrl(link))
+        return Movie(
+            UUID.randomUUID().toString(),
+            title,
+            MovieType.CINEMA,
+            link.attr("href"),
+            getImgUrl(link)
+        )
     }
 
     private fun getImgUrl(link: Element): String =
@@ -94,7 +101,7 @@ class Lord23sFilmVideoSource(
         return hlsList
     }
 
-   override suspend fun getResultDoc(movie: Movie): Document {
+    override suspend fun getResultDoc(movie: Movie): Document {
         val body = videoApiService.getVideoDetails(movie.detailUrl, detailHeaders)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)

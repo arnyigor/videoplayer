@@ -6,7 +6,6 @@ import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.repository.VideoRepository
 import com.arny.homecinema.data.utils.getFullError
 import com.arny.homecinema.di.models.Movie
-import com.arny.homecinema.di.models.SerialEpisode
 import com.arny.homecinema.presentation.utils.SingleLiveEvent
 import com.arny.homecinema.presentation.utils.mutableLiveData
 import kotlinx.coroutines.flow.catch
@@ -20,8 +19,6 @@ class DetailsViewModel @Inject constructor(
 ) : ViewModel() {
     private val loading = mutableLiveData(false)
     val data = SingleLiveEvent<DataResult<Movie?>>()
-    val episodes = SingleLiveEvent<DataResult<List<SerialEpisode>>>()
-    val episode = SingleLiveEvent<DataResult<SerialEpisode?>>()
     fun loadVideo(movie: Movie) {
         viewModelScope.launch {
             if (loading.value == true) return@launch
@@ -34,28 +31,6 @@ class DetailsViewModel @Inject constructor(
                         data.value = res
                     }
             }
-        }
-    }
-
-    fun onSeasonChange(position: Int) {
-        viewModelScope.launch {
-            videoRepository.onSeasonChanged(position)
-                .onCompletion { loading.value = false }
-                .catch { data.value = getFullError(it) }
-                .collect { res ->
-                    episodes.value = res
-                }
-        }
-    }
-
-    fun onEpisodeChange(position: Int) {
-        viewModelScope.launch {
-            videoRepository.onEpisodeChanged(position)
-                .onCompletion { loading.value = false }
-                .catch { data.value = getFullError(it) }
-                .collect { res ->
-                    episode.value = res
-                }
         }
     }
 }

@@ -23,11 +23,12 @@ import com.arny.homecinema.presentation.utils.showSystemBar
 import com.arny.homecinema.presentation.utils.toast
 import com.arny.homecinema.presentation.utils.viewBinding
 import com.google.android.exoplayer2.*
+import com.google.android.exoplayer2.Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
 import com.google.android.exoplayer2.source.MediaSource
+import com.google.android.exoplayer2.source.TrackGroupArray
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.trackselection.*
-import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.util.EventLogger
@@ -39,8 +40,10 @@ import kotlin.properties.Delegates
 
 class DetailsFragment : Fragment() {
 
+    private var trackSelector: DefaultTrackSelector? = null
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
+    private var currentMovie: Movie? = null
     private var currentVideo: Video? = null
     private var currentSeasonPosition: Int = 0
     private var currentEpisodePosition: Int = 0
@@ -58,9 +61,13 @@ class DetailsFragment : Fragment() {
     }
 
     private companion object {
+        const val KEY_MOVIE = "KEY_MOVIE"
         const val KEY_VIDEO = "KEY_VIDEO"
         const val KEY_SEASON = "KEY_SEASON"
         const val KEY_EPISODE = "KEY_EPISODE"
+        const val BUFFER_64K = 64 * 1024
+        const val BUFFER_128K = 128 * 1024
+        const val BUFFER_1K = 1024
     }
 
     @Inject
@@ -69,6 +76,30 @@ class DetailsFragment : Fragment() {
     private val binding by viewBinding { DetailsFragmentBinding.bind(it).also(::initBinding) }
 
     private val playerListener = object : Player.EventListener {
+
+        override fun onTracksChanged(
+            trackGroups: TrackGroupArray,
+            trackSelections: TrackSelectionArray
+        ) {
+            trackSelector?.let { selector ->
+                (exoPlayer?.currentTimeline
+                    ?.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
+                    ?.mediaItem?.playbackProperties?.tag as? HashMap<*, *>)?.let { map ->
+                    updateSelection(map)
+                }
+            }
+        }
+
+        override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+            val window = timeline.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
+            if (reason == TIMELINE_CHANGE_REASON_SOURCE_UPDATE) {
+                (window.mediaItem.playbackProperties?.tag as? HashMap<*, *>)
+                    ?.let { map ->
+                        updateSelection(map)
+                    }
+            }
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             val window = requireActivity().window
             if (isPlaying) {
@@ -76,6 +107,17 @@ class DetailsFragment : Fragment() {
             } else {
                 window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
+        }
+    }
+
+    private fun updateSelection(map: HashMap<*, *>) {
+        for ((key, value) in map.entries) {
+            val season = (key as? Int) ?: 0
+            val episode = (value as? Int) ?: 0
+            binding.spinSeasons.setSelection(season, false)
+            binding.spinEpisodes.setSelection(episode, false)
+            currentSeasonPosition = season
+            currentEpisodePosition = episode
         }
     }
 
@@ -87,44 +129,6 @@ class DetailsFragment : Fragment() {
             vm.data.observe(this@DetailsFragment, { dataResult ->
                 when (dataResult) {
                     is DataResult.Success -> onMovieLoaded(dataResult.data)
-                    is DataResult.Error -> toastError(dataResult.throwable)
-                }
-            })
-
-            vm.episodes.observe(this@DetailsFragment, { dataResult ->
-                when (dataResult) {
-                    is DataResult.Success -> {
-                        dataResult.data.firstOrNull()?.let { episode ->
-                            releasePlayer()
-                            val title = episode.title ?: ""
-                            onMovieLoaded(
-                                Movie(
-                                    title,
-                                    MovieType.CINEMA,
-                                    video = getVideoFromSerial(episode)
-                                )
-                            )
-                        }
-                    }
-                    is DataResult.Error -> toastError(dataResult.throwable)
-                }
-            })
-
-            vm.episode.observe(this@DetailsFragment, { dataResult ->
-                when (dataResult) {
-                    is DataResult.Success -> {
-                        dataResult.data?.let { episode ->
-                            releasePlayer()
-                            val title = episode.title ?: ""
-                            onMovieLoaded(
-                                Movie(
-                                    title,
-                                    MovieType.CINEMA,
-                                    video = getVideoFromSerial(episode)
-                                )
-                            )
-                        }
-                    }
                     is DataResult.Error -> toastError(dataResult.throwable)
                 }
             })
@@ -142,14 +146,6 @@ class DetailsFragment : Fragment() {
         spinEpisodes.isVisible = visible
         spinSeasons.isVisible = visible
     }
-
-    private fun getVideoFromSerial(episode: SerialEpisode) = Video(
-        videoUrl = getUrl(episode, episode.selectedHls),
-        hlsList = episode.hlsList,
-        selectedHls = episode.selectedHls,
-        title = episode.title,
-        type = MovieType.SERIAL
-    )
 
     private fun toastError(throwable: Throwable?) {
         throwable?.printStackTrace()
@@ -177,11 +173,14 @@ class DetailsFragment : Fragment() {
                 position: Int,
                 id: Long
             ) {
-                currentSeasonPosition = position
-                vm.onSeasonChange(position)
+                updateCurrentSerialPosition()
+                currentEpisodePosition = 0
+                currentVideo?.currentPosition = 0
+                updatePlayerPosition()
             }
 
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+            }
         }
         spinEpisodes.setSelection(currentEpisodePosition, false)
         spinEpisodes.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -191,12 +190,42 @@ class DetailsFragment : Fragment() {
                 position: Int,
                 id: Long
             ) {
-                currentEpisodePosition = position
-                vm.onEpisodeChange(position)
+                updateCurrentSerialPosition()
+                currentVideo?.currentPosition = 0
+                updatePlayerPosition()
             }
 
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+            }
         }
+    }
+
+    private fun updatePlayerPosition() {
+        val currentTimeline = exoPlayer?.currentTimeline
+        val count = currentTimeline?.windowCount ?: 0
+        val seasons = currentMovie?.serialData?.seasons
+        val allEpisodes = seasons?.flatMap { it.episodes ?: emptyList() }
+        val playerSeason = seasons?.getOrNull(currentSeasonPosition)
+        val episode = playerSeason?.let { it.episodes?.getOrNull(currentEpisodePosition) }
+        val indexOf = allEpisodes?.indexOf(episode)
+        val windowIndex = indexOf.takeIf { it != null && it >= 0 } ?: 0
+        if (count > windowIndex) {
+            currentVideo = currentVideo?.copy(
+                id = episode?.id,
+                hlsList = episode?.hlsList,
+                type = MovieType.SERIAL,
+                title = episode?.title
+            )
+            exoPlayer?.seekTo(windowIndex, currentVideo?.currentPosition ?: 0)
+            currentVideo?.let {
+                updateUI(it)
+            }
+        }
+    }
+
+    private fun updateCurrentSerialPosition() {
+        currentSeasonPosition = binding.spinSeasons.selectedItemPosition
+        currentEpisodePosition = binding.spinEpisodes.selectedItemPosition
     }
 
     private fun onMovieLoaded(movie: Movie?) {
@@ -206,26 +235,16 @@ class DetailsFragment : Fragment() {
     }
 
     private fun initPlayer(movie: Movie? = null) {
-        if (movie != null && movie.video != currentVideo) {
-            currentVideo = movie.video
+        movie?.let {
+            if (currentMovie?.uuid != movie.uuid) {
+                currentMovie = movie
+            }
+            if (movie.video != currentVideo) {
+                currentVideo = movie.video
+            }
         }
         currentVideo?.let { video ->
-            updateUI(video)
-            val adaptiveTrackSelection: TrackSelection.Factory = AdaptiveTrackSelection.Factory()
-            val trackSelector = DefaultTrackSelector(requireContext(), adaptiveTrackSelection)
-            val loadControl =
-                DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
-                    .build()
-            exoPlayer = SimpleExoPlayer.Builder(
-                requireContext(),
-                DefaultRenderersFactory(requireContext())
-            )
-                .setLoadControl(loadControl)
-                .setTrackSelector(trackSelector)
-                .build()
-            exoPlayer?.addAnalyticsListener(EventLogger(trackSelector))
-            exoPlayer?.addListener(playerListener)
+            createPlayer()
             binding.plVideoPLayer.player = exoPlayer
             binding.plVideoPLayer.setControllerVisibilityListener { viewVisible ->
                 if (activity != null && isAdded) {
@@ -235,12 +254,38 @@ class DetailsFragment : Fragment() {
                     }
                 }
             }
-            when (movie?.type) {
+            when (currentMovie?.type) {
                 MovieType.CINEMA -> playerAddVideoData(video)
-                MovieType.SERIAL -> playerAddSerialdata(movie)
+                MovieType.SERIAL -> playerAddSerialdata(currentMovie)
                 else -> playerAddVideoData(video)
             }
             exoPlayer?.prepare()
+            updatePlayerPosition()
+        }
+    }
+
+    private fun createPlayer() {
+        val adaptiveTrackSelection: TrackSelection.Factory = AdaptiveTrackSelection.Factory()
+        trackSelector = DefaultTrackSelector(requireContext(), adaptiveTrackSelection)
+        trackSelector?.let { selector ->
+            val loadControl =
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        BUFFER_64K,
+                        BUFFER_128K,
+                        BUFFER_1K,
+                        BUFFER_1K
+                    )
+                    .build()
+            exoPlayer = SimpleExoPlayer.Builder(
+                requireContext(),
+                DefaultRenderersFactory(requireContext())
+            )
+                .setLoadControl(loadControl)
+                .setTrackSelector(selector)
+                .build()
+            exoPlayer?.addAnalyticsListener(EventLogger(trackSelector))
+            exoPlayer?.addListener(playerListener)
         }
     }
 
@@ -248,60 +293,17 @@ class DetailsFragment : Fragment() {
         binding.mtvTitle.isVisible = visible
     }
 
-    /*  private fun initializePlayer() {
-          if (exoPlayer == null) {
-              val adaptiveTrackSelection: TrackSelection.Factory = AdaptiveTrackSelection.Factory()
-              val trackSelector: TrackSelector =
-                  DefaultTrackSelector(requireContext(), adaptiveTrackSelection)
-              val loadControl =
-                  DefaultLoadControl.Builder()
-                      .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
-                      .build()
-              exoPlayer = SimpleExoPlayer.Builder(
-                  requireContext(),
-                  DefaultRenderersFactory(requireContext())
-              )
-                  .setLoadControl(loadControl)
-                  .setTrackSelector(trackSelector)
-                  .build()
-              exoPlayer?.addListener(playerListener)
-              binding.plVideoPLayer.player = exoPlayer
-          }
-          if (isPlaylist) {
-              if (serialURLs != null) {
-                  binding.plVideoPLayer.setShowPreviousButton(true)
-                  binding.plVideoPLayer.setShowNextButton(true)
-                  val playListMediaSources = emptyList<MediaSource>()
-                  val concatenatingMediaSource = ConcatenatingMediaSource(playListMediaSources)
-                  exoPlayer?.setMediaSource(concatenatingMediaSource)
-                  exoPlayer?.prepare()
-              } else {
-
-                  val uri: Uri = Uri.parse(getString(R.string.sample_video))
-                  exoPlayer?.setMediaSource(buildMediaSource(uri))
-                  exoPlayer?.prepare()
-              }
-          } else {
-              if (videoURL != null) {
-                  val uri: Uri =
-                  val mediaSource = buildMediaSource(uri)
-              }
-              exoPlayer?.setMediaSource(buildMediaSource(uri))
-              exoPlayer?.prepare()
-          }
-      }
-      */
     private fun buildMediaSource(url: String, id: Int?): MediaSource {
-        val dataSourceFactory: DataSource.Factory =
-            DefaultDataSourceFactory(
-                requireContext(),
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
-            )
         val item = MediaItem.Builder()
             .setUri(url)
             .setMediaId(id.toString())
             .build()
-        return DashMediaSource.Factory(dataSourceFactory)
+        return DashMediaSource.Factory(
+            DefaultDataSourceFactory(
+                requireContext(),
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+            )
+        )
             .createMediaSource(item)
     }
 
@@ -309,7 +311,7 @@ class DetailsFragment : Fragment() {
         video.videoUrl?.let { url ->
             when {
                 url.contains(".m3u8") -> {
-                    exoPlayer?.setMediaSource(createSource(url, video.id))
+                    exoPlayer?.setMediaSource(createSource(url, video.id, video.title))
                 }
                 url.contains(".webm") -> {
                     exoPlayer?.setMediaSource(buildMediaSource(url, video.id))
@@ -323,22 +325,41 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    private fun playerAddSerialdata(movie: Movie) {
-        movie.serialData
-            ?.seasons
-            ?.flatMap { it.episodes ?: emptyList() }
-            ?.asSequence()
-            ?.forEach { episode ->
-                getUrl(episode)?.let { url ->
-                    if (url.contains(".m3u8") || url.contains(".webm")) {
-                        exoPlayer?.addMediaSource(createSource(url, episode.id))
-                    } else {
-                        exoPlayer?.addMediaItem(MediaItem.fromUri(url))
-                    }
-                } ?: kotlin.run {
-                    toastError(DataThrowable(R.string.video_link_not_found))
+    private fun playerAddSerialdata(movie: Movie?) {
+        movie?.serialData?.seasons?.let { seasons ->
+            seasons.asSequence()
+                .forEachIndexed { indexSeason, serialSeason ->
+                    serialSeason.episodes
+                        ?.asSequence()
+                        ?.forEachIndexed { indexEpisode, serialEpisode ->
+                            getUrl(serialEpisode)?.let { url ->
+                                when {
+                                    url.contains(".m3u8") -> {
+                                        exoPlayer?.addMediaSource(
+                                            createSource(
+                                                url,
+                                                serialEpisode.id,
+                                                serialEpisode.title,
+                                                hashMapOf(indexSeason to indexEpisode)
+                                            )
+                                        )
+                                    }
+                                    url.contains(".webm") -> {
+                                        exoPlayer?.addMediaSource(
+                                            buildMediaSource(
+                                                url,
+                                                serialEpisode.id
+                                            )
+                                        )
+                                    }
+                                    else -> {
+                                        exoPlayer?.addMediaItem(MediaItem.fromUri(url))
+                                    }
+                                }
+                            }
+                        }
                 }
-            }
+        }
         binding.plVideoPLayer.setShowPreviousButton(true)
         binding.plVideoPLayer.setShowNextButton(true)
     }
@@ -350,13 +371,22 @@ class DetailsFragment : Fragment() {
         return episode.hlsList?.get(qualityKey)
     }
 
-    private fun createSource(url: String?, id: Int?): HlsMediaSource {
-        val dataSourceFactory: DataSource.Factory = DefaultHttpDataSourceFactory()
+    private fun createSource(
+        url: String?,
+        id: Int?,
+        title: String?,
+        serialPosition: Map<Int, Int>? = null
+    ): HlsMediaSource {
+        val metadata = MediaMetadata.Builder()
+            .setTitle(title)
+            .build()
         val item = MediaItem.Builder()
             .setUri(url)
+            .setTag(serialPosition)
             .setMediaId(id.toString())
+            .setMediaMetadata(metadata)
             .build()
-        return HlsMediaSource.Factory(dataSourceFactory)
+        return HlsMediaSource.Factory(DefaultHttpDataSourceFactory())
             .createMediaSource(item)
     }
 
@@ -385,12 +415,14 @@ class DetailsFragment : Fragment() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putParcelable(KEY_VIDEO, currentVideo)
+        outState.putParcelable(KEY_MOVIE, currentMovie)
         outState.putInt(KEY_SEASON, currentSeasonPosition)
         outState.putInt(KEY_EPISODE, currentEpisodePosition)
     }
 
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
         super.onViewStateRestored(savedInstanceState)
+        currentMovie = savedInstanceState?.getParcelable(KEY_MOVIE)
         currentVideo = savedInstanceState?.getParcelable(KEY_VIDEO)
         currentSeasonPosition = savedInstanceState?.getInt(KEY_SEASON) ?: 0
         currentEpisodePosition = savedInstanceState?.getInt(KEY_EPISODE) ?: 0

@@ -6,6 +6,7 @@ import com.arny.homecinema.di.models.*
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
+import java.util.*
 
 class AlLordFilmVideoSource(
     private val hostStore: IHostStore,
@@ -57,7 +58,13 @@ class AlLordFilmVideoSource(
             .select(".th-item a")
 
     override fun getVideoFromLink(link: Element): Movie {
-        return Movie(link.text(), MovieType.CINEMA, link.attr("href"), getImgUrl(link))
+        return Movie(
+            UUID.randomUUID().toString(),
+            link.text(),
+            MovieType.CINEMA,
+            link.attr("href"),
+            getImgUrl(link)
+        )
     }
 
     private fun getImgUrl(link: Element): String =
