@@ -19,6 +19,7 @@ class DetailsViewModel @Inject constructor(
 ) : ViewModel() {
     private val loading = mutableLiveData(false)
     val data = SingleLiveEvent<DataResult<Movie?>>()
+    val cached = SingleLiveEvent<DataResult<Boolean>>()
     fun loadVideo(movie: Movie) {
         viewModelScope.launch {
             if (loading.value == true) return@launch
@@ -31,6 +32,17 @@ class DetailsViewModel @Inject constructor(
                         data.value = res
                     }
             }
+        }
+    }
+
+    fun cacheItem(movie: Movie?) {
+        viewModelScope.launch {
+            videoRepository.cacheMovie(movie)
+                .onCompletion { loading.value = false }
+                .catch { data.value = getFullError(it) }
+                .collect { res ->
+                    cached.value = res
+                }
         }
     }
 }

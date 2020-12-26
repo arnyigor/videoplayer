@@ -32,10 +32,8 @@ class HostStoreImpl @Inject constructor() : IHostStore {
 
     override val availableHosts: List<String>
         get() = listOf(
-            LORDFILM_AL_HOST,
             LORDFILM_KINO_I_HOST,
-            LORDFILM_23s_HOST,
-            LORDFILM_KINO_I_HOST_MOCK,
+            LORDFILM_AL_HOST,
             LORDFILM_KINO_I_HOST_MOCK2,
         )
 }

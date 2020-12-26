@@ -14,4 +14,5 @@ interface VideoRepository {
     fun setHost(source: String,resetHost:Boolean = true)
     fun getAllHosts(): Flow<DataResult<Pair<Array<String>, Int>>>
     fun onPlaylistChanged(seasonPosition: Int, episodePosition: Int): Flow<DataResult<SerialEpisode?>>
+    fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>>
 }

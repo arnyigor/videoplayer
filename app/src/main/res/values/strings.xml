@@ -7,6 +7,7 @@
     <string name="video_url_not_found">URL видео не найден</string>
     <string name="home_choose_source">Выбрать источник</string>
     <string name="video_link_not_found">Ссылка на видео не найдена</string>
+    <string name="details_cache_item">Кешировать</string>
     <string-array name="trackSeasons">
         <item>1 сезон</item>
         <item>2 сезон</item>

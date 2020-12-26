@@ -18,21 +18,26 @@ fun <T> getFullError(throwable: Throwable): DataResult<T> {
                 }
             }
             else -> {
-                val message = throwable.message ?: "Ошибка запроса"
-                val connectFailed = when {
-                    message.contains("Unable to resolve host", true) -> true
-                    message.contains("failed to connect", true) -> true
-                    else -> false
-                }
-                error = if (connectFailed) {
-                    "Ошибка соединения, адрес недоступен"
-                } else {
-                    message
-                }
+                error = getMessage(throwable)
             }
         }
     } catch (e: Exception) {
-        error = throwable.message ?: "Ошибка запроса"
+        error = getMessage(throwable)
     }
     return DataResult.Error(Throwable(error))
+}
+
+private fun getMessage(throwable: Throwable): String {
+    val error: String
+    val message = throwable.message ?: "Ошибка запроса"
+    error = when {
+        message.contains("Unable to resolve host", true) ||
+                message.contains(
+                    "failed to connect",
+                    true
+                ) -> "Ошибка соединения, адрес недоступен"
+        message.contains("timeout", true) -> "Время запроса истекло, попробуйте еще раз"
+        else -> message
+    }
+    return error
 }

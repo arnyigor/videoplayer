@@ -25,7 +25,6 @@ dependencies {
     groupie()
     retrofit()
     jodaTime()
-    chuck()
     appcompat()
     preference()
     constraintlayout()

@@ -58,7 +58,7 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
+    private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
             parent: AdapterView<*>?,
             view: View?,
@@ -75,7 +75,7 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    val episodesChangelistener = object : AdapterView.OnItemSelectedListener {
+    private val episodesChangelistener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
             parent: AdapterView<*>?,
             view: View?,
@@ -160,6 +160,13 @@ class DetailsFragment : Fragment() {
             vm.data.observe(this@DetailsFragment, { dataResult ->
                 when (dataResult) {
                     is DataResult.Success -> onMovieLoaded(dataResult.data)
+                    is DataResult.Error -> toastError(dataResult.throwable)
+                }
+            })
+            vm.cached.observe(this@DetailsFragment, { dataResult ->
+                when (dataResult) {
+                    is DataResult.Success -> {
+                    }
                     is DataResult.Error -> toastError(dataResult.throwable)
                 }
             })
@@ -256,7 +263,7 @@ class DetailsFragment : Fragment() {
         currentVideo?.let { video ->
             if (videoRestored) return@let
             videoRestored = movie == null && videoStartRestore
-            updateSpinData(currentMovie?.serialData?.seasons)
+            updateSpinData()
             createPlayer()
             binding.plVideoPLayer.player = exoPlayer
             binding.plVideoPLayer.setControllerVisibilityListener { viewVisible ->
@@ -277,8 +284,11 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    private fun updateSpinData(seasons: List<SerialSeason>?) = with(binding) {
+    private fun updateSpinData() = with(binding) {
         clearSpinListeners()
+        currentMovie?.currentSeasonPosition?.let { currentSeasonPosition = it }
+        currentMovie?.currentEpisodePosition?.let { currentEpisodePosition = it }
+        val seasons = currentMovie?.serialData?.seasons
         val seasonsList = seasons?.mapIndexed { index, _ -> "${index + 1} сезон" }
         seasonsTracksAdapter?.clear()
         seasonsTracksAdapter?.addAll(seasonsList)
@@ -286,8 +296,8 @@ class DetailsFragment : Fragment() {
             ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
         episodesTracksAdapter?.clear()
         episodesTracksAdapter?.addAll(seriesList)
-        spinSeasons.setSelection(currentSeasonPosition,false)
-        spinEpisodes.setSelection(currentEpisodePosition,false)
+        spinSeasons.setSelection(currentSeasonPosition, false)
+        spinEpisodes.setSelection(currentEpisodePosition, false)
         addSpinListeners()
     }
 
@@ -432,12 +442,25 @@ class DetailsFragment : Fragment() {
         if (exoPlayer != null) {
             exoPlayer?.removeListener(playerListener)
             exoPlayer?.stop()
+            cache()
             currentVideo?.currentPosition = exoPlayer?.contentPosition ?: 0
             currentVideo?.playWhenReady = exoPlayer?.playWhenReady ?: false
             binding.plVideoPLayer.player = null
             exoPlayer?.release()
             exoPlayer = null
         }
+    }
+
+    private fun cache() {
+        currentVideo?.currentPosition = exoPlayer?.contentPosition ?: 0
+        currentVideo?.playWhenReady = exoPlayer?.playWhenReady ?: false
+        vm.cacheItem(
+            currentMovie?.copy(
+                currentEpisodePosition = currentEpisodePosition,
+                currentSeasonPosition = currentSeasonPosition,
+                video = currentVideo
+            )
+        )
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

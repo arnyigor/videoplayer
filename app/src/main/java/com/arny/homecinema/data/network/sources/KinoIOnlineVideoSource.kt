@@ -66,7 +66,7 @@ class KinoIOnlineVideoSource(
         }
         return Movie(
             UUID.randomUUID().toString(),
-            linkElem.text(),
+            correctTitle(linkElem.text()),
             type,
             linkElem.attr("href"),
             hostStore.baseUrl + shortImg.select("img")
@@ -112,8 +112,8 @@ class KinoIOnlineVideoSource(
         }
     }
 
-    override fun getTitle(doc: Document): String? {
-        return doc.title()
+    override fun getTitle(doc: Document): String {
+        return correctTitle(doc.title())
     }
 
     override suspend fun getHlsList(doc: Document): String {

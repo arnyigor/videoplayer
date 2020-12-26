@@ -53,7 +53,7 @@ class MockDataVideoSource(
         val linkElem = short.first().select("a").first()
         return Movie(
             UUID.randomUUID().toString(),
-            linkElem.text(),
+            correctTitle(linkElem.text()),
             MovieType.CINEMA,
             linkElem.attr("href"),
             hostStore.baseUrl + shortImg.select("img")

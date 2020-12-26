@@ -1,6 +1,5 @@
 package com.arny.homecinema.data.network
 
-import android.content.Context
 import com.arny.homecinema.BuildConfig
 import com.arny.homecinema.data.network.hosts.HostStoreImpl
 import com.arny.homecinema.data.network.hosts.IHostStore
@@ -11,7 +10,6 @@ import com.arny.homecinema.data.network.response.ResponseBodyConverterImpl
 import com.arny.homecinema.data.network.sources.IVideoSourceFactory
 import com.arny.homecinema.data.network.sources.VideoSourceFactory
 import com.arny.homecinema.di.models.VideoApiService
-import com.readystatesoftware.chuck.ChuckInterceptor
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -53,14 +51,12 @@ abstract class NetworkModule {
         @Provides
         @Singleton
         fun providesOkHttpClient(
-            context: Context,
             @Named("debugInterceptor") debugInterceptor: Interceptor,
             @Named("headersInterceptor") headersInterceptor: Interceptor
         ): OkHttpClient {
             return OkHttpClient.Builder().writeTimeout(3, TimeUnit.MINUTES)
                 .readTimeout(3, TimeUnit.MINUTES)
                 .callTimeout(3, TimeUnit.MINUTES)
-                .addInterceptor(ChuckInterceptor(context))
                 .addInterceptor(debugInterceptor)
                 .addInterceptor(headersInterceptor)
                 .cache(null)
