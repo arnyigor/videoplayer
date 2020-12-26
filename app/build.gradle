@@ -6,6 +6,7 @@ apply from: "$dep_aliases"
 apply from: "$rootProject.projectDir/commonconfig.gradle"
 
 android {
+
 }
 
 dependencies {
@@ -30,4 +31,5 @@ dependencies {
     constraintlayout()
     jsoup()
     exoplayer()
+    java_test()
 }

@@ -1,7 +1,9 @@
 package com.arny.homecinema.data.network.sources
 
+import com.arny.homecinema.data.models.SeasonItem
 import com.arny.homecinema.data.network.hosts.IHostStore
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
+import com.arny.homecinema.data.utils.fromJson
 import com.arny.homecinema.di.models.*
 import org.joda.time.DateTime
 import org.jsoup.nodes.Document
@@ -36,10 +38,10 @@ class KinoIOnlineVideoSource(
     }
 
     override fun getMovieType(movie: Movie): MovieType {
-        val link = movie.detailUrl?.substringAfter("//")?.substringAfter("/") ?: ""
+        val link = movie.detailUrl ?: ""
         return when {
-            link.contains("-film-") -> MovieType.CINEMA
-            link.contains("-serial-") -> MovieType.SERIAL
+            movie.type == MovieType.SERIAL -> MovieType.SERIAL
+            link.contains("seriya") && link.contains("sezon") -> MovieType.SERIAL
             else -> MovieType.CINEMA
         }
     }
@@ -54,13 +56,18 @@ class KinoIOnlineVideoSource(
         )
 
     override fun getVideoFromLink(link: Element): Movie {
-        val short = link.select(".short-text")
+        val shortText = link.select(".short-text")
         val shortImg = link.select(".short-img").first()
-        val linkElem = short.first().select("a").first()
+        val linkElem = shortText.first().select("a").first()
+        val type = when {
+            shortText.select(".short-desc").first().toString()
+                .contains("Серии:") -> MovieType.SERIAL
+            else -> MovieType.CINEMA
+        }
         return Movie(
             UUID.randomUUID().toString(),
             linkElem.text(),
-            MovieType.CINEMA,
+            type,
             linkElem.attr("href"),
             hostStore.baseUrl + shortImg.select("img")
                 .first().attr("src")
@@ -78,16 +85,35 @@ class KinoIOnlineVideoSource(
             .getElementById("dle-content")
             .select(".short")
 
-    override fun getIframeUrl(detailsDoc: Document): String? =
-        detailsDoc.body()
-            .getElementById("dle-content")
-            .select(".fmain").first()
-            .select(".fplayer").first()
-            .select(".video-box").getOrNull(1)
-            ?.select("iframe")?.attr("src")
+    override fun getIframeUrl(detailsDoc: Document): String? {
+        val body = detailsDoc.body()
+            .select("#dle-content").first()
+        val links = body.select(".fplayer").first()
+            .select(".video-box iframe").map { it.attr("src") }
+        val firstOrNull =
+            body.select("script").map { it.data() }.firstOrNull { it.contains(",re=") }
+        val replaseWith = regexBetwenTwoString(
+            "actual = \"",
+            "\""
+        ).find(firstOrNull.toString())?.groupValues?.getOrNull(0)
+        val pattern =
+            regexBetwenTwoString(
+                ",re=",
+                ",delay"
+            ).find(firstOrNull.toString())?.groupValues?.getOrNull(0)
+                ?.replace("\n", "")?.replace("\t", "")
+        return if (pattern != null && replaseWith != null) {
+            val replaseWhat = pattern.replace("^/".toRegex(), "").replace("/$".toRegex(), "")
+            val regex = replaseWhat.toRegex()
+            val find = links.find { it.contains(regex) }
+            return find?.replace(regex, replaseWith) ?: links.first()
+        } else {
+            links.first()
+        }
+    }
 
     override fun getTitle(doc: Document): String? {
-        return doc.body().select("h1").first().text()
+        return doc.title()
     }
 
     override suspend fun getHlsList(doc: Document): String {
@@ -97,15 +123,19 @@ class KinoIOnlineVideoSource(
             .map { it.wholeData }
             .find { it.contains("hlsList") }
         requireNotNull(hlsList)
-        return hlsList
+        return hlsList.toString().replace("\n", "").replace("\t", "").replace("\\s".toRegex(), " ")
     }
 
     override suspend fun getResultDoc(movie: Movie): Document {
         val detailUrl = movie.detailUrl
-        val extent = detailUrl?.substringAfterLast(".")
-        val baseUrl = detailUrl?.substringBeforeLast(".")
-        val time = DateTime.now().toString("-yyyy-MM-dd-HH")
-        val url = "#$baseUrl.$time.$extent"
+        val url = if (movie.type == MovieType.CINEMA) {
+            val extent = detailUrl?.substringAfterLast(".")
+            val baseUrl = detailUrl?.substringBeforeLast(".")
+            val time = DateTime.now().toString("-yyyy-MM-dd-HH")
+            "#$baseUrl.$time.$extent"
+        } else {
+            detailUrl
+        }
         val body = videoApiService.getVideoDetails(url, detailHeaders)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
@@ -140,64 +170,37 @@ class KinoIOnlineVideoSource(
     }
 
     override fun parsingSerialData(hlsList: String): SerialData {
-        val seasons = mutableListOf<SerialSeason>()
-        hlsList.replace("\n", "")
+        val substringBefore = hlsList.replace("\n", "")
             .replace("\t", "")
             .replace("\\s+".toRegex(), " ")
             .substringAfter("seasons:[{")
             .substringBefore("}]}]")
-            .split("\"season\":")
-            .asSequence()
-            .filter { it.isNotBlank() }
-            .forEach { seasonData -> fillSeason(seasonData, seasons) }
+        val result = "[{$substringBefore}]}]"
+        val seasons = mutableListOf<SerialSeason>()
+        result.fromJson(ArrayList::class.java) { jsonElement ->
+            for (element in jsonElement.asJsonArray) {
+                element.fromJson(SeasonItem::class.java)?.let { movie ->
+                    seasons.add(fillEposides(movie))
+                }
+            }
+        }
         seasons.sortBy { it.id }
         return SerialData(seasons)
     }
 
-    private fun fillSeason(
-        seasonData: String,
-        seasons: MutableList<SerialSeason>
-    ) {
-        val seasonIdEnd = seasonData.indexOf(",\"blocked\"")
-        val id = seasonData.substring(0, seasonIdEnd).toIntOrNull() ?: 0
+    private fun fillEposides(
+        seasonItem: SeasonItem,
+    ): SerialSeason {
         val episodes = mutableListOf<SerialEpisode>()
-        seasonData.substringAfter("episodes\":")
-            .substringAfter("[{\"")
-            .substringBeforeLast("]")
-            .split("episode\":\"")
-            .asSequence()
-            .filterNot { it.isBlank() }
-            .map { it.substringBeforeLast("},{\"") }
-            .forEach { episodeData -> fillEpisode(episodeData, episodes) }
-        episodes.sortBy { it.id }
-        seasons.add(SerialSeason(id, episodes))
-    }
-
-    private fun fillEpisode(
-        episodeData: String,
-        episodes: MutableList<SerialEpisode>
-    ) {
-        val episodeId = episodeData.substring(0, 1).toIntOrNull() ?: 0
-        val videoQualityMap = hashMapOf<String, String>()
-        val title = episodeData.substringAfter("\"title\":").replace("\"", "")
-        episodeData
-            .substringAfter("hlsList\":{")
-            .substringBefore("},\"audio\"")
-            .split(",")
-            .asSequence()
-            .map { it.substring(1, it.length - 1).replace("\"", "") }
-            .forEach { hls -> fillQualityMap(hls, videoQualityMap) }
-        episodes.add(SerialEpisode(episodeId, title, videoQualityMap))
-    }
-
-    private fun fillQualityMap(
-        hls: String,
-        videoQualityMap: HashMap<String, String>
-    ) {
-        val quality = hls.substringBefore(":")
-        val link = hls.substringAfter(":")
-        if (quality.isNotBlank() && link.isNotBlank()) {
-            videoQualityMap[quality] = link
+        for (episodesItem in seasonItem.episodes) {
+            val serialEpisode = SerialEpisode(
+                id = episodesItem.episode.toIntOrNull() ?: 0,
+                title = episodesItem.title,
+                hlsList = episodesItem.hlsList
+            )
+            episodes.add(serialEpisode)
         }
+        episodes.sortBy { it.id }
+        return SerialSeason(seasonItem.season, episodes)
     }
 }

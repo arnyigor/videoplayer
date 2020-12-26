@@ -1,9 +1,9 @@
 package com.arny.homecinema.data.network.sources
 
-import android.content.Context
-import com.arny.homecinema.data.models.mocks.MockMovie
+import com.arny.homecinema.data.models.SeasonItem
 import com.arny.homecinema.data.network.hosts.HostStoreImpl
 import com.arny.homecinema.data.network.hosts.IHostStore
+import com.arny.homecinema.data.repository.sources.AssetsReader
 import com.arny.homecinema.data.utils.fromJson
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
@@ -16,7 +16,7 @@ import kotlin.collections.ArrayList
 
 class MockDataVideoSource(
     private val hostStore: IHostStore,
-    private val context: Context
+    private val assetsReader: AssetsReader
 ) : IVideoSource {
     override val detailHeaders: Map<String, String>
         get() = mapOf(
@@ -80,9 +80,6 @@ class MockDataVideoSource(
             .select(".video-box").getOrNull(1)
             ?.select("iframe")?.attr("src")
 
-    private fun readFileText(fileName: String): String {
-        return context.assets.open(fileName).bufferedReader().use { it.readText() }
-    }
 
     override fun getTitle(doc: Document): String {
         return when (hostStore.host) {
@@ -102,7 +99,7 @@ class MockDataVideoSource(
             HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK2 -> "source_1.txt"
             else -> "source_1.txt"
         }
-        return@withContext readFileText(file)
+        return@withContext assetsReader.readFileText(file)
     }
 
     override fun getQualityMap(hlsList: String): HashMap<String, String> {
@@ -124,7 +121,7 @@ class MockDataVideoSource(
         val seasons = mutableListOf<SerialSeason>()
         hlsList.fromJson(ArrayList::class.java) { jsonElement ->
             for (element in jsonElement.asJsonArray) {
-                element.fromJson(MockMovie::class.java)?.let { mockMovie ->
+                element.fromJson(SeasonItem::class.java)?.let { mockMovie ->
                     seasons.add(fillEposides(mockMovie))
                 }
             }
@@ -134,22 +131,18 @@ class MockDataVideoSource(
     }
 
     private fun fillEposides(
-        mockMovie: MockMovie,
+        seasonItem: SeasonItem,
     ): SerialSeason {
         val episodes = mutableListOf<SerialEpisode>()
-        for (episodesItem in mockMovie.episodes) {
-            val links = hashMapOf(
-                "480" to episodesItem.hlsList.jsonMember480,
-                "720" to episodesItem.hlsList.jsonMember720
-            )
+        for (episodesItem in seasonItem.episodes) {
             val serialEpisode = SerialEpisode(
                 id = episodesItem.episode.toIntOrNull() ?: 0,
                 title = episodesItem.title,
-                hlsList = links
+                hlsList = episodesItem.hlsList
             )
             episodes.add(serialEpisode)
         }
         episodes.sortBy { it.id }
-        return SerialSeason(mockMovie.season, episodes)
+        return SerialSeason(seasonItem.season, episodes)
     }
 }
