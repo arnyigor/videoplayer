@@ -286,8 +286,14 @@ class DetailsFragment : Fragment() {
 
     private fun updateSpinData() = with(binding) {
         clearSpinListeners()
-        currentMovie?.currentSeasonPosition?.let { currentSeasonPosition = it }
-        currentMovie?.currentEpisodePosition?.let { currentEpisodePosition = it }
+        val cachedSeasonPosition = currentMovie?.currentSeasonPosition ?: 0
+        val cachedEpisodPosition = currentMovie?.currentEpisodePosition ?: 0
+        if (cachedSeasonPosition != 0 && currentSeasonPosition == 0) {
+            currentSeasonPosition = cachedSeasonPosition
+        }
+        if (cachedEpisodPosition != 0 && currentEpisodePosition == 0) {
+            currentEpisodePosition = cachedEpisodPosition
+        }
         val seasons = currentMovie?.serialData?.seasons
         val seasonsList = seasons?.mapIndexed { index, _ -> "${index + 1} сезон" }
         seasonsTracksAdapter?.clear()
