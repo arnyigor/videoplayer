@@ -219,23 +219,23 @@ class DetailsFragment : Fragment() {
         val currentTimeline = exoPlayer?.currentTimeline
         val count = currentTimeline?.windowCount ?: 0
         val seasons = currentMovie?.serialData?.seasons
-        val allEpisodes = seasons?.flatMap { it.episodes ?: emptyList() }
-        val playerSeason = seasons?.getOrNull(currentSeasonPosition)
-        val episode = playerSeason?.let { it.episodes?.getOrNull(currentEpisodePosition) }
-        val indexOf = allEpisodes?.indexOf(episode)
-        val windowIndex = indexOf.takeIf { it != null && it >= 0 } ?: 0
-        if (count > windowIndex) {
-            currentVideo = currentVideo?.copy(
-                id = episode?.id,
-                hlsList = episode?.hlsList,
-                type = MovieType.SERIAL,
-                title = episode?.title
-            )
-            exoPlayer?.seekTo(windowIndex, currentVideo?.currentPosition ?: 0)
-            currentVideo?.let {
-                updateUI(it)
+        seasons?.let {
+            val allEpisodes = seasons.flatMap { it.episodes ?: emptyList() }
+            val playerSeason = seasons.getOrNull(currentSeasonPosition)
+            val episode = playerSeason?.let { it.episodes?.getOrNull(currentEpisodePosition) }
+            val indexOf = allEpisodes.indexOf(episode)
+            val windowIndex = indexOf.takeIf { it >= 0 } ?: 0
+            if (count > windowIndex) {
+                currentVideo = currentVideo?.copy(
+                    id = episode?.id,
+                    hlsList = episode?.hlsList,
+                    type = MovieType.SERIAL,
+                    title = episode?.title
+                )
+                exoPlayer?.seekTo(windowIndex, currentVideo?.currentPosition ?: 0)
             }
         }
+        currentVideo?.let { updateUI(it) }
     }
 
     private fun updateCurrentSerialPosition() {
@@ -285,7 +285,6 @@ class DetailsFragment : Fragment() {
     }
 
     private fun updateSpinData() = with(binding) {
-        clearSpinListeners()
         val cachedSeasonPosition = currentMovie?.currentSeasonPosition ?: 0
         val cachedEpisodPosition = currentMovie?.currentEpisodePosition ?: 0
         if (cachedSeasonPosition != 0 && currentSeasonPosition == 0) {
@@ -296,15 +295,18 @@ class DetailsFragment : Fragment() {
         }
         val seasons = currentMovie?.serialData?.seasons
         val seasonsList = seasons?.mapIndexed { index, _ -> "${index + 1} сезон" }
-        seasonsTracksAdapter?.clear()
-        seasonsTracksAdapter?.addAll(seasonsList)
-        val seriesList = seasons?.getOrNull(currentSeasonPosition)
-            ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
-        episodesTracksAdapter?.clear()
-        episodesTracksAdapter?.addAll(seriesList)
-        spinSeasons.setSelection(currentSeasonPosition, false)
-        spinEpisodes.setSelection(currentEpisodePosition, false)
-        addSpinListeners()
+        if (!seasonsList.isNullOrEmpty()) {
+            clearSpinListeners()
+            seasonsTracksAdapter?.clear()
+            seasonsTracksAdapter?.addAll(seasonsList)
+            val seriesList = seasons.getOrNull(currentSeasonPosition)
+                ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
+            episodesTracksAdapter?.clear()
+            episodesTracksAdapter?.addAll(seriesList)
+            spinSeasons.setSelection(currentSeasonPosition, false)
+            spinEpisodes.setSelection(currentEpisodePosition, false)
+            addSpinListeners()
+        }
     }
 
     private fun createPlayer() {

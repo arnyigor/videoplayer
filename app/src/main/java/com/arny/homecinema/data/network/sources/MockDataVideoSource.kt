@@ -83,7 +83,7 @@ class MockDataVideoSource(
 
     override fun getTitle(doc: Document): String {
         return when (hostStore.host) {
-            HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK -> "Джокер (2019)"
+            HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK -> "ЧУДО-ЖЕНЩИНА: 1984 (2020)"
             HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK2 -> "Тайны смолвиля"
             else -> "source_1.txt"
         }
@@ -104,8 +104,7 @@ class MockDataVideoSource(
 
     override fun getQualityMap(hlsList: String): HashMap<String, String> {
         return hashMapOf(
-            "360" to "https://storage.videobase.xyz/6cf11987aea09f1e8029edc22f0b54d9:2020122507/movies/79d011837d439e6e52a294cf6471bbe9eaf3f429/360.mp4",
-            "480" to "https://storage.videobase.xyz/6cf11987aea09f1e8029edc22f0b54d9:2020122507/movies/79d011837d439e6e52a294cf6471bbe9eaf3f429/360.mp4",
+            "480" to "https://m1.rumer.fun/manifest/MTc2LjExOC43OC4xNTc=/?video=https://e4ab6b73dd7dcbf79500b34cb24c0397bc418412.streamvid.club/12_27_20/12/27/05/VD4IKRG2/5NC2DHPP.mp4/tracks/v1-a/index-v1.m3u8",
         )
     }
 

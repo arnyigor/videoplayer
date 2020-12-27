@@ -129,10 +129,14 @@ class KinoIOnlineVideoSource(
     override suspend fun getResultDoc(movie: Movie): Document {
         val detailUrl = movie.detailUrl
         val url = if (movie.type == MovieType.CINEMA) {
-            val extent = detailUrl?.substringAfterLast(".")
-            val baseUrl = detailUrl?.substringBeforeLast(".")
-            val time = DateTime.now().toString("-yyyy-MM-dd-HH")
-            "#$baseUrl.$time.$extent"
+            if (!".+-\\d{4}-\\d{2}-\\d{2}-\\d{2}.html$".toRegex().matches(detailUrl ?: "")) {
+                val extent = detailUrl?.substringAfterLast(".")
+                val baseUrl = detailUrl?.substringBeforeLast(".")
+                val time = DateTime.now().toString("-yyyy-MM-dd-HH")
+                "#$baseUrl.$time.$extent"
+            } else {
+                detailUrl
+            }
         } else {
             detailUrl
         }

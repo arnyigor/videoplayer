@@ -202,6 +202,7 @@ class VideoRepositoryImpl @Inject constructor(
         val selectedQuality = getMinQualityKey(hlsQualityMap)
         return movie.copy(
             type = type,
+            title = title ?: "",
             video = Video(
                 id = movieId,
                 title = title,

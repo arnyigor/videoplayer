@@ -34,6 +34,7 @@ class HostStoreImpl @Inject constructor() : IHostStore {
         get() = listOf(
             LORDFILM_KINO_I_HOST,
             LORDFILM_AL_HOST,
+            LORDFILM_KINO_I_HOST_MOCK,
             LORDFILM_KINO_I_HOST_MOCK2,
         )
 }
