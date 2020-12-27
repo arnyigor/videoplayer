@@ -26,6 +26,7 @@ dependencies {
     retrofit()
     jodaTime()
     appcompat()
+    stetho()
     preference()
     constraintlayout()
     jsoup()

@@ -11,10 +11,8 @@ import com.arny.homecinema.data.utils.fromJson
 import com.arny.homecinema.data.utils.toJson
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.*
 import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -82,11 +80,11 @@ class VideoRepositoryImpl @Inject constructor(
     private fun getMainPageContent(body: ResponseBody): DataResult<MainPageContent> {
         val doc = responseBodyConverter.convert(body)
         requireNotNull(doc)
-        return MainPageContent(getMainVideos(doc), getMenuLinks()).toResult()
+        return MainPageContent(getMainVideos(doc), getMenuLinks(doc)).toResult()
     }
 
-    private fun getMenuLinks(): MutableList<VideoSearchLink> {
-        val menuItems = emptyList<Element>()//getSource().getMenuItems(doc)
+    private fun getMenuLinks(doc: Document): MutableList<VideoSearchLink> {
+        val menuItems = getSource().getMenuItems(doc)
         return mutableListOf<VideoSearchLink>().apply {
             for (link in menuItems) {
                 add(getVideoSearchFromLink(link))
@@ -118,6 +116,32 @@ class VideoRepositoryImpl @Inject constructor(
                 emit(false.toResult())
             }
         }.flowOn(Dispatchers.IO)
+    }
+
+    @FlowPreview
+    override fun searchCached(searchText: String): Flow<List<Movie>> {
+        return flow {
+            var movies = emptyList<Movie>()
+            if (searchText.length > 1) {
+                movies = moviesStore.movies.filter { it.title.contains(searchText, true) }
+                if (movies.isEmpty()) {
+                    movies = try {
+                        prefs.getAll()?.filter {
+                            it.key.contains(searchText, true)
+                        }?.map { entry ->
+                            entry.value.fromJson(Movie::class.java)!!
+                        } ?: emptyList()
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                }
+            }
+            emit(movies)
+        }
+            .debounce(350)
+            .distinctUntilChanged()
+            .flowOn(Dispatchers.IO)
+
     }
 
     override fun loadMovie(movie: Movie): Flow<DataResult<Movie>> {

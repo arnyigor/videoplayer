@@ -228,9 +228,9 @@ class DetailsFragment : Fragment() {
             if (count > windowIndex) {
                 currentVideo = currentVideo?.copy(
                     id = episode?.id,
-                    hlsList = episode?.hlsList,
+                    title = episode?.title,
                     type = MovieType.SERIAL,
-                    title = episode?.title
+                    hlsList = episode?.hlsList
                 )
                 exoPlayer?.seekTo(windowIndex, currentVideo?.currentPosition ?: 0)
             }

@@ -10,6 +10,7 @@ import com.arny.homecinema.data.network.response.ResponseBodyConverterImpl
 import com.arny.homecinema.data.network.sources.IVideoSourceFactory
 import com.arny.homecinema.data.network.sources.VideoSourceFactory
 import com.arny.homecinema.di.models.VideoApiService
+import com.facebook.stetho.okhttp3.StethoInterceptor
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -59,6 +60,7 @@ abstract class NetworkModule {
                 .callTimeout(3, TimeUnit.MINUTES)
                 .addInterceptor(debugInterceptor)
                 .addInterceptor(headersInterceptor)
+                .addNetworkInterceptor(StethoInterceptor())
                 .cache(null)
                 .build()
         }

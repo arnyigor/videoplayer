@@ -2,9 +2,12 @@ package com.arny.homecinema.presentation.utils
 
 import android.annotation.SuppressLint
 import android.view.MotionEvent
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.TextView
+import androidx.annotation.ColorInt
+import com.google.android.material.snackbar.Snackbar
 
 @SuppressLint("ClickableViewAccessibility")
 fun EditText.setDrawableRightListener(onClick: () -> Unit) {
@@ -31,4 +34,20 @@ fun EditText.setEnterPressListener(onEnterPressed: () -> Unit) {
             else -> false
         }
     }
+}
+
+
+fun View.showSnackBar(
+    message: String,
+    actionText: String,
+    duration: Int? = null,
+    @ColorInt actionColor: Int? = null,
+    action: () -> Unit
+) {
+    val snackBar = Snackbar.make(this, message, duration ?: Snackbar.LENGTH_INDEFINITE)
+    snackBar.setAction(actionText) { action.invoke() }
+    if (actionColor != null) {
+        snackBar.setActionTextColor(actionColor)
+    }
+    snackBar.show()
 }

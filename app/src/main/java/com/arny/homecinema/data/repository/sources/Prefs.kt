@@ -7,7 +7,6 @@ import androidx.preference.PreferenceManager.getDefaultSharedPreferences
 import com.arny.homecinema.data.utils.SingletonHolder
 
 
-
 class Prefs private constructor(context: Context) {
     val settings: SharedPreferences = getDefaultSharedPreferences(context)
 
@@ -15,6 +14,10 @@ class Prefs private constructor(context: Context) {
 
     inline fun <reified T> get(key: String): T? {
         return settings.all[key] as? T
+    }
+
+    fun getAll(): Map<String, *>? {
+        return settings.all
     }
 
     fun put(key: String?, value: Any?) {

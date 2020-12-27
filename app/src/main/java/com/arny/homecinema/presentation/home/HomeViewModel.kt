@@ -20,7 +20,7 @@ class HomeViewModel @Inject constructor(
     private val videoRepository: VideoRepository,
 ) : ViewModel() {
     val loading = mutableLiveData(false)
-    val result = SingleLiveEvent<DataResult<MainPageContent>>()
+    val result = mutableLiveData<DataResult<MainPageContent>>()
     val hostsData = SingleLiveEvent<DataResult<Pair<Array<String>, Int>>>()
 
     init {
@@ -101,6 +101,23 @@ class HomeViewModel @Inject constructor(
                 }
                 .collect {
                     hostsData.value = it
+                }
+        }
+    }
+
+    fun searchCached(searchText: String) {
+        viewModelScope.launch {
+            videoRepository.searchCached(searchText)
+                .onCompletion {
+                    loading.value = false
+                }
+                .catch {
+                    result.value = getFullError(it)
+                }
+                .collect {
+                    if (it.isNotEmpty()) {
+                        result.value = MainPageContent(movies = it).toResult()
+                    }
                 }
         }
     }

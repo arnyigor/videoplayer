@@ -6,13 +6,17 @@ import android.view.*
 import android.widget.AdapterView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.databinding.FHomeBinding
+import com.arny.homecinema.di.models.MainPageContent
 import com.arny.homecinema.presentation.models.VideoItem
+import com.arny.homecinema.presentation.utils.KeyboardHelper
+import com.arny.homecinema.presentation.utils.setDrawableRightListener
 import com.arny.homecinema.presentation.utils.setEnterPressListener
 import com.arny.homecinema.presentation.utils.viewBinding
 import com.xwray.groupie.GroupAdapter
@@ -61,8 +65,24 @@ class HomeFragment : Fragment() {
             swiperefresh.isRefreshing = false
             vm.restartLoading()
         }
-        btnSearch.setOnClickListener { searchVideo() }
-        edtSearch.setEnterPressListener { searchVideo() }
+        btnSearch.setOnClickListener {
+            KeyboardHelper.hideKeyboard(requireActivity())
+            searchVideo()
+        }
+        edtSearch.setDrawableRightListener {
+            KeyboardHelper.hideKeyboard(requireActivity())
+            edtSearch.setText("")
+            vm.restartLoading()
+        }
+        edtSearch.setEnterPressListener {
+            KeyboardHelper.hideKeyboard(requireActivity())
+            searchVideo()
+        }
+        edtSearch.doAfterTextChanged {
+            if (edtSearch.isFocused) {
+                vm.searchCached(it.toString())
+            }
+        }
         searchLinksSpinnerAdapter = SearchLinksSpinnerAdapter(requireContext())
         acsLinks.adapter = searchLinksSpinnerAdapter
         acsLinks.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -98,15 +118,7 @@ class HomeFragment : Fragment() {
         vm.result.observe(viewLifecycleOwner, { result ->
             when (result) {
                 is DataResult.Success -> {
-                    val content = result.data
-                    val data = content.movies
-                    val items = data?.map { VideoItem(it) }
-                    fillAdapter(items)
-                    emptyData = data?.isEmpty() ?: true
-                    val mutableCollection = content.searchVideoLinks ?: emptyList()
-                    binding.acsLinks.isVisible = mutableCollection.isNotEmpty()
-                    searchLinksSpinnerAdapter?.clear()
-                    searchLinksSpinnerAdapter?.addAll(mutableCollection)
+                    updateList(result.data)
                 }
                 is DataResult.Error -> {
                     emptyData = true
@@ -114,6 +126,18 @@ class HomeFragment : Fragment() {
                 }
             }
         })
+    }
+
+    private fun updateList(pageContent: MainPageContent) {
+        val data = pageContent.movies
+        val items = data?.map { VideoItem(it) }
+        fillAdapter(items)
+        emptyData = data?.isEmpty() ?: true
+        val mutableCollection = pageContent.searchVideoLinks ?: emptyList()
+        if (mutableCollection.isNotEmpty()) {
+            searchLinksSpinnerAdapter?.clear()
+            searchLinksSpinnerAdapter?.addAll(mutableCollection)
+        }
     }
 
     private fun fillAdapter(items: List<VideoItem>?) {

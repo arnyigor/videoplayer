@@ -76,7 +76,7 @@ class KinoIOnlineVideoSource(
     }
 
     override fun getMenuItems(doc: Document): Elements =
-        doc.body().getElementById("header").select(".hmenu li a")
+        doc.body().select(".side-box li a")
 
     override fun getSearchResultLinks(doc: Document): Elements =
         doc.body()
@@ -133,7 +133,7 @@ class KinoIOnlineVideoSource(
                 val extent = detailUrl?.substringAfterLast(".")
                 val baseUrl = detailUrl?.substringBeforeLast(".")
                 val time = DateTime.now().toString("-yyyy-MM-dd-HH")
-                "#$baseUrl.$time.$extent"
+                "$baseUrl.$time.$extent"
             } else {
                 detailUrl
             }

@@ -127,6 +127,11 @@ ext {
         implementation "com.readystatesoftware.chuck:library:$version"
     }}
 
+    stetho = { version = '1.5.1' -> Alias {
+        implementation "com.facebook.stetho:stetho:$version"
+        implementation "com.facebook.stetho:stetho-okhttp3:$version"
+    }}
+
     dagger = { version = '2.29.1' -> Alias {
         implementation "com.google.dagger:dagger:$version"
         implementation "com.google.dagger:dagger-android:$version"
@@ -185,7 +190,7 @@ ext {
         implementation "com.xwray:groupie-viewbinding:$version"
     }}
 
-    leakcanary = { version = '2.4' -> Alias {
+    leakcanary = { version = '2.6' -> Alias {
         debugImplementation "com.squareup.leakcanary:leakcanary-android:$version"
         implementation "com.squareup.leakcanary:leakcanary-object-watcher-android:$version"
     }}
