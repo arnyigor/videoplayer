@@ -13,7 +13,7 @@ abstract class ActivitiesModule {
     @ContributesAndroidInjector(
         modules = [
             HomeFragmentModule::class,
-            DetailsFragmentModule::class
+            DetailsFragmentModule::class,
         ]
     )
     abstract fun bindMainActivity(): MainActivity

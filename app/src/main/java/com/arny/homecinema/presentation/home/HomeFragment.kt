@@ -181,6 +181,11 @@ class HomeFragment : Fragment() {
                 vm.requestHosts()
                 true
             }
+            R.id.menu_action_settings -> {
+                binding.root.findNavController()
+                    .navigate(HomeFragmentDirections.actionHomeFragmentToSettingsFragment())
+                true
+            }
             else -> false
         }
     }

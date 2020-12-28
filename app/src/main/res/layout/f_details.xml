@@ -17,7 +17,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:show_buffering="when_playing"
-        app:show_timeout="3000" />
+        app:show_timeout="1000" />
 
     <Spinner
         android:id="@+id/spinSeasons"

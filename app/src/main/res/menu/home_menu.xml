@@ -6,4 +6,10 @@
         android:id="@+id/menu_action_choose_source"
         android:title="@string/home_choose_source"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_action_settings"
+        android:icon="@drawable/exo_ic_settings"
+        android:title="@string/menu_preferences"
+        app:showAsAction="ifRoom" />
 </menu>

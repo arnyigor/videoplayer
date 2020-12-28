@@ -13,7 +13,7 @@ import androidx.navigation.fragment.navArgs
 import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.models.DataThrowable
-import com.arny.homecinema.databinding.DetailsFragmentBinding
+import com.arny.homecinema.databinding.FDetailsBinding
 import com.arny.homecinema.di.models.*
 import com.arny.homecinema.presentation.utils.*
 import com.google.android.exoplayer2.*
@@ -102,7 +102,7 @@ class DetailsFragment : Fragment() {
     @Inject
     lateinit var vm: DetailsViewModel
 
-    private val binding by viewBinding { DetailsFragmentBinding.bind(it).also(::initBinding) }
+    private val binding by viewBinding { FDetailsBinding.bind(it).also(::initBinding) }
 
     private val playerListener = object : Player.EventListener {
 
@@ -150,7 +150,7 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    private fun initBinding(binding: DetailsFragmentBinding) {
+    private fun initBinding(binding: FDetailsBinding) {
         return with(binding) {
             val movie = args.movie
             initTrackAdapters()
@@ -193,7 +193,7 @@ class DetailsFragment : Fragment() {
         )
     }
 
-    private fun DetailsFragmentBinding.initTrackAdapters() {
+    private fun FDetailsBinding.initTrackAdapters() {
         seasonsTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
         episodesTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
         spinSeasons.adapter = seasonsTracksAdapter
@@ -516,7 +516,7 @@ class DetailsFragment : Fragment() {
         if (setFullScreen) {
             appCompatActivity?.setActionBarVisible(false)
         } else {
-            appCompatActivity?.setActionBarVisible(true)
+            appCompatActivity?.setActionBarVisible(false)
         }
     }
 
@@ -532,7 +532,7 @@ class DetailsFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return inflater.inflate(R.layout.details_fragment, container, false)
+        return inflater.inflate(R.layout.f_details, container, false)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {

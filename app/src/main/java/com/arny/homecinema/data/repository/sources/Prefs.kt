@@ -6,7 +6,6 @@ import android.content.SharedPreferences
 import androidx.preference.PreferenceManager.getDefaultSharedPreferences
 import com.arny.homecinema.data.utils.SingletonHolder
 
-
 class Prefs private constructor(context: Context) {
     val settings: SharedPreferences = getDefaultSharedPreferences(context)
 
