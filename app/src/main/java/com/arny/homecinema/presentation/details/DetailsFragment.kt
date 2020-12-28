@@ -250,7 +250,7 @@ class DetailsFragment : Fragment() {
             }
         }
         currentVideo?.let { video ->
-            if (videoRestored) return@let
+            if (videoRestored && exoPlayer != null) return@let
             videoRestored = movie == null && videoStartRestore
             updateSpinData()
             createPlayer()
@@ -454,7 +454,7 @@ class DetailsFragment : Fragment() {
     private fun cache() {
         currentVideo?.currentPosition = exoPlayer?.contentPosition ?: 0
         currentVideo?.playWhenReady = exoPlayer?.playWhenReady ?: false
-        vm.cacheItem(
+        vm.cacheMovie(
             currentMovie?.copy(
                 currentEpisodePosition = currentEpisodePosition,
                 currentSeasonPosition = currentSeasonPosition,
@@ -487,7 +487,9 @@ class DetailsFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
-            setFullScreen(activity as AppCompatActivity?, true)
+            val appCompatActivity = activity as AppCompatActivity?
+            appCompatActivity?.supportActionBar?.hide()
+            setFullScreen(appCompatActivity, true)
         }
         restorePlayerState()
     }
@@ -508,15 +510,12 @@ class DetailsFragment : Fragment() {
     }
 
     private fun setFullScreen(appCompatActivity: AppCompatActivity?, setFullScreen: Boolean) {
-        if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
-            appCompatActivity?.setSystemBarVisible(false)
-        } else {
-            appCompatActivity?.setSystemBarVisible(true)
-        }
         if (setFullScreen) {
-            appCompatActivity?.setActionBarVisible(false)
+            appCompatActivity?.hideSystemBar()
+            appCompatActivity?.window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
         } else {
-            appCompatActivity?.setActionBarVisible(false)
+            appCompatActivity?.showSystemBar()
+            appCompatActivity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
         }
     }
 

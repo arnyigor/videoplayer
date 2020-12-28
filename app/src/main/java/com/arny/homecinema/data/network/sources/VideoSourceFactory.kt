@@ -3,7 +3,7 @@ package com.arny.homecinema.data.network.sources
 import com.arny.homecinema.data.network.hosts.HostStoreImpl
 import com.arny.homecinema.data.network.hosts.IHostStore
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
-import com.arny.homecinema.data.repository.sources.AssetsReader
+import com.arny.homecinema.data.repository.sources.assets.AssetsReader
 import com.arny.homecinema.di.models.VideoApiService
 import javax.inject.Inject
 

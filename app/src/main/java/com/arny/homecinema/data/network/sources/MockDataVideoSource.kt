@@ -3,7 +3,7 @@ package com.arny.homecinema.data.network.sources
 import com.arny.homecinema.data.models.SeasonItem
 import com.arny.homecinema.data.network.hosts.HostStoreImpl
 import com.arny.homecinema.data.network.hosts.IHostStore
-import com.arny.homecinema.data.repository.sources.AssetsReader
+import com.arny.homecinema.data.repository.sources.assets.AssetsReader
 import com.arny.homecinema.data.utils.fromJson
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers

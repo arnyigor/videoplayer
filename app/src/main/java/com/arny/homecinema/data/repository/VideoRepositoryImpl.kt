@@ -5,10 +5,8 @@ import com.arny.homecinema.data.models.toResult
 import com.arny.homecinema.data.network.hosts.IHostStore
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
 import com.arny.homecinema.data.network.sources.IVideoSourceFactory
-import com.arny.homecinema.data.repository.sources.Prefs
-import com.arny.homecinema.data.repository.sources.PrefsConstants
-import com.arny.homecinema.data.utils.fromJson
-import com.arny.homecinema.data.utils.toJson
+import com.arny.homecinema.data.repository.sources.cache.VideoCache
+import com.arny.homecinema.data.repository.sources.store.StoreProvider
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -23,9 +21,9 @@ class VideoRepositoryImpl @Inject constructor(
     private val responseBodyConverter: ResponseBodyConverter,
     private val hostStore: IHostStore,
     private val sourceFactory: IVideoSourceFactory,
-    private val prefs: Prefs,
+    private val storeProvider: StoreProvider,
+    private val videoCache: VideoCache,
 ) : VideoRepository {
-    private val moviesStore = MoviesStore
 
     @Volatile
     private var currentMovie: Movie? = null
@@ -110,7 +108,10 @@ class VideoRepositoryImpl @Inject constructor(
     override fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>> {
         return flow {
             if (movie != null) {
-                prefs.put(movie.title, movie.toJson())
+                videoCache.addToCache(movie)
+                if (storeProvider.canSaveToStore()) {
+                    storeProvider.saveToStore(movie)
+                }
                 emit(true.toResult())
             } else {
                 emit(false.toResult())
@@ -123,14 +124,10 @@ class VideoRepositoryImpl @Inject constructor(
         return flow {
             var movies = emptyList<Movie>()
             if (searchText.length > 1) {
-                movies = moviesStore.movies.filter { it.title.contains(searchText, true) }
-                if (movies.isEmpty()) {
+                movies = videoCache.searchFromCache(searchText)
+                if (movies.isEmpty() && isSaveToStore()) {
                     movies = try {
-                        prefs.getAll()?.filter {
-                            it.key.contains(searchText, true)
-                        }?.map { entry ->
-                            entry.value.fromJson(Movie::class.java)!!
-                        } ?: emptyList()
+                        storeProvider.searchMovies(searchText)
                     } catch (e: Exception) {
                         emptyList()
                     }
@@ -144,44 +141,42 @@ class VideoRepositoryImpl @Inject constructor(
 
     }
 
+    private fun isSaveToStore(): Boolean = storeProvider.canSaveToStore()
+
     override fun loadMovie(movie: Movie): Flow<DataResult<Movie>> {
         return flow {
-            val movieInStore = moviesStore.movies.find { it.title == movie.title }
-            val cache = prefs.get<Boolean>(PrefsConstants.PREF_CACHE_VIDEO) ?: true
-            val movie1 = if (movieInStore != null && cache) {
+            val movieInStore = videoCache.getFromCache(movie.title)
+            val resultMovie = if (movieInStore != null) {
                 currentMovie = movieInStore
                 currentMovie!!
             } else {
-                val fromPrefs = getFromPrefs(movie)
-                if (fromPrefs != null && cache) {
+                val fromPrefs = getFromStore(movie)
+                if (fromPrefs != null) {
+                    videoCache.addToCache(fromPrefs)
                     currentMovie = fromPrefs
                     currentMovie!!
                 } else {
                     val value = getFullMovie(movie)
-                    if (cache && !value.video?.videoUrl.isNullOrBlank()) {
-                        moviesStore.movies.add(value)
+                    videoCache.addToCache(value)
+                    if (storeProvider.canSaveToStore()) {
+                        storeProvider.saveToStore(value)
                     }
                     currentMovie = value
                     currentMovie!!
                 }
             }
-            emit(movie1.toResult())
+            emit(resultMovie.toResult())
         }.flowOn(Dispatchers.IO)
     }
 
-    private fun getFromPrefs(movie: Movie): Movie? {
-        return try {
-            val get = prefs.get<String>(movie.title)
-            get.fromJson(Movie::class.java)
-        } catch (e: Exception) {
-            null
-        }
+    private fun getFromStore(movie: Movie): Movie? {
+        return storeProvider.getFromStore(movie.title)
     }
 
     override fun setHost(source: String, resetHost: Boolean) {
         hostStore.host = source
         if (resetHost) {
-            prefs.put(PrefsConstants.PREF_CURRENT_HOST, source)
+            hostStore.saveHost(source)
         }
     }
 
@@ -193,15 +188,15 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private fun getHostsData(): Pair<Array<String>, Int> {
-        var currentHost = prefs.get<String>(PrefsConstants.PREF_CURRENT_HOST)
-        if (currentHost.isNullOrBlank()) {
-            currentHost = hostStore.availableHosts.first()
-            setHost(currentHost)
+        var savedHost = hostStore.savedHost
+        if (savedHost.isNullOrBlank()) {
+            savedHost = hostStore.availableHosts.first()
+            setHost(savedHost)
         } else {
-            setHost(currentHost, false)
+            setHost(savedHost, false)
         }
         val toTypedArray = hostStore.availableHosts.toTypedArray()
-        return toTypedArray to toTypedArray.indexOf(currentHost)
+        return toTypedArray to toTypedArray.indexOf(savedHost)
     }
 
     private suspend fun getFullMovie(movie: Movie): Movie {
@@ -268,8 +263,8 @@ class VideoRepositoryImpl @Inject constructor(
         firstSeason: SerialSeason?,
         value: List<SerialEpisode>
     ) {
-        moviesStore.currentSeason = firstSeason
-        moviesStore.currentEpisode = value.firstOrNull()
+        videoCache.currentSeason = firstSeason
+        videoCache.currentEpisode = value.firstOrNull()
     }
 
     override fun onPlaylistChanged(
@@ -280,7 +275,7 @@ class VideoRepositoryImpl @Inject constructor(
             val serialSeason = currentMovie?.serialData?.seasons?.getOrNull(seasonPosition)
             val value = serialSeason?.episodes ?: emptyList()
             updateStore(serialSeason, value)
-            val episode = moviesStore.currentSeason?.episodes?.getOrNull(episodePosition)
+            val episode = videoCache.currentSeason?.episodes?.getOrNull(episodePosition)
             emit(episode)
         }.flowOn(Dispatchers.IO)
             .map { it.toResult() }

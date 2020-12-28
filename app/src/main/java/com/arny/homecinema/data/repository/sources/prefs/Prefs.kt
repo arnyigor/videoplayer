@@ -1,4 +1,4 @@
-package com.arny.homecinema.data.repository.sources
+package com.arny.homecinema.data.repository.sources.prefs
 
 
 import android.content.Context

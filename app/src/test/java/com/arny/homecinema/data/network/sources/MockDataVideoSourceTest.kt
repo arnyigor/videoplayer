@@ -1,7 +1,7 @@
 package com.arny.homecinema.data.network.sources
 
 import com.arny.homecinema.data.network.hosts.IHostStore
-import com.arny.homecinema.data.repository.sources.AssetsReader
+import com.arny.homecinema.data.repository.sources.assets.AssetsReader
 import com.arny.homecinema.di.models.SerialData
 import com.nhaarman.mockitokotlin2.mock
 import org.junit.jupiter.api.Test

@@ -7,8 +7,8 @@ import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.arny.homecinema.R
-import com.arny.homecinema.data.repository.sources.Prefs
-import com.arny.homecinema.data.repository.sources.PrefsConstants
+import com.arny.homecinema.data.repository.sources.prefs.Prefs
+import com.arny.homecinema.data.repository.sources.prefs.PrefsConstants
 import com.arny.homecinema.databinding.FSettingsBinding
 import com.arny.homecinema.presentation.utils.viewBinding
 
@@ -24,10 +24,10 @@ class SettingsFragment : Fragment() {
         (requireActivity() as? AppCompatActivity)?.supportActionBar?.title =
             getString(R.string.menu_preferences)
         chbCacheAvailable.setOnCheckedChangeListener { _, isChecked ->
-            prefs.put(PrefsConstants.PREF_CACHE_VIDEO, isChecked)
+            prefs.put(PrefsConstants.PREF_SAVE_TO_STORE, isChecked)
         }
 
-        chbCacheAvailable.isChecked = prefs.get<Boolean>(PrefsConstants.PREF_CACHE_VIDEO) ?: false
+        chbCacheAvailable.isChecked = prefs.get<Boolean>(PrefsConstants.PREF_SAVE_TO_STORE) ?: false
     }
 
     override fun onCreateView(

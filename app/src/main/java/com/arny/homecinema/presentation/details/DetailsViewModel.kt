@@ -35,11 +35,11 @@ class DetailsViewModel @Inject constructor(
         }
     }
 
-    fun cacheItem(movie: Movie?) {
+    fun cacheMovie(movie: Movie?) {
         viewModelScope.launch {
             videoRepository.cacheMovie(movie)
                 .onCompletion { loading.value = false }
-                .catch { data.value = getFullError(it) }
+                .catch { cached.value = getFullError(it) }
                 .collect { res ->
                     cached.value = res
                 }

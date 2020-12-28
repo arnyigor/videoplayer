@@ -1,4 +1,4 @@
-package com.arny.homecinema.data.repository.sources
+package com.arny.homecinema.data.repository.sources.assets
 
 import android.content.Context
 import javax.inject.Inject

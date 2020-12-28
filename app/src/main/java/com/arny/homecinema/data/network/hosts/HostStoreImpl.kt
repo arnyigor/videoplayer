@@ -1,8 +1,12 @@
 package com.arny.homecinema.data.network.hosts
 
+import com.arny.homecinema.data.repository.sources.prefs.Prefs
+import com.arny.homecinema.data.repository.sources.prefs.PrefsConstants
 import javax.inject.Inject
 
-class HostStoreImpl @Inject constructor() : IHostStore {
+class HostStoreImpl @Inject constructor(
+    private val prefs: Prefs
+) : IHostStore {
     @Volatile
     override var host: String? = null
     override val baseUrl: String
@@ -18,6 +22,14 @@ class HostStoreImpl @Inject constructor() : IHostStore {
             "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
             "Connection" to "keep-alive",
         )
+
+    override fun saveHost(source: String) {
+        prefs.put(PrefsConstants.PREF_CURRENT_HOST, source)
+    }
+
+    override var savedHost: String?
+        get() = prefs.get<String>(PrefsConstants.PREF_CURRENT_HOST)
+        set(value) {}
 
     internal companion object HOSTS {
         const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
