@@ -8,5 +8,5 @@
     android:padding="10dp"
     android:textColor="@color/white"
     android:textSize="18sp"
-    tools:text="1 сезон"
+    tools:text="22 сезон"
     tools:textColor="@color/black" />

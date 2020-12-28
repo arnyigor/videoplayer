@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     android:background="@color/black">
 
-    <com.google.android.exoplayer2.ui.StyledPlayerView
+    <com.google.android.exoplayer2.ui.PlayerView
         android:id="@+id/plVideoPLayer"
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -17,13 +17,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:show_buffering="when_playing"
-        app:show_timeout="1000" />
+        app:show_timeout="3000" />
 
     <Spinner
         android:id="@+id/spinSeasons"
-        android:layout_width="150dp"
+        android:layout_width="120dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
+        android:background="@android:color/transparent"
         android:popupBackground="#E6000000"
         android:visibility="gone"
         app:layout_constraintStart_toStartOf="parent"
@@ -33,9 +34,10 @@
 
     <Spinner
         android:id="@+id/spinEpisodes"
-        android:layout_width="150dp"
+        android:layout_width="120dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
+        android:background="@android:color/transparent"
         android:popupBackground="#E6000000"
         android:visibility="gone"
         app:layout_constraintStart_toEndOf="@+id/spinSeasons"
@@ -56,5 +58,19 @@
         app:layout_constraintStart_toEndOf="@+id/spinEpisodes"
         app:layout_constraintTop_toTopOf="parent"
         tools:text="@tools:sample/lorem/random"
+        tools:textColor="@color/black" />
+
+    <com.google.android.material.textview.MaterialTextView
+        android:id="@+id/mtvQuality"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="60dp"
+        android:padding="8dp"
+        android:textColor="@color/white"
+        android:textSize="18sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="720p"
         tools:textColor="@color/black" />
 </androidx.constraintlayout.widget.ConstraintLayout>

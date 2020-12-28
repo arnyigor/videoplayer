@@ -10,4 +10,6 @@
     <string name="settings_cache_item">Кешировать</string>
     <string name="menu_preferences">Настройки</string>
     <string name="menu_home">Домой</string>
+    <string name="quality_format">%sp</string>
+    <string name="video_quality">Качество</string>
 </resources>

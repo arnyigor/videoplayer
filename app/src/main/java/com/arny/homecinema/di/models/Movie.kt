@@ -12,7 +12,8 @@ data class Movie constructor(
     val video: Video? = null,
     val serialData: SerialData? = null,
     val currentSeasonPosition: Int = 0,
-    val currentEpisodePosition: Int = 0
+    val currentEpisodePosition: Int = 0,
+    val selectedQuality: String?  = null,
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
         parcel.readString() ?: "",
@@ -23,7 +24,8 @@ data class Movie constructor(
         parcel.readParcelable(Video::class.java.classLoader),
         parcel.readParcelable(SerialData::class.java.classLoader),
         parcel.readInt(),
-        parcel.readInt()
+        parcel.readInt(),
+        parcel.readString()
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
@@ -36,6 +38,7 @@ data class Movie constructor(
         parcel.writeParcelable(serialData, flags)
         parcel.writeInt(currentSeasonPosition)
         parcel.writeInt(currentEpisodePosition)
+        parcel.writeString(selectedQuality)
     }
 
     override fun describeContents(): Int {

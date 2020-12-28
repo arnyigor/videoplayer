@@ -1,10 +1,12 @@
 package com.arny.homecinema.presentation.details
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration.*
 import android.os.Bundle
 import android.view.*
 import android.widget.AdapterView
+import android.widget.PopupMenu
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -45,14 +47,15 @@ class DetailsFragment : Fragment() {
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
     private var drawerLocker: DrawerLocker? = null
-    private var playControlsVisible by Delegates.observable(true) { _, oldValue, newValue ->
-        if (oldValue != newValue && activity != null && isAdded) {
+    private var playControlsVisible by Delegates.observable(true) { _, oldValue, visible ->
+        if (oldValue != visible && activity != null && isAdded) {
             val land = resources.configuration.orientation == ORIENTATION_LANDSCAPE
             if (land) {
-                setFullScreen(activity as AppCompatActivity?, !newValue)
+                setFullScreen(activity as AppCompatActivity?, !visible)
             }
-            setSpinEpisodesVisible(newValue && currentVideo?.type == MovieType.SERIAL)
-            setCustomTitleVisible(land && newValue)
+            setSpinEpisodesVisible(visible && currentVideo?.type == MovieType.SERIAL)
+            setCustomTitleVisible(land && visible)
+            binding.mtvQuality.isVisible = visible
         }
     }
 
@@ -168,9 +171,49 @@ class DetailsFragment : Fragment() {
                     is DataResult.Error -> toastError(dataResult.throwable)
                 }
             })
+            mtvQuality.setOnClickListener { tv -> initQualityPopup(tv) }
         }
     }
 
+    private fun initQualityPopup(view: View) = with(binding) {
+        currentVideo?.hlsList?.keys?.toList()?.let { keys ->
+            val qualityPopup = PopupMenu(requireContext(), view)
+            qualityPopup.setOnMenuItemClickListener { item ->
+                val quality = keys.getOrNull(item.itemId - 1)
+                if (quality != currentVideo?.selectedHls) {
+                    mtvQuality.text = getString(R.string.quality_format, quality)
+                    currentVideo = currentVideo?.copy(
+                        selectedHls = quality,
+                        playWhenReady = exoPlayer?.playWhenReady == true,
+                        currentPosition = exoPlayer?.currentPosition ?: 0
+                    )
+                    currentMovie = currentMovie?.copy(
+                        selectedQuality = quality,
+                        video = currentVideo
+                    )
+                    if (currentMovie != null) {
+                        releasePlayer()
+                        initPlayer(currentMovie)
+                        restorePlayerState()
+                    }
+                }
+                false
+            }
+            val menu = qualityPopup.menu
+            menu.add(Menu.NONE, 0, 0, getString(R.string.video_quality))
+            for ((ind, key) in keys.withIndex()) {
+                menu.add(1, (ind + 1), (ind + 1), key)
+            }
+            menu.setGroupCheckable(1, true, true)
+            val selectedIndex = keys.indexOf(currentVideo?.selectedHls)
+            if (selectedIndex >= 0) {
+                menu.findItem(selectedIndex + 1).isChecked = true
+            }
+            qualityPopup.show()
+        }
+    }
+
+    @SuppressLint("SetTextI18n")
     private fun updateUI(video: Video) {
         (requireActivity() as? AppCompatActivity)?.supportActionBar?.title = video.title
         binding.mtvTitle.text = video.title
@@ -250,10 +293,10 @@ class DetailsFragment : Fragment() {
             }
         }
         currentVideo?.let { video ->
-            if (videoRestored && exoPlayer != null) return@let
             videoRestored = movie == null && videoStartRestore
             updateSpinData()
             createPlayer()
+            binding.mtvQuality.text = getString(R.string.quality_format, video.selectedHls)
             binding.plVideoPLayer.player = exoPlayer
             binding.plVideoPLayer.setControllerVisibilityListener { viewVisible ->
                 if (activity != null && isAdded) {
@@ -263,13 +306,29 @@ class DetailsFragment : Fragment() {
                     }
                 }
             }
-            when (currentMovie?.type) {
-                MovieType.CINEMA -> playerAddVideoData(video)
-                MovieType.SERIAL -> playerAddSerialdata(currentMovie)
-                else -> playerAddVideoData(video)
-            }
+            setMediaItems(video, currentMovie)
             exoPlayer?.prepare()
             updatePlayerPosition()
+        }
+    }
+
+    private fun restorePlayerState() {
+        currentVideo?.let { video ->
+            exoPlayer?.seekTo(video.currentPosition)
+            val playWhenReady = video.playWhenReady
+            exoPlayer?.playWhenReady = playWhenReady
+            if (playWhenReady) {
+                binding.plVideoPLayer.hideController()
+            }
+        }
+    }
+
+
+    private fun setMediaItems(video: Video, movie: Movie?) {
+        when (movie?.type) {
+            MovieType.CINEMA -> playerAddVideoData(video)
+            MovieType.SERIAL -> playerAddSerialdata(movie)
+            else -> playerAddVideoData(video)
         }
     }
 
@@ -345,6 +404,7 @@ class DetailsFragment : Fragment() {
     }
 
     private fun playerAddVideoData(video: Video) {
+        exoPlayer?.clearMediaItems()
         video.videoUrl?.let { url ->
             when {
                 url.contains(".m3u8") -> {
@@ -363,13 +423,14 @@ class DetailsFragment : Fragment() {
     }
 
     private fun playerAddSerialdata(movie: Movie?) {
+        exoPlayer?.clearMediaItems()
         movie?.serialData?.seasons?.let { seasons ->
             seasons.asSequence()
                 .forEachIndexed { indexSeason, serialSeason ->
                     serialSeason.episodes
                         ?.asSequence()
                         ?.forEachIndexed { indexEpisode, serialEpisode ->
-                            getUrl(serialEpisode)?.let { url ->
+                            getUrl(serialEpisode, movie.selectedQuality)?.let { url ->
                                 when {
                                     url.contains(".m3u8") -> {
                                         exoPlayer?.addMediaSource(
@@ -403,10 +464,18 @@ class DetailsFragment : Fragment() {
 
     private fun getUrl(episode: SerialEpisode, key: String? = null): String? {
         val keys = episode.hlsList?.keys
-        val qualityKey = key ?: keys?.map { it.toIntOrNull() ?: 0 }
-            ?.minByOrNull { it }?.toString() ?: keys?.first()
+        val minQuality = getMinQuality(keys)
+        val qualityKey = when {
+            !key.isNullOrBlank() -> key
+            !minQuality.isNullOrBlank() -> minQuality
+            else -> keys?.first()
+        }
         return episode.hlsList?.get(qualityKey)
     }
+
+    private fun getMinQuality(keys: MutableSet<String>?) =
+        keys?.map { it.toIntOrNull() ?: 0 }
+            ?.minByOrNull { it }?.toString()
 
     private fun createSource(
         url: String?,
@@ -425,17 +494,6 @@ class DetailsFragment : Fragment() {
             .build()
         return HlsMediaSource.Factory(DefaultHttpDataSourceFactory())
             .createMediaSource(item)
-    }
-
-    private fun restorePlayerState() {
-        currentVideo?.let { video ->
-            exoPlayer?.seekTo(video.currentPosition)
-            val playWhenReady = video.playWhenReady
-            exoPlayer?.playWhenReady = playWhenReady
-            if (playWhenReady) {
-                binding.plVideoPLayer.hideController()
-            }
-        }
     }
 
     private fun releasePlayer() {

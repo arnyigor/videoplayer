@@ -218,7 +218,11 @@ class VideoRepositoryImpl @Inject constructor(
         title: String?
     ): Movie {
         val hlsQualityMap = getSource().getQualityMap(hlsList)
-        val selectedQuality = getMinQualityKey(hlsQualityMap)
+        val selectedQuality = if (!movie.selectedQuality.isNullOrBlank()) {
+            getMinQualityKey(hlsQualityMap)
+        } else {
+            movie.selectedQuality
+        }
         return movie.copy(
             type = type,
             title = title ?: "",
@@ -243,7 +247,11 @@ class VideoRepositoryImpl @Inject constructor(
         val episodes = firstSeason?.episodes ?: emptyList()
         val firstEpisode = episodes.minByOrNull { it.id ?: 0 }
         val hlsQualityMap = firstEpisode?.hlsList
-        val selectedQuality = getMinQualityKey(hlsQualityMap)
+        val selectedQuality = if (!movie.selectedQuality.isNullOrBlank()) {
+            getMinQualityKey(hlsQualityMap)
+        } else {
+            movie.selectedQuality
+        }
         updateStore(firstSeason, episodes)
         return movie.copy(
             type = type,
