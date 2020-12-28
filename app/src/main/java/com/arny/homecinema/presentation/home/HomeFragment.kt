@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.*
 import android.widget.AdapterView
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
@@ -15,10 +16,7 @@ import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.databinding.FHomeBinding
 import com.arny.homecinema.di.models.MainPageContent
 import com.arny.homecinema.presentation.models.VideoItem
-import com.arny.homecinema.presentation.utils.KeyboardHelper
-import com.arny.homecinema.presentation.utils.setDrawableRightListener
-import com.arny.homecinema.presentation.utils.setEnterPressListener
-import com.arny.homecinema.presentation.utils.viewBinding
+import com.arny.homecinema.presentation.utils.*
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
 import dagger.android.support.AndroidSupportInjection
@@ -32,6 +30,21 @@ class HomeFragment : Fragment() {
     lateinit var vm: HomeViewModel
 
     private val binding by viewBinding { FHomeBinding.bind(it).also(::initBinding) }
+
+    private var videoTypesSelectListener: AdapterView.OnItemSelectedListener =
+        object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                vm.onSearchChanged(searchLinksSpinnerAdapter?.items?.getOrNull(position))
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+            }
+        }
 
     private var searchLinksSpinnerAdapter: SearchLinksSpinnerAdapter? = null
 
@@ -85,19 +98,7 @@ class HomeFragment : Fragment() {
         }
         searchLinksSpinnerAdapter = SearchLinksSpinnerAdapter(requireContext())
         acsLinks.adapter = searchLinksSpinnerAdapter
-        acsLinks.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                vm.onSearchChanged(searchLinksSpinnerAdapter?.items?.getOrNull(position))
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-            }
-        }
+        acsLinks.updateSpinnerItems(videoTypesSelectListener)
         viewResult()
     }
 
@@ -135,8 +136,10 @@ class HomeFragment : Fragment() {
         emptyData = data?.isEmpty() ?: true
         val mutableCollection = pageContent.searchVideoLinks ?: emptyList()
         if (mutableCollection.isNotEmpty()) {
-            searchLinksSpinnerAdapter?.clear()
-            searchLinksSpinnerAdapter?.addAll(mutableCollection)
+            binding.acsLinks.updateSpinnerItems(videoTypesSelectListener) {
+                searchLinksSpinnerAdapter?.clear()
+                searchLinksSpinnerAdapter?.addAll(mutableCollection)
+            }
         }
     }
 
@@ -158,6 +161,12 @@ class HomeFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setHasOptionsMenu(true)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        (requireActivity() as? AppCompatActivity)?.supportActionBar?.title =
+            getString(R.string.app_name)
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {

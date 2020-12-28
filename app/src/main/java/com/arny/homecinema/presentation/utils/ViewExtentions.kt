@@ -4,7 +4,9 @@ import android.annotation.SuppressLint
 import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.widget.AdapterView
 import android.widget.EditText
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.annotation.ColorInt
 import com.google.android.material.snackbar.Snackbar
@@ -36,6 +38,14 @@ fun EditText.setEnterPressListener(onEnterPressed: () -> Unit) {
     }
 }
 
+inline fun Spinner.updateSpinnerItems(
+    listener: AdapterView.OnItemSelectedListener?,
+    onUpdate: () -> Unit? = {}
+) {
+    this.onItemSelectedListener = null
+    onUpdate.invoke()
+    this.onItemSelectedListener = listener
+}
 
 fun View.showSnackBar(
     message: String,

@@ -15,6 +15,9 @@
             app:destination="@id/detailsFragment"
             app:enterAnim="@anim/nav_default_enter_anim"
             app:exitAnim="@anim/nav_default_exit_anim" />
+        <action
+            android:id="@+id/action_homeFragment_to_settingsFragment"
+            app:destination="@id/settingsFragment" />
     </fragment>
     <fragment
         android:id="@+id/detailsFragment"
@@ -25,4 +28,8 @@
             android:name="movie"
             app:argType="com.arny.homecinema.di.models.Movie" />
     </fragment>
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.arny.homecinema.presentation.settings.SettingsFragment"
+        android:label="SettingsFragment" />
 </navigation>

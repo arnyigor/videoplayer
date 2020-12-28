@@ -7,45 +7,7 @@
     <string name="video_url_not_found">URL видео не найден</string>
     <string name="home_choose_source">Выбрать источник</string>
     <string name="video_link_not_found">Ссылка на видео не найдена</string>
-    <string name="details_cache_item">Кешировать</string>
-    <string-array name="trackSeasons">
-        <item>1 сезон</item>
-        <item>2 сезон</item>
-        <item>3 сезон</item>
-        <item>4 сезон</item>
-        <item>5 сезон</item>
-        <item>6 сезон</item>
-        <item>7 сезон</item>
-        <item>8 сезон</item>
-        <item>9 сезон</item>
-        <item>10 сезон</item>
-    </string-array>
-
-    <string-array name="trackEpisodes">
-        <item>1 серия</item>
-        <item>2 серия</item>
-        <item>3 серия</item>
-        <item>4 серия</item>
-        <item>5 серия</item>
-        <item>6 серия</item>
-        <item>7 серия</item>
-        <item>8 серия</item>
-        <item>9 серия</item>
-        <item>10 серия</item>
-        <item>11 серия</item>
-        <item>12 серия</item>
-        <item>13 серия</item>
-        <item>14 серия</item>
-        <item>15 серия</item>
-        <item>16 серия</item>
-        <item>17 серия</item>
-        <item>18 серия</item>
-        <item>19 серия</item>
-        <item>20 серия</item>
-        <item>21 серия</item>
-        <item>21 серия</item>
-        <item>22 серия</item>
-        <item>23 серия</item>
-    </string-array>
-
+    <string name="settings_cache_item">Кешировать</string>
+    <string name="menu_preferences">Настройки</string>
+    <string name="menu_home">Домой</string>
 </resources>

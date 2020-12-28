@@ -15,10 +15,7 @@ import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.models.DataThrowable
 import com.arny.homecinema.databinding.DetailsFragmentBinding
 import com.arny.homecinema.di.models.*
-import com.arny.homecinema.presentation.utils.hideSystemBar
-import com.arny.homecinema.presentation.utils.showSystemBar
-import com.arny.homecinema.presentation.utils.toast
-import com.arny.homecinema.presentation.utils.viewBinding
+import com.arny.homecinema.presentation.utils.*
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
 import com.google.android.exoplayer2.source.MediaSource
@@ -174,7 +171,7 @@ class DetailsFragment : Fragment() {
     }
 
     private fun updateUI(video: Video) {
-        requireActivity().title = video.title
+        (requireActivity() as? AppCompatActivity)?.supportActionBar?.title = video.title
         binding.mtvTitle.text = video.title
         setCustomTitleVisible(resources.configuration.orientation == ORIENTATION_LANDSCAPE)
         setSpinEpisodesVisible(currentVideo?.type == MovieType.SERIAL)
@@ -202,17 +199,8 @@ class DetailsFragment : Fragment() {
         spinEpisodes.adapter = episodesTracksAdapter
         spinSeasons.setSelection(currentSeasonPosition, false)
         spinEpisodes.setSelection(currentEpisodePosition, false)
-        addSpinListeners()
-    }
-
-    private fun DetailsFragmentBinding.addSpinListeners() {
-        spinSeasons.onItemSelectedListener = seasonsChangeListener
-        spinEpisodes.onItemSelectedListener = episodesChangelistener
-    }
-
-    private fun DetailsFragmentBinding.clearSpinListeners() {
-        spinSeasons.onItemSelectedListener = null
-        spinEpisodes.onItemSelectedListener = null
+        spinSeasons.updateSpinnerItems(seasonsChangeListener)
+        spinEpisodes.updateSpinnerItems(episodesChangelistener)
     }
 
     private fun updatePlayerPosition() {
@@ -296,16 +284,19 @@ class DetailsFragment : Fragment() {
         val seasons = currentMovie?.serialData?.seasons
         val seasonsList = seasons?.mapIndexed { index, _ -> "${index + 1} сезон" }
         if (!seasonsList.isNullOrEmpty()) {
-            clearSpinListeners()
-            seasonsTracksAdapter?.clear()
-            seasonsTracksAdapter?.addAll(seasonsList)
-            val seriesList = seasons.getOrNull(currentSeasonPosition)
-                ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
-            episodesTracksAdapter?.clear()
-            episodesTracksAdapter?.addAll(seriesList)
-            spinSeasons.setSelection(currentSeasonPosition, false)
-            spinEpisodes.setSelection(currentEpisodePosition, false)
-            addSpinListeners()
+            spinSeasons.updateSpinnerItems(seasonsChangeListener) {
+                seasonsTracksAdapter?.clear()
+                seasonsTracksAdapter?.addAll(seasonsList)
+                spinSeasons.setSelection(currentSeasonPosition, false)
+            }
+
+            spinEpisodes.updateSpinnerItems(episodesChangelistener) {
+                val seriesList = seasons.getOrNull(currentSeasonPosition)
+                    ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
+                episodesTracksAdapter?.clear()
+                episodesTracksAdapter?.addAll(seriesList)
+                spinEpisodes.setSelection(currentEpisodePosition, false)
+            }
         }
     }
 
@@ -538,5 +529,10 @@ class DetailsFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         return inflater.inflate(R.layout.details_fragment, container, false)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        (requireActivity() as? AppCompatActivity)?.supportActionBar?.title = args.movie.title
     }
 }
