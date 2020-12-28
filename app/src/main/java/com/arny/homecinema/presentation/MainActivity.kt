@@ -8,6 +8,7 @@ import androidx.navigation.Navigation
 import androidx.navigation.ui.NavigationUI
 import androidx.navigation.ui.setupWithNavController
 import com.arny.homecinema.R
+import com.arny.homecinema.presentation.utils.DrawerLocker
 import com.google.android.material.navigation.NavigationView
 import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
@@ -15,7 +16,7 @@ import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
 import javax.inject.Inject
 
-class MainActivity : AppCompatActivity(), HasAndroidInjector {
+class MainActivity : AppCompatActivity(), HasAndroidInjector, DrawerLocker {
 
     private var drawerLayout: DrawerLayout? = null
     private var navigationView: NavigationView? = null
@@ -38,6 +39,14 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         setupDrawerLayout()
     }
 
+    override fun lockDrawer() {
+        drawerLayout?.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
+    }
+
+    override fun unlockDrawer() {
+        drawerLayout?.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED)
+    }
+
     override fun onSupportNavigateUp(): Boolean {
         return NavigationUI.navigateUp(navController, drawerLayout)
     }
@@ -45,6 +54,7 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
     private fun setupDrawerLayout() {
         navigationView?.setupWithNavController(navController)
         NavigationUI.setupActionBarWithNavController(this, navController, drawerLayout)
+
     }
 
     override fun onBackPressed() {

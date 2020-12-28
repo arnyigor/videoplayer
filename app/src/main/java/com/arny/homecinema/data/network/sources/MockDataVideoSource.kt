@@ -39,7 +39,7 @@ class MockDataVideoSource(
     }
 
     override val searchUrl: String
-        get() = hostStore.baseUrl
+        get() = hostStore.baseUrl + "films/"
 
     override val searchHeaders: Map<String, String?>
         get() = mapOf(

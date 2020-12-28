@@ -44,6 +44,7 @@ class DetailsFragment : Fragment() {
     private var videoRestored = false
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
+    private var drawerLocker: DrawerLocker? = null
     private var playControlsVisible by Delegates.observable(true) { _, oldValue, newValue ->
         if (oldValue != newValue && activity != null && isAdded) {
             val land = resources.configuration.orientation == ORIENTATION_LANDSCAPE
@@ -486,9 +487,7 @@ class DetailsFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
-            val appCompatActivity = activity as AppCompatActivity?
-            appCompatActivity?.supportActionBar?.hide()
-            setFullScreen(appCompatActivity, true)
+            setFullScreen(activity as AppCompatActivity?, true)
         }
         restorePlayerState()
     }
@@ -502,7 +501,6 @@ class DetailsFragment : Fragment() {
         super.onStop()
         if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
             val appCompatActivity = activity as AppCompatActivity?
-            appCompatActivity?.supportActionBar?.show()
             val window = appCompatActivity?.window
             setFullScreen(appCompatActivity, false)
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -510,18 +508,24 @@ class DetailsFragment : Fragment() {
     }
 
     private fun setFullScreen(appCompatActivity: AppCompatActivity?, setFullScreen: Boolean) {
-        if (setFullScreen) {
-            appCompatActivity?.hideSystemBar()
-            appCompatActivity?.window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+        if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
+            appCompatActivity?.setSystemBarVisible(false)
         } else {
-            appCompatActivity?.showSystemBar()
-            appCompatActivity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            appCompatActivity?.setSystemBarVisible(true)
+        }
+        if (setFullScreen) {
+            appCompatActivity?.setActionBarVisible(false)
+        } else {
+            appCompatActivity?.setActionBarVisible(true)
         }
     }
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
         super.onAttach(context)
+        if (context is DrawerLocker) {
+            drawerLocker = context
+        }
     }
 
     override fun onCreateView(

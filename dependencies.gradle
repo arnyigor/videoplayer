@@ -25,6 +25,10 @@ ext {
         implementation "androidx.fragment:fragment-ktx:$version"
     }}
 
+    drawerlayout = { version = '1.0.0' -> Alias {
+        implementation "androidx.drawerlayout:drawerlayout:$version"
+    }}
+
     moxy = { moxyVersion = '2.2.0' -> Alias {
         implementation "com.github.moxy-community:moxy:$moxyVersion"
         implementation "com.github.moxy-community:moxy-androidx:$moxyVersion"
@@ -150,6 +154,10 @@ ext {
 
     appcompat = { version = '1.2.0' -> Alias {
         implementation "androidx.appcompat:appcompat:$version"
+    }}
+
+    supportLegacy = { version = '1.0.0' -> Alias {
+        implementation "androidx.legacy:legacy-support-v4:$version"
     }}
 
     recycler = { version = '1.1.0' -> Alias {
