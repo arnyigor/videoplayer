@@ -24,6 +24,10 @@ class VideoCacheImpl @Inject constructor() : VideoCache {
         return movies.find { it.title == title }
     }
 
+    override fun removeFromCache(movie: Movie): Boolean {
+        return movies.removeAll { it.title==movie.title }
+    }
+
     override fun searchFromCache(searchText: String): List<Movie> {
         return movies.filter { it.title.contains(searchText, true) }
     }

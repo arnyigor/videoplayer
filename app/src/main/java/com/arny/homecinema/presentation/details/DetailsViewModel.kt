@@ -20,6 +20,7 @@ class DetailsViewModel @Inject constructor(
     private val loading = mutableLiveData(false)
     val data = SingleLiveEvent<DataResult<Movie?>>()
     val cached = SingleLiveEvent<DataResult<Boolean>>()
+    private var isRemovedFromCache = false
     fun loadVideo(movie: Movie) {
         viewModelScope.launch {
             if (loading.value == true) return@launch
@@ -37,11 +38,24 @@ class DetailsViewModel @Inject constructor(
 
     fun cacheMovie(movie: Movie?) {
         viewModelScope.launch {
-            videoRepository.cacheMovie(movie)
+            if (!isRemovedFromCache) {
+                videoRepository.cacheMovie(movie)
+                    .onCompletion { loading.value = false }
+                    .catch { cached.value = getFullError(it) }
+                    .collect { res ->
+                        cached.value = res
+                    }
+            }
+        }
+    }
+
+    fun clearCache(movie: Movie?) {
+        viewModelScope.launch {
+            videoRepository.clearCache(movie)
                 .onCompletion { loading.value = false }
                 .catch { cached.value = getFullError(it) }
-                .collect { res ->
-                    cached.value = res
+                .collect {
+                    isRemovedFromCache = true
                 }
         }
     }

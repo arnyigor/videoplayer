@@ -5,8 +5,8 @@ import androidx.lifecycle.ViewModelProvider
 import com.arny.homecinema.data.repository.VideoRepository
 import com.arny.homecinema.di.scopes.FragmentScope
 import com.arny.homecinema.di.scopes.ViewModelKey
-import com.arny.homecinema.presentation.home.HomeFragment
-import com.arny.homecinema.presentation.home.HomeViewModel
+import com.arny.homecinema.presentation.history.HistoryFragment
+import com.arny.homecinema.presentation.history.HistoryViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.android.ContributesAndroidInjector
@@ -14,35 +14,35 @@ import dagger.multibindings.IntoMap
 
 @Module(
     includes = [
-        HomeFragmentModule.ProvideViewModel::class,
+        HistoryFragmentModule.ProvideViewModel::class
     ]
 )
-interface HomeFragmentModule {
+interface HistoryFragmentModule {
     @FragmentScope
     @ContributesAndroidInjector(
         modules = [
             InjectViewModel::class
         ]
     )
-    fun contributeFragmentInjector(): HomeFragment
+    fun contributeFragmentInjector(): HistoryFragment
 
     @Module
     class ProvideViewModel {
 
         @Provides
         @IntoMap
-        @ViewModelKey(HomeViewModel::class)
-        fun provideHomeViewModel(videoRepository: VideoRepository): ViewModel =
-            HomeViewModel(videoRepository)
+        @ViewModelKey(HistoryViewModel::class)
+        fun provideHistoryViewModel(videoRepository: VideoRepository): ViewModel =
+            HistoryViewModel(videoRepository)
     }
 
     @Module
     class InjectViewModel {
 
         @Provides
-        fun provideHomeViewModel(
+        fun provideHistoryViewModel(
             factory: ViewModelProvider.Factory,
-            target: HomeFragment
-        ) = ViewModelProvider(target, factory).get(HomeViewModel::class.java)
+            target: HistoryFragment
+        ) = ViewModelProvider(target, factory).get(HistoryViewModel::class.java)
     }
 }

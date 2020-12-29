@@ -226,16 +226,6 @@ class DetailsFragment : Fragment() {
         spinSeasons.isVisible = visible
     }
 
-    private fun toastError(throwable: Throwable?) {
-        throwable?.printStackTrace()
-        toast(
-            when (throwable) {
-                is DataThrowable -> getString(throwable.errorRes)
-                else -> throwable?.message
-            }
-        )
-    }
-
     private fun FDetailsBinding.initTrackAdapters() {
         seasonsTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
         episodesTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
@@ -322,7 +312,6 @@ class DetailsFragment : Fragment() {
             }
         }
     }
-
 
     private fun setMediaItems(video: Video, movie: Movie?) {
         when (movie?.type) {
@@ -582,6 +571,26 @@ class DetailsFragment : Fragment() {
         super.onAttach(context)
         if (context is DrawerLocker) {
             drawerLocker = context
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setHasOptionsMenu(true)
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.details_menu, menu)
+        super.onCreateOptionsMenu(menu, inflater)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_action_clear_cache -> {
+                vm.clearCache(currentMovie)
+                true
+            }
+            else -> false
         }
     }
 

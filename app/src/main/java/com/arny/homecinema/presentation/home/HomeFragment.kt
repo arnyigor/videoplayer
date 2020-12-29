@@ -57,7 +57,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun initBinding(binding: FHomeBinding) = with(binding) {
-        initList(binding)
+        initList()
         requireActivity().title = getString(R.string.app_name)
         vm.loading.observe(viewLifecycleOwner, { loading ->
             pbLoading.isVisible = loading
@@ -102,7 +102,7 @@ class HomeFragment : Fragment() {
         viewResult()
     }
 
-    private fun FHomeBinding.initList(binding: FHomeBinding) {
+    private fun FHomeBinding.initList() {
         groupAdapter = GroupAdapter<GroupieViewHolder>()
         groupAdapter.setOnItemClickListener { item, _ ->
             val video = (item as VideoItem).movie
@@ -184,6 +184,11 @@ class HomeFragment : Fragment() {
             R.id.menu_action_settings -> {
                 binding.root.findNavController()
                     .navigate(HomeFragmentDirections.actionHomeFragmentToSettingsFragment())
+                true
+            }
+            R.id.menu_action_history -> {
+                binding.root.findNavController()
+                    .navigate(HomeFragmentDirections.actionHomeFragmentToHistoryFragment())
                 true
             }
             else -> false

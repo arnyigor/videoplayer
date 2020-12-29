@@ -19,5 +19,7 @@ interface VideoRepository {
     ): Flow<DataResult<SerialEpisode?>>
 
     fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>>
+    fun clearCache(movie: Movie?): Flow<DataResult<Boolean>>
     fun searchCached(searchText: String): Flow<List<Movie>>
+    fun getAllCached(): Flow<DataResult<List<Movie>>>
 }

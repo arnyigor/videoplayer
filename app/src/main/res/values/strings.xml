@@ -9,7 +9,10 @@
     <string name="video_link_not_found">Ссылка на видео не найдена</string>
     <string name="settings_cache_item">Кешировать</string>
     <string name="menu_preferences">Настройки</string>
+    <string name="menu_history">История</string>
     <string name="menu_home">Домой</string>
     <string name="quality_format">%sp</string>
     <string name="video_quality">Качество</string>
+    <string name="f_history_title">История просмотров</string>
+    <string name="menu_clear_file_cache">Очистить кеш</string>
 </resources>

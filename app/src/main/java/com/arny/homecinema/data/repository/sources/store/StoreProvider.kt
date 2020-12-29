@@ -7,4 +7,6 @@ interface StoreProvider {
     fun getFromStore(title: String): Movie?
     fun canSaveToStore(): Boolean
     fun searchMovies(searchText: String): List<Movie>
+    fun allMovies(): List<Movie>
+    fun removeFromSaved(movie: Movie)
 }

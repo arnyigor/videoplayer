@@ -105,6 +105,18 @@ class VideoRepositoryImpl @Inject constructor(
     private fun getVideoSearchFromLink(link: Element) =
         VideoSearchLink(link.text(), link.attr("href"))
 
+    override fun clearCache(movie: Movie?): Flow<DataResult<Boolean>> {
+        return flow {
+            if (movie != null) {
+                videoCache.removeFromCache(movie)
+                storeProvider.removeFromSaved(movie)
+                emit(true.toResult())
+            } else {
+                emit(false.toResult())
+            }
+        }.flowOn(Dispatchers.IO)
+    }
+
     override fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>> {
         return flow {
             if (movie != null) {
@@ -138,7 +150,13 @@ class VideoRepositoryImpl @Inject constructor(
             .debounce(350)
             .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
+    }
 
+    @FlowPreview
+    override fun getAllCached(): Flow<DataResult<List<Movie>>> {
+        return flow {
+            emit(storeProvider.allMovies().toResult())
+        }.flowOn(Dispatchers.IO)
     }
 
     private fun isSaveToStore(): Boolean = storeProvider.canSaveToStore()

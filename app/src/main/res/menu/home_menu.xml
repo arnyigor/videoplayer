@@ -12,4 +12,9 @@
         android:icon="@drawable/exo_ic_settings"
         android:title="@string/menu_preferences"
         app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/menu_action_history"
+        android:title="@string/menu_history"
+        app:showAsAction="never" />
 </menu>

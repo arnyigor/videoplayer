@@ -3,6 +3,7 @@ package com.arny.homecinema.di.modules
 import com.arny.homecinema.di.scopes.ActivityScope
 import com.arny.homecinema.presentation.MainActivity
 import com.arny.homecinema.presentation.di.DetailsFragmentModule
+import com.arny.homecinema.presentation.di.HistoryFragmentModule
 import com.arny.homecinema.presentation.di.HomeFragmentModule
 import dagger.Module
 import dagger.android.ContributesAndroidInjector
@@ -14,6 +15,7 @@ abstract class ActivitiesModule {
         modules = [
             HomeFragmentModule::class,
             DetailsFragmentModule::class,
+            HistoryFragmentModule::class,
         ]
     )
     abstract fun bindMainActivity(): MainActivity
