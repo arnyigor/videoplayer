@@ -3,6 +3,7 @@ package com.arny.homecinema.presentation.details
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration.*
+import android.net.Uri
 import android.os.Bundle
 import android.view.*
 import android.widget.AdapterView
@@ -20,6 +21,8 @@ import com.arny.homecinema.di.models.*
 import com.arny.homecinema.presentation.utils.*
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
+import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
+import com.google.android.exoplayer2.source.ExtractorMediaSource
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.TrackGroupArray
 import com.google.android.exoplayer2.source.dash.DashMediaSource
@@ -28,10 +31,12 @@ import com.google.android.exoplayer2.trackselection.*
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.util.EventLogger
+import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.properties.Delegates
+
 
 class DetailsFragment : Fragment() {
 
@@ -167,6 +172,7 @@ class DetailsFragment : Fragment() {
             vm.cached.observe(this@DetailsFragment, { dataResult ->
                 when (dataResult) {
                     is DataResult.Success -> {
+                        requireActivity().onBackPressed()
                     }
                     is DataResult.Error -> toastError(dataResult.throwable)
                 }
@@ -347,6 +353,16 @@ class DetailsFragment : Fragment() {
                 spinEpisodes.setSelection(currentEpisodePosition, false)
             }
         }
+    }
+
+    fun createFileSource(fileUri: Uri): MediaSource {
+        val playerInfo: String = Util.getUserAgent(requireContext(), "ExoPlayerInfo")
+        val dataSourceFactory = DefaultDataSourceFactory(
+            requireContext(), playerInfo
+        )
+        return ExtractorMediaSource.Factory(dataSourceFactory)
+            .setExtractorsFactory(DefaultExtractorsFactory())
+            .createMediaSource(fileUri)
     }
 
     private fun createPlayer() {
@@ -587,7 +603,16 @@ class DetailsFragment : Fragment() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.menu_action_clear_cache -> {
-                vm.clearCache(currentMovie)
+                alertDialog(
+                    requireContext(),
+                    "Удалить?",
+                    "Хотите очистить кеш?",
+                    "OK",
+                    "Отмена",
+                    onConfirm = {
+                        vm.clearCache(currentMovie)
+                    }
+                )
                 true
             }
             else -> false

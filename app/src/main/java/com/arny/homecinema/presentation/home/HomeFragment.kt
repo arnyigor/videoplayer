@@ -97,6 +97,7 @@ class HomeFragment : Fragment() {
             }
         }
         searchLinksSpinnerAdapter = SearchLinksSpinnerAdapter(requireContext())
+        acsLinks.setSelection(0, false)
         acsLinks.adapter = searchLinksSpinnerAdapter
         acsLinks.updateSpinnerItems(videoTypesSelectListener)
         viewResult()

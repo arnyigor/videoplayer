@@ -192,6 +192,12 @@ ext {
         implementation "com.google.android.material:material:$version"
     }}
 
+    materialDialog = { version = '3.3.0' -> Alias {
+        implementation "com.afollestad.material-dialogs:core:$version"
+        implementation "com.afollestad.material-dialogs:input:$version"
+        implementation "com.afollestad.material-dialogs:color:$version"
+    }}
+
     groupie = { version = '2.8.1' -> Alias {
         implementation "com.xwray:groupie:$version"
         implementation "com.xwray:groupie-kotlin-android-extensions:$version"
