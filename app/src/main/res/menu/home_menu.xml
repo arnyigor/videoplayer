@@ -17,4 +17,14 @@
         android:id="@+id/menu_action_history"
         android:title="@string/menu_history"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_action_get_file"
+        android:title="@string/menu_get_file"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_action_get_folder"
+        android:title="@string/menu_get_folder"
+        app:showAsAction="never" />
 </menu>

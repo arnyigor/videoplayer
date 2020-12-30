@@ -27,21 +27,13 @@ class StoreProviderImpl @Inject constructor(
     }
 
     override fun searchMovies(searchText: String): List<Movie> {
-        val list = mutableListOf<Movie>()
-        prefs.getAll()?.filter {
+        return prefs.getAll()?.filter {
             it.key.contains(searchText, true)
-        }?.let { entries ->
-            toList(entries, list)
-        }
-        return list
+        }?.let { entries -> toList(entries) } ?: emptyList()
     }
 
     override fun allMovies(): List<Movie> {
-        val list = mutableListOf<Movie>()
-        prefs.getAll()?.let { entries ->
-            toList(entries, list)
-        }
-        return list
+        return prefs.getAll()?.let { entries -> toList(entries) } ?: emptyList()
     }
 
     override fun removeFromSaved(movie: Movie) {
@@ -49,16 +41,17 @@ class StoreProviderImpl @Inject constructor(
     }
 
     private fun toList(
-        entries: Map<String, *>,
-        list: MutableList<Movie>
-    ) {
+        entries: Map<String, *>
+    ): MutableList<Movie> {
+        val mutableListOf = mutableListOf<Movie>()
         entries.asSequence()
             .forEach {
                 try {
                     it.value.fromJson(Movie::class.java)
-                        ?.let { it1 -> list.add(it1) }
+                        ?.let { it1 -> mutableListOf.add(it1) }
                 } catch (e: Exception) {
                 }
             }
+        return mutableListOf
     }
 }

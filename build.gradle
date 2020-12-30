@@ -18,6 +18,7 @@ buildscript {
 allprojects {
     repositories {
         google()
+        maven { url 'https://jitpack.io' }
         jcenter()
     }
     it.extensions.add("dep_aliases", "$rootProject.projectDir/dependencies.gradle")

@@ -26,11 +26,6 @@ class VideoSourceFactory @Inject constructor(
                 videoApiService,
                 responseBodyConverter
             )
-            HostStoreImpl.LORDFILM_23s_HOST -> Lord23sFilmVideoSource(
-                hostStore,
-                videoApiService,
-                responseBodyConverter
-            )
             HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK -> MockDataVideoSource(
                 hostStore,
                 assetsReader

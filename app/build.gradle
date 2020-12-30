@@ -30,6 +30,7 @@ dependencies {
     materialDialog()
     stetho()
     preference()
+    rxpermissions()
     constraintlayout()
     jsoup()
     exoplayer()

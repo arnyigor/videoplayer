@@ -22,8 +22,8 @@ import com.arny.homecinema.presentation.utils.*
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
-import com.google.android.exoplayer2.source.ExtractorMediaSource
 import com.google.android.exoplayer2.source.MediaSource
+import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.TrackGroupArray
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
@@ -172,7 +172,6 @@ class DetailsFragment : Fragment() {
             vm.cached.observe(this@DetailsFragment, { dataResult ->
                 when (dataResult) {
                     is DataResult.Success -> {
-                        requireActivity().onBackPressed()
                     }
                     is DataResult.Error -> toastError(dataResult.throwable)
                 }
@@ -321,8 +320,8 @@ class DetailsFragment : Fragment() {
 
     private fun setMediaItems(video: Video, movie: Movie?) {
         when (movie?.type) {
-            MovieType.CINEMA -> playerAddVideoData(video)
-            MovieType.SERIAL -> playerAddSerialdata(movie)
+            MovieType.CINEMA, MovieType.CINEMA_LOCAL -> playerAddVideoData(video)
+            MovieType.SERIAL, MovieType.SERIAL_LOCAL -> playerAddSerialdata(movie)
             else -> playerAddVideoData(video)
         }
     }
@@ -355,14 +354,17 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    fun createFileSource(fileUri: Uri): MediaSource {
+    private fun createFileSource(fileUri: Uri): MediaSource {
         val playerInfo: String = Util.getUserAgent(requireContext(), "ExoPlayerInfo")
         val dataSourceFactory = DefaultDataSourceFactory(
             requireContext(), playerInfo
         )
-        return ExtractorMediaSource.Factory(dataSourceFactory)
-            .setExtractorsFactory(DefaultExtractorsFactory())
-            .createMediaSource(fileUri)
+        val item = MediaItem.Builder()
+            .setUri(fileUri)
+            .setMediaId(id.toString())
+            .build()
+        return ProgressiveMediaSource.Factory(dataSourceFactory, DefaultExtractorsFactory())
+            .createMediaSource(item)
     }
 
     private fun createPlayer() {
@@ -412,6 +414,9 @@ class DetailsFragment : Fragment() {
         exoPlayer?.clearMediaItems()
         video.videoUrl?.let { url ->
             when {
+                "^content://.+".toRegex().matches(url) -> {
+                    exoPlayer?.setMediaSource(createFileSource(Uri.parse(url)))
+                }
                 url.contains(".m3u8") -> {
                     exoPlayer?.setMediaSource(createSource(url, video.id, video.title))
                 }
@@ -437,6 +442,9 @@ class DetailsFragment : Fragment() {
                         ?.forEachIndexed { indexEpisode, serialEpisode ->
                             getUrl(serialEpisode, movie.selectedQuality)?.let { url ->
                                 when {
+                                    "^content://.+".toRegex().matches(url) -> {
+                                        exoPlayer?.addMediaSource(createFileSource(Uri.parse(url)))
+                                    }
                                     url.contains(".m3u8") -> {
                                         exoPlayer?.addMediaSource(
                                             createSource(

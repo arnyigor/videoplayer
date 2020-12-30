@@ -55,7 +55,6 @@ class DetailsViewModel @Inject constructor(
                 .onCompletion { loading.value = false }
                 .catch { cached.value = getFullError(it) }
                 .collect {
-                    cached.value = it
                     isRemovedFromCache = true
                 }
         }

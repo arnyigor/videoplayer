@@ -1,6 +1,9 @@
 package com.arny.homecinema.presentation.utils
 
+import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -22,6 +25,21 @@ fun AppCompatActivity.showSystemBar() {
         window.setDecorFitsSystemWindows(true)
     } else {
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+    }
+}
+
+inline fun <reified T : Any> newIntent(context: Context): Intent = Intent(context, T::class.java)
+fun newIntent(): Intent = Intent()
+
+fun Fragment.launchIntent(
+    requestCode: Int = -1,
+    options: Bundle? = null,
+    init: Intent.() -> Unit = {}) {
+    val context = this.context
+    if (context != null) {
+        val intent = newIntent()
+        intent.init()
+        startActivityForResult(intent, requestCode, options)
     }
 }
 

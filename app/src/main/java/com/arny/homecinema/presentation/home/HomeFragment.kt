@@ -1,6 +1,9 @@
 package com.arny.homecinema.presentation.home
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.*
 import android.widget.AdapterView
@@ -13,18 +16,27 @@ import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
+import com.arny.homecinema.data.utils.FilePathUtils
 import com.arny.homecinema.databinding.FHomeBinding
 import com.arny.homecinema.di.models.MainPageContent
+import com.arny.homecinema.di.models.Movie
+import com.arny.homecinema.di.models.MovieType
+import com.arny.homecinema.di.models.Video
+import com.arny.homecinema.presentation.CONSTS.REQUESTS.REQUEST_OPEN_FILE
+import com.arny.homecinema.presentation.CONSTS.REQUESTS.REQUEST_OPEN_FOLDER
 import com.arny.homecinema.presentation.models.VideoItem
 import com.arny.homecinema.presentation.utils.*
+import com.tbruyelle.rxpermissions2.RxPermissions
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
 import dagger.android.support.AndroidSupportInjection
+import java.util.*
 import javax.inject.Inject
 import kotlin.properties.Delegates
 
-
 class HomeFragment : Fragment() {
+
+    private lateinit var rxPermissions: RxPermissions
 
     @Inject
     lateinit var vm: HomeViewModel
@@ -168,6 +180,7 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         (requireActivity() as? AppCompatActivity)?.supportActionBar?.title =
             getString(R.string.app_name)
+        rxPermissions = RxPermissions(this)
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
@@ -192,7 +205,72 @@ class HomeFragment : Fragment() {
                     .navigate(HomeFragmentDirections.actionHomeFragmentToHistoryFragment())
                 true
             }
+            R.id.menu_action_get_file -> {
+                requestFile()
+                true
+            }
+            R.id.menu_action_get_folder -> {
+                requestFolder()
+                true
+            }
             else -> false
+        }
+    }
+
+    private fun requestFile() {
+        launchIntent(REQUEST_OPEN_FILE) {
+            action = Intent.ACTION_GET_CONTENT
+            addCategory(Intent.CATEGORY_OPENABLE)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+            }
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            type = "*/*"
+        }
+    }
+
+    private fun requestFolder() {
+        launchIntent(REQUEST_OPEN_FOLDER) {
+            action = Intent.ACTION_GET_CONTENT
+            type = "file/*"
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == Activity.RESULT_OK) {
+            when (requestCode) {
+                REQUEST_OPEN_FILE -> {
+                    val uri = data?.data
+                    val path = FilePathUtils.getPath(uri, requireContext())
+                    val movie = Movie(
+                        uuid = UUID.randomUUID().toString(),
+                        title = path?.substringBeforeLast(".") ?: "",
+                        type = MovieType.CINEMA_LOCAL,
+                        detailUrl = path,
+                        video = Video(
+                            videoUrl = uri.toString()
+                        )
+                    )
+                    binding.root.findNavController()
+                        .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
+                }
+                REQUEST_OPEN_FOLDER -> {
+                    val uri = data?.data
+                    val path = FilePathUtils.getPath(uri, requireContext())
+                    val movie = Movie(
+                        uuid = UUID.randomUUID().toString(),
+                        title = path?.substringBeforeLast(".") ?: "",
+                        type = MovieType.SERIAL_LOCAL,
+                        detailUrl = path,
+                        video = Video(
+                            videoUrl = uri.toString()
+                        )
+                    )
+                    binding.root.findNavController()
+                        .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
+                }
+            }
         }
     }
 

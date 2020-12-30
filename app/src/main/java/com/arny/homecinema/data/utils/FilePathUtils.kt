@@ -1,4 +1,5 @@
-package com.arny.homecinema.presentation.utils
+package com.arny.homecinema.data.utils
+
 import android.annotation.SuppressLint
 import android.content.ContentUris
 import android.content.Context

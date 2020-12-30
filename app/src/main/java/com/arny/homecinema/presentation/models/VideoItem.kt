@@ -13,8 +13,12 @@ class VideoItem(val movie: Movie) : BindableItem<IHomeVideoBinding>() {
     override fun bind(binding: IHomeVideoBinding, position: Int) {
         with(binding) {
             tvVideoTitle.text = movie.title
+            var img = movie.img
+            if (img.isNullOrBlank()) {
+                img = "https://yt3.ggpht.com/a/AATXAJwQSv9J0nimhTCQgcwQmdE_ePrril6TZg1_nGSf=s900-c-k-c0xffffffff-no-rj-mo"
+            }
             Glide.with(ivVideoIcon)
-                .load(movie.img)
+                .load(img)
                 .into(ivVideoIcon)
         }
     }

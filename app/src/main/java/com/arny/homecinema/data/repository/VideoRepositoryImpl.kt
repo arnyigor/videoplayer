@@ -1,12 +1,17 @@
 package com.arny.homecinema.data.repository
 
+import android.content.Context
+import android.net.Uri
+import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
+import com.arny.homecinema.data.models.DataThrowable
 import com.arny.homecinema.data.models.toResult
 import com.arny.homecinema.data.network.hosts.IHostStore
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
 import com.arny.homecinema.data.network.sources.IVideoSourceFactory
 import com.arny.homecinema.data.repository.sources.cache.VideoCache
 import com.arny.homecinema.data.repository.sources.store.StoreProvider
+import com.arny.homecinema.data.utils.FilePathUtils
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -14,6 +19,7 @@ import kotlinx.coroutines.flow.*
 import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import java.io.File
 import javax.inject.Inject
 
 class VideoRepositoryImpl @Inject constructor(
@@ -23,6 +29,7 @@ class VideoRepositoryImpl @Inject constructor(
     private val sourceFactory: IVideoSourceFactory,
     private val storeProvider: StoreProvider,
     private val videoCache: VideoCache,
+    private val context: Context,
 ) : VideoRepository {
 
     @Volatile
@@ -218,24 +225,88 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getFullMovie(movie: Movie): Movie {
+        val videoUrl = movie.video?.videoUrl ?: ""
+        return when (movie.type) {
+            MovieType.CINEMA, MovieType.SERIAL -> getRemoteContent(movie)
+            MovieType.CINEMA_LOCAL, MovieType.SERIAL_LOCAL -> getSDContent(movie, videoUrl)
+        }
+    }
+
+    private fun getSDContent(
+        movie: Movie,
+        videoUrl: String
+    ): Movie {
+        val copy = movie.copy(
+            selectedQuality = "720"
+        )
+        return when (val type = movie.type) {
+            MovieType.CINEMA_LOCAL -> returnCinema(
+                copy,
+                movie.type,
+                1,
+                movie.title,
+                hashMapOf(
+                    "720" to videoUrl
+                )
+            )
+            MovieType.SERIAL_LOCAL -> returnSerial(copy, type, getSDSerialData(videoUrl))
+            MovieType.CINEMA, MovieType.SERIAL -> throw IllegalStateException()
+        }
+    }
+
+    private fun getSDSerialData(videoUrl: String): SerialData {
+        val uri = Uri.parse(videoUrl)
+        val path = FilePathUtils.getPath(uri, context)
+        if (!path.isNullOrBlank()) {
+            throw DataThrowable(R.string.video_url_not_found)
+        }
+        var index = 1
+        val episodes = mutableListOf<SerialEpisode>()
+        File(path!!).listFiles()?.toList()?.asSequence()?.forEach {
+            val serialEpisode = SerialEpisode(
+                id = index,
+                title = it.name,
+                hlsList = hashMapOf(
+                    "720" to Uri.fromFile(it).toString()
+                )
+            )
+            episodes.add(serialEpisode)
+            index++
+        }
+        episodes.sortBy { it.id }
+        return SerialData(listOf(SerialSeason(1, episodes)))
+    }
+
+    private suspend fun getRemoteContent(movie: Movie): Movie {
         val resultDoc = getSource().getResultDoc(movie)
         val hlsList = getSource().getHlsList(resultDoc)
         val title = getSource().getTitle(resultDoc)
         val movieId = getMovieId(movie)
+        val qualityMap = getSource().getQualityMap(hlsList)
         return when (val type = getSource().getMovieType(movie)) {
-            MovieType.CINEMA -> returnCinema(hlsList, movie, type, movieId, title)
-            MovieType.SERIAL -> returnSerial(hlsList, movie, type)
+            MovieType.CINEMA -> returnCinema(
+                movie,
+                type,
+                movieId,
+                title,
+                qualityMap
+            )
+            MovieType.SERIAL -> returnSerial(
+                movie,
+                type,
+                getSource().parsingSerialData(hlsList)
+            )
+            MovieType.CINEMA_LOCAL, MovieType.SERIAL_LOCAL -> throw IllegalStateException()
         }
     }
 
     private fun returnCinema(
-        hlsList: String,
         movie: Movie,
         type: MovieType,
         movieId: Int?,
-        title: String?
+        title: String?,
+        hlsQualityMap: HashMap<String, String>
     ): Movie {
-        val hlsQualityMap = getSource().getQualityMap(hlsList)
         val selectedQuality = if (!movie.selectedQuality.isNullOrBlank()) {
             getMinQualityKey(hlsQualityMap)
         } else {
@@ -256,11 +327,10 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private fun returnSerial(
-        hlsList: String,
         movie: Movie,
-        type: MovieType
+        type: MovieType,
+        serialData: SerialData
     ): Movie {
-        val serialData = getSource().parsingSerialData(hlsList)
         val firstSeason = serialData.seasons?.minByOrNull { it.id ?: 0 }
         val episodes = firstSeason?.episodes ?: emptyList()
         val firstEpisode = episodes.minByOrNull { it.id ?: 0 }

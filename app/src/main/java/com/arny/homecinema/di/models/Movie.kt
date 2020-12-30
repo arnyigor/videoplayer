@@ -13,7 +13,7 @@ data class Movie constructor(
     val serialData: SerialData? = null,
     val currentSeasonPosition: Int = 0,
     val currentEpisodePosition: Int = 0,
-    val selectedQuality: String?  = null,
+    val selectedQuality: String? = null,
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
         parcel.readString() ?: "",
