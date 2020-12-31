@@ -335,7 +335,7 @@ class VideoRepositoryImpl @Inject constructor(
         val episodes = firstSeason?.episodes ?: emptyList()
         val firstEpisode = episodes.minByOrNull { it.id ?: 0 }
         val hlsQualityMap = firstEpisode?.hlsList
-        val selectedQuality = if (!movie.selectedQuality.isNullOrBlank()) {
+        val selectedQuality = if (movie.selectedQuality.isNullOrBlank()) {
             getMinQualityKey(hlsQualityMap)
         } else {
             movie.selectedQuality
