@@ -307,7 +307,7 @@ class VideoRepositoryImpl @Inject constructor(
         title: String?,
         hlsQualityMap: HashMap<String, String>
     ): Movie {
-        val selectedQuality = if (!movie.selectedQuality.isNullOrBlank()) {
+        val selectedQuality = if (movie.selectedQuality.isNullOrBlank()) {
             getMinQualityKey(hlsQualityMap)
         } else {
             movie.selectedQuality

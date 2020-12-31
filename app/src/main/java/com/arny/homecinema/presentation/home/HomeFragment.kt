@@ -26,7 +26,6 @@ import com.arny.homecinema.presentation.CONSTS.REQUESTS.REQUEST_OPEN_FILE
 import com.arny.homecinema.presentation.CONSTS.REQUESTS.REQUEST_OPEN_FOLDER
 import com.arny.homecinema.presentation.models.VideoItem
 import com.arny.homecinema.presentation.utils.*
-import com.tbruyelle.rxpermissions2.RxPermissions
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
 import dagger.android.support.AndroidSupportInjection
@@ -36,7 +35,6 @@ import kotlin.properties.Delegates
 
 class HomeFragment : Fragment() {
 
-    private lateinit var rxPermissions: RxPermissions
 
     @Inject
     lateinit var vm: HomeViewModel
@@ -180,7 +178,6 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         (requireActivity() as? AppCompatActivity)?.supportActionBar?.title =
             getString(R.string.app_name)
-        rxPermissions = RxPermissions(this)
     }
 
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
@@ -231,8 +228,9 @@ class HomeFragment : Fragment() {
 
     private fun requestFolder() {
         launchIntent(REQUEST_OPEN_FOLDER) {
-            action = Intent.ACTION_GET_CONTENT
-            type = "file/*"
+            action = Intent.ACTION_OPEN_DOCUMENT
+            addCategory(Intent.CATEGORY_OPENABLE);
+            type = "*/*"
         }
     }
 
@@ -256,6 +254,7 @@ class HomeFragment : Fragment() {
                         .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
                 }
                 REQUEST_OPEN_FOLDER -> {
+                    val dataString = data?.dataString
                     val uri = data?.data
                     val path = FilePathUtils.getPath(uri, requireContext())
                     val movie = Movie(
