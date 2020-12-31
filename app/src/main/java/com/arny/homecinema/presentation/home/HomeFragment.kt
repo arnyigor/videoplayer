@@ -202,14 +202,6 @@ class HomeFragment : Fragment() {
                     .navigate(HomeFragmentDirections.actionHomeFragmentToHistoryFragment())
                 true
             }
-            R.id.menu_action_get_file -> {
-                requestFile()
-                true
-            }
-            R.id.menu_action_get_folder -> {
-                requestFolder()
-                true
-            }
             else -> false
         }
     }
