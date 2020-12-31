@@ -16,11 +16,13 @@ import androidx.navigation.fragment.navArgs
 import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.models.DataThrowable
+import com.arny.homecinema.data.repository.sources.cache.CacheDataSourceFactory
 import com.arny.homecinema.databinding.FDetailsBinding
 import com.arny.homecinema.di.models.*
 import com.arny.homecinema.presentation.utils.*
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
+import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
@@ -28,6 +30,7 @@ import com.google.android.exoplayer2.source.TrackGroupArray
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.trackselection.*
+import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.util.EventLogger
@@ -368,6 +371,7 @@ class DetailsFragment : Fragment() {
     }
 
     private fun createPlayer() {
+
         val adaptiveTrackSelection: TrackSelection.Factory = AdaptiveTrackSelection.Factory()
         trackSelector = DefaultTrackSelector(requireContext(), adaptiveTrackSelection)
         trackSelector?.let { selector ->
@@ -505,6 +509,7 @@ class DetailsFragment : Fragment() {
             .setMediaId(id.toString())
             .setMediaMetadata(metadata)
             .build()
+        CacheDataSourceFactory(context, 100 * 1024 * 1024, 5 * 1024 * 1024)
         return HlsMediaSource.Factory(DefaultHttpDataSourceFactory())
             .createMediaSource(item)
     }
