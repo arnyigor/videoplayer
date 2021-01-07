@@ -64,8 +64,9 @@ class VideoRepositoryImpl @Inject constructor(
             getHostsData()
             val doc = videoApiService.requestMainPage(
                 hostStore.baseUrl,
-                hostStore.mainPageHeaders
-            ).convertToDoc()
+                getSource().addMainPageHeaders + hostStore.mainPageHeaders
+            )
+                .convertToDoc()
             emit(getMainPageContent(doc))
         }
             .flowOn(Dispatchers.IO)

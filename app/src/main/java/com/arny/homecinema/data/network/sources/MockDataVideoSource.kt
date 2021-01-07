@@ -24,6 +24,9 @@ class MockDataVideoSource(
             "Referer" to hostStore.baseUrl
         )
 
+    override val addMainPageHeaders: Map<String, String?>
+        get() = emptyMap()
+
     override fun getMainPageLinks(doc: Document): Elements {
         val text = when (hostStore.host) {
             HostStoreImpl.HOST_MOCK -> "<a href=\"https://avatars.mds.yandex.net/get-kinopoisk-image/1600647/cb6cf96f-f44a-470f-9dc2-118d4382eeb3/220x330\">ЧУДО-ЖЕНЩИНА: 1984 (2020)</a>"

@@ -10,7 +10,9 @@ class HostStoreImpl @Inject constructor(
     @Volatile
     override var host: String? = null
     override val baseUrl: String
-        get() = host.toBaseUrl()
+        get() = baseUrls.find { s ->
+            host == s.toHost()
+        } ?: ""
 
     override val mainPageHeaders: Map<String, String?>
         get() = baseHeaders
@@ -34,27 +36,23 @@ class HostStoreImpl @Inject constructor(
     internal companion object HOSTS {
         const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
         const val LORDFILM_ADA_HOST = "ada.lordsfilms.tube"
-        const val LORDFILM_ADA_BASE_URL = "https://$LORDFILM_ADA_HOST/"
-        const val LORDFILM_AL_BASE_URL = "http://$LORDFILM_AL_HOST/"
+        const val LORDFILM_HD_HOST = "hd.lordfilm.xyz"
         const val HOST_MOCK = "TestData"
         const val HOST_MOCK2 = "TestData2"
     }
 
-    override val availableHosts: List<String>
+    override val baseUrls: List<String>
         get() = listOf(
-            LORDFILM_AL_HOST,
-            LORDFILM_ADA_HOST,
+            "http://al.lordfilms-s.pw/",
+            "https://ada.lordsfilms.tube/",
+        )
+
+    override val availableHosts: List<String>
+        get() = baseUrls.mapNotNull { it.toHost() } + listOf(
             HOST_MOCK,
             HOST_MOCK2,
         )
-}
 
-internal fun String?.toBaseUrl(): String {
-    return when (this) {
-        HostStoreImpl.LORDFILM_AL_HOST -> HostStoreImpl.LORDFILM_AL_BASE_URL
-        HostStoreImpl.LORDFILM_ADA_HOST -> HostStoreImpl.LORDFILM_ADA_BASE_URL
-        HostStoreImpl.HOST_MOCK -> "https://www.google.com/"
-        HostStoreImpl.HOST_MOCK2 -> "https://www.google.com/"
-        else -> HostStoreImpl.LORDFILM_AL_BASE_URL
-    }
+    private fun String.toHost() =
+        "^https?://(.+)/".toRegex().find(this)?.groupValues?.getOrNull(1)
 }

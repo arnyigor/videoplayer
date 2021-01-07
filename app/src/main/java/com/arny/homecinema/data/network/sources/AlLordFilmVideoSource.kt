@@ -22,6 +22,9 @@ class AlLordFilmVideoSource(
             "Host" to (hostStore.host ?: ""),
         )
 
+    override val addMainPageHeaders: Map<String, String?>
+        get() = emptyMap()
+
     override val searchHeaders: Map<String, String?>
         get() = mapOf(
             "Host" to hostStore.host,

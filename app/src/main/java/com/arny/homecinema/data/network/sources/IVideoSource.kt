@@ -8,6 +8,7 @@ import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 
 interface IVideoSource {
+    val addMainPageHeaders: Map<String, String?>
     val searchHeaders: Map<String, String?>
     val searchUrl: String
     val detailHeaders: Map<String, String>

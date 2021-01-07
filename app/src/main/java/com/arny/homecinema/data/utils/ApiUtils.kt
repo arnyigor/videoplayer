@@ -13,6 +13,7 @@ fun <T> getFullError(throwable: Throwable): DataResult<T> {
                 code = throwable.code()
                 error = throwable.response()?.errorBody()?.string().toString()
                 when (code) {
+                    500 -> error = "Внутренняя ошибка сервера"
                     504 -> error = "Время ожидания истекло, повторите запрос позже"
                     503 -> error = "Сервис временно недоступен, повторите запрос позже"
                     403 -> error = "Сервис заблокирован"

@@ -10,7 +10,7 @@ import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import java.util.*
 
-class LordFilmAdaVideoSource(
+class LordFilmHDVideoSource(
     private val hostStore: IHostStore,
     private val videoApiService: VideoApiService,
     private val responseBodyConverter: ResponseBodyConverter
@@ -23,7 +23,14 @@ class LordFilmAdaVideoSource(
         )
 
     override val addMainPageHeaders: Map<String, String?>
-        get() = emptyMap()
+        get() = mapOf(
+            "Host" to "hd.lordfilm.xyz",
+            "sec-fetch-dest" to "document",
+            "sec-fetch-mode" to "navigate",
+            "sec-fetch-site" to "same-origin",
+            "sec-fetch-user" to "?1",
+            "upgrade-insecure-requests" to "1",
+        )
     override val searchHeaders: Map<String, String?>
         get() = mapOf(
             "Host" to hostStore.host,
@@ -55,7 +62,7 @@ class LordFilmAdaVideoSource(
     }
 
     override fun getMainPageLinks(doc: Document): Elements =
-        doc.body().select(".content .sect .sect-items .th-item a")
+        doc.body().select(".content .sect:gt(2).sect-items .th-item a")
 
     override fun getVideoFromLink(link: Element): Movie {
         return Movie(
@@ -71,8 +78,12 @@ class LordFilmAdaVideoSource(
         hostStore.baseUrl + (link.select(".th-img img:first-child").attr("src").toString()
             .substringAfter("/"))
 
-    override fun getMenuItems(doc: Document): Elements =
-        doc.body().select("#header .hmenu li a")
+    override fun getMenuItems(doc: Document): Elements {
+        val body = doc.body()
+        val select = body.select("#side-panel .hmenu li a")
+        val select2 = body.select(".content .sect .sect-title a")
+        return Elements(select + select2)
+    }
 
     override fun getSearchResultLinks(doc: Document): Elements =
         doc.select("#dle-content .th-item a")
