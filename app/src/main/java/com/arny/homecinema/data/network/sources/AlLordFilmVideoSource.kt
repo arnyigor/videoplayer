@@ -94,7 +94,7 @@ class AlLordFilmVideoSource(
     }
 
     override fun getTitle(doc: Document): String? {
-        return doc.body().select("h1").first().text()
+        return doc.title()
     }
 
     override suspend fun getResultDoc(movie: Movie): Document {
