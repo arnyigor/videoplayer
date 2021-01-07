@@ -107,9 +107,10 @@ class HomeFragment : Fragment() {
             }
         }
         searchLinksSpinnerAdapter = SearchLinksSpinnerAdapter(requireContext())
-        acsLinks.setSelection(0, false)
-        acsLinks.adapter = searchLinksSpinnerAdapter
-        acsLinks.updateSpinnerItems(videoTypesSelectListener)
+        with(acsLinks) {
+            adapter = searchLinksSpinnerAdapter
+            onItemSelectedListener = videoTypesSelectListener
+        }
         viewResult()
     }
 
@@ -140,15 +141,16 @@ class HomeFragment : Fragment() {
         })
     }
 
-    private fun updateList(pageContent: MainPageContent) {
+    private fun updateList(pageContent: MainPageContent) = with(binding) {
         val data = pageContent.movies
         fillAdapter(data?.map { VideoItem(it) })
         emptyData = data.isNullOrEmpty()
-        val mutableCollection = pageContent.searchVideoLinks ?: emptyList()
-        if (mutableCollection.isNotEmpty()) {
-            binding.acsLinks.updateSpinnerItems(videoTypesSelectListener) {
+        val typeLinsks = pageContent.searchVideoLinks ?: emptyList()
+        with(acsLinks) {
+            isVisible = typeLinsks.isNullOrEmpty()
+            updateSpinnerItems(videoTypesSelectListener) {
                 searchLinksSpinnerAdapter?.clear()
-                searchLinksSpinnerAdapter?.addAll(mutableCollection)
+                searchLinksSpinnerAdapter?.addAll(typeLinsks)
             }
         }
     }
