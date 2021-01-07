@@ -142,9 +142,8 @@ class HomeFragment : Fragment() {
 
     private fun updateList(pageContent: MainPageContent) {
         val data = pageContent.movies
-        val items = data?.map { VideoItem(it) }
-        fillAdapter(items)
-        emptyData = data?.isEmpty() ?: true
+        fillAdapter(data?.map { VideoItem(it) })
+        emptyData = data.isNullOrEmpty()
         val mutableCollection = pageContent.searchVideoLinks ?: emptyList()
         if (mutableCollection.isNotEmpty()) {
             binding.acsLinks.updateSpinnerItems(videoTypesSelectListener) {

@@ -34,27 +34,23 @@ class HostStoreImpl @Inject constructor(
     internal companion object HOSTS {
         const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
         const val LORDFILM_AL_BASE_URL = "http://$LORDFILM_AL_HOST/"
-        const val LORDFILM_KINO_I_HOST = "kino-i.online"
-        const val LORDFILM_KINO_I_BASE_URL = "https://$LORDFILM_KINO_I_HOST/"
-        const val LORDFILM_KINO_I_HOST_MOCK = "kino-i.online.mock"
-        const val LORDFILM_KINO_I_HOST_MOCK2 = "kino-i.online.mock2"
+        const val HOST_MOCK = "TestData"
+        const val HOST_MOCK2 = "TestData2"
     }
 
     override val availableHosts: List<String>
         get() = listOf(
-            LORDFILM_KINO_I_HOST,
             LORDFILM_AL_HOST,
-            LORDFILM_KINO_I_HOST_MOCK,
-            LORDFILM_KINO_I_HOST_MOCK2,
+            HOST_MOCK,
+            HOST_MOCK2,
         )
 }
 
 internal fun String?.toBaseUrl(): String {
     return when (this) {
         HostStoreImpl.LORDFILM_AL_HOST -> HostStoreImpl.LORDFILM_AL_BASE_URL
-        HostStoreImpl.LORDFILM_KINO_I_HOST -> HostStoreImpl.LORDFILM_KINO_I_BASE_URL
-        HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK -> HostStoreImpl.LORDFILM_KINO_I_BASE_URL
-        HostStoreImpl.LORDFILM_KINO_I_HOST_MOCK2 -> HostStoreImpl.LORDFILM_KINO_I_BASE_URL
+        HostStoreImpl.HOST_MOCK -> "https://www.google.com/"
+        HostStoreImpl.HOST_MOCK2 -> "https://www.google.com/"
         else -> HostStoreImpl.LORDFILM_AL_BASE_URL
     }
 }

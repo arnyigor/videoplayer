@@ -154,10 +154,16 @@ class DetailsFragment : Fragment() {
         for ((key, value) in map.entries) {
             val season = (key as? Int) ?: 0
             val episode = (value as? Int) ?: 0
-            binding.spinSeasons.setSelection(season, false)
-            binding.spinEpisodes.setSelection(episode, false)
-            currentSeasonPosition = season
-            currentEpisodePosition = episode
+            if (currentSeasonPosition != season) {
+                currentSeasonPosition = season
+                currentEpisodePosition = episode
+                fillSpinners()
+            } else {
+                currentSeasonPosition = season
+                currentEpisodePosition = episode
+                binding.spinSeasons.setSelection(season, false)
+                binding.spinEpisodes.setSelection(episode, false)
+            }
         }
     }
 
@@ -338,6 +344,10 @@ class DetailsFragment : Fragment() {
         if (cachedEpisodPosition != 0 && currentEpisodePosition == 0) {
             currentEpisodePosition = cachedEpisodPosition
         }
+        fillSpinners()
+    }
+
+    private fun fillSpinners() = with(binding) {
         val seasons = currentMovie?.serialData?.seasons
         val seasonsList = seasons?.mapIndexed { index, _ -> "${index + 1} сезон" }
         if (!seasonsList.isNullOrEmpty()) {

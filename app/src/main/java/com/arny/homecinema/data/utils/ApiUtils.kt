@@ -2,6 +2,7 @@ package com.arny.homecinema.data.utils
 
 import com.arny.homecinema.data.models.DataResult
 import retrofit2.HttpException
+import javax.net.ssl.SSLHandshakeException
 
 fun <T> getFullError(throwable: Throwable): DataResult<T> {
     var error: String
@@ -16,6 +17,9 @@ fun <T> getFullError(throwable: Throwable): DataResult<T> {
                     503 -> error = "Сервис временно недоступен, повторите запрос позже"
                     403 -> error = "Сервис заблокирован"
                 }
+            }
+            is SSLHandshakeException -> {
+                error = "Ошибка сертификата сервера"
             }
             else -> {
                 error = getMessage(throwable)

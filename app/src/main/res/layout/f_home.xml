@@ -37,7 +37,6 @@
         android:padding="8dp"
         android:text="@string/film_not_found"
         android:textAppearance="@style/TextAppearance.AppCompat"
-        android:textColor="@color/white"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

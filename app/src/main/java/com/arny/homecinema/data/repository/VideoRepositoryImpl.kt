@@ -37,23 +37,18 @@ class VideoRepositoryImpl @Inject constructor(
 
     override fun searchMovie(search: String): Flow<MutableList<Movie>> {
         return flow {
-            emit(
-                videoApiService.searchVideo(
-                    getSource().searchUrl,
-                    getSource().getSearchFields(search),
-                    getSource().searchHeaders,
-                )
-            )
-        }.flowOn(Dispatchers.IO)
-            .map { body ->
-                val doc = responseBodyConverter.convert(body)
-                requireNotNull(doc)
-                mutableListOf<Movie>().apply {
-                    for (link in getSearchResultLinks(doc)) {
-                        add(getVideoFromLink(link))
-                    }
+            val doc = videoApiService.searchVideo(
+                getSource().searchUrl,
+                getSource().getSearchFields(search),
+                getSource().searchHeaders,
+            ).convertToDoc()
+            val list = mutableListOf<Movie>().apply {
+                for (link in getSearchResultLinks(doc)) {
+                    add(getVideoFromLink(link))
                 }
             }
+            emit(list)
+        }.flowOn(Dispatchers.IO)
     }
 
     private fun getSearchResultLinks(doc: Document) = getSource().getSearchResultLinks(doc)
@@ -67,24 +62,31 @@ class VideoRepositoryImpl @Inject constructor(
     override fun getAllVideos(): Flow<DataResult<MainPageContent>> {
         return flow {
             getHostsData()
-            emit(videoApiService.requestMainPage(hostStore.baseUrl, hostStore.mainPageHeaders))
+            val doc = videoApiService.requestMainPage(
+                hostStore.baseUrl,
+                hostStore.mainPageHeaders
+            ).convertToDoc()
+            emit(getMainPageContent(doc))
         }
-            .map(::getMainPageContent)
             .flowOn(Dispatchers.IO)
     }
 
     override fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>> {
         return flow {
             val url = hostStore.baseUrl + type?.substringAfter("/")
-            emit(videoApiService.requestTyped(url))
+            val doc = videoApiService.requestTyped(url).convertToDoc()
+            emit(getMainPageContent(doc))
         }
-            .map(::getMainPageContent)
             .flowOn(Dispatchers.IO)
     }
 
-    private fun getMainPageContent(body: ResponseBody): DataResult<MainPageContent> {
-        val doc = responseBodyConverter.convert(body)
+    private fun ResponseBody.convertToDoc(): Document {
+        val doc = responseBodyConverter.convert(this)
         requireNotNull(doc)
+        return doc
+    }
+
+    private fun getMainPageContent(doc: Document): DataResult<MainPageContent> {
         return MainPageContent(getMainVideos(doc), getMenuLinks(doc)).toResult()
     }
 
