@@ -33,6 +33,8 @@ class HostStoreImpl @Inject constructor(
 
     internal companion object HOSTS {
         const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
+        const val LORDFILM_ADA_HOST = "ada.lordsfilms.tube"
+        const val LORDFILM_ADA_BASE_URL = "https://$LORDFILM_ADA_HOST/"
         const val LORDFILM_AL_BASE_URL = "http://$LORDFILM_AL_HOST/"
         const val HOST_MOCK = "TestData"
         const val HOST_MOCK2 = "TestData2"
@@ -41,6 +43,7 @@ class HostStoreImpl @Inject constructor(
     override val availableHosts: List<String>
         get() = listOf(
             LORDFILM_AL_HOST,
+            LORDFILM_ADA_HOST,
             HOST_MOCK,
             HOST_MOCK2,
         )
@@ -49,6 +52,7 @@ class HostStoreImpl @Inject constructor(
 internal fun String?.toBaseUrl(): String {
     return when (this) {
         HostStoreImpl.LORDFILM_AL_HOST -> HostStoreImpl.LORDFILM_AL_BASE_URL
+        HostStoreImpl.LORDFILM_ADA_HOST -> HostStoreImpl.LORDFILM_ADA_BASE_URL
         HostStoreImpl.HOST_MOCK -> "https://www.google.com/"
         HostStoreImpl.HOST_MOCK2 -> "https://www.google.com/"
         else -> HostStoreImpl.LORDFILM_AL_BASE_URL
