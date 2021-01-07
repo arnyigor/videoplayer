@@ -64,6 +64,9 @@ class DetailsFragment : Fragment() {
             setSpinEpisodesVisible(visible && currentVideo?.type == MovieType.SERIAL)
             setCustomTitleVisible(land && visible)
             binding.mtvQuality.isVisible = visible
+            if (!visible) {
+                binding.plVideoPLayer.controllerShowTimeoutMs = 3000
+            }
         }
     }
 
@@ -74,6 +77,7 @@ class DetailsFragment : Fragment() {
             position: Int,
             id: Long
         ) {
+            binding.plVideoPLayer.controllerShowTimeoutMs = 3000
             updateCurrentSerialPosition()
             currentEpisodePosition = 0
             currentVideo?.currentPosition = 0
@@ -81,6 +85,7 @@ class DetailsFragment : Fragment() {
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
+            binding.plVideoPLayer.controllerShowTimeoutMs = 3000
         }
     }
 
@@ -91,12 +96,14 @@ class DetailsFragment : Fragment() {
             position: Int,
             id: Long
         ) {
+            binding.plVideoPLayer.controllerShowTimeoutMs = 3000
             updateCurrentSerialPosition()
             currentVideo?.currentPosition = 0
             updatePlayerPosition()
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
+            binding.plVideoPLayer.controllerShowTimeoutMs = 3000
         }
     }
 
@@ -240,6 +247,7 @@ class DetailsFragment : Fragment() {
         spinSeasons.isVisible = visible
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun FDetailsBinding.initTrackAdapters() {
         seasonsTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
         episodesTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
@@ -249,6 +257,18 @@ class DetailsFragment : Fragment() {
         spinEpisodes.setSelection(currentEpisodePosition, false)
         spinSeasons.updateSpinnerItems(seasonsChangeListener)
         spinEpisodes.updateSpinnerItems(episodesChangelistener)
+        spinEpisodes.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                plVideoPLayer.controllerShowTimeoutMs = 60000
+            }
+            false
+        }
+        spinSeasons.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                plVideoPLayer.controllerShowTimeoutMs = 60000
+            }
+            false
+        }
     }
 
     private fun updatePlayerPosition() {
