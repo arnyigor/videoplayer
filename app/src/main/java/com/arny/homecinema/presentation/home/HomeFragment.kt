@@ -202,6 +202,10 @@ class HomeFragment : Fragment() {
                     .navigate(HomeFragmentDirections.actionHomeFragmentToHistoryFragment())
                 true
             }
+            R.id.menu_action_get_file -> {
+                requestFile()
+                true
+            }
             else -> false
         }
     }
@@ -214,14 +218,6 @@ class HomeFragment : Fragment() {
                 addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
             }
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            type = "*/*"
-        }
-    }
-
-    private fun requestFolder() {
-        launchIntent(REQUEST_OPEN_FOLDER) {
-            action = Intent.ACTION_OPEN_DOCUMENT
-            addCategory(Intent.CATEGORY_OPENABLE);
             type = "*/*"
         }
     }

@@ -18,4 +18,8 @@
         android:title="@string/menu_history"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/menu_action_get_file"
+        android:title="@string/menu_get_file"
+        app:showAsAction="never" />
 </menu>
