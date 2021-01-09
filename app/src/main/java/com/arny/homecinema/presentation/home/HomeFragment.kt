@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.*
+import android.widget.AdapterView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -26,14 +27,18 @@ import com.arny.homecinema.presentation.utils.*
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
 import dagger.android.support.AndroidSupportInjection
+import moxy.MvpAppCompatFragment
+import moxy.ktx.moxyPresenter
 import java.util.*
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlin.properties.Delegates
 
-class HomeFragment : Fragment() {
-
+class HomeFragment : MvpAppCompatFragment(), HomeView {
     @Inject
-    lateinit var vm: HomeViewModel
+    lateinit var presenterProvider: Provider<HomePresenter>
+
+    private val presenter by moxyPresenter { presenterProvider.get() }
 
     private val binding by viewBinding { FHomeBinding.bind(it).also(::initBinding) }
 
@@ -47,24 +52,49 @@ class HomeFragment : Fragment() {
         }
     }
 
+    override fun showMainContent(result: DataResult<MainPageContent>) {
+        when (result) {
+            is DataResult.Success -> {
+                updateList(result.data)
+            }
+            is DataResult.Error -> {
+                emptyData = true
+                binding.tvEmptyView.text = result.throwable.message
+            }
+        }
+    }
+
+    override fun showMainContentError(error: DataResult<MainPageContent>) {
+        emptyData = true
+        if (error is DataResult.Error) {
+            binding.tvEmptyView.text = error.throwable.message
+        }
+    }
+
+    override fun showLoading(show: Boolean) = with(binding) {
+        pbLoading.isVisible = show
+        edtSearch.isVisible = !show
+        rvTypesList.isVisible = !show
+    }
+
+    override fun chooseHost(hostsResult: DataResult<Pair<Array<String>, Int>>) {
+        when (hostsResult) {
+            is DataResult.Success -> {
+                val (sources, current) = hostsResult.data
+                showAlertDialog(sources, current)
+            }
+            is DataResult.Error -> {
+            }
+        }
+    }
+
     private fun initBinding(binding: FHomeBinding) = with(binding) {
         initList()
         requireActivity().title = getString(R.string.app_name)
-        vm.loading.observe(viewLifecycleOwner, { loading ->
-            pbLoading.isVisible = loading
-            edtSearch.isVisible = !loading
-            rvTypesList.isVisible = !loading
-        })
-        vm.hostsData.observe(viewLifecycleOwner, { hostsResult ->
-            when (hostsResult) {
-                is DataResult.Success -> {
-                    val (sources, current) = hostsResult.data
-                    showAlertDialog(sources, current)
-                }
-                is DataResult.Error -> {
-                }
-            }
-        })
+        swiperefresh.setOnRefreshListener {
+            swiperefresh.isRefreshing = false
+            presenter.restartLoading()
+        }
         btnSearch.setOnClickListener {
             KeyboardHelper.hideKeyboard(requireActivity())
             searchVideo()
@@ -72,7 +102,7 @@ class HomeFragment : Fragment() {
         edtSearch.setDrawableRightListener {
             KeyboardHelper.hideKeyboard(requireActivity())
             edtSearch.setText("")
-            vm.restartLoading()
+            presenter.restartLoading()
         }
         edtSearch.setEnterPressListener {
             KeyboardHelper.hideKeyboard(requireActivity())
@@ -80,7 +110,7 @@ class HomeFragment : Fragment() {
         }
         edtSearch.doAfterTextChanged {
             if (edtSearch.isFocused) {
-                vm.searchCached(it.toString())
+                presenter.searchCached(it.toString())
             }
         }
         videoTypesAdapter = VideoTypesAdapter()
@@ -101,7 +131,6 @@ class HomeFragment : Fragment() {
             layoutManager = LinearLayoutManager(requireContext(), RecyclerView.HORIZONTAL, false)
             adapter = videoTypesAdapter
         }
-        viewResult()
     }
 
     private fun FHomeBinding.initList() {
@@ -115,20 +144,6 @@ class HomeFragment : Fragment() {
             it.adapter = groupAdapter
             it.layoutManager = LinearLayoutManager(requireContext())
         }
-    }
-
-    private fun viewResult() {
-        vm.result.observe(viewLifecycleOwner, { result ->
-            when (result) {
-                is DataResult.Success -> {
-                    updateList(result.data)
-                }
-                is DataResult.Error -> {
-                    emptyData = true
-                    binding.tvEmptyView.text = result.throwable.message
-                }
-            }
-        })
     }
 
     private fun updateList(pageContent: MainPageContent) = with(binding) {
@@ -148,7 +163,7 @@ class HomeFragment : Fragment() {
 
     private fun FHomeBinding.searchVideo() {
         tvEmptyView.isVisible = false
-        vm.search(edtSearch.text.toString())
+        presenter.search(edtSearch.text.toString())
     }
 
     override fun onAttach(context: Context) {
@@ -176,7 +191,7 @@ class HomeFragment : Fragment() {
         return when (item.itemId) {
             R.id.menu_action_choose_source -> {
                 emptyData = false
-                vm.requestHosts()
+                presenter.requestHosts()
                 true
             }
             R.id.menu_action_settings -> {
@@ -260,7 +275,7 @@ class HomeFragment : Fragment() {
         val alertDialog: AlertDialog.Builder = AlertDialog.Builder(requireContext())
         alertDialog.setTitle(getString(R.string.home_choose_source))
         alertDialog.setSingleChoiceItems(sources, checkedItem) { _, which ->
-            vm.selectHost(sources[which])
+            presenter.selectHost(sources[which])
             alert?.dismiss()
         }
         alert = alertDialog.create()
