@@ -6,7 +6,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.*
-import android.widget.AdapterView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -14,14 +13,12 @@ import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.arny.homecinema.R
 import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.utils.FilePathUtils
 import com.arny.homecinema.databinding.FHomeBinding
-import com.arny.homecinema.di.models.MainPageContent
-import com.arny.homecinema.di.models.Movie
-import com.arny.homecinema.di.models.MovieType
-import com.arny.homecinema.di.models.Video
+import com.arny.homecinema.di.models.*
 import com.arny.homecinema.presentation.CONSTS.REQUESTS.REQUEST_OPEN_FILE
 import com.arny.homecinema.presentation.CONSTS.REQUESTS.REQUEST_OPEN_FOLDER
 import com.arny.homecinema.presentation.models.VideoItem
@@ -35,28 +32,12 @@ import kotlin.properties.Delegates
 
 class HomeFragment : Fragment() {
 
-
     @Inject
     lateinit var vm: HomeViewModel
 
     private val binding by viewBinding { FHomeBinding.bind(it).also(::initBinding) }
 
-    private var videoTypesSelectListener: AdapterView.OnItemSelectedListener =
-        object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?,
-                view: View?,
-                position: Int,
-                id: Long
-            ) {
-                vm.onSearchChanged(searchLinksSpinnerAdapter?.items?.getOrNull(position))
-            }
-
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-            }
-        }
-
-    private var searchLinksSpinnerAdapter: SearchLinksSpinnerAdapter? = null
+    private var videoTypesAdapter: VideoTypesAdapter? = null
 
     private lateinit var groupAdapter: GroupAdapter<GroupieViewHolder>
     private var emptyData by Delegates.observable(true) { _, _, empty ->
@@ -72,7 +53,7 @@ class HomeFragment : Fragment() {
         vm.loading.observe(viewLifecycleOwner, { loading ->
             pbLoading.isVisible = loading
             edtSearch.isVisible = !loading
-            acsLinks.isVisible = !loading
+            rvTypesList.isVisible = !loading
         })
         vm.hostsData.observe(viewLifecycleOwner, { hostsResult ->
             when (hostsResult) {
@@ -84,10 +65,6 @@ class HomeFragment : Fragment() {
                 }
             }
         })
-        swiperefresh.setOnRefreshListener {
-            swiperefresh.isRefreshing = false
-            vm.restartLoading()
-        }
         btnSearch.setOnClickListener {
             KeyboardHelper.hideKeyboard(requireActivity())
             searchVideo()
@@ -106,10 +83,23 @@ class HomeFragment : Fragment() {
                 vm.searchCached(it.toString())
             }
         }
-        searchLinksSpinnerAdapter = SearchLinksSpinnerAdapter(requireContext())
-        with(acsLinks) {
-            adapter = searchLinksSpinnerAdapter
-            onItemSelectedListener = videoTypesSelectListener
+        videoTypesAdapter = VideoTypesAdapter()
+        videoTypesAdapter?.setViewHolderListener(object :
+            SimpleAbstractAdapter.OnViewHolderListener<VideoSearchLink> {
+            override fun onItemClick(position: Int, item: VideoSearchLink) {
+                val items = videoTypesAdapter?.getItems()
+                items?.forEach {
+                    it.selected = false
+                }
+                val searchLink = items?.getOrNull(position)
+                searchLink?.selected = true
+                videoTypesAdapter?.notifyDataSetChanged()
+                vm.onSearchChanged(searchLink)
+            }
+        })
+        with(rvTypesList) {
+            layoutManager = LinearLayoutManager(requireContext(), RecyclerView.HORIZONTAL, false)
+            adapter = videoTypesAdapter
         }
         viewResult()
     }
@@ -145,13 +135,9 @@ class HomeFragment : Fragment() {
         val data = pageContent.movies
         fillAdapter(data?.map { VideoItem(it) })
         emptyData = data.isNullOrEmpty()
-        val typeLinsks = pageContent.searchVideoLinks ?: emptyList()
-        with(acsLinks) {
-            isVisible = typeLinsks.isNullOrEmpty()
-            updateSpinnerItems(videoTypesSelectListener) {
-                searchLinksSpinnerAdapter?.clear()
-                searchLinksSpinnerAdapter?.addAll(typeLinsks)
-            }
+        pageContent.searchVideoLinks?.let {
+            videoTypesAdapter?.clear()
+            videoTypesAdapter?.addAll(it)
         }
     }
 
