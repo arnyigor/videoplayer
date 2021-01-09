@@ -29,16 +29,15 @@ class HostStoreImpl @Inject constructor(
         prefs.put(PrefsConstants.PREF_CURRENT_HOST, source)
     }
 
-    override var savedHost: String?
-        get() = prefs.get<String>(PrefsConstants.PREF_CURRENT_HOST)
-        set(value) {}
+    override fun getCurrentHost(): String? {
+        return prefs.get<String>(PrefsConstants.PREF_CURRENT_HOST)
+    }
 
     internal companion object HOSTS {
         const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
         const val LORDFILM_ADA_HOST = "ada.lordsfilms.tube"
-        const val LORDFILM_HD_HOST = "hd.lordfilm.xyz"
-        const val HOST_MOCK = "TestData"
-        const val HOST_MOCK2 = "TestData2"
+        const val HOST_MOCK = "DemoContent"
+        const val HOST_MOCK2 = "DemoContent2"
     }
 
     override val baseUrls: List<String>

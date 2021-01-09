@@ -62,11 +62,15 @@ class VideoRepositoryImpl @Inject constructor(
     override fun getAllVideos(): Flow<DataResult<MainPageContent>> {
         return flow {
             getHostsData()
-            val doc = videoApiService.requestMainPage(
-                hostStore.baseUrl,
-                getSource().addMainPageHeaders + hostStore.mainPageHeaders
-            )
-                .convertToDoc()
+            val doc = try {
+                videoApiService.requestMainPage(
+                    hostStore.baseUrl,
+                    getSource().addMainPageHeaders + hostStore.mainPageHeaders
+                )
+                    .convertToDoc()
+            } catch (e: Exception) {
+                null
+            }
             emit(getMainPageContent(doc))
         }
             .flowOn(Dispatchers.IO)
@@ -87,11 +91,11 @@ class VideoRepositoryImpl @Inject constructor(
         return doc
     }
 
-    private fun getMainPageContent(doc: Document): DataResult<MainPageContent> {
+    private fun getMainPageContent(doc: Document?): DataResult<MainPageContent> {
         return MainPageContent(getMainVideos(doc), getMenuLinks(doc)).toResult()
     }
 
-    private fun getMenuLinks(doc: Document): MutableList<VideoSearchLink> {
+    private fun getMenuLinks(doc: Document?): MutableList<VideoSearchLink> {
         val menuItems = getSource().getMenuItems(doc)
         return mutableListOf<VideoSearchLink>().apply {
             for (link in menuItems) {
@@ -100,17 +104,16 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun getMainVideos(doc: Document): MutableList<Movie> {
+    private fun getMainVideos(doc: Document?): MutableList<Movie> {
+        val mainPageLinks = getSource().getMainPageLinks(doc)
         return mutableListOf<Movie>().apply {
-            for (link in getMainPageLinks(doc)) {
+            for (link in mainPageLinks) {
                 add(getVideoFromLink(link))
             }
         }
     }
 
     private fun getVideoFromLink(link: Element): Movie = getSource().getVideoFromLink(link)
-
-    private fun getMainPageLinks(doc: Document) = getSource().getMainPageLinks(doc)
 
     private fun getVideoSearchFromLink(link: Element) =
         VideoSearchLink(link.text(), link.attr("href"))
@@ -194,7 +197,8 @@ class VideoRepositoryImpl @Inject constructor(
                 }
             }
             emit(resultMovie.toResult())
-        }.flowOn(Dispatchers.IO)
+        }
+            .flowOn(Dispatchers.IO)
     }
 
     private fun getFromStore(movie: Movie): Movie? {
@@ -211,12 +215,13 @@ class VideoRepositoryImpl @Inject constructor(
     override fun getAllHosts(): Flow<DataResult<Pair<Array<String>, Int>>> {
         return flow {
             emit(getHostsData())
+        }.map {
+            it.toResult()
         }.flowOn(Dispatchers.IO)
-            .map { it.toResult() }
     }
 
     private fun getHostsData(): Pair<Array<String>, Int> {
-        var savedHost = hostStore.savedHost
+        var savedHost = hostStore.getCurrentHost()
         if (savedHost.isNullOrBlank()) {
             savedHost = hostStore.availableHosts.first()
             setHost(savedHost)
@@ -376,8 +381,10 @@ class VideoRepositoryImpl @Inject constructor(
             updateStore(serialSeason, value)
             val episode = videoCache.currentSeason?.episodes?.getOrNull(episodePosition)
             emit(episode)
-        }.flowOn(Dispatchers.IO)
+        }
             .map { it.toResult() }
+            .flowOn(Dispatchers.IO)
+
     }
 
     private fun getMovieId(movie: Movie): Int? {

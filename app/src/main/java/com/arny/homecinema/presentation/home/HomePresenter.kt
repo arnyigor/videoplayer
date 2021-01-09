@@ -20,6 +20,7 @@ class HomePresenter @Inject constructor(
     private val videoRepository: VideoRepository
 ) : BaseMvpPresenter<HomeView>() {
 
+
     override fun onFirstViewAttach() {
         restartLoading()
     }
@@ -73,7 +74,9 @@ class HomePresenter @Inject constructor(
             videoRepository.getAllHosts()
                 .onCompletion { viewState.showLoading(false) }
                 .catch { viewState.showMainContentError(getFullError(it)) }
-                .collect { viewState.chooseHost(it) }
+                .collect {
+                    viewState.chooseHost(it)
+                }
         }.addTo()
     }
 

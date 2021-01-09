@@ -27,7 +27,7 @@ class MockDataVideoSource(
     override val addMainPageHeaders: Map<String, String?>
         get() = emptyMap()
 
-    override fun getMainPageLinks(doc: Document): Elements {
+    override fun getMainPageLinks(doc: Document?): Elements {
         val text = when (hostStore.host) {
             HostStoreImpl.HOST_MOCK -> "<a href=\"https://avatars.mds.yandex.net/get-kinopoisk-image/1600647/cb6cf96f-f44a-470f-9dc2-118d4382eeb3/220x330\">ЧУДО-ЖЕНЩИНА: 1984 (2020)</a>"
             HostStoreImpl.HOST_MOCK2 -> "<a href=\"https://avatars.mds.yandex.net/get-kinopoisk-image/1704946/281ff1a0-85dc-4ab5-bbc4-a359eb501b1f/300x450\">Тайны смолвиля</a>"
@@ -63,7 +63,7 @@ class MockDataVideoSource(
         )
     }
 
-    override fun getMenuItems(doc: Document): Elements = Elements()
+    override fun getMenuItems(doc: Document?): Elements = Elements()
 
     override fun getSearchResultLinks(doc: Document): Elements = Elements()
 
@@ -78,6 +78,7 @@ class MockDataVideoSource(
     }
 
     override suspend fun getResultDoc(movie: Movie): Document {
+        Jsoup.parse("")
         return Document("")
     }
 

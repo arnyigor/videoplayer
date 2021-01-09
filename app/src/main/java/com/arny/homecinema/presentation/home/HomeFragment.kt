@@ -6,12 +6,10 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.*
-import android.widget.AdapterView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
-import androidx.fragment.app.Fragment
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -75,6 +73,7 @@ class HomeFragment : MvpAppCompatFragment(), HomeView {
         pbLoading.isVisible = show
         edtSearch.isVisible = !show
         rvTypesList.isVisible = !show
+        btnSearch.isVisible = !show
     }
 
     override fun chooseHost(hostsResult: DataResult<Pair<Array<String>, Int>>) {
@@ -124,7 +123,7 @@ class HomeFragment : MvpAppCompatFragment(), HomeView {
                 val searchLink = items?.getOrNull(position)
                 searchLink?.selected = true
                 videoTypesAdapter?.notifyDataSetChanged()
-                vm.onSearchChanged(searchLink)
+                presenter.onTypeChanged(searchLink)
             }
         })
         with(rvTypesList) {
@@ -150,10 +149,8 @@ class HomeFragment : MvpAppCompatFragment(), HomeView {
         val data = pageContent.movies
         fillAdapter(data?.map { VideoItem(it) })
         emptyData = data.isNullOrEmpty()
-        pageContent.searchVideoLinks?.let {
-            videoTypesAdapter?.clear()
-            videoTypesAdapter?.addAll(it)
-        }
+        val searchVideoLinks = pageContent.searchVideoLinks ?: emptyList()
+        videoTypesAdapter?.addAll(searchVideoLinks)
     }
 
     private fun fillAdapter(items: List<VideoItem>?) {
@@ -276,6 +273,7 @@ class HomeFragment : MvpAppCompatFragment(), HomeView {
         alertDialog.setTitle(getString(R.string.home_choose_source))
         alertDialog.setSingleChoiceItems(sources, checkedItem) { _, which ->
             presenter.selectHost(sources[which])
+            videoTypesAdapter?.clear()
             alert?.dismiss()
         }
         alert = alertDialog.create()

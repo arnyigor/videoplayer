@@ -54,8 +54,10 @@ class LordFilmAdaVideoSource(
         }
     }
 
-    override fun getMainPageLinks(doc: Document): Elements =
-        doc.body().select(".content .sect .sect-items .th-item a")
+    override fun getMainPageLinks(doc: Document?): Elements {
+        requireNotNull(doc)
+        return doc.body().select(".content .sect .sect-items .th-item a")
+    }
 
     override fun getVideoFromLink(link: Element): Movie {
         return Movie(
@@ -71,8 +73,11 @@ class LordFilmAdaVideoSource(
         hostStore.baseUrl + (link.select(".th-img img:first-child").attr("src").toString()
             .substringAfter("/"))
 
-    override fun getMenuItems(doc: Document): Elements =
-        doc.body().select("#header .hmenu li a")
+    override fun getMenuItems(doc: Document?): Elements {
+        requireNotNull(doc)
+        return doc.body().select("#header .hmenu li a")
+    }
+
 
     override fun getSearchResultLinks(doc: Document): Elements =
         doc.select("#dle-content .th-item a")

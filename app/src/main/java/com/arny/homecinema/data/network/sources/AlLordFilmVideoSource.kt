@@ -55,12 +55,15 @@ class AlLordFilmVideoSource(
         }
     }
 
-    override fun getMainPageLinks(doc: Document): Elements =
-        doc.body()
+    override fun getMainPageLinks(doc: Document?): Elements {
+        requireNotNull(doc)
+        return doc.body()
             .select(".content").first()
             .select(".sect").first()
             .select(".sect-items").first()
             .select(".th-item a")
+    }
+
 
     override fun getVideoFromLink(link: Element): Movie {
         return Movie(
@@ -75,8 +78,10 @@ class AlLordFilmVideoSource(
     private fun getImgUrl(link: Element): String =
         link.select(".th-img").first().select("img").first().attr("src").toString()
 
-    override fun getMenuItems(doc: Document): Elements =
-        doc.body().getElementById("header").select(".hmenu li a")
+    override fun getMenuItems(doc: Document?): Elements{
+        requireNotNull(doc)
+        return doc.body().getElementById("header").select(".hmenu li a")
+    }
 
     override fun getSearchResultLinks(doc: Document): Elements =
         doc.getElementById("dle-content").select(".th-item a")

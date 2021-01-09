@@ -12,8 +12,8 @@ interface IVideoSource {
     val searchHeaders: Map<String, String?>
     val searchUrl: String
     val detailHeaders: Map<String, String>
-    fun getMainPageLinks(doc: Document): Elements
-    fun getMenuItems(doc: Document): Elements
+    fun getMainPageLinks(doc: Document?): Elements
+    fun getMenuItems(doc: Document?): Elements
     fun getSearchResultLinks(doc: Document): Elements
     fun getIframeUrl(detailsDoc: Document): String?
     suspend fun getHlsList(doc: Document): String
