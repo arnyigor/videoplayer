@@ -12,6 +12,9 @@ android {
 dependencies {
     kotlin()
     coroutines()
+    moxy()
+    rxjava3()
+    coroutineScopes()
     lifecycle()
     fragment()
     recycler()
