@@ -27,13 +27,14 @@ class MockDataVideoSource(
     override val addMainPageHeaders: Map<String, String?>
         get() = emptyMap()
 
-    override fun getMainPageLinks(doc: Document?): Elements {
-        val text = when (hostStore.host) {
-            HostStoreImpl.HOST_MOCK -> "<a href=\"https://avatars.mds.yandex.net/get-kinopoisk-image/1600647/cb6cf96f-f44a-470f-9dc2-118d4382eeb3/220x330\">ЧУДО-ЖЕНЩИНА: 1984 (2020)</a>"
-            HostStoreImpl.HOST_MOCK2 -> "<a href=\"https://avatars.mds.yandex.net/get-kinopoisk-image/1704946/281ff1a0-85dc-4ab5-bbc4-a359eb501b1f/300x450\">Тайны смолвиля</a>"
-            else -> "<a href=\"https://avatars.mds.yandex.net/get-kinopoisk-image/1600647/cb6cf96f-f44a-470f-9dc2-118d4382eeb3/220x330\">ЧУДО-ЖЕНЩИНА: 1984 (2020)</a>"
+    override suspend fun getMainPageLinks(doc: Document?): Elements {
+        return withContext(Dispatchers.IO) {
+            val file = when (hostStore.host) {
+                HostStoreImpl.HOST_MOCK -> "demo/links.txt"
+                else -> "demo/links.txt"
+            }
+            Jsoup.parse(assetsReader.readFileText(file)).body().select("a")
         }
-        return Jsoup.parse(text).body().select("a")
     }
 
     override fun getSearchFields(search: String): Map<String, String> {
@@ -53,11 +54,16 @@ class MockDataVideoSource(
             "Origin" to hostStore.baseUrl.substringBeforeLast("/"),
         )
 
-    override fun getVideoFromLink(link: Element): Movie {
+    override fun getMovieFromLink(link: Element): Movie {
+        val type = when (link.attr("type")) {
+            "serial" -> MovieType.SERIAL
+            "cinema" -> MovieType.CINEMA
+            else -> MovieType.CINEMA
+        }
         return Movie(
             UUID.randomUUID().toString(),
             correctTitle(link.text()),
-            MovieType.CINEMA,
+            type,
             link.attr("href"),
             link.attr("href")
         )
@@ -69,40 +75,52 @@ class MockDataVideoSource(
 
     override fun getIframeUrl(detailsDoc: Document): String = ""
 
-    override fun getTitle(doc: Document): String {
-        return when (hostStore.host) {
-            HostStoreImpl.HOST_MOCK -> "ЧУДО-ЖЕНЩИНА: 1984 (2020)"
-            HostStoreImpl.HOST_MOCK2 -> "Тайны смолвиля"
-            else -> "source_1.txt"
-        }
+    override suspend fun getTitle(doc: Document, movie: Movie?): String {
+        return movie?.title ?: ""
     }
 
     override suspend fun getResultDoc(movie: Movie): Document {
-        Jsoup.parse("")
-        return Document("")
+        return withContext(Dispatchers.IO) {
+            val readFileText = assetsReader.readFileText("demo/links.txt")
+            val linksDoc = Jsoup.parse(readFileText)
+            val links = linksDoc.select("a").map { it.attr("href").toString() }
+            val index = links.indexOf(movie.detailUrl)
+            val fileData = assetsReader.readFileText("demo/source_$index.txt")
+            Jsoup.parse("<script>$fileData</script>")
+        }
     }
 
     override suspend fun getHlsList(doc: Document): String = withContext(Dispatchers.IO) {
-        val file = when (hostStore.host) {
-            HostStoreImpl.HOST_MOCK -> "source_0.txt"
-            HostStoreImpl.HOST_MOCK2 -> "source_1.txt"
-            else -> "source_1.txt"
-        }
-        return@withContext assetsReader.readFileText(file)
+        val hlsList = doc.getElementsByTag("script")
+            .dataNodes()
+            .map { it.wholeData }
+            .find { it.contains("hlsList") }
+        requireNotNull(hlsList)
+        hlsList
     }
 
     override fun getQualityMap(hlsList: String): HashMap<String, String> {
-        return hashMapOf(
-            "480" to "https://m1.rumer.fun/manifest/MTc2LjExOC43OC4xNTc=/?video=https://e4ab6b73dd7dcbf79500b34cb24c0397bc418412.streamvid.club/12_27_20/12/27/05/VD4IKRG2/5NC2DHPP.mp4/tracks/v1-a/index-v1.m3u8",
-        )
+        val hlss = hlsList
+            .replace("\n", "")
+            .replace("\t", "")
+            .replace("\\s+".toRegex(), "")
+            .substringAfter("hlsList:{")
+            .substringBefore("}")
+            .split(",")
+            .map { it.substring(1, it.length - 1).replace("\"", "") }
+        val videoQualityMap = hashMapOf<String, String>()
+        for (hls in hlss) {
+            val quality = hls.substringBefore(":")
+            val link = hls.substringAfter(":")
+            if (quality.isNotBlank() && link.isNotBlank()) {
+                videoQualityMap[quality] = link
+            }
+        }
+        return videoQualityMap
     }
 
     override fun getMovieType(movie: Movie): MovieType {
-        return when (hostStore.host) {
-            HostStoreImpl.HOST_MOCK -> MovieType.CINEMA
-            HostStoreImpl.HOST_MOCK2 -> MovieType.SERIAL
-            else -> MovieType.SERIAL
-        }
+        return movie.type
     }
 
     override fun parsingSerialData(hlsList: String): SerialData {

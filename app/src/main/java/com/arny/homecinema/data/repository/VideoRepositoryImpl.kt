@@ -91,7 +91,7 @@ class VideoRepositoryImpl @Inject constructor(
         return doc
     }
 
-    private fun getMainPageContent(doc: Document?): DataResult<MainPageContent> {
+    private suspend fun getMainPageContent(doc: Document?): DataResult<MainPageContent> {
         return MainPageContent(getMainVideos(doc), getMenuLinks(doc)).toResult()
     }
 
@@ -104,7 +104,7 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun getMainVideos(doc: Document?): MutableList<Movie> {
+    private suspend fun getMainVideos(doc: Document?): MutableList<Movie> {
         val mainPageLinks = getSource().getMainPageLinks(doc)
         return mutableListOf<Movie>().apply {
             for (link in mainPageLinks) {
@@ -113,7 +113,7 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun getVideoFromLink(link: Element): Movie = getSource().getVideoFromLink(link)
+    private fun getVideoFromLink(link: Element): Movie = getSource().getMovieFromLink(link)
 
     private fun getVideoSearchFromLink(link: Element) =
         VideoSearchLink(link.text(), link.attr("href"))
@@ -288,7 +288,7 @@ class VideoRepositoryImpl @Inject constructor(
     private suspend fun getRemoteContent(movie: Movie): Movie {
         val resultDoc = getSource().getResultDoc(movie)
         val hlsList = getSource().getHlsList(resultDoc)
-        val title = getSource().getTitle(resultDoc)
+        val title = getSource().getTitle(resultDoc,movie)
         val movieId = getMovieId(movie)
         val qualityMap = getSource().getQualityMap(hlsList)
         return when (val type = getSource().getMovieType(movie)) {

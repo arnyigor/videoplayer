@@ -12,7 +12,7 @@ interface IVideoSource {
     val searchHeaders: Map<String, String?>
     val searchUrl: String
     val detailHeaders: Map<String, String>
-    fun getMainPageLinks(doc: Document?): Elements
+    suspend fun getMainPageLinks(doc: Document?): Elements
     fun getMenuItems(doc: Document?): Elements
     fun getSearchResultLinks(doc: Document): Elements
     fun getIframeUrl(detailsDoc: Document): String?
@@ -20,8 +20,8 @@ interface IVideoSource {
     suspend fun getResultDoc(movie: Movie): Document
     fun getQualityMap(hlsList: String): HashMap<String, String>
     fun parsingSerialData(hlsList: String): SerialData
-    fun getVideoFromLink(link: Element): Movie
+    fun getMovieFromLink(link: Element): Movie
     fun getSearchFields(search: String): Map<String, String>
     fun getMovieType(movie: Movie): MovieType
-    fun getTitle(doc: Document): String?
+    suspend fun getTitle(doc: Document, movie: Movie? = null): String?
 }

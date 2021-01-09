@@ -1,0 +1,3 @@
+<a type="cinema" href="https://avatars.mds.yandex.net/get-kinopoisk-image/1600647/cb6cf96f-f44a-470f-9dc2-118d4382eeb3/220x330">ЧУДО-ЖЕНЩИНА: 1984 (2020)</a>
+<a type="serial"  href="https://avatars.mds.yandex.net/get-kinopoisk-image/1704946/281ff1a0-85dc-4ab5-bbc4-a359eb501b1f/300x450">Тайны смолвиля</a>
+<a type="serial"  href="https://avatars.mds.yandex.net/get-kinopoisk-image/1600647/3d0b4a89-acd9-49ac-a83e-480c18c41baa/300x450">Чернобыль</a>

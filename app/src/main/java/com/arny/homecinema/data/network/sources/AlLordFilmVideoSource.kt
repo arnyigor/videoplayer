@@ -55,7 +55,7 @@ class AlLordFilmVideoSource(
         }
     }
 
-    override fun getMainPageLinks(doc: Document?): Elements {
+    override suspend fun getMainPageLinks(doc: Document?): Elements {
         requireNotNull(doc)
         return doc.body()
             .select(".content").first()
@@ -65,7 +65,7 @@ class AlLordFilmVideoSource(
     }
 
 
-    override fun getVideoFromLink(link: Element): Movie {
+    override fun getMovieFromLink(link: Element): Movie {
         return Movie(
             UUID.randomUUID().toString(),
             link.text(),
@@ -103,7 +103,7 @@ class AlLordFilmVideoSource(
         return hlsList
     }
 
-    override fun getTitle(doc: Document): String? {
+    override suspend fun getTitle(doc: Document, movie: Movie?): String? {
         return doc.title()
     }
 

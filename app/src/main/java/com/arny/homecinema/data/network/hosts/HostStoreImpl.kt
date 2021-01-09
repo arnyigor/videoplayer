@@ -49,7 +49,6 @@ class HostStoreImpl @Inject constructor(
     override val availableHosts: List<String>
         get() = baseUrls.mapNotNull { it.toHost() } + listOf(
             HOST_MOCK,
-            HOST_MOCK2,
         )
 
     private fun String.toHost() =

@@ -54,12 +54,12 @@ class LordFilmAdaVideoSource(
         }
     }
 
-    override fun getMainPageLinks(doc: Document?): Elements {
+    override suspend fun getMainPageLinks(doc: Document?): Elements {
         requireNotNull(doc)
         return doc.body().select(".content .sect .sect-items .th-item a")
     }
 
-    override fun getVideoFromLink(link: Element): Movie {
+    override fun getMovieFromLink(link: Element): Movie {
         return Movie(
             UUID.randomUUID().toString(),
             link.text(),
@@ -95,7 +95,7 @@ class LordFilmAdaVideoSource(
         return hlsList
     }
 
-    override fun getTitle(doc: Document): String {
+    override suspend fun getTitle(doc: Document, movie: Movie?): String {
         return correctTitle(doc.title())
     }
 
