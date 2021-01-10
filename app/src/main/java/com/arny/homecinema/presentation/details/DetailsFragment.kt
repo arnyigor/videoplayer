@@ -40,7 +40,6 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.properties.Delegates
 
-
 class DetailsFragment : Fragment() {
 
     private var trackSelector: DefaultTrackSelector? = null
