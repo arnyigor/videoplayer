@@ -1,12 +1,16 @@
 android {
     compileSdkVersion versions.compileSdkVersion
     buildToolsVersion versions.buildToolsVersion
-
+    def vMajor = 0
+    def vMinor = 0
+    def vBuild = 2
     defaultConfig {
         minSdkVersion versions.minSdkVersion
         targetSdkVersion versions.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode vMajor * 100 + vMinor * 10 + vBuild
+        versionName "${vMajor}" + "${vMinor}" + "${vBuild}"
+        setProperty("archivesBaseName", applicationId + "-v" + "(" + versionName + ")")
+        archivesBaseName = "$applicationId-v$versionCode($versionName)"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         javaCompileOptions {
@@ -56,7 +60,7 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
 
@@ -75,3 +79,11 @@ android {
         jvmArgs "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap"
     }
 }
+android.applicationVariants.all { variant ->
+    variant.outputs.all {
+        if (outputFileName.endsWith('.apk')) {
+            outputFileName = "MC-${variant.versionName}-${buildType.name}.apk"
+        }
+    }
+}
+

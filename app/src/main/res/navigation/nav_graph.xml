@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/homeFragment"
-        android:name="com.arny.homecinema.presentation.home.HomeFragment"
+        android:name="com.arny.mobilecinema.presentation.home.HomeFragment"
         android:label="f_home"
         tools:layout="@layout/f_home" >
         <action
@@ -24,20 +24,20 @@
     </fragment>
     <fragment
         android:id="@+id/detailsFragment"
-        android:name="com.arny.homecinema.presentation.details.DetailsFragment"
+        android:name="com.arny.mobilecinema.presentation.details.DetailsFragment"
         android:label="details_fragment"
         tools:layout="@layout/f_details" >
         <argument
             android:name="movie"
-            app:argType="com.arny.homecinema.di.models.Movie" />
+            app:argType="com.arny.mobilecinema.di.models.Movie" />
     </fragment>
     <fragment
         android:id="@+id/settingsFragment"
-        android:name="com.arny.homecinema.presentation.settings.SettingsFragment"
+        android:name="com.arny.mobilecinema.presentation.settings.SettingsFragment"
         android:label="SettingsFragment" />
     <fragment
         android:id="@+id/historyFragment"
-        android:name="com.arny.homecinema.presentation.history.HistoryFragment"
+        android:name="com.arny.mobilecinema.presentation.history.HistoryFragment"
         android:label="f_history"
         tools:layout="@layout/f_history" >
         <action
