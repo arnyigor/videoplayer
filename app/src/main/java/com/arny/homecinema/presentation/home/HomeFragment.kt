@@ -17,8 +17,6 @@ import com.arny.homecinema.data.models.DataResult
 import com.arny.homecinema.data.utils.FilePathUtils
 import com.arny.homecinema.databinding.FHomeBinding
 import com.arny.homecinema.di.models.*
-import com.arny.homecinema.presentation.CONSTS.REQUESTS.REQUEST_OPEN_FILE
-import com.arny.homecinema.presentation.CONSTS.REQUESTS.REQUEST_OPEN_FOLDER
 import com.arny.homecinema.presentation.models.VideoItem
 import com.arny.homecinema.presentation.utils.*
 import com.xwray.groupie.GroupAdapter
@@ -37,6 +35,11 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.properties.Delegates
 
 class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
+
+    private companion object {
+        const val REQUEST_OPEN_FILE: Int = 100
+        const val REQUEST_OPEN_FOLDER: Int = 101
+    }
 
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + SupervisorJob()
