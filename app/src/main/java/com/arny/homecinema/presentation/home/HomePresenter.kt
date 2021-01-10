@@ -20,47 +20,50 @@ class HomePresenter @Inject constructor(
     private val videoRepository: VideoRepository
 ) : BaseMvpPresenter<HomeView>() {
 
-
     override fun onFirstViewAttach() {
         restartLoading()
     }
 
     fun restartLoading() {
         viewState.showLoading(true)
-        getScope().launch {
+        mainScope().launch {
             videoRepository.getAllVideos()
                 .onCompletion { viewState.showLoading(false) }
                 .catch { viewState.showMainContentError(getFullError(it)) }
                 .collect { viewState.showMainContent(it) }
-        }.addTo()
+        }.addToCompositeJob()
     }
 
-    fun search(search: String) {
+    fun search(search: String, fromCache: Boolean = false) {
         if (search.isBlank()) {
             restartLoading()
         } else {
-            searchVideo(search)
+            if (fromCache) {
+                searchCached(search)
+            }else{
+                searchVideo(search)
+            }
         }
     }
 
     private fun searchVideo(search: String) {
         viewState.showLoading(true)
-        getScope().launch {
+        mainScope().launch {
             videoRepository.searchMovie(search)
                 .onCompletion { viewState.showLoading(false) }
                 .catch { viewState.showMainContentError(getFullError(it)) }
                 .collect { viewState.showMainContent(MainPageContent(it).toResult()) }
-        }.addTo()
+        }.addToCompositeJob()
     }
 
     fun onTypeChanged(searchLink: VideoSearchLink?) {
         viewState.showLoading(true)
-        getScope().launch {
+        mainScope().launch {
             videoRepository.getTypedVideos(searchLink?.searchUrl)
                 .onCompletion { viewState.showLoading(false) }
                 .catch { viewState.showMainContentError(getFullError(it)) }
                 .collect { viewState.showMainContent(it) }
-        }.addTo()
+        }.addToCompositeJob()
     }
 
     fun selectHost(source: String) {
@@ -70,23 +73,23 @@ class HomePresenter @Inject constructor(
 
     fun requestHosts() {
         viewState.showLoading(true)
-        getScope().launch {
+        mainScope().launch {
             videoRepository.getAllHosts()
                 .onCompletion { viewState.showLoading(false) }
                 .catch { viewState.showMainContentError(getFullError(it)) }
                 .collect {
                     viewState.chooseHost(it)
                 }
-        }.addTo()
+        }.addToCompositeJob()
     }
 
-    fun searchCached(searchText: String) {
-        viewState.showLoading(true)
-        getScope().launch {
+    private fun searchCached(searchText: String) {
+        mainScope().launch {
+            viewState.showLoading(true)
             videoRepository.searchCached(searchText)
                 .onCompletion { viewState.showLoading(false) }
                 .catch { viewState.showMainContentError(getFullError(it)) }
                 .collect { viewState.showMainContent(MainPageContent(movies = it).toResult()) }
-        }
+        }.addToCompositeJob()
     }
 }

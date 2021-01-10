@@ -22,8 +22,8 @@ abstract class BaseMvpPresenter<V : MvpView> : MvpPresenter<V>(), CoroutineScope
     private val compositeDisposable: CompositeDisposable = CompositeDisposable()
     private val compositeJob = CompositeJob()
 
-    fun getScope() = CoroutineScope(coroutineContext)
-    fun Job.addTo() {
+    protected fun mainScope() = CoroutineScope(coroutineContext)
+    protected fun Job.addToCompositeJob() {
         compositeJob.add(this)
     }
 

@@ -9,7 +9,10 @@ import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.annotation.ColorInt
+import androidx.core.widget.addTextChangedListener
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 @SuppressLint("ClickableViewAccessibility")
 fun EditText.setDrawableRightListener(onClick: () -> Unit) {
@@ -45,6 +48,16 @@ inline fun Spinner.updateSpinnerItems(
     this.onItemSelectedListener = null
     onUpdate.invoke()
     this.onItemSelectedListener = listener
+}
+
+fun EditText.getQueryTextChangeStateFlow(): StateFlow<String> {
+    val query = MutableStateFlow("")
+    addTextChangedListener {
+        if (this.isFocused) {
+            query.value = it.toString()
+        }
+    }
+    return query
 }
 
 fun View.showSnackBar(

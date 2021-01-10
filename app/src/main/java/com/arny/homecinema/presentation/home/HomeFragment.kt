@@ -9,7 +9,6 @@ import android.view.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
-import androidx.core.widget.doAfterTextChanged
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -25,14 +24,24 @@ import com.arny.homecinema.presentation.utils.*
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
 import dagger.android.support.AndroidSupportInjection
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
 import moxy.MvpAppCompatFragment
 import moxy.ktx.moxyPresenter
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Provider
+import kotlin.coroutines.CoroutineContext
 import kotlin.properties.Delegates
 
-class HomeFragment : MvpAppCompatFragment(), HomeView {
+class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
+
+    override val coroutineContext: CoroutineContext
+        get() = Dispatchers.Main + SupervisorJob()
+    private val compositeJob = CompositeJob()
+
     @Inject
     lateinit var presenterProvider: Provider<HomePresenter>
 
@@ -87,6 +96,7 @@ class HomeFragment : MvpAppCompatFragment(), HomeView {
         }
     }
 
+    @FlowPreview
     private fun initBinding(binding: FHomeBinding) = with(binding) {
         initList()
         requireActivity().title = getString(R.string.app_name)
@@ -105,13 +115,17 @@ class HomeFragment : MvpAppCompatFragment(), HomeView {
         }
         edtSearch.setEnterPressListener {
             KeyboardHelper.hideKeyboard(requireActivity())
-            searchVideo()
         }
-        edtSearch.doAfterTextChanged {
-            if (edtSearch.isFocused) {
-                presenter.searchCached(it.toString())
+        compositeJob.add(
+            CoroutineScope(coroutineContext).launch {
+                edtSearch.getQueryTextChangeStateFlow()
+                    .debounce(500)
+                    .filter { it.isNotBlank() }
+                    .collect {
+                        presenter.search(it, true)
+                    }
             }
-        }
+        )
         videoTypesAdapter = VideoTypesAdapter()
         videoTypesAdapter?.setViewHolderListener(object :
             SimpleAbstractAdapter.OnViewHolderListener<VideoSearchLink> {
@@ -280,5 +294,10 @@ class HomeFragment : MvpAppCompatFragment(), HomeView {
         alert.setCanceledOnTouchOutside(true)
         alert.setCancelable(true)
         alert.show()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        compositeJob.cancel()
     }
 }

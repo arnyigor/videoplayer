@@ -15,7 +15,10 @@ import com.arny.homecinema.data.utils.FilePathUtils
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -62,6 +65,8 @@ class VideoRepositoryImpl @Inject constructor(
     override fun getAllVideos(): Flow<DataResult<MainPageContent>> {
         return flow {
             getHostsData()
+            val allMovies = storeProvider.allMovies()
+            updateCache(allMovies)
             val doc = try {
                 videoApiService.requestMainPage(
                     hostStore.baseUrl,
@@ -147,29 +152,32 @@ class VideoRepositoryImpl @Inject constructor(
     @FlowPreview
     override fun searchCached(searchText: String): Flow<List<Movie>> {
         return flow {
-            var movies = emptyList<Movie>()
-            if (searchText.length > 1) {
-                movies = videoCache.searchFromCache(searchText)
-                if (movies.isEmpty() && isSaveToStore()) {
-                    movies = try {
-                        storeProvider.searchMovies(searchText)
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
+           var movies = videoCache.searchFromCache(searchText)
+            if (movies.isEmpty() && isSaveToStore()) {
+                movies = try {
+                    storeProvider.searchMovies(searchText)
+                } catch (e: Exception) {
+                    emptyList()
                 }
             }
             emit(movies)
         }
-            .debounce(350)
-            .distinctUntilChanged()
             .flowOn(Dispatchers.IO)
     }
 
     @FlowPreview
     override fun getAllCached(): Flow<DataResult<List<Movie>>> {
         return flow {
-            emit(storeProvider.allMovies().toResult())
+            val allMovies = storeProvider.allMovies()
+            updateCache(allMovies)
+            emit(allMovies.toResult())
         }.flowOn(Dispatchers.IO)
+    }
+
+    private fun updateCache(allMovies: List<Movie>) {
+        allMovies.forEach {
+            videoCache.addToCache(it)
+        }
     }
 
     private fun isSaveToStore(): Boolean = storeProvider.canSaveToStore()
@@ -288,7 +296,7 @@ class VideoRepositoryImpl @Inject constructor(
     private suspend fun getRemoteContent(movie: Movie): Movie {
         val resultDoc = getSource().getResultDoc(movie)
         val hlsList = getSource().getHlsList(resultDoc)
-        val title = getSource().getTitle(resultDoc,movie)
+        val title = getSource().getTitle(resultDoc, movie)
         val movieId = getMovieId(movie)
         val qualityMap = getSource().getQualityMap(hlsList)
         return when (val type = getSource().getMovieType(movie)) {
