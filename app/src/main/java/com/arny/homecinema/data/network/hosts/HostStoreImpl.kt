@@ -36,14 +36,15 @@ class HostStoreImpl @Inject constructor(
     internal companion object HOSTS {
         const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
         const val LORDFILM_ADA_HOST = "ada.lordsfilms.tube"
+        const val ALL_TABFILL_HOST = "al.tabfil.me"
         const val HOST_MOCK = "DemoContent"
-        const val HOST_MOCK2 = "DemoContent2"
     }
 
     override val baseUrls: List<String>
         get() = listOf(
             "http://al.lordfilms-s.pw/",
             "https://ada.lordsfilms.tube/",
+            "http://al.tabfil.me/",
         )
 
     override val availableHosts: List<String>

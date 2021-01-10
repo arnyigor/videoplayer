@@ -5,6 +5,7 @@ import com.arny.homecinema.data.network.hosts.IHostStore
 import com.arny.homecinema.data.network.response.ResponseBodyConverter
 import com.arny.homecinema.data.utils.fromJson
 import com.arny.homecinema.di.models.*
+import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
@@ -99,15 +100,26 @@ class LordFilmAdaVideoSource(
         return correctTitle(doc.title())
     }
 
-    override suspend fun getResultDoc(movie: Movie): Document {
-        val body = videoApiService.getVideoDetails(movie.detailUrl, detailHeaders)
+    override suspend fun requestMainPage(): ResponseBody {
+        return videoApiService.getRequest(
+            hostStore.baseUrl,
+            addMainPageHeaders + hostStore.mainPageHeaders
+        )
+    }
+
+    override suspend fun getDetailsDoc(movie: Movie): Document {
+        val body = videoApiService.getRequest(movie.detailUrl, detailHeaders)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
+        return detailsDoc
+    }
+
+    override suspend fun getVideoDoc(detailsDoc: Document): Document {
         val iFrameUrl = getIframeUrl(detailsDoc)
         val headers = mapOf(
             "Host" to "api.synchroncode.com",
         ) + hostStore.baseHeaders
-        val iFrameResponse = videoApiService.getUrlData(
+        val iFrameResponse = videoApiService.getRequest(
             iFrameUrl,
             headers
         )

@@ -4,5 +4,5 @@ import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 
 interface ResponseBodyConverter {
-    fun convert(res: ResponseBody): Document?
+    fun convert(res: ResponseBody,simpleText:Boolean = false): Document?
 }

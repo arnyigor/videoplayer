@@ -7,31 +7,15 @@ interface VideoApiService {
 
     @FormUrlEncoded
     @POST
-    suspend fun searchVideo(
+    suspend fun postRequest(
         @Url url: String,
         @FieldMap fields: Map<String, String>,
-        @HeaderMap headers: Map<String, String?>?
+        @HeaderMap headers: Map<String, String?>? = null
     ): ResponseBody
 
     @GET
-    suspend fun requestMainPage(
+    suspend fun getRequest(
         @Url url: String?,
-        @HeaderMap headers: Map<String, String?>?
+        @HeaderMap headers: Map<String, String?>? = null
     ): ResponseBody
-
-    @GET
-    suspend fun requestTyped(@Url url: String?): ResponseBody
-
-    @GET
-    suspend fun getVideoDetails(
-        @Url url: String?,
-        @HeaderMap headers: Map<String, String>
-    ): ResponseBody
-
-    @GET
-    suspend fun getUrlData(
-        @Url url: String?,
-        @HeaderMap headers: Map<String, String>
-    ): ResponseBody
-
 }

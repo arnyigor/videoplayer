@@ -14,10 +14,12 @@ import com.facebook.stetho.okhttp3.StethoInterceptor
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
+import okhttp3.ConnectionSpec
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.util.*
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
@@ -55,7 +57,20 @@ abstract class NetworkModule {
             @Named("debugInterceptor") debugInterceptor: Interceptor,
             @Named("headersInterceptor") headersInterceptor: Interceptor
         ): OkHttpClient {
-            return OkHttpClient.Builder().writeTimeout(3, TimeUnit.MINUTES)
+//            val spec: ConnectionSpec = ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
+//                .tlsVersions(TlsVersion.TLS_1_2)
+//                .tlsVersions(TlsVersion.TLS_1_1)
+//                .tlsVersions(TlsVersion.TLS_1_0)
+//                .cipherSuites(
+//                    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+//                    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+//                    TLS_DHE_RSA_WITH_AES_128_GCM_SHA256
+//                )
+//                .build()
+            val connectionSpecs: MutableList<ConnectionSpec> = ArrayList()
+            connectionSpecs.add(ConnectionSpec.COMPATIBLE_TLS)
+            return OkHttpClient.Builder()
+                .writeTimeout(3, TimeUnit.MINUTES)
                 .readTimeout(3, TimeUnit.MINUTES)
                 .callTimeout(3, TimeUnit.MINUTES)
                 .addInterceptor(debugInterceptor)

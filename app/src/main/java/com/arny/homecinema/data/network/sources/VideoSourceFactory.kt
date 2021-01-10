@@ -26,11 +26,12 @@ class VideoSourceFactory @Inject constructor(
                 videoApiService,
                 responseBodyConverter
             )
-            HostStoreImpl.HOST_MOCK -> MockDataVideoSource(
+            HostStoreImpl.ALL_TABFILL_HOST-> AlTabFillVideoSource(
                 hostStore,
-                assetsReader
+                videoApiService,
+                responseBodyConverter
             )
-            HostStoreImpl.HOST_MOCK2 -> MockDataVideoSource(
+            HostStoreImpl.HOST_MOCK -> MockDataVideoSource(
                 hostStore,
                 assetsReader
             )

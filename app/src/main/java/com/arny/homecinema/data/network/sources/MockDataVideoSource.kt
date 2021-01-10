@@ -8,6 +8,7 @@ import com.arny.homecinema.data.utils.fromJson
 import com.arny.homecinema.di.models.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.ResponseBody
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -79,7 +80,11 @@ class MockDataVideoSource(
         return movie?.title ?: ""
     }
 
-    override suspend fun getResultDoc(movie: Movie): Document {
+    override suspend fun requestMainPage(): ResponseBody {
+        throw IllegalStateException("Mock data not provide response body")
+    }
+
+    override suspend fun getDetailsDoc(movie: Movie): Document {
         return withContext(Dispatchers.IO) {
             val readFileText = assetsReader.readFileText("demo/links.txt")
             val linksDoc = Jsoup.parse(readFileText)
@@ -88,6 +93,10 @@ class MockDataVideoSource(
             val fileData = assetsReader.readFileText("demo/source_$index.txt")
             Jsoup.parse("<script>$fileData</script>")
         }
+    }
+
+    override suspend fun getVideoDoc(detailsDoc: Document): Document {
+         return detailsDoc
     }
 
     override suspend fun getHlsList(doc: Document): String = withContext(Dispatchers.IO) {
