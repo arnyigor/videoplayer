@@ -1,7 +1,9 @@
 package com.arny.mobilecinema.presentation.utils
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -17,6 +19,18 @@ fun AppCompatActivity.hideSystemBar() {
     } else {
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
     }
+}
+
+fun Activity.lockOrientationLandscape() {
+    this.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+}
+
+fun Activity.lockOrientationPortrait() {
+    this.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+}
+
+fun Activity.unlockOrientation() {
+    this.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 }
 
 fun AppCompatActivity.showSystemBar() {

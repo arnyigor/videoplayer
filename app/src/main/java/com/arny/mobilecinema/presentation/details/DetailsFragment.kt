@@ -9,6 +9,7 @@ import android.view.*
 import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -54,6 +55,7 @@ class DetailsFragment : Fragment() {
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
     private var drawerLocker: DrawerLocker? = null
+    private var orientationLocked: Boolean = false
     private var playControlsVisible by Delegates.observable(true) { _, oldValue, visible ->
         if (oldValue != visible && activity != null && isAdded) {
             val land = resources.configuration.orientation == ORIENTATION_LANDSCAPE
@@ -63,6 +65,7 @@ class DetailsFragment : Fragment() {
             setSpinEpisodesVisible(visible && currentVideo?.type == MovieType.SERIAL)
             setCustomTitleVisible(land && visible)
             binding.mtvQuality.isVisible = visible
+            binding.ivScreenLock.isVisible = visible
             if (!visible) {
                 binding.plVideoPLayer.controllerShowTimeoutMs = 3000
             }
@@ -192,6 +195,34 @@ class DetailsFragment : Fragment() {
                 }
             })
             mtvQuality.setOnClickListener { tv -> initQualityPopup(tv) }
+            ivScreenLock.setOnClickListener { toggleLockOrientaion() }
+        }
+    }
+
+    private fun toggleLockOrientaion() = with(binding) {
+        if (orientationLocked) {
+            orientationLocked = false
+            requireActivity().unlockOrientation()
+            ivScreenLock.setImageDrawable(
+                ContextCompat.getDrawable(
+                    requireContext(),
+                    R.drawable.ic_screen_lock_rotation_inactive
+                )
+            )
+        } else {
+            orientationLocked = true
+            val land = resources.configuration.orientation == ORIENTATION_LANDSCAPE
+            if (land) {
+                requireActivity().lockOrientationLandscape()
+            } else {
+                requireActivity().lockOrientationPortrait()
+            }
+            ivScreenLock.setImageDrawable(
+                ContextCompat.getDrawable(
+                    requireContext(),
+                    R.drawable.ic_screen_lock_rotation_active
+                )
+            )
         }
     }
 
