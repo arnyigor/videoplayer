@@ -2,6 +2,7 @@ package com.arny.mobilecinema.presentation.details
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.ActivityInfo.*
 import android.content.res.Configuration.*
 import android.net.Uri
 import android.os.Bundle
@@ -159,7 +160,7 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    private fun updateSelection(map: HashMap<*, *>) {
+    private fun updateSelection(map: HashMap<*, *>) = with(binding) {
         for ((key, value) in map.entries) {
             val season = (key as? Int) ?: 0
             val episode = (value as? Int) ?: 0
@@ -170,8 +171,12 @@ class DetailsFragment : Fragment() {
             } else {
                 currentSeasonPosition = season
                 currentEpisodePosition = episode
-                binding.spinSeasons.setSelection(season, false)
-                binding.spinEpisodes.setSelection(episode, false)
+                if (currentSeasonPosition != spinSeasons.selectedItemPosition) {
+                    spinSeasons.setSelection(season, false)
+                }
+                if (currentEpisodePosition != spinEpisodes.selectedItemPosition) {
+                    spinEpisodes.setSelection(episode, false)
+                }
             }
         }
     }
@@ -211,12 +216,7 @@ class DetailsFragment : Fragment() {
             )
         } else {
             orientationLocked = true
-            val land = resources.configuration.orientation == ORIENTATION_LANDSCAPE
-            if (land) {
-                requireActivity().lockOrientationLandscape()
-            } else {
-                requireActivity().lockOrientationPortrait()
-            }
+            requireActivity().lockOrientation()
             ivScreenLock.setImageDrawable(
                 ContextCompat.getDrawable(
                     requireContext(),
@@ -289,13 +289,13 @@ class DetailsFragment : Fragment() {
         spinEpisodes.updateSpinnerItems(episodesChangelistener)
         spinEpisodes.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP) {
-                plVideoPLayer.controllerShowTimeoutMs = 60000
+                plVideoPLayer.controllerShowTimeoutMs = -1
             }
             false
         }
         spinSeasons.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP) {
-                plVideoPLayer.controllerShowTimeoutMs = 60000
+                plVideoPLayer.controllerShowTimeoutMs = -1
             }
             false
         }
@@ -414,6 +414,7 @@ class DetailsFragment : Fragment() {
                 episodesTracksAdapter?.addAll(seriesList)
                 spinEpisodes.setSelection(currentEpisodePosition, false)
             }
+            updatePlayerPosition()
         }
     }
 

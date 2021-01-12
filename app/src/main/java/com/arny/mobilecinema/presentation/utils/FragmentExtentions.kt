@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -21,12 +22,17 @@ fun AppCompatActivity.hideSystemBar() {
     }
 }
 
-fun Activity.lockOrientationLandscape() {
-    this.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-}
-
-fun Activity.lockOrientationPortrait() {
-    this.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+fun Activity.lockOrientation() {
+    val rotation = this.display?.rotation
+    val orientLand = rotation == ActivityInfo.SCREEN_ORIENTATION_BEHIND
+            || rotation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    val land = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    requestedOrientation = if (orientLand && land) {
+        val sensorLand = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        if (rotation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) sensorLand else rotation ?: sensorLand
+    } else {
+        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    }
 }
 
 fun Activity.unlockOrientation() {
@@ -48,7 +54,8 @@ fun newIntent(): Intent = Intent()
 fun Fragment.launchIntent(
     requestCode: Int = -1,
     options: Bundle? = null,
-    init: Intent.() -> Unit = {}) {
+    init: Intent.() -> Unit = {}
+) {
     val context = this.context
     if (context != null) {
         val intent = newIntent()
