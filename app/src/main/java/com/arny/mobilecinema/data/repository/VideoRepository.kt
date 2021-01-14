@@ -7,7 +7,7 @@ import com.arny.mobilecinema.di.models.SerialEpisode
 import kotlinx.coroutines.flow.Flow
 
 interface VideoRepository {
-    fun searchMovie(search: String): Flow<MutableList<Movie>>
+    fun searchMovie(search: String): Flow<List<Movie>>
     fun getAllVideos(): Flow<DataResult<MainPageContent>>
     fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>>
     fun loadMovie(movie: Movie): Flow<DataResult<Movie>>

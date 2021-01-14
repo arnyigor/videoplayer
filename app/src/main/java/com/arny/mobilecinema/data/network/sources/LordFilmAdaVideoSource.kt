@@ -1,10 +1,11 @@
 package com.arny.mobilecinema.data.network.sources
 
-import com.arny.mobilecinema.data.models.SeasonItem
 import com.arny.mobilecinema.data.network.hosts.IHostStore
 import com.arny.mobilecinema.data.network.response.ResponseBodyConverter
-import com.arny.mobilecinema.data.utils.fromJson
-import com.arny.mobilecinema.di.models.*
+import com.arny.mobilecinema.di.models.Movie
+import com.arny.mobilecinema.di.models.MovieType
+import com.arny.mobilecinema.di.models.SerialData
+import com.arny.mobilecinema.di.models.VideoApiService
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
@@ -117,59 +118,17 @@ class LordFilmAdaVideoSource(
     }
 
     override fun getQualityMap(hlsList: String): HashMap<String, String> {
-        val hlss = hlsList
-            .replace("\n", "")
-            .replace("\t", "")
-            .replace("\\s+".toRegex(), "")
-            .substringAfter("hlsList:{")
-            .substringBefore("}")
+        return hlsList.clearSymbols()
+            .substringAfterBefore("hlsList:{", "}")
             .split(",")
             .map { it.substring(1, it.length - 1).replace("\"", "") }
-        val videoQualityMap = hashMapOf<String, String>()
-        for (hls in hlss) {
-            val quality = hls.substringBefore(":")
-            val link = hls.substringAfter(":")
-            if (quality.isNotBlank() && link.isNotBlank()) {
-                videoQualityMap[quality] = link
-            }
-        }
-        return videoQualityMap
+            .toMap()
     }
 
     override fun parsingSerialData(hlsList: String): SerialData {
-        val seasonsStringData = hlsList.replace("\n", "")
-            .replace("\t", "")
-            .replace("\\s+".toRegex(), " ")
-            .substringAfter("seasons:[{")
-            .substringBefore("}]}]")
-        val result = "[{$seasonsStringData}]}]"
-        val seasons = mutableListOf<SerialSeason>()
-        result.fromJson(ArrayList::class.java) { jsonElement ->
-            for (element in jsonElement.asJsonArray) {
-                element.fromJson(SeasonItem::class.java)?.let { movie ->
-                    seasons.add(fillEposides(movie))
-                }
-            }
-        }
-        seasons.sortBy { it.id }
-        return SerialData(seasons)
+        return hlsList.clearSymbols(true)
+            .substringAfterBefore("seasons:[{", "}]}]")
+            .getParsingString("[{", "}]}]")
+            .parseSerialData()
     }
-
-
-    private fun fillEposides(
-        seasonItem: SeasonItem,
-    ): SerialSeason {
-        val episodes = mutableListOf<SerialEpisode>()
-        for (episodesItem in seasonItem.episodes) {
-            val serialEpisode = SerialEpisode(
-                id = episodesItem.episode.toIntOrNull() ?: 0,
-                title = episodesItem.title,
-                hlsList = episodesItem.hlsList
-            )
-            episodes.add(serialEpisode)
-        }
-        episodes.sortBy { it.id }
-        return SerialSeason(seasonItem.season, episodes)
-    }
-
 }

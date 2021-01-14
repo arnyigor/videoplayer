@@ -38,7 +38,7 @@ class VideoRepositoryImpl @Inject constructor(
     @Volatile
     private var currentMovie: Movie? = null
 
-    override fun searchMovie(search: String): Flow<MutableList<Movie>> {
+    override fun searchMovie(search: String): Flow<List<Movie>> {
         return flow {
             val doc = videoApiService.searchVideo(
                 getSource().searchUrl,

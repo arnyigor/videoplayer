@@ -13,7 +13,7 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.databinding.FHistoryBinding
 import com.arny.mobilecinema.di.models.Movie
-import com.arny.mobilecinema.presentation.models.VideoItem
+import com.arny.mobilecinema.presentation.home.VideoItem
 import com.arny.mobilecinema.presentation.utils.*
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder

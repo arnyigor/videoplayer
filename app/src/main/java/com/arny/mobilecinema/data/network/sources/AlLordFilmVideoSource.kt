@@ -1,10 +1,11 @@
 package com.arny.mobilecinema.data.network.sources
 
-import com.arny.mobilecinema.data.models.SeasonItem
 import com.arny.mobilecinema.data.network.hosts.IHostStore
 import com.arny.mobilecinema.data.network.response.ResponseBodyConverter
-import com.arny.mobilecinema.data.utils.fromJson
-import com.arny.mobilecinema.di.models.*
+import com.arny.mobilecinema.di.models.Movie
+import com.arny.mobilecinema.di.models.MovieType
+import com.arny.mobilecinema.di.models.SerialData
+import com.arny.mobilecinema.di.models.VideoApiService
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
@@ -57,18 +58,19 @@ class AlLordFilmVideoSource(
 
     override suspend fun getMainPageLinks(doc: Document?): Elements {
         requireNotNull(doc)
-        return doc.body()
-            .select(".content").first()
-            .select(".sect").first()
-            .select(".sect-items").first()
-            .select(".th-item a")
+        return doc.body().select(".content .sect .sect-items .th-item a")
     }
 
 
     override fun getMovieFromLink(link: Element): Movie {
+        val title = link.select(".th-desc .th-title").text()
+        val year = link.select(".th-desc .th-year")
+            .text().takeIf { !it.isNullOrBlank() }?.let {
+                " ($it)"
+            } ?: ""
         return Movie(
             UUID.randomUUID().toString(),
-            link.text(),
+            "$title${year}",
             MovieType.CINEMA,
             link.attr("href"),
             getImgUrl(link)
@@ -76,23 +78,20 @@ class AlLordFilmVideoSource(
     }
 
     private fun getImgUrl(link: Element): String =
-        link.select(".th-img").first().select("img").first().attr("src").toString()
+        link.select(".th-img img").attr("src").toString()
 
-    override fun getMenuItems(doc: Document?): Elements{
+    override fun getMenuItems(doc: Document?): Elements {
         requireNotNull(doc)
-        return doc.body().getElementById("header").select(".hmenu li a")
+        return doc.select("#header .hmenu li a")
     }
 
     override fun getSearchResultLinks(doc: Document): Elements =
-        doc.getElementById("dle-content").select(".th-item a")
+        doc.select("#dle-content .th-item a")
 
     override fun getIframeUrl(detailsDoc: Document): String? =
         detailsDoc.body()
-            .getElementById("dle-content")
-            .select(".fmain").first()
-            .select(".fplayer").first()
-            .select(".video-box").getOrNull(1)
-            ?.select("iframe")?.attr("src")
+            .select("#dle-content .fmain .fplayer .video-box iframe")
+            .getOrNull(1)?.attr("src")
 
     override suspend fun getHlsList(doc: Document): String {
         val hlsList = doc.getElementsByTag("script")
@@ -104,7 +103,10 @@ class AlLordFilmVideoSource(
     }
 
     override suspend fun getTitle(doc: Document, movie: Movie?): String? {
-        return doc.title()
+        if (movie?.title.isNullOrBlank()) {
+            return doc.title()
+        }
+        return movie?.title
     }
 
     override suspend fun getResultDoc(movie: Movie): Document {
@@ -125,57 +127,17 @@ class AlLordFilmVideoSource(
     }
 
     override fun getQualityMap(hlsList: String): HashMap<String, String> {
-        val hlss = hlsList
-            .replace("\n", "")
-            .replace("\t", "")
-            .replace("\\s+".toRegex(), "")
-            .substringAfter("hlsList:{")
-            .substringBefore("}")
+        return hlsList.clearSymbols()
+            .substringAfterBefore("hlsList:{", "}")
             .split(",")
             .map { it.substring(1, it.length - 1).replace("\"", "") }
-        val videoQualityMap = hashMapOf<String, String>()
-        for (hls in hlss) {
-            val quality = hls.substringBefore(":")
-            val link = hls.substringAfter(":")
-            if (quality.isNotBlank() && link.isNotBlank()) {
-                videoQualityMap[quality] = link
-            }
-        }
-        return videoQualityMap
+            .toMap()
     }
 
     override fun parsingSerialData(hlsList: String): SerialData {
-        val substringBefore = hlsList.replace("\n", "")
-            .replace("\t", "")
-            .replace("\\s+".toRegex(), " ")
-            .substringAfter("seasons:[{")
-            .substringBefore("}]}]")
-        val result = "[{$substringBefore}]}]"
-        val seasons = mutableListOf<SerialSeason>()
-        result.fromJson(ArrayList::class.java) { jsonElement ->
-            for (element in jsonElement.asJsonArray) {
-                element.fromJson(SeasonItem::class.java)?.let { movie ->
-                    seasons.add(fillEposides(movie))
-                }
-            }
-        }
-        seasons.sortBy { it.id }
-        return SerialData(seasons)
-    }
-
-    private fun fillEposides(
-        seasonItem: SeasonItem,
-    ): SerialSeason {
-        val episodes = mutableListOf<SerialEpisode>()
-        for (episodesItem in seasonItem.episodes) {
-            val serialEpisode = SerialEpisode(
-                id = episodesItem.episode.toIntOrNull() ?: 0,
-                title = episodesItem.title,
-                hlsList = episodesItem.hlsList
-            )
-            episodes.add(serialEpisode)
-        }
-        episodes.sortBy { it.id }
-        return SerialSeason(seasonItem.season, episodes)
+        return hlsList.clearSymbols(true)
+            .substringAfterBefore("seasons:[{", "}]}]")
+            .getParsingString("[{", "}]}]")
+            .parseSerialData()
     }
 }

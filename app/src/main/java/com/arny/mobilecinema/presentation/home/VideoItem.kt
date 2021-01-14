@@ -1,4 +1,4 @@
-package com.arny.mobilecinema.presentation.models
+package com.arny.mobilecinema.presentation.home
 
 import android.view.View
 import com.arny.mobilecinema.R

@@ -73,10 +73,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             testCoverageEnabled = true
         }
-
-        dev {
-            initWith debug
-        }
     }
 
     testOptions.unitTests.all {

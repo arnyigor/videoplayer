@@ -1,10 +1,15 @@
 package com.arny.mobilecinema.data.network.sources
 
+import com.arny.mobilecinema.data.models.SeasonItem
 import com.arny.mobilecinema.data.utils.fromJson
+import com.arny.mobilecinema.di.models.SerialData
+import com.arny.mobilecinema.di.models.SerialEpisode
+import com.arny.mobilecinema.di.models.SerialSeason
+import java.util.*
 
-fun getHlsListMap(hlslist: String): HashMap<String, String> {
+fun String.toHlsListMap(): HashMap<String, String> {
     val qualityMap = hashMapOf<String, String>()
-    hlslist.fromJson(String::class.java) { jsonElement ->
+    this.fromJson(String::class.java) { jsonElement ->
         for ((key, value) in jsonElement.asJsonObject.entrySet()) {
             qualityMap[key] = value.asString
         }
@@ -34,4 +39,58 @@ fun correctTitle(title: String?): String {
             }
         }
     return result ?: ""
+}
+
+fun String.parseSerialData(): SerialData {
+    val seasons = mutableListOf<SerialSeason>()
+    this.fromJson(ArrayList::class.java) { jsonElement ->
+        for (element in jsonElement.asJsonArray) {
+            element.fromJson(SeasonItem::class.java)?.let { movie ->
+                seasons.add(movie.fillEposides())
+            }
+        }
+    }
+    seasons.sortBy { it.id }
+    return SerialData(seasons)
+}
+
+fun String.clearSymbols(clear: Boolean = true): String {
+    return if (clear) {
+        this.replace("\n", "")
+            .replace("\t", "")
+            .replace("\\s+".toRegex(), " ")
+    } else {
+        this
+    }
+}
+
+fun List<String>.toMap(): HashMap<String, String> {
+    val videoQualityMap = hashMapOf<String, String>()
+    for (hls in this) {
+        val quality = hls.substringBefore(":")
+        val link = hls.substringAfter(":")
+        if (quality.isNotBlank() && link.isNotBlank()) {
+            videoQualityMap[quality] = link
+        }
+    }
+    return videoQualityMap
+}
+
+fun String.getParsingString(start: String, end: String) = "$start$this$end"
+
+fun String.substringAfterBefore(after: String, before: String) =
+    this.substringAfter(after).substringBefore(before)
+
+private fun SeasonItem.fillEposides(): SerialSeason {
+    val episodes = mutableListOf<SerialEpisode>()
+    for (episodesItem in this.episodes) {
+        val serialEpisode = SerialEpisode(
+            id = episodesItem.episode.toIntOrNull() ?: 0,
+            title = episodesItem.title,
+            hlsList = episodesItem.hlsList
+        )
+        episodes.add(serialEpisode)
+    }
+    episodes.sortBy { it.id }
+    return SerialSeason(this.season, episodes)
 }

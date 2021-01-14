@@ -10,6 +10,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.navigation.findNavController
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.arny.mobilecinema.R
@@ -17,7 +18,6 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.di.models.*
-import com.arny.mobilecinema.presentation.models.VideoItem
 import com.arny.mobilecinema.presentation.utils.*
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
@@ -158,7 +158,7 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
         }
         rcVideoList.also {
             it.adapter = groupAdapter
-            it.layoutManager = LinearLayoutManager(requireContext())
+            it.layoutManager = GridLayoutManager(requireContext(), 2)
         }
     }
 
