@@ -1,12 +1,19 @@
 android {
+    signingConfigs {
+        release
+    }
     compileSdkVersion versions.compileSdkVersion
     buildToolsVersion versions.buildToolsVersion
-
+    def vMajor = 0
+    def vMinor = 0
+    def vBuild = 2
     defaultConfig {
         minSdkVersion versions.minSdkVersion
         targetSdkVersion versions.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        applicationId 'com.arny.mobilecinema'
+        versionCode vMajor * 100 + vMinor * 10 + vBuild
+        def name = "${vMajor}" + ".${vMinor}" + ".${vBuild}"
+        versionName "v$name($versionCode)"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         javaCompileOptions {
@@ -56,7 +63,8 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled true
+            minifyEnabled false
+            signingConfig signingConfigs.release
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
 
@@ -65,13 +73,37 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             testCoverageEnabled = true
         }
-
-        dev {
-            initWith debug
-        }
     }
 
     testOptions.unitTests.all {
         jvmArgs "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap"
     }
 }
+android.applicationVariants.all { variant ->
+    variant.outputs.all {
+        if (outputFileName.endsWith('.apk')) {
+            outputFileName = "mobilecinema-${variant.versionName}-${buildType.name}.apk"
+        }
+    }
+}
+Properties props = new Properties()
+def propFile = new File('signing.properties')
+if (propFile.canRead()) {
+    props.load(new FileInputStream(propFile))
+
+    if (props != null && props.containsKey('STORE_FILE') && props.containsKey('STORE_PASSWORD') &&
+            props.containsKey('KEY_ALIAS') && props.containsKey('KEY_PASSWORD')) {
+        android.signingConfigs.release.storeFile = file(props['STORE_FILE'])
+        android.signingConfigs.release.storePassword = props['STORE_PASSWORD']
+        android.signingConfigs.release.keyAlias = props['KEY_ALIAS']
+        android.signingConfigs.release.keyPassword = props['KEY_PASSWORD']
+    } else {
+        println 'signing.properties found but some entries are missing'
+        android.buildTypes.release.signingConfig = null
+    }
+} else {
+    println 'signing.properties not found'
+    android.buildTypes.release.signingConfig = null
+}
+
+
