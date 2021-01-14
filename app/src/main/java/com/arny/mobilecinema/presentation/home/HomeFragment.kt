@@ -284,6 +284,11 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
         return inflater.inflate(R.layout.f_home, container, false)
     }
 
+    override fun onResume() {
+        super.onResume()
+        requireActivity().unlockOrientation()
+    }
+
     private fun showAlertDialog(sources: Array<String>, checkedItem: Int) {
         var alert: AlertDialog? = null
         val alertDialog: AlertDialog.Builder = AlertDialog.Builder(requireContext())

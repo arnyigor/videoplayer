@@ -115,6 +115,7 @@ class DetailsFragment : Fragment() {
         const val KEY_VIDEO = "KEY_VIDEO"
         const val KEY_SEASON = "KEY_SEASON"
         const val KEY_EPISODE = "KEY_EPISODE"
+        const val KEY_ORIENTATION = "KEY_ORIENTATION"
         const val BUFFER_64K = 64 * 1024
         const val BUFFER_128K = 128 * 1024
         const val BUFFER_1K = 1024
@@ -208,22 +209,21 @@ class DetailsFragment : Fragment() {
         if (orientationLocked) {
             orientationLocked = false
             requireActivity().unlockOrientation()
-            ivScreenLock.setImageDrawable(
-                ContextCompat.getDrawable(
-                    requireContext(),
-                    R.drawable.ic_screen_lock_rotation_inactive
-                )
-            )
         } else {
             orientationLocked = true
             requireActivity().lockOrientation()
-            ivScreenLock.setImageDrawable(
-                ContextCompat.getDrawable(
-                    requireContext(),
-                    R.drawable.ic_screen_lock_rotation_active
-                )
-            )
         }
+        setScreenLockImg()
+    }
+
+    private fun setScreenLockImg() = with(binding) {
+        ivScreenLock.setImageDrawable(
+            ContextCompat.getDrawable(
+                requireContext(),
+                if (orientationLocked) R.drawable.ic_screen_lock_rotation_active
+                else R.drawable.ic_screen_lock_rotation_inactive
+            )
+        )
     }
 
     private fun initQualityPopup(view: View) = with(binding) {
@@ -605,6 +605,7 @@ class DetailsFragment : Fragment() {
         outState.putParcelable(KEY_MOVIE, currentMovie)
         outState.putInt(KEY_SEASON, currentSeasonPosition)
         outState.putInt(KEY_EPISODE, currentEpisodePosition)
+        outState.putBoolean(KEY_ORIENTATION, orientationLocked)
     }
 
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
@@ -613,6 +614,7 @@ class DetailsFragment : Fragment() {
         currentVideo = savedInstanceState?.getParcelable(KEY_VIDEO)
         currentSeasonPosition = savedInstanceState?.getInt(KEY_SEASON) ?: 0
         currentEpisodePosition = savedInstanceState?.getInt(KEY_EPISODE) ?: 0
+        orientationLocked = savedInstanceState?.getBoolean(KEY_ORIENTATION) ?: false
     }
 
     override fun onStart() {
@@ -628,6 +630,7 @@ class DetailsFragment : Fragment() {
             appCompatActivity?.supportActionBar?.hide()
             setFullScreen(appCompatActivity, true)
         }
+        setScreenLockImg()
         restorePlayerState()
     }
 
