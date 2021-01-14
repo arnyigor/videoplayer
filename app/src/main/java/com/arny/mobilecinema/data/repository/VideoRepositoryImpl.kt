@@ -6,6 +6,7 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.toResult
+import com.arny.mobilecinema.data.network.hosts.HostStoreImpl
 import com.arny.mobilecinema.data.network.hosts.IHostStore
 import com.arny.mobilecinema.data.network.response.ResponseBodyConverter
 import com.arny.mobilecinema.data.network.sources.IVideoSourceFactory

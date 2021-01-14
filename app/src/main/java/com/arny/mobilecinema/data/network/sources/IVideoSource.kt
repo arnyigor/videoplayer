@@ -3,6 +3,7 @@ package com.arny.mobilecinema.data.network.sources
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
 import com.arny.mobilecinema.di.models.SerialData
+import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements

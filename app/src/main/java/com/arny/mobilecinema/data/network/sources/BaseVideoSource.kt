@@ -1,6 +1,6 @@
-package com.arny.homecinema.data.network.sources
+package com.arny.mobilecinema.data.network.sources
 
-import com.arny.homecinema.data.network.hosts.IHostStore
+import com.arny.mobilecinema.data.network.hosts.IHostStore
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
