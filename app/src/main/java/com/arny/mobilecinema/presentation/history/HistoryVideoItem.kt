@@ -25,7 +25,7 @@ class HistoryVideoItem constructor(
                 img =
                     "https://yt3.ggpht.com/a/AATXAJwQSv9J0nimhTCQgcwQmdE_ePrril6TZg1_nGSf=s900-c-k-c0xffffffff-no-rj-mo"
             }
-            ivVideoIcon.setOnClickListener { onClearClick(movie) }
+            ivClear.setOnClickListener { onClearClick(movie) }
             Glide.with(ivVideoIcon)
                 .load(img)
                 .into(ivVideoIcon)
