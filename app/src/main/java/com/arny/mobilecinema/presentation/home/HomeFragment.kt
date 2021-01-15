@@ -204,7 +204,6 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.menu_action_choose_source -> {
-                emptyData = false
                 presenter.requestHosts()
                 true
             }
@@ -295,6 +294,7 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
         alertDialog.setTitle(getString(R.string.home_choose_source))
         alertDialog.setSingleChoiceItems(sources, checkedItem) { _, which ->
             presenter.selectHost(sources[which])
+            emptyData = false
             videoTypesAdapter?.clear()
             alert?.dismiss()
         }
