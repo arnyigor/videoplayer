@@ -112,7 +112,7 @@ class MockDataVideoSource(
         val hlsList = doc.getElementsByTag("script")
             .dataNodes()
             .map { it.wholeData }
-            .find { it.contains("hlsList") }
+            .find { it.contains("hlsList\"?\\s*:\\s*\\{\\s*\"\\d+".toRegex()) }
         requireNotNull(hlsList)
         hlsList
     }
