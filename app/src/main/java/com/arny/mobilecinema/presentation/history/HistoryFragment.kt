@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.annotation.StringRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.navigation.findNavController
@@ -108,10 +109,27 @@ class HistoryFragment : MvpAppCompatFragment(), HistoryView, CoroutineScope {
         }
     }
 
+    override fun toastMessage(@StringRes strRes: Int?) {
+        toast(strRes?.let { getString(it) })
+    }
+
     override fun updateList(result: DataResult<List<Movie>>) {
         when (result) {
             is DataResult.Success -> {
-                updateList(result.data.map { HistoryVideoItem(it) })
+                updateList(result.data.map { map ->
+                    HistoryVideoItem(map) { m ->
+                        alertDialog(
+                            requireContext(),
+                            getString(R.string.question_remove),
+                            getString(R.string.question_remove_cache_title, m.title),
+                            getString(android.R.string.ok),
+                            getString(android.R.string.cancel),
+                            onConfirm = {
+                                presenter.clearCache(m)
+                            }
+                        )
+                    }
+                })
             }
             is DataResult.Error -> toastError(result.throwable)
         }

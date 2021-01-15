@@ -21,6 +21,7 @@ class DetailsViewModel @Inject constructor(
     val data = SingleLiveEvent<DataResult<Movie?>>()
     val cached = SingleLiveEvent<DataResult<Boolean>>()
     private var isRemovedFromCache = false
+
     fun loadVideo(movie: Movie) {
         viewModelScope.launch {
             if (loading.value == true) return@launch

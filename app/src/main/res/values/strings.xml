@@ -17,4 +17,7 @@
     <string name="video_quality">Качество</string>
     <string name="f_history_title">История просмотров</string>
     <string name="menu_clear_file_cache">Очистить кеш</string>
+    <string name="movie_cleared">Видео удалено из кеша</string>
+    <string name="question_remove">Удалить?</string>
+    <string name="question_remove_cache_title">Хотите очистить кеш %s?</string>
 </resources>

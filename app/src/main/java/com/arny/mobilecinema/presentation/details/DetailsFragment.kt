@@ -12,7 +12,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
-import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
@@ -39,10 +38,13 @@ import com.google.android.exoplayer2.util.EventLogger
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
+import moxy.MvpAppCompatFragment
+import moxy.ktx.moxyPresenter
 import javax.inject.Inject
+import javax.inject.Provider
 import kotlin.properties.Delegates
 
-class DetailsFragment : Fragment() {
+class DetailsFragment : MvpAppCompatFragment(), DetailsView {
 
     private var trackSelector: DefaultTrackSelector? = null
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
@@ -120,6 +122,11 @@ class DetailsFragment : Fragment() {
         const val BUFFER_128K = 128 * 1024
         const val BUFFER_1K = 1024
     }
+
+    @Inject
+    lateinit var presenterProvider: Provider<DetailsPresenter>
+
+    private val presenter by moxyPresenter { presenterProvider.get() }
 
     @Inject
     lateinit var vm: DetailsViewModel

@@ -1,8 +1,10 @@
 package com.arny.mobilecinema.presentation.history
 
+import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.toResult
 import com.arny.mobilecinema.data.repository.VideoRepository
 import com.arny.mobilecinema.data.utils.getFullError
+import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.scopes.FragmentScope
 import com.arny.mobilecinema.presentation.utils.BaseMvpPresenter
 import kotlinx.coroutines.flow.catch
@@ -38,6 +40,17 @@ class HistoryPresenter @Inject constructor(
                     .catch { viewState.showError(getFullError(it)) }
                     .collect { viewState.updateList(it.toResult()) }
             }
+        }.addToCompositeJob()
+    }
+
+    fun clearCache(movie: Movie?){
+        mainScope().launch {
+            videoRepository.clearCache(movie)
+                .catch { viewState.showError(getFullError(it)) }
+                .collect {
+                    viewState.toastMessage(R.string.movie_cleared)
+                    loadHistory()
+                }
         }.addToCompositeJob()
     }
 }
