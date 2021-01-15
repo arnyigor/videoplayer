@@ -8,12 +8,11 @@ import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.navigation.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.databinding.FHistoryBinding
 import com.arny.mobilecinema.di.models.Movie
-import com.arny.mobilecinema.presentation.home.VideoItem
 import com.arny.mobilecinema.presentation.utils.*
 import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
@@ -74,17 +73,17 @@ class HistoryFragment : MvpAppCompatFragment(), HistoryView, CoroutineScope {
     private fun FHistoryBinding.initList() {
         groupAdapter = GroupAdapter<GroupieViewHolder>()
         groupAdapter.setOnItemClickListener { item, _ ->
-            val video = (item as VideoItem).movie
+            val video = (item as HistoryVideoItem).movie
             binding.root.findNavController()
                 .navigate(HistoryFragmentDirections.actionHistoryFragmentToDetailsFragment(video))
         }
         rvHistoryList.also {
             it.adapter = groupAdapter
-            it.layoutManager = LinearLayoutManager(requireContext())
+            it.layoutManager = GridLayoutManager(requireContext(), 2)
         }
     }
 
-    private fun updateList(items: List<VideoItem>) {
+    private fun updateList(items: List<HistoryVideoItem>) {
         val empty = items.isEmpty()
         binding.tvEmptyView.isVisible = empty
         groupAdapter.clear()
@@ -112,10 +111,15 @@ class HistoryFragment : MvpAppCompatFragment(), HistoryView, CoroutineScope {
     override fun updateList(result: DataResult<List<Movie>>) {
         when (result) {
             is DataResult.Success -> {
-                updateList(result.data.map { VideoItem(it) })
+                updateList(result.data.map { HistoryVideoItem(it) })
             }
             is DataResult.Error -> toastError(result.throwable)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        requireActivity().unlockOrientation()
     }
 
     override fun onDestroy() {

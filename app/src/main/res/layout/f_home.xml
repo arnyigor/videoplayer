@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    tools:menu="@menu/home_menu">
 
     <EditText
         android:id="@+id/edtSearch"
@@ -51,8 +52,9 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/edtSearch"
-        tools:itemCount="2"
-        tools:listitem="@layout/i_type" />
+        tools:itemCount="5"
+        tools:listitem="@layout/i_type"
+        tools:orientation="horizontal" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swiperefresh"
@@ -69,8 +71,9 @@
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_marginTop="8dp"
-            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-            tools:listitem="@layout/i_home_video" />
+            app:layoutManager="GridLayoutManager"
+            tools:listitem="@layout/i_home_video"
+            tools:spanCount="2" />
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 

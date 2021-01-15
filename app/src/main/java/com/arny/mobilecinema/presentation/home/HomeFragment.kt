@@ -204,7 +204,6 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.menu_action_choose_source -> {
-                emptyData = false
                 presenter.requestHosts()
                 true
             }
@@ -284,12 +283,18 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
         return inflater.inflate(R.layout.f_home, container, false)
     }
 
+    override fun onResume() {
+        super.onResume()
+        requireActivity().unlockOrientation()
+    }
+
     private fun showAlertDialog(sources: Array<String>, checkedItem: Int) {
         var alert: AlertDialog? = null
         val alertDialog: AlertDialog.Builder = AlertDialog.Builder(requireContext())
         alertDialog.setTitle(getString(R.string.home_choose_source))
         alertDialog.setSingleChoiceItems(sources, checkedItem) { _, which ->
             presenter.selectHost(sources[which])
+            emptyData = false
             videoTypesAdapter?.clear()
             alert?.dismiss()
         }

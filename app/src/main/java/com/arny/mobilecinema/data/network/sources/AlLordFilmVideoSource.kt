@@ -140,7 +140,7 @@ class AlLordFilmVideoSource(
 
     override fun getQualityMap(hlsList: String): HashMap<String, String> {
         return hlsList.clearSymbols()
-            .substringAfterBefore("hlsList:{", "}")
+            .substringAfterBefore("hlsList: {", "}")
             .split(",")
             .map { it.substring(1, it.length - 1).replace("\"", "") }
             .toMap()
