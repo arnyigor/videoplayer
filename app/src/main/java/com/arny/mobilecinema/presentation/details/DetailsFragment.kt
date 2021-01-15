@@ -309,8 +309,7 @@ class DetailsFragment : Fragment() {
             val allEpisodes = seasons.flatMap { it.episodes ?: emptyList() }
             val playerSeason = seasons.getOrNull(currentSeasonPosition)
             val episode = playerSeason?.let { it.episodes?.getOrNull(currentEpisodePosition) }
-            val indexOf = allEpisodes.indexOf(episode)
-            val windowIndex = indexOf.takeIf { it >= 0 } ?: 0
+            val windowIndex = allEpisodes.indexOf(episode).takeIf { it >= 0 } ?: 0
             if (count > windowIndex) {
                 currentVideo = currentVideo?.copy(
                     id = episode?.id,

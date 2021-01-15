@@ -29,7 +29,9 @@ fun Activity.lockOrientation() {
     val land = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     requestedOrientation = if (orientLand && land) {
         val sensorLand = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        if (rotation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) sensorLand else rotation ?: sensorLand
+        if (rotation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            || rotation == ActivityInfo.SCREEN_ORIENTATION_BEHIND) sensorLand
+        else rotation ?: sensorLand
     } else {
         ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     }
