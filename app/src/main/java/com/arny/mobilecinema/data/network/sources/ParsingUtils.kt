@@ -29,6 +29,7 @@ fun correctTitle(title: String?): String {
         "^(.*)[\\s]?(\\d+[\\s]?сезон)".toRegex(RegexOption.IGNORE_CASE),
         "^(\\D+)\\s?(\\d+,\\s)".toRegex(RegexOption.IGNORE_CASE),
         "^(\\D+)\\s?(\\d+,?\\s)серия".toRegex(RegexOption.IGNORE_CASE),
+        "(.*)\\sсмотреть фильм онлайн".toRegex(RegexOption.IGNORE_CASE),
         "^фильм(.*)\\sв hd \\d+ качестве смотреть онлайн".toRegex(RegexOption.IGNORE_CASE),
         "^(.*)\\sв hd \\d+ качестве смотреть онлайн".toRegex(RegexOption.IGNORE_CASE),
         "^(.*)\\sсмотреть онлайн".toRegex(RegexOption.IGNORE_CASE),

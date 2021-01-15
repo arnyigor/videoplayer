@@ -14,7 +14,7 @@ class LordFilmAdaVideoSource(
     private val hostStore: IHostStore,
     private val videoApiService: VideoApiService,
     private val responseBodyConverter: ResponseBodyConverter
-) : IVideoSource {
+) : BaseVideoSource(hostStore), IVideoSource {
 
     override val detailHeaders: Map<String, String>
         get() = mapOf(
@@ -60,24 +60,26 @@ class LordFilmAdaVideoSource(
     }
 
     override fun getMovieFromLink(link: Element): Movie {
+        val title = link.select(".th-desc .th-title").text()
+        val year = link.select(".th-desc .th-year")
+            .text().takeIf { !it.isNullOrBlank() }?.let {
+                " ($it)"
+            } ?: ""
         return Movie(
             UUID.randomUUID().toString(),
-            link.text(),
+            "$title${year}",
             MovieType.CINEMA,
             link.attr("href"),
             getImgUrl(link)
         )
     }
 
-    private fun getImgUrl(link: Element): String =
-        hostStore.baseUrl + (link.select(".th-img img:first-child").attr("src").toString()
-            .substringAfter("/"))
+    private fun getImgUrl(link: Element): String = imgUrl(link, ".th-img img:first-child", "src")
 
     override fun getMenuItems(doc: Document?): Elements {
         requireNotNull(doc)
         return doc.body().select("#header .hmenu li a")
     }
-
 
     override fun getSearchResultLinks(doc: Document): Elements =
         doc.select("#dle-content .th-item a")
@@ -90,7 +92,7 @@ class LordFilmAdaVideoSource(
         val hlsList = doc.getElementsByTag("script")
             .dataNodes()
             .map { it.wholeData }
-            .find { it.contains("hlsList") }
+            .find { it.contains("hlsList\"?\\s*:\\s*\\{\\s*\"\\d+".toRegex()) }
         requireNotNull(hlsList)
         return hlsList
     }
