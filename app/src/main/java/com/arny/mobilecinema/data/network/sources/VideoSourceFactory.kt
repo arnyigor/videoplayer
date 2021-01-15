@@ -31,6 +31,11 @@ class VideoSourceFactory @Inject constructor(
                 videoApiService,
                 responseBodyConverter
             )
+            HostStoreImpl.ONLINE_VKINO_HOST-> OnlineVKinoVideoSource(
+                hostStore,
+                videoApiService,
+                responseBodyConverter
+            )
             HostStoreImpl.HOST_MOCK -> MockDataVideoSource(
                 hostStore,
                 assetsReader

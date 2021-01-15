@@ -40,9 +40,9 @@ internal class JSONUtilsKtTest {
 
     @Test
     fun `get correct title3`() {
-        val returnTitle =
-            correctTitle("Уильям наш, Шекспир / Выскочка Шекспир 4 сезон 1 серия смотреть онлайн бесплатно в хорошем качестве hd 720")
-        assert(returnTitle == "Уильям наш, Шекспир / Выскочка Шекспир")
+        assert(correctTitle(
+            "Уильям наш, Шекспир / Выскочка Шекспир 4 сезон 1 серия смотреть онлайн бесплатно в хорошем качестве hd 720")
+                == "Уильям наш, Шекспир / Выскочка Шекспир")
     }
 
     @Test
@@ -71,5 +71,26 @@ internal class JSONUtilsKtTest {
         val returnTitle =
             correctTitle("Реальная белка 2 смотреть онлайн бесплатно в хорошем качестве hd 720")
         assert(returnTitle == "Реальная белка 2")
+    }
+
+    @Test
+    fun `get correct title8`() {
+        val returnTitle =
+            correctTitle("Фильм Ударная волна 2 (2020) в hd 720 качестве смотреть онлайн")
+        assert(returnTitle == "Ударная волна 2 (2020)")
+    }
+
+    @Test
+    fun `get correct title9`() {
+        val returnTitle =
+            correctTitle("Фильм Ударная волна 2 (2020) в hd 720 качестве смотреть онлайн")
+        assert(returnTitle == "Ударная волна 2 (2020)")
+    }
+
+    @Test
+    fun `get correct title10`() {
+        val returnTitle =
+            correctTitle("Фильм Аэронавты (2019) в HD 1080 качестве смотреть онлайн")
+        assert(returnTitle == "Аэронавты (2019)")
     }
 }

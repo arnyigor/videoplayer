@@ -6,6 +6,7 @@ import com.arny.mobilecinema.data.repository.sources.assets.AssetsReader
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
 import com.arny.mobilecinema.di.models.SerialData
+import com.arny.mobilecinema.di.models.VideoMenuLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.ResponseBody
@@ -13,6 +14,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
+import java.nio.charset.Charset
 import java.util.*
 
 class MockDataVideoSource(
@@ -81,6 +83,14 @@ class MockDataVideoSource(
 
     override suspend fun requestMainPage(): ResponseBody {
         throw IllegalStateException("Mock data not provide response body")
+    }
+
+    override fun getCharset(): Charset {
+        return Charsets.UTF_8
+    }
+
+    override fun getMenuVideoLink(link: Element): VideoMenuLink {
+        return VideoMenuLink(link.text(), link.attr("href"))
     }
 
     override suspend fun getDetailsDoc(movie: Movie): Document {

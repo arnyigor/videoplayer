@@ -21,6 +21,7 @@ class HostStoreImpl @Inject constructor(
         get() = mapOf(
             "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",
             "Accept-Encoding" to "gzip",
+            "Accept-Language" to "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
             "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
             "Connection" to "keep-alive",
         )
@@ -37,6 +38,7 @@ class HostStoreImpl @Inject constructor(
         const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
         const val LORDFILM_ADA_HOST = "ada.lordsfilms.tube"
         const val ALL_TABFILL_HOST = "al.tabfil.me"
+        const val ONLINE_VKINO_HOST = "onlinevkino.com"
         const val HOST_MOCK = "DemoContent"
     }
 
@@ -45,6 +47,7 @@ class HostStoreImpl @Inject constructor(
             "http://al.lordfilms-s.pw/",
             "https://ada.lordsfilms.tube/",
             "http://al.tabfil.me/",
+            "https://onlinevkino.com/",
         )
 
     override val availableHosts: List<String>

@@ -9,6 +9,7 @@ import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
+import java.nio.charset.Charset
 import java.util.*
 
 class AlTabFillVideoSource(
@@ -65,12 +66,8 @@ class AlTabFillVideoSource(
             link.select("a").attr("title"),
             MovieType.CINEMA,
             link.select("a").attr("href"),
-            getImgUrl(link)
+            imgUrl(link, ".img-box", "style", true, "url\\('(.+)'\\);".toRegex())
         )
-    }
-
-    private fun getImgUrl(link: Element): String {
-        return imgUrl(link, ".img-box", "style", true, "url\\('(.+)'\\);".toRegex())
     }
 
     override fun getMenuItems(doc: Document?): Elements {
@@ -102,6 +99,14 @@ class AlTabFillVideoSource(
             ),
             addMainPageHeaders + hostStore.mainPageHeaders
         )
+    }
+
+    override fun getCharset(): Charset {
+        return Charsets.UTF_8
+    }
+
+    override fun getMenuVideoLink(link: Element): VideoMenuLink {
+        return VideoMenuLink(link.text(), link.attr("href"))
     }
 
     override suspend fun getDetailsDoc(movie: Movie): Document {

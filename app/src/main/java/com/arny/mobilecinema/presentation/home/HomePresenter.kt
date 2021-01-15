@@ -4,7 +4,7 @@ import com.arny.mobilecinema.data.models.toResult
 import com.arny.mobilecinema.data.repository.VideoRepository
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.di.models.MainPageContent
-import com.arny.mobilecinema.di.models.VideoSearchLink
+import com.arny.mobilecinema.di.models.VideoMenuLink
 import com.arny.mobilecinema.di.scopes.FragmentScope
 import com.arny.mobilecinema.presentation.utils.BaseMvpPresenter
 import kotlinx.coroutines.flow.catch
@@ -56,10 +56,10 @@ class HomePresenter @Inject constructor(
         }.addToCompositeJob()
     }
 
-    fun onTypeChanged(searchLink: VideoSearchLink?) {
+    fun onTypeChanged(menuLink: VideoMenuLink?) {
         viewState.showLoading(true)
         mainScope().launch {
-            videoRepository.getTypedVideos(searchLink?.searchUrl)
+            videoRepository.getTypedVideos(menuLink?.searchUrl)
                 .onCompletion { viewState.showLoading(false) }
                 .catch { viewState.showMainContentError(getFullError(it)) }
                 .collect { viewState.showMainContent(it) }

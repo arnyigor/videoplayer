@@ -10,11 +10,11 @@ import org.jsoup.select.Elements
 import java.nio.charset.Charset
 import java.util.*
 
-class LordFilmAdaVideoSource(
+class OnlineVKinoVideoSource(
     private val hostStore: IHostStore,
     private val videoApiService: VideoApiService,
     private val responseBodyConverter: ResponseBodyConverter
-) : IVideoSource {
+) : BaseVideoSource(hostStore), IVideoSource {
 
     override val detailHeaders: Map<String, String>
         get() = mapOf(
@@ -39,58 +39,59 @@ class LordFilmAdaVideoSource(
             "do" to "search",
             "subaction" to "search",
             "story" to search,
-            "search_start" to "0",
-            "full_search" to "0",
-            "result_from" to "1",
+            "titleonly" to "3",
         )
     }
 
     override fun getMovieType(movie: Movie): MovieType {
         val link = movie.detailUrl?.substringAfter("//")?.substringAfter("/") ?: ""
         return when {
-            link.contains("filmy") -> MovieType.CINEMA
-            link.contains("serialy") -> MovieType.SERIAL
+            link.contains("sezon") -> MovieType.SERIAL
             else -> MovieType.CINEMA
         }
     }
 
     override suspend fun getMainPageLinks(doc: Document?): Elements {
         requireNotNull(doc)
-        return doc.body().select(".content .sect .sect-items .th-item a")
+        return doc.select("#dle-content .shortstory")
     }
 
     override fun getMovieFromLink(link: Element): Movie {
+        val aLink = link.select(".shortstorytitle h2 a")
         return Movie(
             UUID.randomUUID().toString(),
-            link.text(),
+            aLink.text(),
             MovieType.CINEMA,
-            link.attr("href"),
-            getImgUrl(link)
+            aLink.attr("href"),
+            imgUrl(link, ".shortimg img", "src", false)
         )
     }
 
-    private fun getImgUrl(link: Element): String =
-        hostStore.baseUrl + (link.select(".th-img img:first-child").attr("src").toString()
-            .substringAfter("/"))
-
     override fun getMenuItems(doc: Document?): Elements {
         requireNotNull(doc)
-        return doc.body().select("#header .hmenu li a")
+        return doc.body().select(".leftblok_contener .leftblok_contener2 a")
     }
 
+    override fun getCharset(): Charset {
+        return Charset.forName("windows-1251")
+    }
+
+    override fun getMenuVideoLink(link: Element): VideoMenuLink {
+        return VideoMenuLink(link.text(), link.attr("href"))
+    }
 
     override fun getSearchResultLinks(doc: Document): Elements =
-        doc.select("#dle-content .th-item a")
+        doc.select("#dle-content .shortstory")
 
     override fun getIframeUrl(detailsDoc: Document): String? =
         detailsDoc.body()
-            .select("#dle-content .fmain .fplayer .video-box:gt(1) iframe")?.attr("src")
+            .select("#dle-content iframe")?.attr("src")
 
     override suspend fun getHlsList(doc: Document): String {
         val hlsList = doc.getElementsByTag("script")
             .dataNodes()
-            .map { it.wholeData }
-            .find { it.contains("hlsList") }
+            .map { it.wholeData.clearSymbols() }
+            .find { it.contains("hlsList\"?:\\s*\\{\\s*\"\\d+".toRegex()) }
         requireNotNull(hlsList)
         return hlsList
     }
@@ -106,31 +107,25 @@ class LordFilmAdaVideoSource(
         )
     }
 
-    override fun getCharset(): Charset {
-        return Charsets.UTF_8
-    }
-
-    override fun getMenuVideoLink(link: Element): VideoMenuLink {
-        return VideoMenuLink(link.text(), link.attr("href"))
-    }
-
     override suspend fun getDetailsDoc(movie: Movie): Document {
         val body = videoApiService.getRequest(movie.detailUrl, detailHeaders)
-        val detailsDoc = responseBodyConverter.convert(body)
+        val detailsDoc = responseBodyConverter.convert(body, charset = getCharset())
         requireNotNull(detailsDoc)
         return detailsDoc
     }
 
     override suspend fun getVideoDoc(detailsDoc: Document): Document {
         val iFrameUrl = getIframeUrl(detailsDoc)
+        val newHost = "api.multikland.net"
         val headers = mapOf(
-            "Host" to "api.synchroncode.com",
+            "Host" to newHost,
+            "Referer" to getReferer(iFrameUrl)
         ) + hostStore.baseHeaders
         val iFrameResponse = videoApiService.getRequest(
-            iFrameUrl,
+            correctedIFragmeUrl(iFrameUrl, newHost, hostStore.host),
             headers
         )
-        val resultDoc = responseBodyConverter.convert(iFrameResponse)
+        val resultDoc = responseBodyConverter.convert(iFrameResponse, charset = Charsets.UTF_8)
         requireNotNull(resultDoc)
         return resultDoc
     }

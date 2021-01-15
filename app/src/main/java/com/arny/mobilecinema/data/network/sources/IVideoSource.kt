@@ -3,10 +3,12 @@ package com.arny.mobilecinema.data.network.sources
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
 import com.arny.mobilecinema.di.models.SerialData
+import com.arny.mobilecinema.di.models.VideoMenuLink
 import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
+import java.nio.charset.Charset
 
 interface IVideoSource {
     val addMainPageHeaders: Map<String, String?>
@@ -27,4 +29,6 @@ interface IVideoSource {
     fun getMovieType(movie: Movie): MovieType
     suspend fun getTitle(doc: Document, movie: Movie? = null): String?
     suspend fun requestMainPage(): ResponseBody
+    fun getMenuVideoLink(link: Element): VideoMenuLink
+    fun getCharset(): Charset
 }

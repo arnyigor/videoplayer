@@ -30,6 +30,32 @@ open class BaseVideoSource(
         }
     }
 
+    fun getReferer(url: String?): String {
+        if (url == null) return ""
+        return "^https?://([-.0-9a-z]+)".toRegex()
+            .find(url)?.groupValues
+            ?.getOrNull(0).toString() + "/"
+    }
+
+    fun correctedIFragmeUrl(
+        url: String?,
+        hostToReplace: String? = null,
+        baseHost: String? = null
+    ): String {
+        if (url == null) return ""
+        val corrected = if (hostToReplace == null) {
+            url
+        } else {
+            url.replace(
+                "^https?://([-.0-9a-z]+)".toRegex()
+                    .find(url)?.groupValues
+                    ?.getOrNull(1).toString(),
+                hostToReplace
+            )
+        }
+        return baseHost?.let { "$corrected?host=$it" } ?: corrected
+    }
+
     fun findString(it: Regex, pattern: String, group: Int = 1) =
         it.find(pattern)?.groupValues?.getOrNull(group).toString()
 
