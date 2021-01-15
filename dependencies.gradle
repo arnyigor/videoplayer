@@ -52,8 +52,9 @@ ext {
         implementation "androidx.preference:preference:$version"
     }}
 
-    firebaseBom = { version = '26.0.0' -> Alias {
-        implementation "com.google.firebase:firebase-bom:$version"
+    firebaseBom = { version = '26.3.0' -> Alias {
+        implementation platform('com.google.firebase:firebase-bom:26.3.0')
+        implementation 'com.google.firebase:firebase-analytics-ktx'
     }}
 
     exomedia = { version = '4.3.0' -> Alias {
