@@ -72,10 +72,8 @@ class HomePresenter @Inject constructor(
     }
 
     fun requestHosts() {
-        viewState.showLoading(true)
         mainScope().launch {
             videoRepository.getAllHosts()
-                .onCompletion { viewState.showLoading(false) }
                 .catch { viewState.showMainContentError(getFullError(it)) }
                 .collect {
                     viewState.chooseHost(it)
