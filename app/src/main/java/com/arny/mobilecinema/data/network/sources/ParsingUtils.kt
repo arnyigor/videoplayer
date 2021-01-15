@@ -25,11 +25,15 @@ fun regexBetwenTwoString(start: String, end: String): Regex {
 fun correctTitle(title: String?): String {
     var result = title
     listOf(
-        "^(.*)\\s(\\d+-?\\d+\\s?сезон)".toRegex(),
-        "^(.*)[\\s]?(\\d+[\\s]?сезон)".toRegex(),
-        "^(\\D+)\\s?(\\d+,\\s)".toRegex(),
-        "^(\\D+)\\s?(\\d+,?\\s)серия".toRegex(),
-        "^(.*)\\sсмотреть онлайн".toRegex(),
+        "^(.*)\\s(\\d+-?\\d+\\s?сезон)".toRegex(RegexOption.IGNORE_CASE),
+        "^(.*)[\\s]?(\\d+[\\s]?сезон)".toRegex(RegexOption.IGNORE_CASE),
+        "^(\\D+)\\s?(\\d+,\\s)".toRegex(RegexOption.IGNORE_CASE),
+        "^(\\D+)\\s?(\\d+,?\\s)серия".toRegex(RegexOption.IGNORE_CASE),
+        "^фильм(.*)\\sв hd \\d+ качестве смотреть онлайн".toRegex(RegexOption.IGNORE_CASE),
+        "^(.*)\\sв hd \\d+ качестве смотреть онлайн".toRegex(RegexOption.IGNORE_CASE),
+        "^(.*)\\sсмотреть онлайн".toRegex(RegexOption.IGNORE_CASE),
+        "^фильм\\s*(.*)\\sв hd".toRegex(RegexOption.IGNORE_CASE),
+        "^(.*)\\sв hd".toRegex(RegexOption.IGNORE_CASE),
     ).asSequence()
         .forEach {
             val finded = it.find(title ?: "")?.groupValues?.getOrNull(1)?.trim()

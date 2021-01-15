@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <!--Set application-wide security config using base-config tag.-->
-    <base-config cleartextTrafficPermitted="true">ak.lordfilms-s.pw</base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">ak.lordfilms-s.pw</domain>
+    </domain-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
 </network-security-config>

@@ -6,6 +6,7 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.toResult
+import com.arny.mobilecinema.data.network.hosts.HostStoreImpl
 import com.arny.mobilecinema.data.network.hosts.IHostStore
 import com.arny.mobilecinema.data.network.response.ResponseBodyConverter
 import com.arny.mobilecinema.data.network.sources.IVideoSourceFactory
@@ -40,7 +41,7 @@ class VideoRepositoryImpl @Inject constructor(
 
     override fun searchMovie(search: String): Flow<List<Movie>> {
         return flow {
-            val doc = videoApiService.searchVideo(
+            val doc = videoApiService.postRequest(
                 getSource().searchUrl,
                 getSource().getSearchFields(search),
                 getSource().searchHeaders,
@@ -67,14 +68,10 @@ class VideoRepositoryImpl @Inject constructor(
             getHostsData()
             val allMovies = storeProvider.allMovies()
             updateCache(allMovies)
-            val doc = try {
-                videoApiService.requestMainPage(
-                    hostStore.baseUrl,
-                    getSource().addMainPageHeaders + hostStore.mainPageHeaders
-                )
-                    .convertToDoc()
-            } catch (e: Exception) {
+            val doc = if (hostStore.host == HostStoreImpl.HOST_MOCK) {
                 null
+            } else {
+                getSource().requestMainPage().convertToDoc()
             }
             emit(getMainPageContent(doc))
         }
@@ -84,15 +81,17 @@ class VideoRepositoryImpl @Inject constructor(
     override fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>> {
         return flow {
             val url = hostStore.baseUrl + type?.substringAfter("/")
-            val doc = videoApiService.requestTyped(url).convertToDoc()
+            val doc = videoApiService.getRequest(url, hostStore.baseHeaders).convertToDoc()
             emit(getMainPageContent(doc))
         }
             .flowOn(Dispatchers.IO)
     }
 
     private fun ResponseBody.convertToDoc(): Document {
-        val doc = responseBodyConverter.convert(this)
-        requireNotNull(doc)
+        val doc = responseBodyConverter.convert(this, charset = getSource().getCharset())
+        requireNotNull(doc) {
+            "Ошибка парсинга документа"
+        }
         return doc
     }
 
@@ -100,11 +99,11 @@ class VideoRepositoryImpl @Inject constructor(
         return MainPageContent(getMainVideos(doc), getMenuLinks(doc)).toResult()
     }
 
-    private fun getMenuLinks(doc: Document?): MutableList<VideoSearchLink> {
+    private fun getMenuLinks(doc: Document?): MutableList<VideoMenuLink> {
         val menuItems = getSource().getMenuItems(doc)
-        return mutableListOf<VideoSearchLink>().apply {
+        return mutableListOf<VideoMenuLink>().apply {
             for (link in menuItems) {
-                add(getVideoSearchFromLink(link))
+                add(getVideoMenuFromLink(link))
             }
         }
     }
@@ -120,8 +119,7 @@ class VideoRepositoryImpl @Inject constructor(
 
     private fun getVideoFromLink(link: Element): Movie = getSource().getMovieFromLink(link)
 
-    private fun getVideoSearchFromLink(link: Element) =
-        VideoSearchLink(link.text(), link.attr("href"))
+    private fun getVideoMenuFromLink(link: Element) = getSource().getMenuVideoLink(link)
 
     override fun clearCache(movie: Movie?): Flow<DataResult<Boolean>> {
         return flow {
@@ -152,7 +150,7 @@ class VideoRepositoryImpl @Inject constructor(
     @FlowPreview
     override fun searchCached(searchText: String): Flow<List<Movie>> {
         return flow {
-           var movies = videoCache.searchFromCache(searchText)
+            var movies = videoCache.searchFromCache(searchText)
             if (movies.isEmpty() && isSaveToStore()) {
                 movies = try {
                     storeProvider.searchMovies(searchText)
@@ -294,18 +292,18 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getRemoteContent(movie: Movie): Movie {
-        val resultDoc = getSource().getResultDoc(movie)
+        val detailsDoc = getSource().getDetailsDoc(movie)
+        val resultDoc = getSource().getVideoDoc(detailsDoc)
         val hlsList = getSource().getHlsList(resultDoc)
-        val title = getSource().getTitle(resultDoc, movie)
+        val title = getSource().getTitle(detailsDoc, movie)
         val movieId = getMovieId(movie)
-        val qualityMap = getSource().getQualityMap(hlsList)
         return when (val type = getSource().getMovieType(movie)) {
             MovieType.CINEMA -> returnCinema(
                 movie,
                 type,
                 movieId,
                 title,
-                qualityMap
+                getSource().getQualityMap(hlsList)
             )
             MovieType.SERIAL -> returnSerial(
                 movie,

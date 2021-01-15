@@ -131,8 +131,8 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
         )
         videoTypesAdapter = VideoTypesAdapter()
         videoTypesAdapter?.setViewHolderListener(object :
-            SimpleAbstractAdapter.OnViewHolderListener<VideoSearchLink> {
-            override fun onItemClick(position: Int, item: VideoSearchLink) {
+            SimpleAbstractAdapter.OnViewHolderListener<VideoMenuLink> {
+            override fun onItemClick(position: Int, item: VideoMenuLink) {
                 val items = videoTypesAdapter?.getItems()
                 items?.forEach {
                     it.selected = false

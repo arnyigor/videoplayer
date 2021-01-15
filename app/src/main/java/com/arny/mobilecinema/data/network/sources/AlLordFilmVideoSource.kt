@@ -2,13 +2,12 @@ package com.arny.mobilecinema.data.network.sources
 
 import com.arny.mobilecinema.data.network.hosts.IHostStore
 import com.arny.mobilecinema.data.network.response.ResponseBodyConverter
-import com.arny.mobilecinema.di.models.Movie
-import com.arny.mobilecinema.di.models.MovieType
-import com.arny.mobilecinema.di.models.SerialData
-import com.arny.mobilecinema.di.models.VideoApiService
+import com.arny.mobilecinema.di.models.*
+import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
+import java.nio.charset.Charset
 import java.util.*
 
 class AlLordFilmVideoSource(
@@ -61,6 +60,9 @@ class AlLordFilmVideoSource(
         return doc.body().select(".content .sect .sect-items .th-item a")
     }
 
+    override fun getCharset(): Charset {
+        return Charsets.UTF_8
+    }
 
     override fun getMovieFromLink(link: Element): Movie {
         val title = link.select(".th-desc .th-title").text()
@@ -90,34 +92,49 @@ class AlLordFilmVideoSource(
 
     override fun getIframeUrl(detailsDoc: Document): String? =
         detailsDoc.body()
-            .select("#dle-content .fmain .fplayer .video-box iframe")
+            .select("#dle-content iframe")
             .getOrNull(1)?.attr("src")
+
+    override fun getMenuVideoLink(link: Element): VideoMenuLink {
+        return VideoMenuLink(link.text(), link.attr("href"))
+    }
 
     override suspend fun getHlsList(doc: Document): String {
         val hlsList = doc.getElementsByTag("script")
             .dataNodes()
-            .map { it.wholeData }
-            .find { it.contains("hlsList") }
+            .map { it.wholeData.clearSymbols() }
+            .find { it.contains("hlsList\"?\\s*:\\s*\\{\\s*\"\\d+".toRegex()) }
         requireNotNull(hlsList)
         return hlsList
     }
 
     override suspend fun getTitle(doc: Document, movie: Movie?): String? {
         if (movie?.title.isNullOrBlank()) {
-            return doc.title()
+            return correctTitle(doc.title())
         }
-        return movie?.title
+        return correctTitle(movie?.title)
     }
 
-    override suspend fun getResultDoc(movie: Movie): Document {
-        val body = videoApiService.getVideoDetails(movie.detailUrl, detailHeaders)
+    override suspend fun requestMainPage(): ResponseBody {
+        return videoApiService.getRequest(
+            hostStore.baseUrl,
+            addMainPageHeaders + hostStore.mainPageHeaders
+        )
+    }
+
+    override suspend fun getDetailsDoc(movie: Movie): Document {
+        val body = videoApiService.getRequest(movie.detailUrl, detailHeaders)
         val detailsDoc = responseBodyConverter.convert(body)
         requireNotNull(detailsDoc)
+        return detailsDoc
+    }
+
+    override suspend fun getVideoDoc(detailsDoc: Document): Document {
         val iFrameUrl = getIframeUrl(detailsDoc)
         val headers = mapOf(
             "Host" to "apilordfilms-s.multikland.net",
         ) + hostStore.baseHeaders
-        val iFrameResponse = videoApiService.getUrlData(
+        val iFrameResponse = videoApiService.getRequest(
             iFrameUrl,
             headers
         )
