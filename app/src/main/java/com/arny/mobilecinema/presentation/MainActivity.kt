@@ -5,7 +5,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.navigation.findNavController
 import androidx.navigation.ui.NavigationUI
+import androidx.navigation.ui.setupActionBarWithNavController
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.presentation.utils.setupWithNavController
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
@@ -13,10 +15,7 @@ import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
 import javax.inject.Inject
 
-
-class MainActivity : AppCompatActivity(), HasAndroidInjector {
-
-    var bottomNavigationView: BottomNavigationView? = null
+class MainActivity : AppCompatActivity(R.layout.a_main), HasAndroidInjector {
 
     @Inject
     lateinit var dispatchingAndroidInjector: DispatchingAndroidInjector<Any>
@@ -26,10 +25,14 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidInjection.inject(this)
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.a_main)
         if (savedInstanceState == null) {
             setUpNavigation()
         }
+    }
+
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        setUpNavigation()
     }
 
     private fun setUpNavigation() {
@@ -49,8 +52,12 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         }
     }
 
-/*    private fun setupBottomNavigationBar() {
-        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.nav_view)
+    private fun showBottomNav(vis: Boolean) {
+        findViewById<BottomNavigationView>(R.id.bttm_nav).isVisible = vis
+    }
+
+    private fun setupBottomNavigationBar() {
+        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bttm_nav)
         val navGraphIds = listOf(
             R.navigation.nav_graph_home,
             R.navigation.nav_graph_history,
@@ -65,12 +72,9 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         controller.observe(this, { navController ->
             setupActionBarWithNavController(navController)
         })
-        currentNavController = controller
-    }*/
-
-    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
-        super.onRestoreInstanceState(savedInstanceState)
-        setUpNavigation()
+        findNavController(R.id.nav_host_fragment)
+            .addOnDestinationChangedListener { _, destination, _ ->
+                showBottomNav(destination.id != R.id.nav_details)
+            }
     }
-
 }
