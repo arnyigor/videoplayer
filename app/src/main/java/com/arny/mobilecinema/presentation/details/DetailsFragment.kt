@@ -46,6 +46,17 @@ import kotlin.properties.Delegates
 
 class DetailsFragment : MvpAppCompatFragment(), DetailsView {
 
+    private companion object {
+        const val KEY_MOVIE = "KEY_MOVIE"
+        const val KEY_VIDEO = "KEY_VIDEO"
+        const val KEY_SEASON = "KEY_SEASON"
+        const val KEY_EPISODE = "KEY_EPISODE"
+        const val KEY_ORIENTATION = "KEY_ORIENTATION"
+        const val BUFFER_64K = 64 * 1024
+        const val BUFFER_128K = 128 * 1024
+        const val BUFFER_1K = 1024
+    }
+
     private var trackSelector: DefaultTrackSelector? = null
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
@@ -110,17 +121,6 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
         override fun onNothingSelected(parent: AdapterView<*>?) {
             binding.plVideoPLayer.controllerShowTimeoutMs = 3000
         }
-    }
-
-    private companion object {
-        const val KEY_MOVIE = "KEY_MOVIE"
-        const val KEY_VIDEO = "KEY_VIDEO"
-        const val KEY_SEASON = "KEY_SEASON"
-        const val KEY_EPISODE = "KEY_EPISODE"
-        const val KEY_ORIENTATION = "KEY_ORIENTATION"
-        const val BUFFER_64K = 64 * 1024
-        const val BUFFER_128K = 128 * 1024
-        const val BUFFER_1K = 1024
     }
 
     @Inject

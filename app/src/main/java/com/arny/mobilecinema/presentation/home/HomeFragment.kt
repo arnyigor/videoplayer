@@ -156,9 +156,10 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
             binding.root.findNavController()
                 .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(video))
         }
-        rcVideoList.also {
-            it.adapter = groupAdapter
-            it.layoutManager = GridLayoutManager(requireContext(), 2)
+        rcVideoList.apply {
+            adapter = groupAdapter
+            setHasFixedSize(true)
+            layoutManager = GridLayoutManager(requireContext(), 2)
         }
     }
 
@@ -186,8 +187,8 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setHasOptionsMenu(true)
+          super.onCreate(savedInstanceState)
+          setHasOptionsMenu(true)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -205,16 +206,6 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
         return when (item.itemId) {
             R.id.menu_action_choose_source -> {
                 presenter.requestHosts()
-                true
-            }
-            R.id.menu_action_settings -> {
-                binding.root.findNavController()
-                    .navigate(HomeFragmentDirections.actionHomeFragmentToSettingsFragment())
-                true
-            }
-            R.id.menu_action_history -> {
-                binding.root.findNavController()
-                    .navigate(HomeFragmentDirections.actionHomeFragmentToHistoryFragment())
                 true
             }
             R.id.menu_action_get_file -> {

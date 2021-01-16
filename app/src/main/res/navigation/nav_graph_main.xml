@@ -2,28 +2,28 @@
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/nav_graph"
-    app:startDestination="@id/homeFragment">
+    android:id="@+id/nav_graph_main"
+    app:startDestination="@id/nav_home">
 
     <fragment
-        android:id="@+id/homeFragment"
+        android:id="@+id/nav_home"
         android:name="com.arny.mobilecinema.presentation.home.HomeFragment"
         android:label="f_home"
         tools:layout="@layout/f_home" >
         <action
             android:id="@+id/action_homeFragment_to_detailsFragment"
-            app:destination="@id/detailsFragment"
+            app:destination="@id/nav_details"
             app:enterAnim="@anim/nav_default_enter_anim"
             app:exitAnim="@anim/nav_default_exit_anim" />
         <action
-            android:id="@+id/action_homeFragment_to_settingsFragment"
-            app:destination="@id/settingsFragment" />
+            android:id="@+id/action_nav_home_to_historyFragment"
+            app:destination="@id/nav_history" />
         <action
-            android:id="@+id/action_homeFragment_to_historyFragment"
-            app:destination="@id/historyFragment" />
+            android:id="@+id/action_nav_home_to_settingsFragment2"
+            app:destination="@id/nav_prefs" />
     </fragment>
     <fragment
-        android:id="@+id/detailsFragment"
+        android:id="@+id/nav_details"
         android:name="com.arny.mobilecinema.presentation.details.DetailsFragment"
         android:label="details_fragment"
         tools:layout="@layout/f_details" >
@@ -32,16 +32,15 @@
             app:argType="com.arny.mobilecinema.di.models.Movie" />
     </fragment>
     <fragment
-        android:id="@+id/settingsFragment"
+        android:id="@+id/nav_history"
+        android:name="com.arny.mobilecinema.presentation.history.HistoryFragment"
+        android:label="HistoryFragment" >
+        <action
+            android:id="@+id/action_nav_history_to_nav_details"
+            app:destination="@id/nav_details" />
+    </fragment>
+    <fragment
+        android:id="@+id/nav_prefs"
         android:name="com.arny.mobilecinema.presentation.settings.SettingsFragment"
         android:label="SettingsFragment" />
-    <fragment
-        android:id="@+id/historyFragment"
-        android:name="com.arny.mobilecinema.presentation.history.HistoryFragment"
-        android:label="f_history"
-        tools:layout="@layout/f_history" >
-        <action
-            android:id="@+id/action_historyFragment_to_detailsFragment"
-            app:destination="@id/detailsFragment" />
-    </fragment>
 </navigation>

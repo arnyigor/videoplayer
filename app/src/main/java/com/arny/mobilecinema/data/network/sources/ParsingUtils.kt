@@ -24,6 +24,25 @@ fun regexBetwenTwoString(start: String, end: String): Regex {
 
 fun correctTitle(title: String?): String {
     var result = title
+    result = prefilterTitle(title, result)
+    listOf(
+        "смотреть\\s*[фильм]*\\s*онлайн".toRegex(RegexOption.IGNORE_CASE),
+        "(смотреть фильм|в хорошем качестве|в HD качестве|в hd \\d+ качестве|hd бесплатно)".toRegex(
+            RegexOption.IGNORE_CASE
+        ),
+        "^фильм\\s*".toRegex(RegexOption.IGNORE_CASE),
+        "\\(фильм\\s*\\d+\\)".toRegex(RegexOption.IGNORE_CASE),
+        "hd бесплатно".toRegex(RegexOption.IGNORE_CASE),
+        "в хорошем качестве".toRegex(RegexOption.IGNORE_CASE),
+        "в hd \\d+ качестве".toRegex(RegexOption.IGNORE_CASE),
+    ).asSequence().forEach {
+        result = result?.replace(it, "")
+    }
+    return result?.trimIndent() ?: ""
+}
+
+private fun prefilterTitle(title: String?, result: String?): String? {
+    var result1 = result
     listOf(
         "^(.*)\\s(\\d+-?\\d+\\s?сезон)".toRegex(RegexOption.IGNORE_CASE),
         "^(.*)[\\s]?(\\d+[\\s]?сезон)".toRegex(RegexOption.IGNORE_CASE),
@@ -39,11 +58,11 @@ fun correctTitle(title: String?): String {
         .forEach {
             val finded = it.find(title ?: "")?.groupValues?.getOrNull(1)?.trim()
             if (!finded.isNullOrBlank()) {
-                result = finded
-                return result ?: ""
+                result1 = finded
+                return result1 ?: ""
             }
         }
-    return result ?: ""
+    return result1
 }
 
 fun String.parseSerialData(): SerialData {

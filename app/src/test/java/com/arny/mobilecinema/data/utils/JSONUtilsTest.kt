@@ -4,7 +4,7 @@ import com.arny.mobilecinema.data.network.sources.correctTitle
 import com.arny.mobilecinema.data.network.sources.toHlsListMap
 import org.junit.jupiter.api.Test
 
-internal class JSONUtilsKtTest {
+internal class JSONUtilsTest {
 
     private companion object {
         const val hlslist = "{\"480\":\"https://480.m3u8\"," +
@@ -92,5 +92,26 @@ internal class JSONUtilsKtTest {
         val returnTitle =
             correctTitle("Фильм Аэронавты (2019) в HD 1080 качестве смотреть онлайн")
         assert(returnTitle == "Аэронавты (2019)")
+    }
+
+    @Test
+    fun `get correct title11`() {
+        val returnTitle =
+            correctTitle("5-я волна (2016) смотреть фильм онлайн HD в хорошем качестве")
+        assert(returnTitle == "5-я волна (2016)")
+    }
+
+    @Test
+    fun `get correct title12`() {
+        val returnTitle =
+            correctTitle("Фильм 5-я волна (2016)")
+        assert(returnTitle == "5-я волна (2016)")
+    }
+
+    @Test
+    fun `get correct title13`() {
+        val returnTitle =
+            correctTitle("фильм Держи удар (фильм 2020) смотреть фильм онлайн")
+        assert(returnTitle == "Держи удар")
     }
 }
