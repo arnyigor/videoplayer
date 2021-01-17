@@ -2,8 +2,7 @@ package com.arny.mobilecinema.presentation.details
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.pm.ActivityInfo.*
-import android.content.res.Configuration.*
+import android.content.res.Configuration.ORIENTATION_LANDSCAPE
 import android.net.Uri
 import android.os.Bundle
 import android.view.*
@@ -19,7 +18,10 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.repository.sources.cache.CacheDataSourceFactory
 import com.arny.mobilecinema.databinding.FDetailsBinding
-import com.arny.mobilecinema.di.models.*
+import com.arny.mobilecinema.di.models.Movie
+import com.arny.mobilecinema.di.models.MovieType
+import com.arny.mobilecinema.di.models.SerialEpisode
+import com.arny.mobilecinema.di.models.Video
 import com.arny.mobilecinema.presentation.utils.*
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
@@ -30,8 +32,10 @@ import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.TrackGroupArray
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
-import com.google.android.exoplayer2.trackselection.*
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
+import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
+import com.google.android.exoplayer2.trackselection.TrackSelection
+import com.google.android.exoplayer2.trackselection.TrackSelectionArray
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
 import com.google.android.exoplayer2.util.EventLogger
@@ -68,10 +72,9 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
     private var videoRestored = false
     private val args: DetailsFragmentArgs by navArgs()
     private var exoPlayer: SimpleExoPlayer? = null
-    private var drawerLocker: DrawerLocker? = null
     private var orientationLocked: Boolean = false
     private var playControlsVisible by Delegates.observable(true) { _, oldValue, visible ->
-        if (oldValue != visible && activity != null && isAdded) {
+        if (oldValue != visible && isVisible) {
             val land = resources.configuration.orientation == ORIENTATION_LANDSCAPE
             if (land) {
                 setFullScreen(activity as AppCompatActivity?, !visible)
@@ -128,9 +131,6 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
 
     private val presenter by moxyPresenter { presenterProvider.get() }
 
-    @Inject
-    lateinit var vm: DetailsViewModel
-
     private val binding by viewBinding { FDetailsBinding.bind(it).also(::initBinding) }
 
     private val playerListener = object : Player.EventListener {
@@ -139,31 +139,38 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             trackGroups: TrackGroupArray,
             trackSelections: TrackSelectionArray
         ) {
-            trackSelector?.let { _ ->
-                (exoPlayer?.currentTimeline
-                    ?.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
-                    ?.mediaItem?.playbackProperties?.tag as? HashMap<*, *>)?.let { map ->
-                    updateSelection(map)
+            if (isVisible) {
+                trackSelector?.let { _ ->
+                    (exoPlayer?.currentTimeline
+                        ?.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
+                        ?.mediaItem?.playbackProperties?.tag as? HashMap<*, *>)?.let { map ->
+                        updateSelection(map)
+                    }
                 }
             }
         }
 
         override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-            val window = timeline.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
-            if (reason == TIMELINE_CHANGE_REASON_SOURCE_UPDATE) {
-                (window.mediaItem.playbackProperties?.tag as? HashMap<*, *>)
-                    ?.let { map ->
-                        updateSelection(map)
-                    }
+            if (isVisible) {
+                val window =
+                    timeline.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
+                if (reason == TIMELINE_CHANGE_REASON_SOURCE_UPDATE) {
+                    (window.mediaItem.playbackProperties?.tag as? HashMap<*, *>)
+                        ?.let { map ->
+                            updateSelection(map)
+                        }
+                }
             }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            val window = requireActivity().window
-            if (isPlaying) {
-                window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            } else {
-                window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            if (isVisible) {
+                val window = requireActivity().window
+                if (isPlaying) {
+                    window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
             }
         }
     }
@@ -189,24 +196,28 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
         }
     }
 
+    override fun showError(result: DataResult<Throwable>) {
+        if (result is DataResult.Error) {
+            toastError(result.throwable)
+        }
+    }
+
+    override fun showLoading(show: Boolean) {
+
+    }
+
+    override fun showVideo(data: DataResult<Movie>?) {
+        when (data) {
+            is DataResult.Success -> onMovieLoaded(data.data)
+            is DataResult.Error -> toastError(data.throwable)
+        }
+    }
+
     private fun initBinding(binding: FDetailsBinding) {
         return with(binding) {
             val movie = args.movie
             initTrackAdapters()
-            vm.loadVideo(movie)
-            vm.data.observe(this@DetailsFragment, { dataResult ->
-                when (dataResult) {
-                    is DataResult.Success -> onMovieLoaded(dataResult.data)
-                    is DataResult.Error -> toastError(dataResult.throwable)
-                }
-            })
-            vm.cached.observe(this@DetailsFragment, { dataResult ->
-                when (dataResult) {
-                    is DataResult.Success -> {
-                    }
-                    is DataResult.Error -> toastError(dataResult.throwable)
-                }
-            })
+            presenter.loadVideo(movie)
             mtvQuality.setOnClickListener { tv -> initQualityPopup(tv) }
             ivScreenLock.setOnClickListener { toggleLockOrientaion() }
         }
@@ -252,7 +263,6 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
                     if (currentMovie != null) {
                         releasePlayer()
                         initPlayer(currentMovie)
-                        restorePlayerState()
                     }
                 }
                 false
@@ -353,22 +363,27 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             }
         }
         currentVideo?.let { video ->
-            videoRestored = movie == null && videoStartRestore
-            updateSpinData()
-            createPlayer()
-            binding.mtvQuality.text = getString(R.string.quality_format, video.selectedHls)
-            binding.plVideoPLayer.player = exoPlayer
-            binding.plVideoPLayer.setControllerVisibilityListener { viewVisible ->
-                if (activity != null && isAdded) {
-                    playControlsVisible = when (viewVisible) {
-                        View.VISIBLE -> true
-                        else -> false
+            if (!videoRestored) {
+                videoRestored = movie == null && videoStartRestore
+                updateSpinData()
+                createPlayer()
+                binding.mtvQuality.text = getString(R.string.quality_format, video.selectedHls)
+                binding.plVideoPLayer.player = exoPlayer
+                binding.plVideoPLayer.setControllerVisibilityListener { viewVisible ->
+                    if (isVisible) {
+                        playControlsVisible = when (viewVisible) {
+                            View.VISIBLE -> true
+                            else -> false
+                        }
                     }
                 }
+                setMediaItems(video, currentMovie)
+                exoPlayer?.prepare()
+                updatePlayerPosition()
+                restorePlayerState()
+            } else {
+                playControlsVisible = !video.playWhenReady
             }
-            setMediaItems(video, currentMovie)
-            exoPlayer?.prepare()
-            updatePlayerPosition()
         }
     }
 
@@ -591,13 +606,15 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             binding.plVideoPLayer.player = null
             exoPlayer?.release()
             exoPlayer = null
+            videoRestored = false
+            videoStartRestore = false
         }
     }
 
     private fun cache() {
         currentVideo?.currentPosition = exoPlayer?.contentPosition ?: 0
         currentVideo?.playWhenReady = exoPlayer?.playWhenReady ?: false
-        vm.cacheMovie(
+        presenter.cacheMovie(
             currentMovie?.copy(
                 currentEpisodePosition = currentEpisodePosition,
                 currentSeasonPosition = currentSeasonPosition,
@@ -637,7 +654,6 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             setFullScreen(appCompatActivity, true)
         }
         setScreenLockImg()
-        restorePlayerState()
     }
 
     override fun onPause() {
@@ -668,9 +684,6 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
         super.onAttach(context)
-        if (context is DrawerLocker) {
-            drawerLocker = context
-        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -688,12 +701,12 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             R.id.menu_action_clear_cache -> {
                 alertDialog(
                     requireContext(),
-                    "Удалить?",
-                    "Хотите очистить кеш?",
-                    "OK",
-                    "Отмена",
+                    getString(R.string.question_remove),
+                    getString(R.string.question_remove_cache_title, currentMovie?.title),
+                    getString(android.R.string.ok),
+                    getString(android.R.string.cancel),
                     onConfirm = {
-                        vm.clearCache(currentMovie)
+                        presenter.clearCache(currentMovie)
                     }
                 )
                 true
