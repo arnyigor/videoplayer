@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.res.Configuration.ORIENTATION_LANDSCAPE
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import android.view.*
 import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
@@ -181,14 +180,10 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
         for ((key, value) in map.entries) {
             val season = (key as? Int) ?: 0
             val episode = (value as? Int) ?: 0
-            val isValidSeasonsData =
-                currentSeasonPosition == season && currentEpisodePosition == episode
+            val isValidSeasonsData = currentSeasonPosition == season
+                    && currentEpisodePosition == episode
             if (!isValidSeasonsData) {
                 if (currentSeasonPosition != season) {
-                    Log.d(
-                        DetailsFragment::class.java.simpleName,
-                        "updateSelection: season:${currentSeasonPosition+1}->${season+1}, episode:${currentEpisodePosition+1}->${episode+1}"
-                    )
                     currentSeasonPosition = season
                     currentEpisodePosition = episode
                     fillSpinners()
