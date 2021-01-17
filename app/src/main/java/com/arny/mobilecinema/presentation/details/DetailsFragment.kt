@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.res.Configuration.ORIENTATION_LANDSCAPE
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.*
 import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
@@ -99,6 +100,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             binding.plVideoPLayer.controllerShowTimeoutMs = 3000
             updateCurrentSerialPosition()
             currentEpisodePosition = 0
+            fillSpinners()
             currentVideo?.currentPosition = 0
             updatePlayerPosition()
         }
@@ -144,7 +146,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
                     (exoPlayer?.currentTimeline
                         ?.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
                         ?.mediaItem?.playbackProperties?.tag as? HashMap<*, *>)?.let { map ->
-                        updateSelection(map)
+                        updateEpisodeSelection(map)
                     }
                 }
             }
@@ -157,7 +159,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
                 if (reason == TIMELINE_CHANGE_REASON_SOURCE_UPDATE) {
                     (window.mediaItem.playbackProperties?.tag as? HashMap<*, *>)
                         ?.let { map ->
-                            updateSelection(map)
+                            updateEpisodeSelection(map)
                         }
                 }
             }
@@ -175,22 +177,30 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
         }
     }
 
-    private fun updateSelection(map: HashMap<*, *>) = with(binding) {
+    private fun updateEpisodeSelection(map: HashMap<*, *>) = with(binding) {
         for ((key, value) in map.entries) {
             val season = (key as? Int) ?: 0
             val episode = (value as? Int) ?: 0
-            if (currentSeasonPosition != season) {
-                currentSeasonPosition = season
-                currentEpisodePosition = episode
-                fillSpinners()
-            } else {
-                currentSeasonPosition = season
-                currentEpisodePosition = episode
-                if (currentSeasonPosition != spinSeasons.selectedItemPosition) {
-                    spinSeasons.setSelection(season, false)
-                }
-                if (currentEpisodePosition != spinEpisodes.selectedItemPosition) {
-                    spinEpisodes.setSelection(episode, false)
+            val isValidSeasonsData =
+                currentSeasonPosition == season && currentEpisodePosition == episode
+            if (!isValidSeasonsData) {
+                if (currentSeasonPosition != season) {
+                    Log.d(
+                        DetailsFragment::class.java.simpleName,
+                        "updateSelection: season:${currentSeasonPosition+1}->${season+1}, episode:${currentEpisodePosition+1}->${episode+1}"
+                    )
+                    currentSeasonPosition = season
+                    currentEpisodePosition = episode
+                    fillSpinners()
+                } else {
+                    currentSeasonPosition = season
+                    currentEpisodePosition = episode
+                    if (currentSeasonPosition != spinSeasons.selectedItemPosition) {
+                        spinSeasons.setSelection(season, false)
+                    }
+                    if (currentEpisodePosition != spinEpisodes.selectedItemPosition) {
+                        spinEpisodes.setSelection(episode, false)
+                    }
                 }
             }
         }
@@ -418,22 +428,24 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
         fillSpinners()
     }
 
-    private fun fillSpinners() = with(binding) {
+    private fun fillSpinners() {
         val seasons = currentMovie?.serialData?.seasons
         val seasonsList = seasons?.mapIndexed { index, _ -> "${index + 1} сезон" }
         if (!seasonsList.isNullOrEmpty()) {
-            spinSeasons.updateSpinnerItems(seasonsChangeListener) {
-                seasonsTracksAdapter?.clear()
-                seasonsTracksAdapter?.addAll(seasonsList)
-                spinSeasons.setSelection(currentSeasonPosition, false)
-            }
+            with(binding) {
+                spinSeasons.updateSpinnerItems(seasonsChangeListener) {
+                    seasonsTracksAdapter?.clear()
+                    seasonsTracksAdapter?.addAll(seasonsList)
+                    spinSeasons.setSelection(currentSeasonPosition, false)
+                }
 
-            spinEpisodes.updateSpinnerItems(episodesChangelistener) {
-                val seriesList = seasons.getOrNull(currentSeasonPosition)
-                    ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
-                episodesTracksAdapter?.clear()
-                episodesTracksAdapter?.addAll(seriesList)
-                spinEpisodes.setSelection(currentEpisodePosition, false)
+                spinEpisodes.updateSpinnerItems(episodesChangelistener) {
+                    val seriesList = seasons.getOrNull(currentSeasonPosition)
+                        ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
+                    episodesTracksAdapter?.clear()
+                    episodesTracksAdapter?.addAll(seriesList)
+                    spinEpisodes.setSelection(currentEpisodePosition, false)
+                }
             }
             updatePlayerPosition()
         }
