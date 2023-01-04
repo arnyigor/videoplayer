@@ -21,7 +21,7 @@ class SettingsFragment : Fragment() {
     private val binding by viewBinding { FSettingsBinding.bind(it).also(::initBinding) }
 
     private fun initBinding(binding: FSettingsBinding) = with(binding) {
-        (requireActivity() as? AppCompatActivity)?.supportActionBar?.title =
+        updateTitle(
             getString(R.string.menu_preferences)
         chbCacheAvailable.setOnCheckedChangeListener { _, isChecked ->
             prefs.put(PrefsConstants.PREF_SAVE_TO_STORE, isChecked)

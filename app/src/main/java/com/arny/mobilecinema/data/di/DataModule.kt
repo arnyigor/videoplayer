@@ -1,7 +1,7 @@
 package com.arny.mobilecinema.data.di
 
 import android.content.Context
-import com.arny.mobilecinema.data.repository.VideoRepository
+import com.arny.mobilecinema.domain.repository.VideoRepository
 import com.arny.mobilecinema.data.repository.VideoRepositoryImpl
 import com.arny.mobilecinema.data.repository.sources.assets.AssetsReader
 import com.arny.mobilecinema.data.repository.sources.assets.AssetsReaderImpl

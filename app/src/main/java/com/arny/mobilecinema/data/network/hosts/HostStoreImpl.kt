@@ -30,9 +30,7 @@ class HostStoreImpl @Inject constructor(
         prefs.put(PrefsConstants.PREF_CURRENT_HOST, source)
     }
 
-    override fun getCurrentHost(): String? {
-        return prefs.get<String>(PrefsConstants.PREF_CURRENT_HOST)
-    }
+    override fun getCurrentHost(): String? = prefs.get<String>(PrefsConstants.PREF_CURRENT_HOST)
 
     internal companion object HOSTS {
         const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"

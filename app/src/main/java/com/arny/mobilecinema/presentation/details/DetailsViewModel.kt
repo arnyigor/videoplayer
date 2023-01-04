@@ -3,13 +3,12 @@ package com.arny.mobilecinema.presentation.details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.data.models.DataResult
-import com.arny.mobilecinema.data.repository.VideoRepository
+import com.arny.mobilecinema.domain.repository.VideoRepository
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.presentation.utils.SingleLiveEvent
 import com.arny.mobilecinema.presentation.utils.mutableLiveData
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import javax.inject.Inject

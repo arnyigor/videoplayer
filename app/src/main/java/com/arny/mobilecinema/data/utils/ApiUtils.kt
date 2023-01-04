@@ -1,10 +1,13 @@
 package com.arny.mobilecinema.data.utils
 
-import com.arny.mobilecinema.data.models.DataResult
+import com.yamusic.get.utils.strings.ParametricString
 import retrofit2.HttpException
 import javax.net.ssl.SSLHandshakeException
 
-fun <T> getFullError(throwable: Throwable): DataResult<T> {
+fun Throwable.getFullError() = ParametricString(getFullError(this))
+
+fun getFullError(throwable: Throwable): String {
+    throwable.printStackTrace()
     var error: String
     val code: Int
     try {
@@ -17,6 +20,7 @@ fun <T> getFullError(throwable: Throwable): DataResult<T> {
                     504 -> error = "Время ожидания истекло, повторите запрос позже"
                     503 -> error = "Сервис временно недоступен, повторите запрос позже"
                     403 -> error = "Сервис заблокирован"
+                    404 -> error = "Страница не найдена"
                 }
             }
             is SSLHandshakeException -> {
@@ -29,7 +33,7 @@ fun <T> getFullError(throwable: Throwable): DataResult<T> {
     } catch (e: Exception) {
         error = getMessage(throwable)
     }
-    return DataResult.Error(Throwable(error))
+    return error
 }
 
 private fun getMessage(throwable: Throwable): String {

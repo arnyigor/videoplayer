@@ -1,4 +1,4 @@
-package com.arny.mobilecinema.data.repository
+package com.arny.mobilecinema.domain.repository
 
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.di.models.MainPageContent
@@ -7,7 +7,7 @@ import com.arny.mobilecinema.di.models.SerialEpisode
 import kotlinx.coroutines.flow.Flow
 
 interface VideoRepository {
-    fun searchMovie(search: String): Flow<List<Movie>>
+    fun searchMovie(search: String): Flow<DataResult<List<Movie>>>
     fun getAllVideos(): Flow<DataResult<MainPageContent>>
     fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>>
     fun loadMovie(movie: Movie): Flow<DataResult<Movie>>
@@ -16,7 +16,7 @@ interface VideoRepository {
     fun onPlaylistChanged(
         seasonPosition: Int,
         episodePosition: Int
-    ): Flow<DataResult<SerialEpisode?>>
+    ): Flow<DataResult<SerialEpisode>>
 
     fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>>
     fun clearCache(movie: Movie?): Flow<DataResult<Boolean>>

@@ -6,7 +6,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.StringRes
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
@@ -19,7 +18,6 @@ import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import moxy.MvpAppCompatFragment
@@ -48,7 +46,7 @@ class HistoryFragment : MvpAppCompatFragment(), HistoryView, CoroutineScope {
 
     @FlowPreview
     private fun initBinding(binding: FHistoryBinding) = with(binding) {
-        (requireActivity() as? AppCompatActivity)?.supportActionBar?.title =
+        updateTitle(
             getString(R.string.f_history_title)
         initList()
         edtSearch.setDrawableRightListener {
@@ -116,7 +114,7 @@ class HistoryFragment : MvpAppCompatFragment(), HistoryView, CoroutineScope {
     override fun updateList(result: DataResult<List<Movie>>) {
         when (result) {
             is DataResult.Success -> {
-                updateList(result.data.map { map ->
+                updateList(result.result.map { map ->
                     HistoryVideoItem(map) { m ->
                         alertDialog(
                             requireContext(),

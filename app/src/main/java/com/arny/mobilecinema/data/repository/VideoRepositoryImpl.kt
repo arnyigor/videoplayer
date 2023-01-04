@@ -5,6 +5,7 @@ import android.net.Uri
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
+import com.arny.mobilecinema.data.models.doRequest
 import com.arny.mobilecinema.data.models.toResult
 import com.arny.mobilecinema.data.network.hosts.HostStoreImpl
 import com.arny.mobilecinema.data.network.hosts.IHostStore
@@ -13,7 +14,16 @@ import com.arny.mobilecinema.data.network.sources.IVideoSourceFactory
 import com.arny.mobilecinema.data.repository.sources.cache.VideoCache
 import com.arny.mobilecinema.data.repository.sources.store.StoreProvider
 import com.arny.mobilecinema.data.utils.FilePathUtils
-import com.arny.mobilecinema.di.models.*
+import com.arny.mobilecinema.di.models.MainPageContent
+import com.arny.mobilecinema.di.models.Movie
+import com.arny.mobilecinema.di.models.MovieType
+import com.arny.mobilecinema.di.models.SerialData
+import com.arny.mobilecinema.di.models.SerialEpisode
+import com.arny.mobilecinema.di.models.SerialSeason
+import com.arny.mobilecinema.di.models.Video
+import com.arny.mobilecinema.di.models.VideoApiService
+import com.arny.mobilecinema.di.models.VideoMenuLink
+import com.arny.mobilecinema.domain.repository.VideoRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
@@ -35,24 +45,20 @@ class VideoRepositoryImpl @Inject constructor(
     private val videoCache: VideoCache,
     private val context: Context,
 ) : VideoRepository {
-
     @Volatile
     private var currentMovie: Movie? = null
 
-    override fun searchMovie(search: String): Flow<List<Movie>> {
-        return flow {
-            val doc = videoApiService.postRequest(
-                getSource().searchUrl,
-                getSource().getSearchFields(search),
-                getSource().searchHeaders,
-            ).convertToDoc()
-            val list = mutableListOf<Movie>().apply {
-                for (link in getSearchResultLinks(doc)) {
-                    add(getVideoFromLink(link))
-                }
+    override fun searchMovie(search: String): Flow<DataResult<List<Movie>>> = doRequest {
+        val doc = videoApiService.postRequest(
+            getSource().searchUrl,
+            getSource().getSearchFields(search),
+            getSource().searchHeaders,
+        ).convertToDoc()
+        mutableListOf<Movie>().apply {
+            for (link in getSearchResultLinks(doc)) {
+                add(getVideoFromLink(link))
             }
-            emit(list)
-        }.flowOn(Dispatchers.IO)
+        }
     }
 
     private fun getSearchResultLinks(doc: Document) = getSource().getSearchResultLinks(doc)
@@ -63,29 +69,23 @@ class VideoRepositoryImpl @Inject constructor(
         responseBodyConverter
     )
 
-    override fun getAllVideos(): Flow<DataResult<MainPageContent>> {
-        return flow {
-            getHostsData()
-            val allMovies = storeProvider.allMovies()
-            updateCache(allMovies)
-            val doc = if (hostStore.host == HostStoreImpl.HOST_MOCK) {
-                null
-            } else {
-                getSource().requestMainPage().convertToDoc()
-            }
-            emit(getMainPageContent(doc))
+    override fun getAllVideos(): Flow<DataResult<MainPageContent>> = doRequest {
+        getHostsData()
+        val allMovies = storeProvider.allMovies()
+        updateCache(allMovies)
+        val doc = if (hostStore.host == HostStoreImpl.HOST_MOCK) {
+            null
+        } else {
+            getSource().requestMainPage().convertToDoc()
         }
-            .flowOn(Dispatchers.IO)
+        getMainPageContent(doc)
     }
 
-    override fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>> {
-        return flow {
+    override fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>> = doRequest {
             val url = hostStore.baseUrl + type?.substringAfter("/")
             val doc = videoApiService.getRequest(url, hostStore.baseHeaders).convertToDoc()
-            emit(getMainPageContent(doc))
+            getMainPageContent(doc)
         }
-            .flowOn(Dispatchers.IO)
-    }
 
     private fun ResponseBody.convertToDoc(): Document {
         val doc = responseBodyConverter.convert(this, charset = getSource().getCharset())
@@ -95,9 +95,8 @@ class VideoRepositoryImpl @Inject constructor(
         return doc
     }
 
-    private suspend fun getMainPageContent(doc: Document?): DataResult<MainPageContent> {
-        return MainPageContent(getMainVideos(doc), getMenuLinks(doc)).toResult()
-    }
+    private suspend fun getMainPageContent(doc: Document?): MainPageContent =
+        MainPageContent(getMainVideos(doc), getMenuLinks(doc))
 
     private fun getMenuLinks(doc: Document?): MutableList<VideoMenuLink> {
         val menuItems = getSource().getMenuItems(doc)
@@ -380,7 +379,7 @@ class VideoRepositoryImpl @Inject constructor(
     override fun onPlaylistChanged(
         seasonPosition: Int,
         episodePosition: Int
-    ): Flow<DataResult<SerialEpisode?>> {
+    ): Flow<DataResult<SerialEpisode>> {
         return flow {
             val serialSeason = currentMovie?.serialData?.seasons?.getOrNull(seasonPosition)
             val value = serialSeason?.episodes ?: emptyList()

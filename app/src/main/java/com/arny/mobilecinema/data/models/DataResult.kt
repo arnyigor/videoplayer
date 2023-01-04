@@ -1,31 +1,30 @@
 package com.arny.mobilecinema.data.models
 
-import com.arny.mobilecinema.data.utils.getFullError
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 
-sealed class DataResult<out T> {
-    data class Success<out T>(val data: T) : DataResult<T>()
-    data class Error<out T>(val throwable: Throwable) : DataResult<T>()
+sealed class DataResult<out T : Any> {
+    data class Success<out T : Any>(val result: T?) : DataResult<T>()
+    data class Error(val throwable: Throwable) : DataResult<Nothing>()
 
     override fun toString(): String {
         return when (this) {
-            is Success<*> -> "Success[data=$data]"
+            is Success<*> -> "Success[data=$result]"
             is Error -> "Error[exception=$throwable]"
         }
     }
 }
 
-fun <T> T.toResult(): DataResult<T> {
-    return try {
-        DataResult.Success(this)
-    } catch (e: Exception) {
-        getFullError(e)
+fun <T : Any> doRequest(
+    request: suspend () -> T
+) = flow<DataResult<T>> {
+    request().also { data ->
+        emit(DataResult.Success(data))
     }
 }
-
-fun <T> Flow<T>.catchResult(): Flow<T> {
-    return this.catch {
-        getFullError<T>(it)
+    .flowOn(Dispatchers.IO)
+    .catch { exception ->
+        emit(DataResult.Error(exception))
     }
-}

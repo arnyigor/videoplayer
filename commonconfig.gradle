@@ -1,4 +1,17 @@
+ext {
+    versions = [
+            minSdkVersion            : 21,
+            compileSdkVersion        : 33,
+            targetSdkVersion         : 30,
+            buildToolsVersion        : "30.0.3"
+    ]
+}
+dependencies {
+    // Dependency on local binaries
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+}
 android {
+    namespace 'com.arny.mobilecinema'
     signingConfigs {
         release
     }
@@ -10,12 +23,11 @@ android {
     defaultConfig {
         minSdkVersion versions.minSdkVersion
         targetSdkVersion versions.targetSdkVersion
-        applicationId 'com.arny.mobilecinema'
         versionCode vMajor * 100 + vMinor * 10 + vBuild
-        def name = "${vMajor}" + ".${vMinor}" + ".${vBuild}"
-        versionName "v$name($versionCode)"
+        versionName "${vMajor}" + ".${vMinor}" + ".${vBuild}"
+        setProperty("archivesBaseName", applicationId + "-v" + "(" + versionName + ")")
+        archivesBaseName = "$applicationId-v$versionName($versionCode)"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-
         javaCompileOptions {
             annotationProcessorOptions {
                 arguments = [
@@ -73,7 +85,6 @@ android {
             versionNameSuffix '-DEBUG'
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            testCoverageEnabled = true
         }
     }
 

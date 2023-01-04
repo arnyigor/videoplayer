@@ -1,43 +1,39 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-parcelize'
 apply plugin: 'kotlin-kapt'
 apply plugin: "androidx.navigation.safeargs.kotlin"
-apply plugin: 'com.google.gms.google-services'
-apply from: "$dep_aliases"
+apply from: "$rootProject.projectDir/dependencies.gradle"
 apply from: "$rootProject.projectDir/commonconfig.gradle"
+apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
-
 }
 
 dependencies {
+    core()
     kotlin()
-    firebaseBom()
     coroutines()
-    moxy()
-    rxjava3()
-    coroutineScopes()
     lifecycle()
+    activity()
     fragment()
     recycler()
     cardview()
     supportLegacy()
     dagger()
     okhttp()
-    swiperefresh()
     material()
     glide()
     navigation()
-    groupie()
     retrofit()
     jodaTime()
     appcompat()
     materialDialog()
     stetho()
     preference()
-    rxpermissions()
     constraintlayout()
     jsoup()
     exoplayer()
-    java_test()
+    unitTest()
+    timber()
 }

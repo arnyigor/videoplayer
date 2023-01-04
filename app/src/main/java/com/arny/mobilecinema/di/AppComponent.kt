@@ -5,6 +5,7 @@ import com.arny.mobilecinema.data.di.DataModule
 import com.arny.mobilecinema.data.network.NetworkModule
 import com.arny.mobilecinema.di.modules.AppModule
 import com.arny.mobilecinema.di.modules.UiModule
+import com.arny.mobilecinema.domain.di.DomainModule
 import dagger.BindsInstance
 import dagger.Component
 import dagger.android.AndroidInjector
@@ -17,6 +18,7 @@ import javax.inject.Singleton
         AndroidSupportInjectionModule::class,
         AppModule::class,
         UiModule::class,
+        DomainModule::class,
         DataModule::class,
         NetworkModule::class
     ]

@@ -213,7 +213,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
 
     override fun showVideo(data: DataResult<Movie>?) {
         when (data) {
-            is DataResult.Success -> onMovieLoaded(data.data)
+            is DataResult.Success -> onMovieLoaded(data.result)
             is DataResult.Error -> toastError(data.throwable)
         }
     }
@@ -288,7 +288,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
 
     @SuppressLint("SetTextI18n")
     private fun updateUI(video: Video) {
-        (requireActivity() as? AppCompatActivity)?.supportActionBar?.title = video.title
+        updateTitle( video.title
         binding.mtvTitle.text = video.title
         setCustomTitleVisible(resources.configuration.orientation == ORIENTATION_LANDSCAPE)
         setSpinEpisodesVisible(currentVideo?.type == MovieType.SERIAL)
@@ -731,6 +731,6 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        (requireActivity() as? AppCompatActivity)?.supportActionBar?.title = args.movie.title
+        updateTitle( args.movie.title
     }
 }
