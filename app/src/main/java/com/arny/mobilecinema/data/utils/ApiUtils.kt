@@ -1,10 +1,7 @@
 package com.arny.mobilecinema.data.utils
 
-import com.yamusic.get.utils.strings.ParametricString
 import retrofit2.HttpException
 import javax.net.ssl.SSLHandshakeException
-
-fun Throwable.getFullError() = ParametricString(getFullError(this))
 
 fun getFullError(throwable: Throwable): String {
     throwable.printStackTrace()

@@ -8,11 +8,19 @@ import android.widget.AdapterView
 import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
+import androidx.annotation.CheckResult
 import androidx.annotation.ColorInt
 import androidx.core.widget.addTextChangedListener
+import androidx.core.widget.doOnTextChanged
+import com.google.android.exoplayer2.util.Assertions.checkMainThread
 import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.onStart
 
 @SuppressLint("ClickableViewAccessibility")
 fun EditText.setDrawableRightListener(onClick: () -> Unit) {
@@ -49,6 +57,15 @@ inline fun Spinner.updateSpinnerItems(
     onUpdate.invoke()
     this.onItemSelectedListener = listener
 }
+
+@ExperimentalCoroutinesApi
+@CheckResult
+fun EditText.textChanges(): Flow<CharSequence?> =
+    callbackFlow {
+        checkMainThread()
+        val listener = doOnTextChanged { text, _, _, _ -> trySend(text) }
+        awaitClose { removeTextChangedListener(listener) }
+    }.onStart { emit(text) }
 
 fun EditText.getQueryTextChangeStateFlow(): StateFlow<String> {
     val query = MutableStateFlow("")

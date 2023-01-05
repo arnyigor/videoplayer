@@ -3,42 +3,50 @@ package com.arny.mobilecinema.presentation.details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.data.models.DataResult
-import com.arny.mobilecinema.domain.repository.VideoRepository
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.di.models.Movie
-import com.arny.mobilecinema.presentation.utils.SingleLiveEvent
-import com.arny.mobilecinema.presentation.utils.mutableLiveData
+import com.arny.mobilecinema.domain.interactor.MobileCinemaInteractor
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class DetailsViewModel @Inject constructor(
-    private val videoRepository: VideoRepository
+    private val interactor: MobileCinemaInteractor
 ) : ViewModel() {
-    private val loading = mutableLiveData(false)
-    val data = SingleLiveEvent<DataResult<Movie?>>()
-    val cached = SingleLiveEvent<DataResult<Boolean>>()
+    private val _loading = MutableStateFlow(false)
+    val loading = _loading.asStateFlow()
+    private val _data = MutableSharedFlow<DataResult<Movie>>()
+    val data = _data.asSharedFlow()
+    private val _cached = MutableStateFlow(false)
+    val cached = _cached.asStateFlow()
     private var isRemovedFromCache = false
 
     fun loadVideo(movie: Movie) {
         viewModelScope.launch {
-            if (loading.value == true) return@launch
-            if (data.value == null) {
-                loading.value = true
-                videoRepository.loadMovie(movie)
-                    .onCompletion { loading.value = false }
-                    .catch { data.value = getFullError(it) }
-                    .collect { res ->
-                        data.value = res
-                    }
-            }
+            interactor.loadMovie(movie)
+                .onStart { _loading.value = true }
+                .onCompletion { _loading.value = false }
+                .collect { content ->
+                    _data.emit(content)
+                }
         }
     }
 
     fun cacheMovie(movie: Movie?) {
         viewModelScope.launch {
             if (!isRemovedFromCache) {
+                interactor.cacheMovie(movie)
+                    .onStart { _loading.value = true }
+                    .onCompletion { _loading.value = false }
+                    .collect { content ->
+                        _cached.value = content
+                    }
                 videoRepository.cacheMovie(movie)
                     .onCompletion { loading.value = false }
                     .catch { cached.value = getFullError(it) }

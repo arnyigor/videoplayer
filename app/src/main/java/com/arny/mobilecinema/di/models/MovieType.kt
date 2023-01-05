@@ -7,8 +7,6 @@ enum class MovieType(val type: Int) {
     SERIAL_LOCAL(4);
 
     companion object {
-        fun fromValue(value: Int): MovieType {
-            return values().find { it.type == value } ?: CINEMA
-        }
+        fun fromValue(value: Int): MovieType = values().find { it.type == value } ?: CINEMA
     }
 }

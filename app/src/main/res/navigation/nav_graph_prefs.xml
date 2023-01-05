@@ -7,5 +7,5 @@
     <fragment
         android:id="@+id/nav_sett"
         android:name="com.arny.mobilecinema.presentation.settings.SettingsFragment"
-        android:label="SettingsFragment" />
+        android:label="@string/action_settings" />
 </navigation>

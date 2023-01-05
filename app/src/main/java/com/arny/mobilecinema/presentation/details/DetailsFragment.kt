@@ -11,6 +11,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
@@ -25,7 +28,6 @@ import com.arny.mobilecinema.di.models.Video
 import com.arny.mobilecinema.presentation.utils.*
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
-import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
@@ -42,14 +44,10 @@ import com.google.android.exoplayer2.util.EventLogger
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
-import moxy.MvpAppCompatFragment
-import moxy.ktx.moxyPresenter
 import javax.inject.Inject
-import javax.inject.Provider
 import kotlin.properties.Delegates
 
-class DetailsFragment : MvpAppCompatFragment(), DetailsView {
-
+class DetailsFragment : Fragment() {
     private companion object {
         const val KEY_MOVIE = "KEY_MOVIE"
         const val KEY_VIDEO = "KEY_VIDEO"
@@ -60,7 +58,9 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
         const val BUFFER_128K = 128 * 1024
         const val BUFFER_1K = 1024
     }
-
+    @Inject
+    lateinit var vmFactory: ViewModelProvider.Factory
+    private val viewModel: DetailsViewModel by viewModels { vmFactory }
     private var trackSelector: DefaultTrackSelector? = null
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
@@ -71,7 +71,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
     private var videoStartRestore = false
     private var videoRestored = false
     private val args: DetailsFragmentArgs by navArgs()
-    private var exoPlayer: SimpleExoPlayer? = null
+    private var exoPlayer: ExoPlayer? = null
     private var orientationLocked: Boolean = false
     private var playControlsVisible by Delegates.observable(true) { _, oldValue, visible ->
         if (oldValue != visible && isVisible) {
@@ -88,7 +88,6 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             }
         }
     }
-
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
             parent: AdapterView<*>?,
@@ -108,8 +107,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             binding.plVideoPLayer.controllerShowTimeoutMs = 3000
         }
     }
-
-    private val episodesChangelistener = object : AdapterView.OnItemSelectedListener {
+    private val episodesChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
             parent: AdapterView<*>?,
             view: View?,
@@ -126,25 +124,14 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             binding.plVideoPLayer.controllerShowTimeoutMs = 3000
         }
     }
-
-    @Inject
-    lateinit var presenterProvider: Provider<DetailsPresenter>
-
-    private val presenter by moxyPresenter { presenterProvider.get() }
-
-    private val binding by viewBinding { FDetailsBinding.bind(it).also(::initBinding) }
-
-    private val playerListener = object : Player.EventListener {
-
-        override fun onTracksChanged(
-            trackGroups: TrackGroupArray,
-            trackSelections: TrackSelectionArray
-        ) {
+    private lateinit var binding: FDetailsBinding
+    private val playerListener = object : Player.Listener {
+        override fun onTracksChanged(tracks: Tracks) {
             if (isVisible) {
                 trackSelector?.let { _ ->
                     (exoPlayer?.currentTimeline
-                        ?.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
-                        ?.mediaItem?.playbackProperties?.tag as? HashMap<*, *>)?.let { map ->
+                        ?.getWindow(exoPlayer?.currentMediaItemIndex ?: 0, Timeline.Window())
+                        ?.mediaItem?.localConfiguration?.tag as? HashMap<*, *>)?.let { map ->
                         updateEpisodeSelection(map)
                     }
                 }
@@ -308,7 +295,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
         spinSeasons.setSelection(currentSeasonPosition, false)
         spinEpisodes.setSelection(currentEpisodePosition, false)
         spinSeasons.updateSpinnerItems(seasonsChangeListener)
-        spinEpisodes.updateSpinnerItems(episodesChangelistener)
+        spinEpisodes.updateSpinnerItems(episodesChangeListener)
         spinEpisodes.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP) {
                 plVideoPLayer.controllerShowTimeoutMs = -1
@@ -434,7 +421,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
                     spinSeasons.setSelection(currentSeasonPosition, false)
                 }
 
-                spinEpisodes.updateSpinnerItems(episodesChangelistener) {
+                spinEpisodes.updateSpinnerItems(episodesChangeListener) {
                     val seriesList = seasons.getOrNull(currentSeasonPosition)
                         ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
                     episodesTracksAdapter?.clear()
@@ -473,10 +460,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
                         BUFFER_1K
                     )
                     .build()
-            exoPlayer = SimpleExoPlayer.Builder(
-                requireContext(),
-                DefaultRenderersFactory(requireContext())
-            )
+            exoPlayer = ExoPlayer.Builder(requireContext())
                 .setLoadControl(loadControl)
                 .setTrackSelector(selector)
                 .build()

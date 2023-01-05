@@ -1,35 +1,57 @@
 package com.arny.mobilecinema.presentation.home
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.view.*
+import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
+import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
+import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
-import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.databinding.FHomeBinding
-import com.arny.mobilecinema.di.models.*
-import com.arny.mobilecinema.presentation.utils.*
+import com.arny.mobilecinema.di.models.MainPageContent
+import com.arny.mobilecinema.di.models.Movie
+import com.arny.mobilecinema.di.models.MovieType
+import com.arny.mobilecinema.di.models.Video
+import com.arny.mobilecinema.presentation.utils.KeyboardHelper
+import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.requestPermission
+import com.arny.mobilecinema.presentation.utils.setDrawableRightListener
+import com.arny.mobilecinema.presentation.utils.setEnterPressListener
+import com.arny.mobilecinema.presentation.utils.singleChoiceDialog
+import com.arny.mobilecinema.presentation.utils.textChanges
+import com.arny.mobilecinema.presentation.utils.unlockOrientation
+import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
-import kotlinx.coroutines.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
-import java.util.*
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import java.util.UUID
 import javax.inject.Inject
 import kotlin.properties.Delegates
 
-class HomeFragment : Fragment(), HomeView, CoroutineScope {
+class HomeFragment : Fragment() {
     private companion object {
         const val REQUEST_OPEN_FILE: Int = 100
         const val REQUEST_OPEN_FOLDER: Int = 101
@@ -39,25 +61,48 @@ class HomeFragment : Fragment(), HomeView, CoroutineScope {
     lateinit var vmFactory: ViewModelProvider.Factory
     private val viewModel: HomeViewModel by viewModels { vmFactory }
     private lateinit var binding: FHomeBinding
+    private var request: Int = -1
     private var videoTypesAdapter: VideoTypesAdapter? = null
+    private var videosAdapter: VideosAdapter? = null
     private var emptyData by Delegates.observable(true) { _, _, empty ->
         with(binding) {
             rcVideoList.isVisible = !empty
             tvEmptyView.isVisible = empty
         }
     }
+    private val startForResult = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result: ActivityResult ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            when (request) {
+                REQUEST_OPEN_FILE -> {
+                    request = -1
+                    onOpenFile(result.data)
+                }
+
+                REQUEST_OPEN_FOLDER -> {
+                    request = -1
+                    onOpenFolder(result.data)
+                }
+            }
+        }
+    }
     private val requestPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                when (request) {
+                    REQUEST_OPEN_FILE -> {
+                        requestFile()
+                    }
+
+                    else -> {}
+                }
+            }
         }
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
         super.onAttach(context)
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setHasOptionsMenu(true)
     }
 
     override fun onCreateView(
@@ -69,12 +114,12 @@ class HomeFragment : Fragment(), HomeView, CoroutineScope {
         return binding.root
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         updateTitle(getString(R.string.app_name))
+        initMenu()
         with(binding) {
-            initList()
-            requireActivity().title = getString(R.string.app_name)
             swiperefresh.setOnRefreshListener {
                 swiperefresh.isRefreshing = false
                 viewModel.restartLoading()
@@ -86,44 +131,22 @@ class HomeFragment : Fragment(), HomeView, CoroutineScope {
             edtSearch.setDrawableRightListener {
                 KeyboardHelper.hideKeyboard(requireActivity())
                 edtSearch.setText("")
-                presenter.restartLoading()
+                viewModel.restartLoading()
             }
             edtSearch.setEnterPressListener {
                 KeyboardHelper.hideKeyboard(requireActivity())
             }
-            compositeJob.add(
-                CoroutineScope(coroutineContext).launch {
-                    edtSearch.getQueryTextChangeStateFlow()
-                        .debounce(500)
-                        .filter { it.isNotBlank() }
-                        .collect {
-                            presenter.search(it, true)
-                        }
+            binding.edtSearch
+                .textChanges()
+                .debounce(500)
+                .filter { !it.isNullOrBlank() }
+                .onEach {
+                    viewModel.search(it.toString(), true)
                 }
-            )
-            videoTypesAdapter = VideoTypesAdapter()
-            videoTypesAdapter?.setViewHolderListener(object :
-                SimpleAbstractAdapter.OnViewHolderListener<VideoMenuLink> {
-                override fun onItemClick(position: Int, item: VideoMenuLink) {
-                    val items = videoTypesAdapter?.getItems()
-                    items?.forEach {
-                        it.selected = false
-                    }
-                    val searchLink = items?.getOrNull(position)
-                    searchLink?.selected = true
-                    videoTypesAdapter?.notifyDataSetChanged()
-                    presenter.onTypeChanged(searchLink)
-                }
-            })
-            with(rvTypesList) {
-                layoutManager = LinearLayoutManager(
-                    requireContext(),
-                    androidx.recyclerview.widget.RecyclerView.HORIZONTAL,
-                    false
-                )
-                adapter = videoTypesAdapter
-            }
+                .launchIn(lifecycleScope)
         }
+        initAdapters()
+        observeData()
     }
 
     override fun onResume() {
@@ -131,165 +154,159 @@ class HomeFragment : Fragment(), HomeView, CoroutineScope {
         requireActivity().unlockOrientation()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        compositeJob.cancel()
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
-        inflater.inflate(R.menu.home_menu, menu)
-        super.onCreateOptionsMenu(menu, inflater)
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.menu_action_choose_source -> {
-                presenter.requestHosts()
-                true
+    private fun initAdapters() {
+        videoTypesAdapter = VideoTypesAdapter(onItemClick = { position, item ->
+            val items = videoTypesAdapter?.items
+            items?.forEach {
+                it.selected = false
             }
-            R.id.menu_action_get_file -> {
-                requestFile()
-                true
-            }
-            else -> false
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == Activity.RESULT_OK) {
-            when (requestCode) {
-                REQUEST_OPEN_FILE -> {
-                    val uri = data?.data
-                    val path = FilePathUtils.getPath(uri, requireContext())
-                    val movie = Movie(
-                        uuid = UUID.randomUUID().toString(),
-                        title = path?.substringBeforeLast(".") ?: "",
-                        type = MovieType.CINEMA_LOCAL,
-                        detailUrl = path,
-                        video = Video(
-                            videoUrl = uri.toString()
-                        )
-                    )
-                    binding.root.findNavController()
-                        .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
-                }
-                REQUEST_OPEN_FOLDER -> {
-                    val dataString = data?.dataString
-                    val uri = data?.data
-                    val path = FilePathUtils.getPath(uri, requireContext())
-                    val movie = Movie(
-                        uuid = UUID.randomUUID().toString(),
-                        title = path?.substringBeforeLast(".") ?: "",
-                        type = MovieType.SERIAL_LOCAL,
-                        detailUrl = path,
-                        video = Video(
-                            videoUrl = uri.toString()
-                        )
-                    )
-                    binding.root.findNavController()
-                        .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
-                }
-            }
-        }
-    }
-
-    private fun FHomeBinding.initList() {
-        groupAdapter = GroupAdapter<GroupieViewHolder>()
-        groupAdapter.setOnItemClickListener { item, _ ->
-            val video = (item as VideoItem).movie
+            item.selected = true
+            videoTypesAdapter?.notifyItemChanged(position)
+            viewModel.onTypeChanged(items?.getOrNull(position))
+        })
+        binding.rvTypesList.adapter = videoTypesAdapter
+        videosAdapter = VideosAdapter { item ->
             binding.root.findNavController()
-                .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(video))
+                .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(item))
         }
-        rcVideoList.apply {
-            adapter = groupAdapter
+        binding.rcVideoList.apply {
+            adapter = videosAdapter
             setHasFixedSize(true)
-            layoutManager = GridLayoutManager(requireContext(), 2)
         }
     }
 
-    override fun showMainContent(result: DataResult<MainPageContent>) {
-        when (result) {
-            is DataResult.Success -> {
-                updateList(result.result)
-            }
-
-            is DataResult.Error -> {
-                emptyData = true
-                binding.tvEmptyView.text = result.throwable.message
+    private fun observeData() {
+        launchWhenCreated {
+            viewModel.loading.collectLatest { loading ->
+                binding.pbLoading.isVisible = loading
+                binding.edtSearch.isVisible = !loading
+                binding.rvTypesList.isVisible = !loading
+                binding.btnSearch.isVisible = !loading
             }
         }
-    }
+        launchWhenCreated {
+            viewModel.mainContent.collectLatest { result ->
+                when (result) {
+                    is DataResult.Success -> {
+                        result.result?.let { updateList(it) }
+                    }
 
-    override fun showMainContentError(error: DataResult<MainPageContent>) {
-        emptyData = true
-        if (error is DataResult.Error) {
-            binding.tvEmptyView.text = error.throwable.message
-        }
-    }
-
-    override fun showLoading(show: Boolean) = with(binding) {
-        pbLoading.isVisible = show
-        edtSearch.isVisible = !show
-        rvTypesList.isVisible = !show
-        btnSearch.isVisible = !show
-    }
-
-    override fun chooseHost(hostsResult: DataResult<Pair<Array<String>, Int>>) {
-        when (hostsResult) {
-            is DataResult.Success -> {
-                val (sources, current) = hostsResult.result
-                showAlertDialog(sources, current)
+                    is DataResult.Error -> {
+                        emptyData = true
+                        binding.tvEmptyView.text = result.throwable.message
+                    }
+                }
             }
-
-            is DataResult.Error -> {
+        }
+        launchWhenCreated {
+            viewModel.hostData.collectLatest { hostsData ->
+                showAlertDialog(hostsData.hosts, hostsData.savedIndex)
             }
         }
     }
 
-    private fun updateList(pageContent: MainPageContent) = with(binding) {
+    private fun initMenu() {
+        requireActivity().addMenuProvider(object : MenuProvider {
+            override fun onPrepareMenu(menu: Menu) {
+            }
+
+            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menuInflater.inflate(R.menu.home_menu, menu)
+            }
+
+            override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
+                when (menuItem.itemId) {
+                    R.id.menu_action_choose_source -> {
+                        viewModel.requestHosts()
+                        true
+                    }
+
+                    R.id.menu_action_get_file -> {
+                        request = REQUEST_OPEN_FILE
+                        requestPermission(
+                            resultLauncher = requestPermissionLauncher,
+                            permission = Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                            checkPermissionOk = ::requestFile
+                        )
+                        true
+                    }
+
+                    else -> false
+                }
+        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+
+    private fun onOpenFolder(data: Intent?) {
+        val uri = data?.data
+        val path = FilePathUtils.getPath(uri, requireContext())
+        val movie = Movie(
+            uuid = UUID.randomUUID().toString(),
+            title = path?.substringBeforeLast(".") ?: "",
+            type = MovieType.SERIAL_LOCAL,
+            detailUrl = path,
+            video = Video(
+                videoUrl = uri.toString()
+            )
+        )
+        binding.root.findNavController()
+            .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
+    }
+
+    private fun onOpenFile(data: Intent?) {
+        val uri = data?.data
+        val path = FilePathUtils.getPath(uri, requireContext())
+        val movie = Movie(
+            uuid = UUID.randomUUID().toString(),
+            title = path?.substringBeforeLast(".") ?: "",
+            type = MovieType.CINEMA_LOCAL,
+            detailUrl = path,
+            video = Video(
+                videoUrl = uri.toString()
+            )
+        )
+        binding.root.findNavController()
+            .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
+    }
+
+    private fun updateList(pageContent: MainPageContent) {
         val data = pageContent.movies
-        fillAdapter(data?.map { VideoItem(it) })
+        videosAdapter?.submitList(pageContent.movies?.toList())
         emptyData = data.isNullOrEmpty()
-        val searchVideoLinks = pageContent.searchVideoLinks ?: emptyList()
-        videoTypesAdapter?.addAll(searchVideoLinks)
-    }
-
-    private fun fillAdapter(items: List<VideoItem>?) {
-        groupAdapter.clear()
-        items?.let { groupAdapter.addAll(it) }
+        val searchVideoLinks = pageContent.searchVideoLinks.orEmpty()
+        videoTypesAdapter?.submitList(searchVideoLinks.toList())
     }
 
     private fun FHomeBinding.searchVideo() {
         tvEmptyView.isVisible = false
-        presenter.search(edtSearch.text.toString())
+        viewModel.search(edtSearch.text.toString())
     }
 
     private fun requestFile() {
-        launchIntent(REQUEST_OPEN_FILE) {
-            action = Intent.ACTION_GET_CONTENT
-            addCategory(Intent.CATEGORY_OPENABLE)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        request = REQUEST_OPEN_FILE
+        startForResult.launch(
+            Intent().apply {
+                action = Intent.ACTION_GET_CONTENT
+                addCategory(Intent.CATEGORY_OPENABLE)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                }
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                type = "*/*"
             }
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            type = "*/*"
-        }
+        )
     }
 
-    private fun showAlertDialog(sources: Array<String>, checkedItem: Int) {
-        var alert: AlertDialog? = null
-        val alertDialog: AlertDialog.Builder = AlertDialog.Builder(requireContext())
-        alertDialog.setTitle(getString(R.string.home_choose_source))
-        alertDialog.setSingleChoiceItems(sources, checkedItem) { _, which ->
-            presenter.selectHost(sources[which])
+    private fun showAlertDialog(sources: List<String>, checkedItem: Int) {
+        singleChoiceDialog(
+            title = getString(R.string.home_choose_source),
+            items = sources,
+            selectedPosition = checkedItem,
+            cancelable = true
+        ) { index, dlg ->
+            viewModel.selectHost(sources[index])
             emptyData = false
-            videoTypesAdapter?.clear()
-            alert?.dismiss()
+            videoTypesAdapter?.submitList(emptyList())
+            dlg.dismiss()
         }
-        alert = alertDialog.create()
-        alert.setCanceledOnTouchOutside(true)
-        alert.setCancelable(true)
-        alert.show()
     }
 }

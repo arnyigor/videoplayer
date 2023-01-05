@@ -5,8 +5,7 @@ import android.net.Uri
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
-import com.arny.mobilecinema.data.models.doRequest
-import com.arny.mobilecinema.data.models.toResult
+import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.network.hosts.HostStoreImpl
 import com.arny.mobilecinema.data.network.hosts.IHostStore
 import com.arny.mobilecinema.data.network.response.ResponseBodyConverter
@@ -23,13 +22,10 @@ import com.arny.mobilecinema.di.models.SerialSeason
 import com.arny.mobilecinema.di.models.Video
 import com.arny.mobilecinema.di.models.VideoApiService
 import com.arny.mobilecinema.di.models.VideoMenuLink
+import com.arny.mobilecinema.domain.models.HostsData
 import com.arny.mobilecinema.domain.repository.VideoRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -48,17 +44,18 @@ class VideoRepositoryImpl @Inject constructor(
     @Volatile
     private var currentMovie: Movie? = null
 
-    override fun searchMovie(search: String): Flow<DataResult<List<Movie>>> = doRequest {
+    override fun searchMovie(search: String): Flow<DataResult<MainPageContent>> = doAsync {
         val doc = videoApiService.postRequest(
             getSource().searchUrl,
             getSource().getSearchFields(search),
             getSource().searchHeaders,
         ).convertToDoc()
-        mutableListOf<Movie>().apply {
+        val list = mutableListOf<Movie>().apply {
             for (link in getSearchResultLinks(doc)) {
                 add(getVideoFromLink(link))
             }
         }
+        MainPageContent(list)
     }
 
     private fun getSearchResultLinks(doc: Document) = getSource().getSearchResultLinks(doc)
@@ -69,7 +66,7 @@ class VideoRepositoryImpl @Inject constructor(
         responseBodyConverter
     )
 
-    override fun getAllVideos(): Flow<DataResult<MainPageContent>> = doRequest {
+    override fun getAllVideos(): Flow<DataResult<MainPageContent>> = doAsync {
         getHostsData()
         val allMovies = storeProvider.allMovies()
         updateCache(allMovies)
@@ -81,11 +78,11 @@ class VideoRepositoryImpl @Inject constructor(
         getMainPageContent(doc)
     }
 
-    override fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>> = doRequest {
-            val url = hostStore.baseUrl + type?.substringAfter("/")
-            val doc = videoApiService.getRequest(url, hostStore.baseHeaders).convertToDoc()
-            getMainPageContent(doc)
-        }
+    override fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>> = doAsync {
+        val url = hostStore.baseUrl + type?.substringAfter("/")
+        val doc = videoApiService.getRequest(url, hostStore.baseHeaders).convertToDoc()
+        getMainPageContent(doc)
+    }
 
     private fun ResponseBody.convertToDoc(): Document {
         val doc = responseBodyConverter.convert(this, charset = getSource().getCharset())
@@ -120,55 +117,44 @@ class VideoRepositoryImpl @Inject constructor(
 
     private fun getVideoMenuFromLink(link: Element) = getSource().getMenuVideoLink(link)
 
-    override fun clearCache(movie: Movie?): Flow<DataResult<Boolean>> {
-        return flow {
-            if (movie != null) {
-                videoCache.removeFromCache(movie)
-                storeProvider.removeFromSaved(movie)
-                emit(true.toResult())
-            } else {
-                emit(false.toResult())
-            }
-        }.flowOn(Dispatchers.IO)
-    }
-
-    override fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>> {
-        return flow {
-            if (movie != null) {
-                videoCache.addToCache(movie)
-                if (storeProvider.canSaveToStore()) {
-                    storeProvider.saveToStore(movie)
-                }
-                emit(true.toResult())
-            } else {
-                emit(false.toResult())
-            }
-        }.flowOn(Dispatchers.IO)
-    }
-
-    @FlowPreview
-    override fun searchCached(searchText: String): Flow<List<Movie>> {
-        return flow {
-            var movies = videoCache.searchFromCache(searchText)
-            if (movies.isEmpty() && isSaveToStore()) {
-                movies = try {
-                    storeProvider.searchMovies(searchText)
-                } catch (e: Exception) {
-                    emptyList()
-                }
-            }
-            emit(movies)
+    override fun clearCache(movie: Movie?): Flow<DataResult<Boolean>> = doAsync {
+        if (movie != null) {
+            videoCache.removeFromCache(movie)
+            storeProvider.removeFromSaved(movie)
+            true
+        } else {
+            false
         }
-            .flowOn(Dispatchers.IO)
+    }
+
+    override fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>> = doAsync {
+        if (movie != null) {
+            videoCache.addToCache(movie)
+            if (storeProvider.canSaveToStore()) {
+                storeProvider.saveToStore(movie)
+            }
+            true
+        } else {
+            false
+        }
     }
 
     @FlowPreview
-    override fun getAllCached(): Flow<DataResult<List<Movie>>> {
-        return flow {
-            val allMovies = storeProvider.allMovies()
-            updateCache(allMovies)
-            emit(allMovies.toResult())
-        }.flowOn(Dispatchers.IO)
+    override fun searchCached(searchText: String): Flow<DataResult<List<Movie>>> = doAsync {
+        var movies = videoCache.searchFromCache(searchText)
+        if (movies.isEmpty() && isSaveToStore()) {
+            movies = try {
+                storeProvider.searchMovies(searchText)
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+        movies
+    }
+
+    @FlowPreview
+    override fun getAllCached(): Flow<DataResult<List<Movie>>> = doAsync {
+        storeProvider.allMovies().apply { updateCache(this) }
     }
 
     private fun updateCache(allMovies: List<Movie>) {
@@ -179,31 +165,27 @@ class VideoRepositoryImpl @Inject constructor(
 
     private fun isSaveToStore(): Boolean = storeProvider.canSaveToStore()
 
-    override fun loadMovie(movie: Movie): Flow<DataResult<Movie>> {
-        return flow {
-            val movieInStore = videoCache.getFromCache(movie.title)
-            val resultMovie = if (movieInStore != null) {
-                currentMovie = movieInStore
+    override fun loadMovie(movie: Movie): Flow<DataResult<Movie>> = doAsync {
+        val movieInStore = videoCache.getFromCache(movie.title)
+        if (movieInStore != null) {
+            currentMovie = movieInStore
+            currentMovie!!
+        } else {
+            val fromPrefs = getFromStore(movie)
+            if (fromPrefs != null) {
+                videoCache.addToCache(fromPrefs)
+                currentMovie = fromPrefs
                 currentMovie!!
             } else {
-                val fromPrefs = getFromStore(movie)
-                if (fromPrefs != null) {
-                    videoCache.addToCache(fromPrefs)
-                    currentMovie = fromPrefs
-                    currentMovie!!
-                } else {
-                    val value = getFullMovie(movie)
-                    videoCache.addToCache(value)
-                    if (storeProvider.canSaveToStore()) {
-                        storeProvider.saveToStore(value)
-                    }
-                    currentMovie = value
-                    currentMovie!!
+                val value = getFullMovie(movie)
+                videoCache.addToCache(value)
+                if (storeProvider.canSaveToStore()) {
+                    storeProvider.saveToStore(value)
                 }
+                currentMovie = value
+                currentMovie!!
             }
-            emit(resultMovie.toResult())
         }
-            .flowOn(Dispatchers.IO)
     }
 
     private fun getFromStore(movie: Movie): Movie? {
@@ -217,15 +199,11 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun getAllHosts(): Flow<DataResult<Pair<Array<String>, Int>>> {
-        return flow {
-            emit(getHostsData())
-        }.map {
-            it.toResult()
-        }.flowOn(Dispatchers.IO)
+    override fun getAllHosts(): Flow<DataResult<HostsData>> = doAsync {
+        getHostsData()
     }
 
-    private fun getHostsData(): Pair<Array<String>, Int> {
+    private fun getHostsData(): HostsData {
         var savedHost = hostStore.getCurrentHost()
         if (savedHost.isNullOrBlank()) {
             savedHost = hostStore.availableHosts.first()
@@ -233,8 +211,8 @@ class VideoRepositoryImpl @Inject constructor(
         } else {
             setHost(savedHost, false)
         }
-        val toTypedArray = hostStore.availableHosts.toTypedArray()
-        return toTypedArray to toTypedArray.indexOf(savedHost)
+        val hosts = hostStore.availableHosts
+        return HostsData(hosts, hosts.indexOf(savedHost))
     }
 
     private suspend fun getFullMovie(movie: Movie): Movie {
@@ -379,17 +357,11 @@ class VideoRepositoryImpl @Inject constructor(
     override fun onPlaylistChanged(
         seasonPosition: Int,
         episodePosition: Int
-    ): Flow<DataResult<SerialEpisode>> {
-        return flow {
-            val serialSeason = currentMovie?.serialData?.seasons?.getOrNull(seasonPosition)
-            val value = serialSeason?.episodes ?: emptyList()
-            updateStore(serialSeason, value)
-            val episode = videoCache.currentSeason?.episodes?.getOrNull(episodePosition)
-            emit(episode)
-        }
-            .map { it.toResult() }
-            .flowOn(Dispatchers.IO)
-
+    ): Flow<DataResult<SerialEpisode>> = doAsync {
+        val serialSeason = currentMovie?.serialData?.seasons?.getOrNull(seasonPosition)
+        val value = serialSeason?.episodes ?: emptyList()
+        updateStore(serialSeason, value)
+        videoCache.currentSeason?.episodes?.getOrNull(episodePosition)
     }
 
     private fun getMovieId(movie: Movie): Int? {

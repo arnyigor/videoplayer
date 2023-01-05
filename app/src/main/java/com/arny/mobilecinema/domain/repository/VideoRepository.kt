@@ -4,15 +4,16 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.di.models.MainPageContent
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.HostsData
 import kotlinx.coroutines.flow.Flow
 
 interface VideoRepository {
-    fun searchMovie(search: String): Flow<DataResult<List<Movie>>>
+    fun searchMovie(search: String): Flow<DataResult<MainPageContent>>
     fun getAllVideos(): Flow<DataResult<MainPageContent>>
     fun getTypedVideos(type: String?): Flow<DataResult<MainPageContent>>
     fun loadMovie(movie: Movie): Flow<DataResult<Movie>>
     fun setHost(source: String, resetHost: Boolean = true)
-    fun getAllHosts(): Flow<DataResult<Pair<Array<String>, Int>>>
+    fun getAllHosts(): Flow<DataResult<HostsData>>
     fun onPlaylistChanged(
         seasonPosition: Int,
         episodePosition: Int
@@ -20,6 +21,6 @@ interface VideoRepository {
 
     fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>>
     fun clearCache(movie: Movie?): Flow<DataResult<Boolean>>
-    fun searchCached(searchText: String): Flow<List<Movie>>
+    fun searchCached(searchText: String): Flow<DataResult<List<Movie>>>
     fun getAllCached(): Flow<DataResult<List<Movie>>>
 }

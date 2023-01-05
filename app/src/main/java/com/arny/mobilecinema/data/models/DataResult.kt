@@ -17,8 +17,8 @@ sealed class DataResult<out T : Any> {
     }
 }
 
-fun <T : Any> doRequest(
-    request: suspend () -> T
+fun <T : Any> doAsync(
+    request: suspend () -> T?
 ) = flow<DataResult<T>> {
     request().also { data ->
         emit(DataResult.Success(data))

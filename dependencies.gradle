@@ -204,6 +204,8 @@ ext {
         implementation "com.afollestad.material-dialogs:core:$version"
         implementation "com.afollestad.material-dialogs:input:$version"
         implementation "com.afollestad.material-dialogs:color:$version"
+        implementation "com.afollestad.material-dialogs:bottomsheets:$version"
+        implementation "com.afollestad.material-dialogs:files:$version"
     }}
 
     groupie = { version = '2.8.1' -> Alias {

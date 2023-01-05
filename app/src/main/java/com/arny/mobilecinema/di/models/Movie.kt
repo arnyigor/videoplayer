@@ -1,8 +1,9 @@
 package com.arny.mobilecinema.di.models
 
-import android.os.Parcel
 import android.os.Parcelable
+import kotlinx.parcelize.Parcelize
 
+@Parcelize
 data class Movie constructor(
     val uuid: String,
     val title: String,
@@ -14,44 +15,4 @@ data class Movie constructor(
     val currentSeasonPosition: Int = 0,
     val currentEpisodePosition: Int = 0,
     val selectedQuality: String? = null,
-) : Parcelable {
-    constructor(parcel: Parcel) : this(
-        parcel.readString() ?: "",
-        parcel.readString() ?: "-",
-        MovieType.fromValue(parcel.readInt()),
-        parcel.readString(),
-        parcel.readString(),
-        parcel.readParcelable(Video::class.java.classLoader),
-        parcel.readParcelable(SerialData::class.java.classLoader),
-        parcel.readInt(),
-        parcel.readInt(),
-        parcel.readString()
-    )
-
-    override fun writeToParcel(parcel: Parcel, flags: Int) {
-        parcel.writeString(uuid)
-        parcel.writeString(title)
-        parcel.writeInt(type.type)
-        parcel.writeString(detailUrl)
-        parcel.writeString(img)
-        parcel.writeParcelable(video, flags)
-        parcel.writeParcelable(serialData, flags)
-        parcel.writeInt(currentSeasonPosition)
-        parcel.writeInt(currentEpisodePosition)
-        parcel.writeString(selectedQuality)
-    }
-
-    override fun describeContents(): Int {
-        return 0
-    }
-
-    companion object CREATOR : Parcelable.Creator<Movie> {
-        override fun createFromParcel(parcel: Parcel): Movie {
-            return Movie(parcel)
-        }
-
-        override fun newArray(size: Int): Array<Movie?> {
-            return arrayOfNulls(size)
-        }
-    }
-}
+) : Parcelable

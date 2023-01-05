@@ -1,38 +1,56 @@
 package com.arny.mobilecinema.presentation.home
 
-import android.widget.Button
+import android.view.LayoutInflater
+import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.databinding.ITypeBinding
 import com.arny.mobilecinema.di.models.VideoMenuLink
-import com.arny.mobilecinema.presentation.utils.SimpleAbstractAdapter
+import com.arny.mobilecinema.presentation.utils.diffItemCallback
 
-class VideoTypesAdapter : SimpleAbstractAdapter<VideoMenuLink>() {
-    override fun getDiffCallback(): DiffCallback<VideoMenuLink> {
-        return object : DiffCallback<VideoMenuLink>() {
-            override fun areItemsTheSame(
-                oldItem: VideoMenuLink,
-                newItem: VideoMenuLink
-            ): Boolean = oldItem == newItem
-
-            override fun areContentsTheSame(
-                oldItem: VideoMenuLink,
-                newItem: VideoMenuLink
-            ): Boolean = oldItem == newItem
+class VideoTypesAdapter(
+    private val onItemClick: (position: Int, item: VideoMenuLink) -> Unit
+) : ListAdapter<VideoMenuLink, VideoTypesAdapter.VideoTypesViewHolder>(
+    diffItemCallback(
+        itemsTheSame = { item1, item2 ->
+            item1.title == item2.title
         }
+    )
+) {
+
+    val items: List<VideoMenuLink>
+        get() = currentList
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideoTypesViewHolder {
+        return VideoTypesViewHolder(
+            ITypeBinding.inflate(
+                LayoutInflater.from(parent.context), parent, false
+            )
+        )
     }
 
-    override fun getLayout(viewType: Int): Int = R.layout.i_type
+    override fun onBindViewHolder(holder: VideoTypesViewHolder, position: Int) {
+        holder.bind(getItem(holder.absoluteAdapterPosition))
+    }
 
-    override fun bindView(item: VideoMenuLink, viewHolder: VH) {
-        val adapterPosition = viewHolder.adapterPosition
-        viewHolder.itemView.apply {
-            val btn = findViewById<Button>(R.id.btnType)
-            btn.text = item.title
-            if (item.selected) {
-                btn.setBackgroundColor(ContextCompat.getColor(btn.context,R.color.btn_state_selected))
-            }
-            btn.setOnClickListener {
-                listener?.onItemClick(adapterPosition, item)
+    inner class VideoTypesViewHolder(private val itemBinding: ITypeBinding) :
+        RecyclerView.ViewHolder(itemBinding.root) {
+        fun bind(item: VideoMenuLink) {
+            with(itemBinding) {
+                btnType.text = item.title
+                if (item.selected) {
+                    btnType.setBackgroundColor(
+                        ContextCompat.getColor(
+                            itemBinding.root.context,
+                            R.color.btn_state_selected
+                        )
+                    )
+                }
+                btnType.setOnClickListener {
+                    onItemClick(absoluteAdapterPosition, item)
+                }
             }
         }
     }
