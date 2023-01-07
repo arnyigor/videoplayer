@@ -1,13 +1,17 @@
 package com.arny.mobilecinema.presentation
 
 import android.os.Bundle
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.navigation.findNavController
 import androidx.navigation.ui.NavigationUI
 import androidx.navigation.ui.setupActionBarWithNavController
+import androidx.navigation.ui.setupWithNavController
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.databinding.AMainBinding
 import com.arny.mobilecinema.presentation.utils.setupWithNavController
+import com.arny.mobilecinema.presentation.utils.showSnackBar
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
@@ -15,7 +19,9 @@ import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
 import javax.inject.Inject
 
-class MainActivity : AppCompatActivity(R.layout.a_main), HasAndroidInjector {
+class MainActivity : AppCompatActivity(), HasAndroidInjector {
+    private lateinit var binding: AMainBinding
+    private var backPressedTime: Long = 0
 
     @Inject
     lateinit var dispatchingAndroidInjector: DispatchingAndroidInjector<Any>
@@ -25,56 +31,32 @@ class MainActivity : AppCompatActivity(R.layout.a_main), HasAndroidInjector {
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidInjection.inject(this)
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null) {
-            setUpNavigation()
-        }
-    }
-
-    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
-        super.onRestoreInstanceState(savedInstanceState)
-        setUpNavigation()
-    }
-
-    private fun setUpNavigation() {
-        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bttm_nav)
+        binding = AMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        setSupportActionBar(findViewById(R.id.toolbar))
         val navController = findNavController(R.id.nav_host_fragment)
-        NavigationUI.setupWithNavController(bottomNavigationView, navController)
-
-        navController.addOnDestinationChangedListener { _, destination, _ ->
-            when (destination.id) {
-                R.id.nav_details -> {
-                    bottomNavigationView.isVisible = false
-                }
-                else -> {
-                    bottomNavigationView.isVisible = true
+        // Find reference to bottom navigation view
+        val navView: BottomNavigationView = findViewById(R.id.bottom_nav_view)
+        // Hook your navigation controller to bottom navigation view
+        navView.setupWithNavController(navController)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val isLastFragment = navController.currentDestination?.id == R.id.nav_home
+                if (isLastFragment) {
+                    if (backPressedTime + TIME_DELAY > System.currentTimeMillis()) {
+                        finishAffinity()
+                    } else {
+                        binding.root.showSnackBar(getString(R.string.press_back_again_to_exit))
+                    }
+                    backPressedTime = System.currentTimeMillis()
+                } else {
+                    navController.navigateUp()
                 }
             }
-        }
-    }
-
-    private fun showBottomNav(vis: Boolean) {
-        findViewById<BottomNavigationView>(R.id.bttm_nav).isVisible = vis
-    }
-
-    private fun setupBottomNavigationBar() {
-        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bttm_nav)
-        val navGraphIds = listOf(
-            R.navigation.nav_graph_home,
-            R.navigation.nav_graph_history,
-            R.navigation.nav_graph_prefs
-        )
-        val controller = bottomNavigationView.setupWithNavController(
-            navGraphIds = navGraphIds,
-            fragmentManager = supportFragmentManager,
-            containerId = R.id.nav_host_fragment,
-            intent = intent
-        )
-        controller.observe(this, { navController ->
-            setupActionBarWithNavController(navController)
         })
-        findNavController(R.id.nav_host_fragment)
-            .addOnDestinationChangedListener { _, destination, _ ->
-                showBottomNav(destination.id != R.id.nav_details)
-            }
+    }
+
+    private companion object {
+        const val TIME_DELAY = 2000
     }
 }

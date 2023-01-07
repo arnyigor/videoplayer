@@ -95,9 +95,8 @@ class VideoRepositoryImpl @Inject constructor(
         return doc
     }
 
-    private suspend fun getMainPageContent(doc: Document?): DataResult<MainPageContent> {
-        return MainPageContent(getMainVideos(doc), getMenuLinks(doc)).toResult()
-    }
+    private suspend fun getMainPageContent(doc: Document?): DataResult<MainPageContent> =
+        MainPageContent(getMainVideos(doc), getMenuLinks(doc)).toResult()
 
     private fun getMenuLinks(doc: Document?): MutableList<VideoMenuLink> {
         val menuItems = getSource().getMenuItems(doc)
@@ -193,12 +192,16 @@ class VideoRepositoryImpl @Inject constructor(
                     currentMovie = fromPrefs
                     currentMovie!!
                 } else {
-                    val value = getFullMovie(movie)
-                    videoCache.addToCache(value)
-                    if (storeProvider.canSaveToStore()) {
-                        storeProvider.saveToStore(value)
+                    try {
+                        val value = getFullMovie(movie)
+                        videoCache.addToCache(value)
+                        if (storeProvider.canSaveToStore()) {
+                            storeProvider.saveToStore(value)
+                        }
+                        currentMovie = value
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
-                    currentMovie = value
                     currentMovie!!
                 }
             }
@@ -239,7 +242,7 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getFullMovie(movie: Movie): Movie {
-        val videoUrl = movie.video?.videoUrl ?: ""
+        val videoUrl = movie.video?.videoUrl.orEmpty()
         return when (movie.type) {
             MovieType.CINEMA, MovieType.SERIAL -> getRemoteContent(movie)
             MovieType.CINEMA_LOCAL, MovieType.SERIAL_LOCAL -> getSDContent(movie, videoUrl)
@@ -299,16 +302,16 @@ class VideoRepositoryImpl @Inject constructor(
         val movieId = getMovieId(movie)
         return when (val type = getSource().getMovieType(movie)) {
             MovieType.CINEMA -> returnCinema(
-                movie,
-                type,
-                movieId,
-                title,
-                getSource().getQualityMap(hlsList)
+                movie = movie,
+                type = type,
+                movieId = movieId,
+                title = title,
+                hlsQualityMap = getSource().getQualityMap(hlsList)
             )
             MovieType.SERIAL -> returnSerial(
-                movie,
-                type,
-                getSource().parsingSerialData(hlsList)
+                movie = movie,
+                type = type,
+                serialData = getSource().parsingSerialData(hlsList)
             )
             MovieType.CINEMA_LOCAL, MovieType.SERIAL_LOCAL -> throw IllegalStateException()
         }
@@ -401,6 +404,6 @@ class VideoRepositoryImpl @Inject constructor(
 
     private fun getMinQualityKey(hlsQualityMap: HashMap<String, String>?): String? {
         val keys = hlsQualityMap?.keys
-        return keys?.map { it.toIntOrNull() ?: 0 }?.minOrNull()?.toString() ?: keys?.first()
+        return keys?.minOfOrNull { it.toIntOrNull() ?: 0 }?.toString() ?: keys?.first()
     }
 }

@@ -1,22 +1,23 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-parcelize'
 apply plugin: 'kotlin-kapt'
-apply plugin: "androidx.navigation.safeargs.kotlin"
-apply from: "$dep_aliases"
+apply plugin: "androidx.navigation.safeargs"
+apply from: "$rootProject.projectDir/dependencies.gradle"
 apply from: "$rootProject.projectDir/commonconfig.gradle"
+apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
-
 }
 
 dependencies {
     kotlin()
-    firebaseBom()
+    core()
     coroutines()
     moxy()
     rxjava3()
-    coroutineScopes()
     lifecycle()
+    activity()
     fragment()
     recycler()
     cardview()

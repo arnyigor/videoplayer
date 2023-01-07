@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.arny.mobilecinema.data.models.DataThrowable
@@ -18,10 +19,11 @@ fun AppCompatActivity.hideSystemBar() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         window.setDecorFitsSystemWindows(false)
     } else {
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_FULLSCREEN
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.R)
 fun Activity.lockOrientation() {
     val rotation = this.display?.rotation
     val orientLand = rotation == ActivityInfo.SCREEN_ORIENTATION_BEHIND

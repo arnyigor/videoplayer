@@ -16,7 +16,6 @@ import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
-import com.arny.mobilecinema.data.repository.sources.cache.CacheDataSourceFactory
 import com.arny.mobilecinema.databinding.FDetailsBinding
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
@@ -25,19 +24,15 @@ import com.arny.mobilecinema.di.models.Video
 import com.arny.mobilecinema.presentation.utils.*
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
-import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
-import com.google.android.exoplayer2.source.TrackGroupArray
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.trackselection.TrackSelection
-import com.google.android.exoplayer2.trackselection.TrackSelectionArray
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
 import com.google.android.exoplayer2.util.EventLogger
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
@@ -71,7 +66,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
     private var videoStartRestore = false
     private var videoRestored = false
     private val args: DetailsFragmentArgs by navArgs()
-    private var exoPlayer: SimpleExoPlayer? = null
+    private var exoPlayer: ExoPlayer? = null
     private var orientationLocked: Boolean = false
     private var playControlsVisible by Delegates.observable(true) { _, oldValue, visible ->
         if (oldValue != visible && isVisible) {
@@ -129,17 +124,10 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
 
     @Inject
     lateinit var presenterProvider: Provider<DetailsPresenter>
-
     private val presenter by moxyPresenter { presenterProvider.get() }
-
     private val binding by viewBinding { FDetailsBinding.bind(it).also(::initBinding) }
-
-    private val playerListener = object : Player.EventListener {
-
-        override fun onTracksChanged(
-            trackGroups: TrackGroupArray,
-            trackSelections: TrackSelectionArray
-        ) {
+    private val playerListener = object : Player.Listener {
+        override fun onTracksChanged(tracks: Tracks) {
             if (isVisible) {
                 trackSelector?.let { _ ->
                     (exoPlayer?.currentTimeline
@@ -215,6 +203,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
         when (data) {
             is DataResult.Success -> onMovieLoaded(data.data)
             is DataResult.Error -> toastError(data.throwable)
+            else -> {}
         }
     }
 
@@ -460,24 +449,19 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
     }
 
     private fun createPlayer() {
-
-        val adaptiveTrackSelection: TrackSelection.Factory = AdaptiveTrackSelection.Factory()
-        trackSelector = DefaultTrackSelector(requireContext(), adaptiveTrackSelection)
+        trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
         trackSelector?.let { selector ->
-            val loadControl =
-                DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(
-                        BUFFER_64K,
-                        BUFFER_128K,
-                        BUFFER_1K,
-                        BUFFER_1K
-                    )
-                    .build()
-            exoPlayer = SimpleExoPlayer.Builder(
-                requireContext(),
-                DefaultRenderersFactory(requireContext())
-            )
-                .setLoadControl(loadControl)
+            exoPlayer = ExoPlayer.Builder(requireContext())
+                .setLoadControl(
+                    DefaultLoadControl.Builder()
+                        .setBufferDurationsMs(
+                            BUFFER_64K,
+                            BUFFER_128K,
+                            BUFFER_1K,
+                            BUFFER_1K
+                        )
+                        .build()
+                )
                 .setTrackSelector(selector)
                 .build()
             exoPlayer?.addAnalyticsListener(EventLogger(trackSelector))
@@ -598,8 +582,7 @@ class DetailsFragment : MvpAppCompatFragment(), DetailsView {
             .setMediaId(id.toString())
             .setMediaMetadata(metadata)
             .build()
-        CacheDataSourceFactory(context, 100 * 1024 * 1024, 5 * 1024 * 1024)
-        return HlsMediaSource.Factory(DefaultHttpDataSourceFactory())
+        return HlsMediaSource.Factory(DefaultHttpDataSource.Factory())
             .createMediaSource(item)
     }
 

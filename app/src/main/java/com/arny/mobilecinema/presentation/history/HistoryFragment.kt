@@ -76,7 +76,7 @@ class HistoryFragment : MvpAppCompatFragment(), HistoryView, CoroutineScope {
         groupAdapter.setOnItemClickListener { item, _ ->
             val video = (item as HistoryVideoItem).movie
             binding.root.findNavController()
-                .navigate(HistoryFragmentDirections.actionNavHistoryToNavDetails2(video))
+                .navigate(HistoryFragmentDirections.actionNavHistoryToNavDetails(video))
         }
         rvHistoryList.also {
             it.adapter = groupAdapter

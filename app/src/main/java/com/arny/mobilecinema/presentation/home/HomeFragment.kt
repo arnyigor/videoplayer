@@ -23,7 +23,6 @@ import com.xwray.groupie.GroupAdapter
 import com.xwray.groupie.GroupieViewHolder
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
 import moxy.MvpAppCompatFragment
@@ -154,7 +153,7 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
         groupAdapter.setOnItemClickListener { item, _ ->
             val video = (item as VideoItem).movie
             binding.root.findNavController()
-                .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(video))
+                .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(video))
         }
         rcVideoList.apply {
             adapter = groupAdapter
@@ -245,7 +244,7 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
                         )
                     )
                     binding.root.findNavController()
-                        .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
+                        .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(movie))
                 }
                 REQUEST_OPEN_FOLDER -> {
                     val dataString = data?.dataString
@@ -261,7 +260,7 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
                         )
                     )
                     binding.root.findNavController()
-                        .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
+                        .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(movie))
                 }
             }
         }

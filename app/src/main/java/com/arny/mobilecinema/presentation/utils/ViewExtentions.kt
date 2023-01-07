@@ -10,6 +10,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import androidx.annotation.ColorInt
 import androidx.core.widget.addTextChangedListener
+import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -58,6 +59,10 @@ fun EditText.getQueryTextChangeStateFlow(): StateFlow<String> {
         }
     }
     return query
+}
+
+fun View.showSnackBar(message: String, duration: Int = BaseTransientBottomBar.LENGTH_SHORT) {
+    Snackbar.make(this, message, duration).show()
 }
 
 fun View.showSnackBar(

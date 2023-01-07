@@ -1,1 +1,39 @@
-https://d71-e8e-2400g0.streamalloha.live/hs/40/1673077344/EtMOGqF9XCjWeSrol5RPYg/542/477542/master.m3u8
+[
+    {
+        "episodes": [
+            {
+                "episode": "4",
+                "id": 64,
+                "title": "Пес",
+                "hlsList": {
+                    "720": "https://b86-b4d-2100g0.streamalloha.live/hs/40/1673088583/0TcQJrA7AcQtHpac7oZaaw/503/477503/master.m3u8"
+                }
+            },
+            {
+                "episode": "5",
+                "id": 65,
+                "title": "Пес",
+                "hlsList": {
+                    "720": "https://9bc-a3e-2200g0.streamalloha.live/hs/40/1673088689/X1FkvsoZfqfbW_Q5KY00BQ/505/477505/master.m3u8"
+                }
+            },
+            {
+                "episode": "6",
+                "id": 66,
+                "title": "Пес",
+                "hlsList": {
+                    "720": "https://b86-b4d-2100g0.streamalloha.live/hs/40/1673088794/CKFQQ5IZPBrX1SPUlPnn2w/514/477514/master.m3u8"
+                }
+            },
+            {
+                "episode": "7",
+                "id": 67,
+                "title": "Пес",
+                "hlsList": {
+                    "720": "https://b86-b4d-2100g0.streamalloha.live/hs/40/1673088867/Aoz0Axu9LWOrYfY4jx5d1g/512/477512/master.m3u8"
+                }
+            },
+        ],
+        "season": 6
+    }
+]
