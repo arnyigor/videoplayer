@@ -29,14 +29,12 @@ class MockDataVideoSource(
     override val addMainPageHeaders: Map<String, String?>
         get() = emptyMap()
 
-    override suspend fun getMainPageLinks(doc: Document?): Elements {
-        return withContext(Dispatchers.IO) {
-            val file = when (hostStore.host) {
-                HostStoreImpl.HOST_MOCK -> "demo/links.txt"
-                else -> "demo/links.txt"
-            }
-            Jsoup.parse(assetsReader.readFileText(file)).body().select("a")
+    override suspend fun getMainPageLinks(doc: Document?): Elements = withContext(Dispatchers.IO) {
+        val file = when (hostStore.host) {
+            HostStoreImpl.HOST_MOCK -> "demo/links.txt"
+            else -> "demo/links.txt"
         }
+        Jsoup.parse(assetsReader.readFileText(file)).body().select("a")
     }
 
     override fun getSearchFields(search: String): Map<String, String> {
@@ -93,15 +91,13 @@ class MockDataVideoSource(
         return VideoMenuLink(link.text(), link.attr("href"))
     }
 
-    override suspend fun getDetailsDoc(movie: Movie): Document {
-        return withContext(Dispatchers.IO) {
-            val readFileText = assetsReader.readFileText("demo/links.txt")
-            val linksDoc = Jsoup.parse(readFileText)
-            val links = linksDoc.select("a").map { it.attr("href").toString() }
-            val index = links.indexOf(movie.detailUrl)
-            val fileData = assetsReader.readFileText("demo/source_$index.txt")
-            Jsoup.parse("<script>$fileData</script>")
-        }
+    override suspend fun getDetailsDoc(movie: Movie): Document = withContext(Dispatchers.IO) {
+        val readFileText = assetsReader.readFileText("demo/links.txt")
+        val linksDoc = Jsoup.parse(readFileText)
+        val links = linksDoc.select("a").map { it.attr("href").toString() }
+        val index = links.indexOf(movie.detailUrl)
+        val fileData = assetsReader.readFileText("demo/source_$index.txt")
+        Jsoup.parse("<script>$fileData</script>")
     }
 
     override suspend fun getVideoDoc(detailsDoc: Document): Document {

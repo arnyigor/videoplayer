@@ -249,7 +249,7 @@ class HomeFragment : Fragment() {
             )
         )
         binding.root.findNavController()
-            .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
+            .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(movie))
     }
 
     private fun onOpenFile(data: Intent?) {
@@ -265,7 +265,7 @@ class HomeFragment : Fragment() {
             )
         )
         binding.root.findNavController()
-            .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(movie))
+            .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(movie))
     }
 
     private fun updateList(pageContent: MainPageContent) {

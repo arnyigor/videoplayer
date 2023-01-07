@@ -1,7 +1,6 @@
 package com.arny.mobilecinema.presentation.utils.strings
 
 import android.content.Context
-import com.arny.mobilecinema.presentation.utils.IWrappedString
 
 class ParametricString(private val format: String, private vararg val params: Any?) :
     IWrappedString {

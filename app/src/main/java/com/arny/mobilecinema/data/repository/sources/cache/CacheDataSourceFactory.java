@@ -4,9 +4,7 @@ import android.content.Context;
 
 import com.arny.mobilecinema.R;
 import com.google.android.exoplayer2.upstream.DataSource;
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
 import com.google.android.exoplayer2.upstream.FileDataSource;
 import com.google.android.exoplayer2.upstream.cache.CacheDataSink;
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
@@ -27,10 +25,7 @@ public class CacheDataSourceFactory implements DataSource.Factory {
         this.maxCacheSize = maxCacheSize;
         this.maxFileSize = maxFileSize;
         String userAgent = Util.getUserAgent(context, context.getString(R.string.app_name));
-        DefaultBandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
-        defaultDatasourceFactory = new DefaultDataSourceFactory(this.context,
-                bandwidthMeter,
-                new DefaultHttpDataSourceFactory(userAgent, bandwidthMeter));
+        defaultDatasourceFactory = new DefaultDataSourceFactory(this.context, userAgent);
     }
 
     @Override

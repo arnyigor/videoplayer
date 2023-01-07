@@ -13,6 +13,7 @@ import androidx.annotation.ColorInt
 import androidx.core.widget.addTextChangedListener
 import androidx.core.widget.doOnTextChanged
 import com.google.android.exoplayer2.util.Assertions.checkMainThread
+import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
@@ -75,6 +76,10 @@ fun EditText.getQueryTextChangeStateFlow(): StateFlow<String> {
         }
     }
     return query
+}
+
+fun View.showSnackBar(message: String, duration: Int = BaseTransientBottomBar.LENGTH_SHORT) {
+    Snackbar.make(this, message, duration).show()
 }
 
 fun View.showSnackBar(

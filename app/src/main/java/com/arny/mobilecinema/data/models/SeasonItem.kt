@@ -6,7 +6,7 @@ data class SeasonItem(
     @SerializedName("season")
     val season: Int,
     @SerializedName("episodes")
-    val episodes: List<EpisodesItem>
+    val episodes: List<EpisodesItem?>
 )
 
 data class EpisodesItem(

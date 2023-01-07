@@ -10,9 +10,7 @@ class HostStoreImpl @Inject constructor(
     @Volatile
     override var host: String? = null
     override val baseUrl: String
-        get() = baseUrls.find { s ->
-            host == s.toHost()
-        } ?: ""
+        get() = baseUrls.find { s -> host == s.toHost() }.orEmpty()
 
     override val mainPageHeaders: Map<String, String?>
         get() = baseHeaders
@@ -33,20 +31,11 @@ class HostStoreImpl @Inject constructor(
     override fun getCurrentHost(): String? = prefs.get<String>(PrefsConstants.PREF_CURRENT_HOST)
 
     internal companion object HOSTS {
-        const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
-        const val LORDFILM_ADA_HOST = "ada.lordsfilms.tube"
-        const val ALL_TABFILL_HOST = "al.tabfil.me"
-        const val ONLINE_VKINO_HOST = "onlinevkino.com"
         const val HOST_MOCK = "DemoContent"
     }
 
     override val baseUrls: List<String>
-        get() = listOf(
-            "http://al.lordfilms-s.pw/",
-            "https://ada.lordsfilms.tube/",
-            "http://al.tabfil.me/",
-            "https://onlinevkino.com/",
-        )
+        get() = listOf()
 
     override val availableHosts: List<String>
         get() = baseUrls.mapNotNull { it.toHost() } + listOf(

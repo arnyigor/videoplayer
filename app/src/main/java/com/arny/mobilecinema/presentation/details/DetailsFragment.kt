@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration.ORIENTATION_LANDSCAPE
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.*
 import android.widget.AdapterView
@@ -19,7 +20,6 @@ import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
-import com.arny.mobilecinema.data.repository.sources.cache.CacheDataSourceFactory
 import com.arny.mobilecinema.databinding.FDetailsBinding
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
@@ -31,15 +31,12 @@ import com.google.android.exoplayer2.Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
-import com.google.android.exoplayer2.source.TrackGroupArray
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.trackselection.TrackSelection
-import com.google.android.exoplayer2.trackselection.TrackSelectionArray
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
 import com.google.android.exoplayer2.util.EventLogger
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
@@ -202,6 +199,7 @@ class DetailsFragment : Fragment() {
         when (data) {
             is DataResult.Success -> onMovieLoaded(data.result)
             is DataResult.Error -> toastError(data.throwable)
+            else -> {}
         }
     }
 
@@ -221,7 +219,9 @@ class DetailsFragment : Fragment() {
             requireActivity().unlockOrientation()
         } else {
             orientationLocked = true
-            requireActivity().lockOrientation()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                requireActivity().lockOrientation()
+            }
         }
         setScreenLockImg()
     }
@@ -447,21 +447,19 @@ class DetailsFragment : Fragment() {
     }
 
     private fun createPlayer() {
-
-        val adaptiveTrackSelection: TrackSelection.Factory = AdaptiveTrackSelection.Factory()
-        trackSelector = DefaultTrackSelector(requireContext(), adaptiveTrackSelection)
+        trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
         trackSelector?.let { selector ->
-            val loadControl =
-                DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(
-                        BUFFER_64K,
-                        BUFFER_128K,
-                        BUFFER_1K,
-                        BUFFER_1K
-                    )
-                    .build()
             exoPlayer = ExoPlayer.Builder(requireContext())
-                .setLoadControl(loadControl)
+                .setLoadControl(
+                    DefaultLoadControl.Builder()
+                        .setBufferDurationsMs(
+                            BUFFER_64K,
+                            BUFFER_128K,
+                            BUFFER_1K,
+                            BUFFER_1K
+                        )
+                        .build()
+                )
                 .setTrackSelector(selector)
                 .build()
             exoPlayer?.addAnalyticsListener(EventLogger(trackSelector))
@@ -582,8 +580,7 @@ class DetailsFragment : Fragment() {
             .setMediaId(id.toString())
             .setMediaMetadata(metadata)
             .build()
-        CacheDataSourceFactory(context, 100 * 1024 * 1024, 5 * 1024 * 1024)
-        return HlsMediaSource.Factory(DefaultHttpDataSourceFactory())
+        return HlsMediaSource.Factory(DefaultHttpDataSource.Factory())
             .createMediaSource(item)
     }
 
@@ -664,10 +661,10 @@ class DetailsFragment : Fragment() {
 
     private fun setFullScreen(appCompatActivity: AppCompatActivity?, setFullScreen: Boolean) {
         if (setFullScreen) {
-            appCompatActivity?.hideSystemBar()
+            requireActivity().window.hideSystemBar()
             appCompatActivity?.window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
         } else {
-            appCompatActivity?.showSystemBar()
+            requireActivity().window.showSystemBar()
             appCompatActivity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
         }
     }

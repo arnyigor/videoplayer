@@ -9,6 +9,12 @@ def Alias(Closure closure) {
 }
 
 ext {
+    versions = [
+            minSdkVersion            : 21,
+            compileSdkVersion        : 33,
+            targetSdkVersion         : 33,
+            buildToolsVersion        : "33.0.1"
+    ]
 
     kotlin = { stdlib_version = KOTLIN_VERSION  -> Alias {
         implementation "org.jetbrains.kotlin:kotlin-stdlib:$stdlib_version"
@@ -32,11 +38,15 @@ ext {
         implementation "androidx.activity:activity-ktx:$version"
     }}
 
+    core = { version = '1.9.0' -> Alias {
+        implementation "androidx.core:core-ktx:$version"
+    }}
+
     drawerlayout = { version = '1.0.0' -> Alias {
         implementation "androidx.drawerlayout:drawerlayout:$version"
     }}
 
-    moxy = { moxyVersion = '2.2.1' -> Alias {
+    moxy = { moxyVersion = '2.2.2' -> Alias {
         implementation "com.github.moxy-community:moxy:$moxyVersion"
         implementation "com.github.moxy-community:moxy-androidx:$moxyVersion"
         implementation "com.github.moxy-community:moxy-ktx:$moxyVersion"
@@ -208,10 +218,9 @@ ext {
         implementation "com.afollestad.material-dialogs:files:$version"
     }}
 
-    groupie = { version = '2.8.1' -> Alias {
-        implementation "com.xwray:groupie:$version"
-        implementation "com.xwray:groupie-kotlin-android-extensions:$version"
-        implementation "com.xwray:groupie-viewbinding:$version"
+    groupie = { version = '2.9.0' -> Alias {
+        implementation "com.github.lisawray.groupie:groupie:$version"
+        implementation "com.github.lisawray.groupie:groupie-viewbinding:$version"
     }}
 
     leakcanary = { version = '2.6' -> Alias {
@@ -229,6 +238,7 @@ ext {
 
     androidTest = { -> Alias {
         androidTestImplementation 'org.mockito:mockito-android:3.1.0'
+        androidTestImplementation 'com.kaspersky.android-components:kaspresso:1.0.1'
         androidTestImplementation 'androidx.test.ext:junit:1.1.1'
         androidTestImplementation 'androidx.test:runner:1.2.0'
     }}

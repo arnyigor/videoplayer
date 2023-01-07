@@ -108,12 +108,14 @@ fun String.substringAfterBefore(after: String, before: String) =
 private fun SeasonItem.fillEposides(): SerialSeason {
     val episodes = mutableListOf<SerialEpisode>()
     for (episodesItem in this.episodes) {
-        val serialEpisode = SerialEpisode(
-            id = episodesItem.episode.toIntOrNull() ?: 0,
-            title = episodesItem.title,
-            hlsList = episodesItem.hlsList
-        )
-        episodes.add(serialEpisode)
+        if (episodesItem!=null) {
+            val serialEpisode = SerialEpisode(
+                id = episodesItem.episode.toIntOrNull() ?: 0,
+                title = episodesItem.title,
+                hlsList = episodesItem.hlsList
+            )
+            episodes.add(serialEpisode)
+        }
     }
     episodes.sortBy { it.id }
     return SerialSeason(this.season, episodes)

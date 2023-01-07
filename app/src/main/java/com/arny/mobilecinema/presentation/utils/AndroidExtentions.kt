@@ -11,6 +11,7 @@ import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.database.Cursor
 import android.graphics.Bitmap
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
@@ -40,6 +41,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.database.getStringOrNull
 import androidx.core.widget.ImageViewCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -47,6 +49,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +57,16 @@ import java.io.File
 import kotlin.math.roundToInt
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
+
+fun Cursor.getStringOrDefault(
+    columnName: String,
+    default: String = "Unknown"
+): String {
+    val index = getColumnIndex(columnName)
+    return if (index >= 0) {
+        this.getStringOrNull(index) ?: default
+    } else default
+}
 
 fun Context.getDrawableCompat(@DrawableRes drawableRes: Int): Drawable? =
     AppCompatResources.getDrawable(this, drawableRes)
@@ -130,6 +143,20 @@ fun TextView.setDrawableWithTint(drawable: Drawable?, position: Int, @ColorInt c
 
         else -> {
         }
+    }
+}
+
+fun Activity.hideKeyboard(flags: Int = 0) {
+    try {
+        val imm = this.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        if (imm != null) {
+            val focus = this.window.decorView.rootView
+            if (focus != null) {
+                imm.hideSoftInputFromWindow(focus.windowToken, flags)
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
     }
 }
 
@@ -354,6 +381,18 @@ fun ImageView.setImgFromDrawable(
 
 fun isOreoPlus() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 
+fun Activity.sendServiceMessage(cls: Class<Any>, action: String, extras: Bundle.() -> Unit = {}) {
+    Intent(applicationContext, cls).apply {
+        this.action = action
+        this.putExtras(Bundle().apply(extras))
+        if (isOreoPlus()) {
+            startForegroundService(this)
+        } else {
+            startService(this)
+        }
+    }
+}
+
 fun Fragment.sendServiceMessage(cls: Class<Any>, action: String, extras: Bundle.() -> Unit = {}) {
     requireContext().sendServiceMessage(cls, action, extras)
 }
@@ -374,7 +413,7 @@ fun Context.sendServiceMessage(
     }
 }
 
-fun Context.bind(cls: Class<Any>, connection: ServiceConnection): Boolean {
+fun Context.bind(connection: ServiceConnection, cls: Class<Any>): Boolean {
     var bound: Boolean
     Intent(this, cls).also { intent ->
         bound = bindService(intent, connection, Context.BIND_AUTO_CREATE)
@@ -455,4 +494,4 @@ fun Fragment.toastMessage(string: IWrappedString?) {
     }
 }
 
-fun isOlderSDK(version: Int): Boolean = Build.VERSION.SDK_INT >= version
+fun isOlder(version: Int): Boolean = Build.VERSION.SDK_INT >= version
