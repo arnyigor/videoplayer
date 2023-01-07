@@ -3,7 +3,6 @@
     <PreferenceCategory app:title="@string/pref_main_header">
 
         <CheckBoxPreference
-            app:id="@+id/chbCacheAvailable"
             app:key="@string/pref_key_cache_available"
             app:title="@string/settings_cache_item" />
     </PreferenceCategory>

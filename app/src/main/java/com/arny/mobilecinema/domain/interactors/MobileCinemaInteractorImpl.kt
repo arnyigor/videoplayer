@@ -1,4 +1,4 @@
-package com.arny.mobilecinema.domain.interactor
+package com.arny.mobilecinema.domain.interactors
 
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.di.models.MainPageContent
@@ -21,7 +21,9 @@ class MobileCinemaInteractorImpl @Inject constructor(
 
     override fun getAllHosts(): Flow<DataResult<HostsData>> = repository.getAllHosts()
 
-    override fun setHost(source: String) { repository.setHost(source) }
+    override fun setHost(source: String) {
+        repository.setHost(source)
+    }
 
     override fun searchCached(searchText: String): Flow<DataResult<List<Movie>>> =
         repository.searchCached(searchText)
@@ -30,4 +32,9 @@ class MobileCinemaInteractorImpl @Inject constructor(
 
     override fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>> =
         repository.cacheMovie(movie)
+
+    override fun clearCache(movie: Movie?): Flow<DataResult<Boolean>> =
+        repository.clearCache(movie)
+
+    override fun getAllCached(): Flow<DataResult<List<Movie>>> = repository.getAllCached()
 }

@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.di.models.MainPageContent
 import com.arny.mobilecinema.di.models.VideoMenuLink
-import com.arny.mobilecinema.domain.interactor.MobileCinemaInteractor
+import com.arny.mobilecinema.domain.interactors.MobileCinemaInteractor
 import com.arny.mobilecinema.domain.models.HostsData
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow

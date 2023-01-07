@@ -1,17 +1,18 @@
-package com.arny.mobilecinema.presentation.home
+package com.arny.mobilecinema.presentation.history
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.arny.mobilecinema.databinding.IHomeVideoBinding
+import com.arny.mobilecinema.databinding.IHistoryVideoBinding
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.presentation.utils.diffItemCallback
 import com.bumptech.glide.Glide
 
-class VideosAdapter(
-    private val onItemClick: (item: Movie) -> Unit
-) : ListAdapter<Movie, VideosAdapter.VideosViewHolder>(
+class HistoryVideosAdapter(
+    private val onItemClick: (item: Movie) -> Unit,
+    private val onItemClearClick: (item: Movie) -> Unit
+) : ListAdapter<Movie, HistoryVideosAdapter.VideosViewHolder>(
     diffItemCallback(
         itemsTheSame = { item1, item2 ->
             item1.uuid == item2.uuid
@@ -21,10 +22,9 @@ class VideosAdapter(
         }
     )
 ) {
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideosViewHolder =
         VideosViewHolder(
-            IHomeVideoBinding.inflate(
+            IHistoryVideoBinding.inflate(
                 LayoutInflater.from(parent.context), parent, false
             )
         )
@@ -33,13 +33,12 @@ class VideosAdapter(
         holder.bind(getItem(holder.absoluteAdapterPosition))
     }
 
-    inner class VideosViewHolder(private val binding: IHomeVideoBinding) :
+    inner class VideosViewHolder(private val binding: IHistoryVideoBinding) :
         RecyclerView.ViewHolder(binding.root) {
         fun bind(item: Movie) {
             with(binding) {
-                root.setOnClickListener {
-                    onItemClick(item)
-                }
+                root.setOnClickListener { onItemClick(item) }
+                ivClear.setOnClickListener { onItemClearClick(item) }
                 tvVideoTitle.text = item.title
                 var img = item.img
                 if (img.isNullOrBlank()) {

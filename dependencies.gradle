@@ -9,13 +9,6 @@ def Alias(Closure closure) {
 }
 
 ext {
-    versions = [
-            minSdkVersion            : 21,
-            compileSdkVersion        : 33,
-            targetSdkVersion         : 33,
-            buildToolsVersion        : "33.0.1"
-    ]
-
     kotlin = { stdlib_version = KOTLIN_VERSION  -> Alias {
         implementation "org.jetbrains.kotlin:kotlin-stdlib:$stdlib_version"
         implementation "org.jetbrains.kotlin:kotlin-reflect:$stdlib_version"

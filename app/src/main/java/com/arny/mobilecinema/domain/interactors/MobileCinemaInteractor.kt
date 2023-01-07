@@ -1,4 +1,4 @@
-package com.arny.mobilecinema.domain.interactor
+package com.arny.mobilecinema.domain.interactors
 
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.di.models.MainPageContent
@@ -15,4 +15,6 @@ interface MobileCinemaInteractor {
     fun searchCached(searchText: String): Flow<DataResult<List<Movie>>>
     fun loadMovie(movie: Movie): Flow<DataResult<Movie>>
     fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>>
+    fun clearCache(movie: Movie?): Flow<DataResult<Boolean>>
+    fun getAllCached(): Flow<DataResult<List<Movie>>>
 }

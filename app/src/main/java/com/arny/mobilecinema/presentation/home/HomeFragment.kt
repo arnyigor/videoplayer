@@ -114,11 +114,17 @@ class HomeFragment : Fragment() {
         return binding.root
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         updateTitle(getString(R.string.app_name))
         initMenu()
+        initUI()
+        initAdapters()
+        observeData()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+    private fun initUI() {
         with(binding) {
             swiperefresh.setOnRefreshListener {
                 swiperefresh.isRefreshing = false
@@ -145,8 +151,6 @@ class HomeFragment : Fragment() {
                 }
                 .launchIn(lifecycleScope)
         }
-        initAdapters()
-        observeData()
     }
 
     override fun onResume() {
@@ -167,7 +171,7 @@ class HomeFragment : Fragment() {
         binding.rvTypesList.adapter = videoTypesAdapter
         videosAdapter = VideosAdapter { item ->
             binding.root.findNavController()
-                .navigate(HomeFragmentDirections.actionHomeFragmentToDetailsFragment(item))
+                .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(item))
         }
         binding.rcVideoList.apply {
             adapter = videosAdapter

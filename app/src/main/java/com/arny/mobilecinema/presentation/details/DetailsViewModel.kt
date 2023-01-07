@@ -3,14 +3,12 @@ package com.arny.mobilecinema.presentation.details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.data.models.DataResult
-import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.di.models.Movie
-import com.arny.mobilecinema.domain.interactor.MobileCinemaInteractor
+import com.arny.mobilecinema.domain.interactors.MobileCinemaInteractor
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -45,13 +43,12 @@ class DetailsViewModel @Inject constructor(
                     .onStart { _loading.value = true }
                     .onCompletion { _loading.value = false }
                     .collect { content ->
-                        _cached.value = content
-                    }
-                videoRepository.cacheMovie(movie)
-                    .onCompletion { loading.value = false }
-                    .catch { cached.value = getFullError(it) }
-                    .collect { res ->
-                        cached.value = res
+                        when (content) {
+                            is DataResult.Error -> {}
+                            is DataResult.Success -> {
+                                _cached.value = content.result == true
+                            }
+                        }
                     }
             }
         }
@@ -59,11 +56,16 @@ class DetailsViewModel @Inject constructor(
 
     fun clearCache(movie: Movie?) {
         viewModelScope.launch {
-            videoRepository.clearCache(movie)
-                .onCompletion { loading.value = false }
-                .catch { cached.value = getFullError(it) }
-                .collect {
-                    isRemovedFromCache = true
+            interactor.clearCache(movie)
+                .onStart { _loading.value = true }
+                .onCompletion { _loading.value = false }
+                .collect { content ->
+                    when (content) {
+                        is DataResult.Error -> {}
+                        is DataResult.Success -> {
+                            isRemovedFromCache = true
+                        }
+                    }
                 }
         }
     }
