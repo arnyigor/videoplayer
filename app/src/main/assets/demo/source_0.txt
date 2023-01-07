@@ -1,6 +1,1 @@
-{
-cc: [{"url":"https://hls-c1.streamvid.club/12_30_20/12/30/09/GA5FH3PU/25FEDBDJ.vtt","name":"Рус. форсированные"}],
-dash: "https://m1.rumer.fun/manifest/MTc2LjExOC43OC4xNTc=/?video=https%3A%2F%2Fb92efad49c2e24fc8c30ca29014a7b0e65f3d458.streamvid.club%2F01_21%2F02%2F05%2FCVKMSLJA%2F696313.mpd",
-hlsList: {"480":"https://m1.rumer.fun/manifest/MTc2LjExOC43OC4xNTc=/?video=https%3A%2F%2Fb92efad49c2e24fc8c30ca29014a7b0e65f3d458.streamvid.club%2F12_30_20%2F12%2F30%2F18%2FRSCNZ3NP%2FTIABVH4O.mp4/tracks/v2-a/master.m3u8","720":"https://m1.rumer.fun/manifest/MTc2LjExOC43OC4xNTc=/?video=https%3A%2F%2Fb92efad49c2e24fc8c30ca29014a7b0e65f3d458.streamvid.club%2F12_30_20%2F12%2F30%2F18%2FRSCNZ3NP%2FTIABVH4O.mp4/tracks/v1-a/master.m3u8"},
-audio: {"names":["HDRezka Studio","Eng.Original"],"order":[0,1]}
-}
+https://d71-e8e-2400g0.streamalloha.live/hs/40/1673077344/EtMOGqF9XCjWeSrol5RPYg/542/477542/master.m3u8

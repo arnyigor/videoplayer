@@ -35,10 +35,6 @@ class HostStoreImpl @Inject constructor(
     }
 
     internal companion object HOSTS {
-        const val LORDFILM_AL_HOST = "al.lordfilms-s.pw"
-        const val LORDFILM_ADA_HOST = "ada.lordsfilms.tube"
-        const val ALL_TABFILL_HOST = "al.tabfil.me"
-        const val ONLINE_VKINO_HOST = "onlinevkino.com"
         const val HOST_MOCK = "DemoContent"
     }
 
