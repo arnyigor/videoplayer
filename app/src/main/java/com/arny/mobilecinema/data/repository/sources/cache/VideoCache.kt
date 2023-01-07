@@ -11,4 +11,5 @@ interface VideoCache {
     fun getFromCache(title: String): Movie?
     fun searchFromCache(searchText: String): List<Movie>
     fun removeFromCache(movie: Movie): Boolean
+    fun clearAll()
 }

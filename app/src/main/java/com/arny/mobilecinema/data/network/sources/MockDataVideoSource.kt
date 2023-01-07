@@ -9,13 +9,13 @@ import com.arny.mobilecinema.di.models.SerialData
 import com.arny.mobilecinema.di.models.VideoMenuLink
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.ResponseBody
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 import java.nio.charset.Charset
 import java.util.*
+import kotlin.collections.HashMap
 
 class MockDataVideoSource(
     private val hostStore: IHostStore,
@@ -34,16 +34,14 @@ class MockDataVideoSource(
             HostStoreImpl.HOST_MOCK -> "demo/links.txt"
             else -> "demo/links.txt"
         }
-        Jsoup.parse(assetsReader.readFileText(file)).body().select("a")
+      Jsoup.parse(assetsReader.readFileText(file)).body().select("a")
     }
 
-    override fun getSearchFields(search: String): Map<String, String> {
-        return mapOf(
-            "do" to "search",
-            "subaction" to "search",
-            "story" to search,
-        )
-    }
+    override fun getSearchFields(search: String): Map<String, String> = mapOf(
+        "do" to "search",
+        "subaction" to "search",
+        "story" to search,
+    )
 
     override val searchUrl: String
         get() = hostStore.baseUrl + "films/"
@@ -61,11 +59,11 @@ class MockDataVideoSource(
             else -> MovieType.CINEMA
         }
         return Movie(
-            UUID.randomUUID().toString(),
-            correctTitle(link.text()),
-            type,
-            link.attr("href"),
-            link.attr("href")
+            uuid = UUID.randomUUID().toString(),
+            title = correctTitle(link.text()),
+            type = type,
+            detailUrl = link.attr("href"),
+            img = link.attr("href")
         )
     }
 
@@ -76,15 +74,18 @@ class MockDataVideoSource(
     override fun getIframeUrl(detailsDoc: Document): String = ""
 
     override suspend fun getTitle(doc: Document, movie: Movie?): String {
-        return movie?.title ?: ""
+        return movie?.title.orEmpty()
     }
 
-    override suspend fun requestMainPage(): ResponseBody {
+    override suspend fun requestMainPage(): Document {
         throw IllegalStateException("Mock data not provide response body")
     }
 
     override fun getCharset(): Charset {
         return Charsets.UTF_8
+    }
+
+    override fun resetRefreshTime() {
     }
 
     override fun getMenuVideoLink(link: Element): VideoMenuLink {

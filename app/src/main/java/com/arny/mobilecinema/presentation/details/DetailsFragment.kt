@@ -16,7 +16,6 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
@@ -43,7 +42,6 @@ import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class DetailsFragment : Fragment() {
@@ -162,30 +160,40 @@ class DetailsFragment : Fragment() {
         }
     }*/
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
+        inflater: LayoutInflater,
+        container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        return inflater.inflate(R.layout.f_details, container, false)
+        binding = FDetailsBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         updateTitle(args.movie.title)
         initMenu()
+        initUI()
         initTrackAdapters()
         observeData()
         viewModel.loadVideo(args.movie)
     }
 
+    private fun initUI() {
+        binding.btnPlay.setOnClickListener {
+            currentVideo?.let { video ->
+                findNavController().navigate(
+                    DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
+                        video.videoUrl, video.title
+                    )
+                )
+            }
+        }
+    }
+
     private fun updateUI(video: Video) {
-        updateTitle(video.title)
         binding.tvTitle.text = video.title
         binding.btnPlay.isVisible = !video.videoUrl.isNullOrBlank()
-        findNavController().navigate(
-            DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                video.videoUrl, video.title
-            )
-        )
+        currentVideo = video
         setSpinEpisodesVisible(currentVideo?.type == MovieType.SERIAL)
     }
 
@@ -196,7 +204,6 @@ class DetailsFragment : Fragment() {
                     is DataResult.Error -> {
                         toastError(data.throwable)
                     }
-
                     is DataResult.Success -> {
                         onMovieLoaded(data.result)
                     }
@@ -354,17 +361,11 @@ class DetailsFragment : Fragment() {
     }
 
     private fun onMovieLoaded(movie: Movie?) {
-        lifecycleScope.launch {
-            if (currentMovie?.uuid != movie?.uuid) {
-                currentMovie = movie
-            }
-            if (movie?.video != currentVideo) {
-                currentVideo = movie?.video
-            }
-            currentVideo?.let {
-                updateSpinData()
-                updateUI(it)
-            }
+        currentMovie = movie
+        currentVideo = movie?.video
+        currentVideo?.let {
+            updateSpinData()
+            updateUI(it)
         }
     }
 
@@ -435,7 +436,7 @@ class DetailsFragment : Fragment() {
     private fun fillSpinners() {
         val seasons = currentMovie?.serialData?.seasons
         seasons?.let {
-            val seasonsList = List(seasons.size) { index -> "${index + 1} сезон" }
+            val seasonsList = seasons.map { "${it.id} сезон" }
             if (seasonsList.isNotEmpty()) {
                 with(binding) {
                     spinSeasons.updateSpinnerItems(seasonsChangeListener) {
@@ -443,16 +444,14 @@ class DetailsFragment : Fragment() {
                         seasonsTracksAdapter?.addAll(seasonsList)
                         spinSeasons.setSelection(currentSeasonPosition, false)
                     }
-
                     spinEpisodes.updateSpinnerItems(episodesChangeListener) {
-                        val seriesList = seasons.getOrNull(currentSeasonPosition)
-                            ?.episodes?.mapIndexed { index, _ -> "${index + 1} серия" }
+                        val season = seasons.getOrNull(currentSeasonPosition)
+                        val seriesList = season?.episodes?.map { "${it.id} серия" }
                         episodesTracksAdapter?.clear()
                         episodesTracksAdapter?.addAll(seriesList)
                         spinEpisodes.setSelection(currentEpisodePosition, false)
                     }
                 }
-//                updatePlayerPosition()
             }
         }
     }

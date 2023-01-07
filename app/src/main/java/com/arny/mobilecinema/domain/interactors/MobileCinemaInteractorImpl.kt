@@ -22,7 +22,7 @@ class MobileCinemaInteractorImpl @Inject constructor(
     override fun getAllHosts(): Flow<DataResult<HostsData>> = repository.getAllHosts()
 
     override fun setHost(source: String) {
-        repository.setHost(source)
+        repository.setHost(source, true)
     }
 
     override fun searchCached(searchText: String): Flow<DataResult<List<Movie>>> =

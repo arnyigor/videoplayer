@@ -4,7 +4,6 @@ import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
 import com.arny.mobilecinema.di.models.SerialData
 import com.arny.mobilecinema.di.models.VideoMenuLink
-import okhttp3.ResponseBody
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
@@ -28,7 +27,8 @@ interface IVideoSource {
     fun getSearchFields(search: String): Map<String, String>
     fun getMovieType(movie: Movie): MovieType
     suspend fun getTitle(doc: Document, movie: Movie? = null): String?
-    suspend fun requestMainPage(): ResponseBody
+    suspend fun requestMainPage(): Document
     fun getMenuVideoLink(link: Element): VideoMenuLink
     fun getCharset(): Charset
+    fun resetRefreshTime()
 }

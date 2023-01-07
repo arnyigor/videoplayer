@@ -27,6 +27,10 @@ class HomeViewModel @Inject constructor(
     private val _mainContent = MutableSharedFlow<DataResult<MainPageContent>>()
     val mainContent = _mainContent.asSharedFlow()
 
+    init {
+        restartLoading()
+    }
+
     fun restartLoading() {
         viewModelScope.launch {
             interactor.getAllVideos()
@@ -38,7 +42,6 @@ class HomeViewModel @Inject constructor(
                 }
         }
     }
-
 
     fun search(search: String, fromCache: Boolean = false) {
         if (search.isBlank()) {

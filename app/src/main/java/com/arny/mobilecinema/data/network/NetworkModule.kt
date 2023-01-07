@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
 
-
 @Module
 abstract class NetworkModule {
 
@@ -44,12 +43,10 @@ abstract class NetworkModule {
 
         @Provides
         @Singleton
-        fun provideRetrofit(client: OkHttpClient): Retrofit {
-            return Retrofit.Builder()
-                .baseUrl("http://localhost/")
-                .client(client)
-                .build()
-        }
+        fun provideRetrofit(client: OkHttpClient): Retrofit = Retrofit.Builder()
+            .baseUrl("http://localhost/")
+            .client(client)
+            .build()
 
         @Provides
         @Singleton
@@ -57,16 +54,6 @@ abstract class NetworkModule {
             @Named("debugInterceptor") debugInterceptor: Interceptor,
             @Named("headersInterceptor") headersInterceptor: Interceptor
         ): OkHttpClient {
-//            val spec: ConnectionSpec = ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
-//                .tlsVersions(TlsVersion.TLS_1_2)
-//                .tlsVersions(TlsVersion.TLS_1_1)
-//                .tlsVersions(TlsVersion.TLS_1_0)
-//                .cipherSuites(
-//                    TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-//                    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-//                    TLS_DHE_RSA_WITH_AES_128_GCM_SHA256
-//                )
-//                .build()
             val connectionSpecs: MutableList<ConnectionSpec> = ArrayList()
             connectionSpecs.add(ConnectionSpec.COMPATIBLE_TLS)
             return OkHttpClient.Builder()
@@ -95,11 +82,14 @@ abstract class NetworkModule {
         @Provides
         @Named("debugInterceptor")
         @Singleton
-        fun provideInterceptor(): Interceptor = if (BuildConfig.DEBUG)
+        fun provideInterceptor(): Interceptor = if (BuildConfig.DEBUG) {
             HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.HEADERS
-            } else HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.NONE
+                level = HttpLoggingInterceptor.Level.BODY
+            }
+        } else {
+            HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.NONE
+            }
         }
 
 

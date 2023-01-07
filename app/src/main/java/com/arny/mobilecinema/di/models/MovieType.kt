@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.di.models
 
 enum class MovieType(val type: Int) {
+    NO_TYPE(-1),
     CINEMA(1),
     SERIAL(2),
     CINEMA_LOCAL(3),

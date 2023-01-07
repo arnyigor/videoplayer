@@ -6,7 +6,7 @@
                 "id": 64,
                 "title": "Пес",
                 "hlsList": {
-                    "720": "https://b86-b4d-2100g0.streamalloha.live/hs/40/1673088583/0TcQJrA7AcQtHpac7oZaaw/503/477503/master.m3u8"
+                    "720": "https://78b-621-330g0.streamalloha.live/hs/40/1673126354/IxzV_YhFf6kvTzFMOnEGKw/497/477497/master.m3u8"
                 }
             },
             {

@@ -32,8 +32,13 @@ class StoreProviderImpl @Inject constructor(
         }?.let { entries -> toList(entries) } ?: emptyList()
     }
 
-    override fun allMovies(): List<Movie> {
-        return prefs.getAll()?.let { entries -> toList(entries) } ?: emptyList()
+    override fun allMovies(): List<Movie> =
+        prefs.getAll()?.let { entries -> toList(entries) } ?: emptyList()
+
+    override fun clearAll() {
+        prefs.getAll()?.forEach {
+            prefs.remove(it.key)
+        }
     }
 
     override fun removeFromSaved(movie: Movie) {

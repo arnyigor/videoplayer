@@ -5,9 +5,9 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class Movie constructor(
-    val uuid: String,
-    val title: String,
-    val type: MovieType,
+    val uuid: String = "",
+    val title: String = "",
+    val type: MovieType = MovieType.NO_TYPE,
     val detailUrl: String? = null,
     val img: String? = null,
     val video: Video? = null,

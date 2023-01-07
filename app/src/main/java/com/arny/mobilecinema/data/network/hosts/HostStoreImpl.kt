@@ -32,6 +32,7 @@ class HostStoreImpl @Inject constructor(
 
     internal companion object HOSTS {
         const val HOST_MOCK = "DemoContent"
+        const val WRAP = "WRAP"
     }
 
     override val baseUrls: List<String>
@@ -40,6 +41,7 @@ class HostStoreImpl @Inject constructor(
     override val availableHosts: List<String>
         get() = baseUrls.mapNotNull { it.toHost() } + listOf(
             HOST_MOCK,
+            WRAP,
         )
 
     private fun String.toHost() =

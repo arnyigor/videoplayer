@@ -9,4 +9,5 @@ interface StoreProvider {
     fun searchMovies(searchText: String): List<Movie>
     fun allMovies(): List<Movie>
     fun removeFromSaved(movie: Movie)
+    fun clearAll()
 }

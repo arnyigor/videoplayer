@@ -26,5 +26,6 @@ fun <T : Any> doAsync(
 }
     .flowOn(Dispatchers.IO)
     .catch { exception ->
+        exception.printStackTrace()
         emit(DataResult.Error(exception))
     }

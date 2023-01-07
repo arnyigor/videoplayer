@@ -45,10 +45,11 @@ class VideoRepositoryImpl @Inject constructor(
     private var currentMovie: Movie? = null
 
     override fun searchMovie(search: String): Flow<DataResult<MainPageContent>> = doAsync {
+        val source = getSource()
         val doc = videoApiService.postRequest(
-            getSource().searchUrl,
-            getSource().getSearchFields(search),
-            getSource().searchHeaders,
+            source.searchUrl,
+            source.getSearchFields(search),
+            source.searchHeaders,
         ).convertToDoc()
         val list = mutableListOf<Movie>().apply {
             for (link in getSearchResultLinks(doc)) {
@@ -73,7 +74,7 @@ class VideoRepositoryImpl @Inject constructor(
         val doc = if (hostStore.host == HostStoreImpl.HOST_MOCK) {
             null
         } else {
-            getSource().requestMainPage().convertToDoc()
+            getSource().requestMainPage()
         }
         getMainPageContent(doc)
     }
@@ -177,14 +178,16 @@ class VideoRepositoryImpl @Inject constructor(
                 currentMovie = fromPrefs
                 currentMovie!!
             } else {
-                try {val value = getFullMovie(movie)
-                videoCache.addToCache(value)
-                if (storeProvider.canSaveToStore()) {
-                    storeProvider.saveToStore(value)
-                }
-                currentMovie = value} catch (e: Exception) {
-                        e.printStackTrace()
+                try {
+                    val value = getFullMovie(movie)
+                    videoCache.addToCache(value)
+                    if (storeProvider.canSaveToStore()) {
+                        storeProvider.saveToStore(value)
                     }
+                    currentMovie = value
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
                 currentMovie!!
             }
         }
@@ -197,6 +200,9 @@ class VideoRepositoryImpl @Inject constructor(
     override fun setHost(source: String, resetHost: Boolean) {
         hostStore.host = source
         if (resetHost) {
+            getSource().resetRefreshTime()
+            storeProvider.clearAll()
+            videoCache.clearAll()
             hostStore.saveHost(source)
         }
     }
@@ -209,7 +215,7 @@ class VideoRepositoryImpl @Inject constructor(
         var savedHost = hostStore.getCurrentHost()
         if (savedHost.isNullOrBlank()) {
             savedHost = hostStore.availableHosts.first()
-            setHost(savedHost)
+            setHost(savedHost, true)
         } else {
             setHost(savedHost, false)
         }
@@ -222,6 +228,7 @@ class VideoRepositoryImpl @Inject constructor(
         return when (movie.type) {
             MovieType.CINEMA, MovieType.SERIAL -> getRemoteContent(movie)
             MovieType.CINEMA_LOCAL, MovieType.SERIAL_LOCAL -> getSDContent(movie, videoUrl)
+            else -> Movie()
         }
     }
 
@@ -244,6 +251,7 @@ class VideoRepositoryImpl @Inject constructor(
             )
             MovieType.SERIAL_LOCAL -> returnSerial(copy, type, getSDSerialData(videoUrl))
             MovieType.CINEMA, MovieType.SERIAL -> throw IllegalStateException()
+            MovieType.NO_TYPE -> throw IllegalStateException()
         }
     }
 
@@ -289,7 +297,9 @@ class VideoRepositoryImpl @Inject constructor(
                 type = type,
                 serialData = getSource().parsingSerialData(hlsList)
             )
+
             MovieType.CINEMA_LOCAL, MovieType.SERIAL_LOCAL -> throw IllegalStateException()
+            MovieType.NO_TYPE -> throw IllegalStateException()
         }
     }
 
@@ -367,6 +377,10 @@ class VideoRepositoryImpl @Inject constructor(
     }
 
     private fun getMovieId(movie: Movie): Int? {
+        return movie.video?.id ?: getIdFromLink(movie)
+    }
+
+    private fun getIdFromLink(movie: Movie): Int? {
         val groupValues = "^(\\d+)-\\b\\w+\\b-.*".toRegex()
             .find(movie.detailUrl?.substringAfter(hostStore.baseUrl).toString())?.groupValues
         return groupValues?.getOrNull(1)?.toIntOrNull()
