@@ -151,9 +151,11 @@ class HomeFragment : MvpAppCompatFragment(), HomeView, CoroutineScope {
     private fun FHomeBinding.initList() {
         groupAdapter = GroupAdapter<GroupieViewHolder>()
         groupAdapter.setOnItemClickListener { item, _ ->
-            val video = (item as VideoItem).movie
             binding.root.findNavController()
-                .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(video))
+                .navigate(HomeFragmentDirections.actionNavHomeToNavPlayerView(
+                    "https://d71-e8e-2400g0.streamalloha.live/hs/40/1673109179/Ui4iwYavovHnJRFvJI_ehw/542/477542/master.m3u8",
+                    "Пёс"
+                ))
         }
         rcVideoList.apply {
             adapter = groupAdapter

@@ -9,7 +9,7 @@
     <color name="colorBlack10">#E6E6E6</color>
     <color name="colorIcon">#FFFFFF</color>
     <color name="black">#000000</color>
-    <color name="white">#000000</color>
+    <color name="white">#FFFFFF</color>
     <color name="btn_state_normal">#1976d2</color>
     <color name="btn_state_selected">#2196f3</color>
     <color name="colorGray">#73000000</color>

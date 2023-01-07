@@ -4,13 +4,11 @@ import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.navigation.NavController
 import androidx.navigation.findNavController
-import androidx.navigation.ui.NavigationUI
-import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.AMainBinding
-import com.arny.mobilecinema.presentation.utils.setupWithNavController
 import com.arny.mobilecinema.presentation.utils.showSnackBar
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.android.AndroidInjection
@@ -39,6 +37,21 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         val navView: BottomNavigationView = findViewById(R.id.bottom_nav_view)
         // Hook your navigation controller to bottom navigation view
         navView.setupWithNavController(navController)
+        initOnBackPress(navController)
+        initHideShowNavBar(navController)
+    }
+
+    private fun initHideShowNavBar(navController: NavController) {
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            showBottomNav(destination.id !in listOf(R.id.nav_player_view))
+        }
+    }
+
+    private fun showBottomNav(show: Boolean) {
+        binding.bottomNavView.isVisible = show
+    }
+
+    private fun initOnBackPress(navController: NavController) {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val isLastFragment = navController.currentDestination?.id == R.id.nav_home
