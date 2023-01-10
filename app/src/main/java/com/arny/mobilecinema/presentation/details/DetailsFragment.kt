@@ -19,7 +19,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
-import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.databinding.FDetailsBinding
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
@@ -27,7 +26,6 @@ import com.arny.mobilecinema.di.models.SerialEpisode
 import com.arny.mobilecinema.di.models.Video
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
-import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.google.android.exoplayer2.MediaItem
@@ -51,7 +49,6 @@ class DetailsFragment : Fragment() {
         const val KEY_SEASON = "KEY_SEASON"
         const val KEY_EPISODE = "KEY_EPISODE"
     }
-
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
     private val viewModel: DetailsViewModel by viewModels { vmFactory }
@@ -91,16 +88,15 @@ class DetailsFragment : Fragment() {
             position: Int,
             id: Long
         ) {
-//            binding.plVideoPLayer.controllerShowTimeoutMs = 3000
             updateCurrentSerialPosition()
             currentEpisodePosition = 0
             fillSpinners()
             currentVideo?.currentPosition = 0
-//            updatePlayerPosition()
+            updateCurrentVideo()
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
-//            binding.plVideoPLayer.controllerShowTimeoutMs = 3000
+            updateCurrentVideo()
         }
     }
     private val episodesChangeListener = object : AdapterView.OnItemSelectedListener {
@@ -110,55 +106,16 @@ class DetailsFragment : Fragment() {
             position: Int,
             id: Long
         ) {
-//            binding.plVideoPLayer.controllerShowTimeoutMs = 3000
             updateCurrentSerialPosition()
-//            currentVideo?.currentPosition = 0
-//            updatePlayerPosition()
+            updateCurrentVideo()
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
-//            binding.plVideoPLayer.controllerShowTimeoutMs = 3000
+            updateCurrentVideo()
         }
     }
     private lateinit var binding: FDetailsBinding
 
-    /*private val playerListener = object : Player.Listener {
-        override fun onTracksChanged(tracks: Tracks) {
-            if (isVisible) {
-                trackSelector?.let { _ ->
-                    (exoPlayer?.currentTimeline
-                        ?.getWindow(exoPlayer?.currentMediaItemIndex ?: 0, Timeline.Window())
-                        ?.mediaItem?.localConfiguration?.tag as? HashMap<*, *>)?.let { map ->
-                        updateEpisodeSelection(map)
-                    }
-                }
-            }
-        }
-
-        override fun onTimelineChanged(timeline: Timeline, reason: Int) {
-            if (isVisible) {
-                val window =
-                    timeline.getWindow(exoPlayer?.currentWindowIndex ?: 0, Timeline.Window())
-                if (reason == TIMELINE_CHANGE_REASON_SOURCE_UPDATE) {
-                    (window.mediaItem.playbackProperties?.tag as? HashMap<*, *>)
-                        ?.let { map ->
-                            updateEpisodeSelection(map)
-                        }
-                }
-            }
-        }
-
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            if (isVisible) {
-                val window = requireActivity().window
-                if (isPlaying) {
-                    window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                } else {
-                    window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                }
-            }
-        }
-    }*/
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -190,24 +147,19 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    private fun updateUI(video: Video) {
-        binding.tvTitle.text = video.title
-        binding.btnPlay.isVisible = !video.videoUrl.isNullOrBlank()
-        currentVideo = video
-        setSpinEpisodesVisible(currentVideo?.type == MovieType.SERIAL)
+    private fun updateUI() {
+        currentVideo?.let { video ->
+            binding.tvTitle.text = video.title
+            binding.btnPlay.isVisible = !video.videoUrl.isNullOrBlank()
+            currentVideo = video
+            setSpinEpisodesVisible(currentVideo?.type == MovieType.SERIAL)
+        }
     }
 
     private fun observeData() {
         launchWhenCreated {
-            viewModel.data.collectLatest { data ->
-                when (data) {
-                    is DataResult.Error -> {
-                        toastError(data.throwable)
-                    }
-                    is DataResult.Success -> {
-                        onMovieLoaded(data.result)
-                    }
-                }
+            viewModel.movie.collectLatest { movie ->
+                onMovieLoaded(movie)
             }
         }
         launchWhenCreated {
@@ -333,27 +285,22 @@ class DetailsFragment : Fragment() {
 //            false
 //        }
     }
-    /*private fun updatePlayerPosition() {
-        val currentTimeline = exoPlayer?.currentTimeline
-        val count = currentTimeline?.windowCount ?: 0
+
+    private fun updateCurrentVideo() {
         val seasons = currentMovie?.serialData?.seasons
         seasons?.let {
-            val allEpisodes = seasons.flatMap { it.episodes ?: emptyList() }
             val playerSeason = seasons.getOrNull(currentSeasonPosition)
             val episode = playerSeason?.let { it.episodes?.getOrNull(currentEpisodePosition) }
-            val windowIndex = allEpisodes.indexOf(episode).takeIf { it >= 0 } ?: 0
-            if (count > windowIndex) {
-                currentVideo = currentVideo?.copy(
-                    id = episode?.id,
-                    title = episode?.title,
-                    type = MovieType.SERIAL,
-                    hlsList = episode?.hlsList
-                )
-                exoPlayer?.seekTo(windowIndex, currentVideo?.currentPosition ?: 0)
-            }
+            currentVideo = currentVideo?.copy(
+                id = episode?.id,
+                title = episode?.title,
+                type = MovieType.SERIAL,
+                hlsList = episode?.hlsList,
+                videoUrl = getUrl(episode)
+            )
         }
-        currentVideo?.let { updateUI(it) }
-    }*/
+        updateUI()
+    }
 
     private fun updateCurrentSerialPosition() {
         currentSeasonPosition = binding.spinSeasons.selectedItemPosition
@@ -363,10 +310,8 @@ class DetailsFragment : Fragment() {
     private fun onMovieLoaded(movie: Movie?) {
         currentMovie = movie
         currentVideo = movie?.video
-        currentVideo?.let {
-            updateSpinData()
-            updateUI(it)
-        }
+        updateSpinData()
+        updateUI()
     }
 
     /*private fun initPlayer(movie: Movie? = null) {
@@ -436,7 +381,7 @@ class DetailsFragment : Fragment() {
     private fun fillSpinners() {
         val seasons = currentMovie?.serialData?.seasons
         seasons?.let {
-            val seasonsList = seasons.map { "${it.id} сезон" }
+            val seasonsList = seasons.map { "${it.seasonId} сезон" }
             if (seasonsList.isNotEmpty()) {
                 with(binding) {
                     spinSeasons.updateSpinnerItems(seasonsChangeListener) {
@@ -571,15 +516,15 @@ class DetailsFragment : Fragment() {
           binding.plVideoPLayer.setShowNextButton(true)
       }
   */
-    private fun getUrl(episode: SerialEpisode, key: String? = null): String? {
-        val keys = episode.hlsList?.keys
+    private fun getUrl(episode: SerialEpisode?, key: String? = null): String? {
+        val keys = episode?.hlsList?.keys
         val minQuality = getMinQuality(keys)
         val qualityKey = when {
             !key.isNullOrBlank() -> key
             !minQuality.isNullOrBlank() -> minQuality
             else -> keys?.first()
         }
-        return episode.hlsList?.get(qualityKey)
+        return episode?.hlsList?.get(qualityKey)
     }
 
     private fun getMinQuality(keys: MutableSet<String>?) =

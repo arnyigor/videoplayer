@@ -69,12 +69,12 @@ fun String.parseSerialData(): SerialData {
     val seasons = mutableListOf<SerialSeason>()
     this.fromJson(ArrayList::class.java) { jsonElement ->
         for (element in jsonElement.asJsonArray) {
-            element.fromJson(SeasonItem::class.java)?.let { movie ->
+            element.fromJson(SerialSeason::class.java)?.let { movie ->
                 seasons.add(movie.fillEposides())
             }
         }
     }
-    seasons.sortBy { it.id }
+    seasons.sortBy { it.seasonId }
     return SerialData(seasons)
 }
 
@@ -105,12 +105,12 @@ fun String.getParsingString(start: String, end: String) = "$start$this$end"
 fun String.substringAfterBefore(after: String, before: String) =
     this.substringAfter(after).substringBefore(before)
 
-private fun SeasonItem.fillEposides(): SerialSeason {
+private fun SerialSeason.fillEposides(): SerialSeason {
     val episodes = mutableListOf<SerialEpisode>()
-    for (episodesItem in this.episodes) {
+    for (episodesItem in this.episodes!!) {
         if (episodesItem!=null) {
             val serialEpisode = SerialEpisode(
-                id = episodesItem.episode.toIntOrNull() ?: 0,
+                id = episodesItem.episode?.toIntOrNull() ?: 0,
                 title = episodesItem.title,
                 hlsList = episodesItem.hlsList
             )
@@ -118,5 +118,5 @@ private fun SeasonItem.fillEposides(): SerialSeason {
         }
     }
     episodes.sortBy { it.id }
-    return SerialSeason(this.season, episodes)
+    return SerialSeason(this.seasonId, episodes)
 }

@@ -1,4 +1,4 @@
-package com.arny.mobilecinema.di.models
+package com.arny.mobilecinema.data.api
 
 import okhttp3.ResponseBody
 import retrofit2.http.FieldMap

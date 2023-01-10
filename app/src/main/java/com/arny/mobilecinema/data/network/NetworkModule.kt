@@ -9,7 +9,7 @@ import com.arny.mobilecinema.data.network.response.ResponseBodyConverter
 import com.arny.mobilecinema.data.network.response.ResponseBodyConverterImpl
 import com.arny.mobilecinema.data.network.sources.IVideoSourceFactory
 import com.arny.mobilecinema.data.network.sources.VideoSourceFactory
-import com.arny.mobilecinema.di.models.VideoApiService
+import com.arny.mobilecinema.data.api.VideoApiService
 import com.facebook.stetho.okhttp3.StethoInterceptor
 import dagger.Binds
 import dagger.Module

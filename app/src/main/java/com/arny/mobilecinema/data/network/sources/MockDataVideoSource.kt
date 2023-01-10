@@ -3,6 +3,7 @@ package com.arny.mobilecinema.data.network.sources
 import com.arny.mobilecinema.data.network.hosts.HostStoreImpl
 import com.arny.mobilecinema.data.network.hosts.IHostStore
 import com.arny.mobilecinema.data.repository.sources.assets.AssetsReader
+import com.arny.mobilecinema.data.utils.toMovieType
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
 import com.arny.mobilecinema.di.models.SerialData
@@ -53,11 +54,7 @@ class MockDataVideoSource(
         )
 
     override fun getMovieFromLink(link: Element): Movie {
-        val type = when (link.attr("type")) {
-            "serial" -> MovieType.SERIAL
-            "cinema" -> MovieType.CINEMA
-            else -> MovieType.CINEMA
-        }
+        val type = link.attr("type").toMovieType()
         return Movie(
             uuid = UUID.randomUUID().toString(),
             title = correctTitle(link.text()),

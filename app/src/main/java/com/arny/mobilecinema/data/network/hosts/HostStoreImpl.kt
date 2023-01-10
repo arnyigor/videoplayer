@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.data.network.hosts
 
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.sources.prefs.Prefs
 import com.arny.mobilecinema.data.repository.sources.prefs.PrefsConstants
 import javax.inject.Inject
@@ -17,7 +18,7 @@ class HostStoreImpl @Inject constructor(
 
     override val baseHeaders: Map<String, String>
         get() = mapOf(
-            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",
+            "User-Agent" to AppConstants.USER_AGENT,
             "Accept-Encoding" to "gzip",
             "Accept-Language" to "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
             "Accept" to "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",

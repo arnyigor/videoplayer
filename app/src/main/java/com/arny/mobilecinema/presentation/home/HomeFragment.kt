@@ -23,10 +23,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import com.arny.mobilecinema.R
-import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.databinding.FHomeBinding
-import com.arny.mobilecinema.di.models.MainPageContent
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
 import com.arny.mobilecinema.di.models.Video
@@ -36,7 +34,10 @@ import com.arny.mobilecinema.presentation.utils.requestPermission
 import com.arny.mobilecinema.presentation.utils.setDrawableRightListener
 import com.arny.mobilecinema.presentation.utils.setEnterPressListener
 import com.arny.mobilecinema.presentation.utils.singleChoiceDialog
+import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import com.arny.mobilecinema.presentation.utils.textChanges
+import com.arny.mobilecinema.presentation.utils.toast
+import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.unlockOrientation
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
@@ -189,22 +190,19 @@ class HomeFragment : Fragment() {
             }
         }
         launchWhenCreated {
-            viewModel.mainContent.collectLatest { result ->
-                when (result) {
-                    is DataResult.Success -> {
-                        result.result?.let { updateList(it) }
+            viewModel.error.collectLatest { error ->
+                when (error) {
+                    is ThrowableString -> {
+                        toastError(error.throwable)
                     }
 
-                    is DataResult.Error -> {
-                        emptyData = true
-                        binding.tvEmptyView.text = result.throwable.message
-                    }
+                    else -> toast(error.toString(requireContext()))
                 }
             }
         }
         launchWhenCreated {
-            viewModel.hostData.collectLatest { hostsData ->
-                showAlertDialog(hostsData.hosts, hostsData.savedIndex)
+            viewModel.movies.collectLatest { movies ->
+                updateList(movies)
             }
         }
     }
@@ -272,12 +270,9 @@ class HomeFragment : Fragment() {
             .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(movie))
     }
 
-    private fun updateList(pageContent: MainPageContent) {
-        val data = pageContent.movies
-        videosAdapter?.submitList(pageContent.movies?.toList())
-        emptyData = data.isNullOrEmpty()
-        val searchVideoLinks = pageContent.searchVideoLinks.orEmpty()
-        videoTypesAdapter?.submitList(searchVideoLinks.toList())
+    private fun updateList(movies: List<Movie>) {
+        videosAdapter?.submitList(movies.toList())
+        emptyData = movies.isEmpty()
     }
 
     private fun FHomeBinding.searchVideo() {

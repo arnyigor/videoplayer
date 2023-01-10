@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.presentation.playerview
 
+import android.content.Context
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -10,29 +11,39 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
+import com.arny.mobilecinema.presentation.home.HomeViewModel
+import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.ui.StyledPlayerView.ControllerVisibilityListener
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
+import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     private val args: PlayerViewFragmentArgs by navArgs()
     private var exoPlayer: ExoPlayer? = null
     private val viewModel: PlayerViewModel by viewModels()
     private var binding: FPlayerViewBinding? = null
+
+    @Inject
+    lateinit var playerSource: PlayerSource
+
+    override fun onAttach(context: Context) {
+        AndroidSupportInjection.inject(this)
+        super.onAttach(context)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -107,8 +118,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                     .build()
                 exoPlayer?.playWhenReady = true
                 playerView.player = exoPlayer
-                val mediaSource = HlsMediaSource.Factory(DefaultHttpDataSource.Factory())
-                    .createMediaSource(MediaItem.fromUri(path))
                 playerView.setControllerVisibilityListener(ControllerVisibilityListener { vis ->
                     if (isVisible) {
                         if (vis == View.VISIBLE) {
@@ -120,26 +129,29 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                         }
                     }
                 })
-                exoPlayer?.apply {
-                    setMediaSource(mediaSource)
-                    seekTo(position)
-                    playWhenReady = playWhenReady
-                    addListener(object : Player.Listener {
-                        override fun onPlaybackStateChanged(playbackState: Int) {
-                            when (playbackState) {
-                                Player.STATE_BUFFERING -> {
-                                    progressBar.isVisible = true
-                                }
+                val mediaSource = playerSource.getSource(path)
+                mediaSource?.let {
+                    exoPlayer?.apply {
+                        setMediaSource(mediaSource)
+                        seekTo(position)
+                        playWhenReady = playWhenReady
+                        addListener(object : Player.Listener {
+                            override fun onPlaybackStateChanged(playbackState: Int) {
+                                when (playbackState) {
+                                    Player.STATE_BUFFERING -> {
+                                        progressBar.isVisible = true
+                                    }
 
-                                Player.STATE_READY, Player.STATE_ENDED -> {
-                                    progressBar.isVisible = false
-                                }
+                                    Player.STATE_READY, Player.STATE_ENDED -> {
+                                        progressBar.isVisible = false
+                                    }
 
-                                else -> {}
+                                    else -> {}
+                                }
                             }
-                        }
-                    })
-                    prepare()
+                        })
+                        prepare()
+                    }
                 }
             }
         }

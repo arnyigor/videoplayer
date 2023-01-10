@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.domain.interactors.MobileCinemaInteractor
+import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -17,40 +18,17 @@ import javax.inject.Inject
 class DetailsViewModel @Inject constructor(
     private val interactor: MobileCinemaInteractor
 ) : ViewModel() {
+    private val _error = MutableSharedFlow<IWrappedString>()
+    val error = _error.asSharedFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
-    private val _data = MutableSharedFlow<DataResult<Movie>>()
-    val data = _data.asSharedFlow()
-    private val _cached = MutableStateFlow(false)
-    val cached = _cached.asStateFlow()
+    private val _movie = MutableStateFlow<Movie?>(null)
+    val movie = _movie.asStateFlow()
     private var isRemovedFromCache = false
 
     fun loadVideo(movie: Movie) {
         viewModelScope.launch {
-            interactor.loadMovie(movie)
-                .onStart { _loading.value = true }
-                .onCompletion { _loading.value = false }
-                .collect { content ->
-                    _data.emit(content)
-                }
-        }
-    }
-
-    fun cacheMovie(movie: Movie?) {
-        viewModelScope.launch {
-            if (!isRemovedFromCache) {
-                interactor.cacheMovie(movie)
-                    .onStart { _loading.value = true }
-                    .onCompletion { _loading.value = false }
-                    .collect { content ->
-                        when (content) {
-                            is DataResult.Error -> {}
-                            is DataResult.Success -> {
-                                _cached.value = content.result == true
-                            }
-                        }
-                    }
-            }
+            _movie.emit(movie)
         }
     }
 

@@ -2,6 +2,7 @@ package com.arny.mobilecinema.data.di
 
 import android.content.Context
 import com.arny.mobilecinema.data.repository.VideoRepositoryImpl
+import com.arny.mobilecinema.data.repository.gists.GistsRepositoryImpl
 import com.arny.mobilecinema.data.repository.sources.assets.AssetsReader
 import com.arny.mobilecinema.data.repository.sources.assets.AssetsReaderImpl
 import com.arny.mobilecinema.data.repository.sources.cache.VideoCache
@@ -9,6 +10,7 @@ import com.arny.mobilecinema.data.repository.sources.cache.VideoCacheImpl
 import com.arny.mobilecinema.data.repository.sources.prefs.Prefs
 import com.arny.mobilecinema.data.repository.sources.store.StoreProvider
 import com.arny.mobilecinema.data.repository.sources.store.StoreProviderImpl
+import com.arny.mobilecinema.domain.repository.GistsRepository
 import com.arny.mobilecinema.domain.repository.VideoRepository
 import dagger.Binds
 import dagger.Module
@@ -32,6 +34,10 @@ interface DataModule {
     @Binds
     @Singleton
     fun bindsVideoCache(cache: VideoCacheImpl): VideoCache
+
+    @Binds
+    @Singleton
+    fun bindsGistsRepository(impl: GistsRepositoryImpl): GistsRepository
 
     companion object {
         @Provides

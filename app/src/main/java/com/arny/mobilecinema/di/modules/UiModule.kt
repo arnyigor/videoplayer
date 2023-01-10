@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.arny.mobilecinema.di.AppViewModelFactory
 import com.arny.mobilecinema.di.scopes.ViewModelKey
+import com.arny.mobilecinema.domain.interactors.MainInteractor
 import com.arny.mobilecinema.domain.interactors.MobileCinemaInteractor
 import com.arny.mobilecinema.presentation.details.DetailsViewModel
 import com.arny.mobilecinema.presentation.history.HistoryViewModel
 import com.arny.mobilecinema.presentation.home.HomeViewModel
+import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.multibindings.IntoMap
@@ -25,8 +27,9 @@ class UiModule {
     @IntoMap
     @ViewModelKey(HomeViewModel::class)
     fun provideHomeViewModel(
+        mainInteractor: MainInteractor,
         interactor: MobileCinemaInteractor,
-    ): ViewModel = HomeViewModel(interactor)
+    ): ViewModel = HomeViewModel(mainInteractor, interactor)
 
     @Provides
     @IntoMap

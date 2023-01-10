@@ -20,7 +20,7 @@ import com.arny.mobilecinema.di.models.SerialData
 import com.arny.mobilecinema.di.models.SerialEpisode
 import com.arny.mobilecinema.di.models.SerialSeason
 import com.arny.mobilecinema.di.models.Video
-import com.arny.mobilecinema.di.models.VideoApiService
+import com.arny.mobilecinema.data.api.VideoApiService
 import com.arny.mobilecinema.di.models.VideoMenuLink
 import com.arny.mobilecinema.domain.models.HostsData
 import com.arny.mobilecinema.domain.repository.VideoRepository
@@ -334,7 +334,7 @@ class VideoRepositoryImpl @Inject constructor(
         type: MovieType,
         serialData: SerialData
     ): Movie {
-        val firstSeason = serialData.seasons?.minByOrNull { it.id ?: 0 }
+        val firstSeason = serialData.seasons?.minByOrNull { it.seasonId ?: 0 }
         val episodes = firstSeason?.episodes ?: emptyList()
         val firstEpisode = episodes.minByOrNull { it.id ?: 0 }
         val hlsQualityMap = firstEpisode?.hlsList
