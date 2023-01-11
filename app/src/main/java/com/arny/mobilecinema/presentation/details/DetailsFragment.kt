@@ -138,9 +138,13 @@ class DetailsFragment : Fragment() {
     private fun initUI() {
         binding.btnPlay.setOnClickListener {
             currentVideo?.let { video ->
+                val episodesData = StringBuilder().apply {
+                    video.season?.let { append(" Сезон $it") }
+                    video.episode?.let { append(" Эпизод $it") }
+                }.toString()
                 findNavController().navigate(
                     DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                        video.videoUrl, video.title
+                        video.videoUrl, "${video.title}$episodesData"
                     )
                 )
             }
@@ -296,7 +300,9 @@ class DetailsFragment : Fragment() {
                 title = episode?.title,
                 type = MovieType.SERIAL,
                 hlsList = episode?.hlsList,
-                videoUrl = getUrl(episode)
+                videoUrl = getUrl(episode),
+                season = playerSeason?.id,
+                episode = episode?.id
             )
         }
         updateUI()
@@ -311,7 +317,7 @@ class DetailsFragment : Fragment() {
         currentMovie = movie
         currentVideo = movie?.video
         updateSpinData()
-        updateUI()
+        updateCurrentVideo()
     }
 
     /*private fun initPlayer(movie: Movie? = null) {
@@ -381,7 +387,7 @@ class DetailsFragment : Fragment() {
     private fun fillSpinners() {
         val seasons = currentMovie?.serialData?.seasons
         seasons?.let {
-            val seasonsList = seasons.map { "${it.seasonId} сезон" }
+            val seasonsList = seasons.map { "${it.id} сезон" }
             if (seasonsList.isNotEmpty()) {
                 with(binding) {
                     spinSeasons.updateSpinnerItems(seasonsChangeListener) {
@@ -391,7 +397,7 @@ class DetailsFragment : Fragment() {
                     }
                     spinEpisodes.updateSpinnerItems(episodesChangeListener) {
                         val season = seasons.getOrNull(currentSeasonPosition)
-                        val seriesList = season?.episodes?.map { "${it.id} серия" }
+                        val seriesList = season?.episodes?.map { "${it?.id} серия" }
                         episodesTracksAdapter?.clear()
                         episodesTracksAdapter?.addAll(seriesList)
                         spinEpisodes.setSelection(currentEpisodePosition, false)

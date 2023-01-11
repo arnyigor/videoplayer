@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.presentation.di
 
+import android.content.Context
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import dagger.Module
 import dagger.Provides
@@ -8,6 +9,6 @@ import dagger.Provides
 interface PlayerFragmentDependencies {
     companion object {
         @Provides
-        fun providePlayerSource() = PlayerSource()
+        fun providePlayerSource(context: Context) = PlayerSource()
     }
 }

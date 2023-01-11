@@ -11,24 +11,24 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
-import com.arny.mobilecinema.presentation.home.HomeViewModel
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.ui.StyledPlayerView.ControllerVisibilityListener
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
@@ -76,6 +76,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     val path = state.path
+                    Timber.d("Url:$path")
                     path?.let {
                         preparePlayer(it, state.position, args.name)
                     } ?: kotlin.run {
@@ -136,6 +137,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                         seekTo(position)
                         playWhenReady = playWhenReady
                         addListener(object : Player.Listener {
+                            override fun onPlayerError(error: PlaybackException) {
+                                progressBar.isVisible = false
+                                toast(error.message)
+                            }
+
                             override fun onPlaybackStateChanged(playbackState: Int) {
                                 when (playbackState) {
                                     Player.STATE_BUFFERING -> {

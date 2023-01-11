@@ -1,11 +1,9 @@
 package com.arny.mobilecinema.data.network.sources
 
-import com.arny.mobilecinema.data.models.SeasonItem
 import com.arny.mobilecinema.data.utils.fromJson
 import com.arny.mobilecinema.di.models.SerialData
 import com.arny.mobilecinema.di.models.SerialEpisode
 import com.arny.mobilecinema.di.models.SerialSeason
-import java.util.*
 
 fun String.toHlsListMap(): HashMap<String, String> {
     val qualityMap = hashMapOf<String, String>()
@@ -74,7 +72,7 @@ fun String.parseSerialData(): SerialData {
             }
         }
     }
-    seasons.sortBy { it.seasonId }
+    seasons.sortBy { it.id }
     return SerialData(seasons)
 }
 
@@ -110,7 +108,7 @@ private fun SerialSeason.fillEposides(): SerialSeason {
     for (episodesItem in this.episodes!!) {
         if (episodesItem!=null) {
             val serialEpisode = SerialEpisode(
-                id = episodesItem.episode?.toIntOrNull() ?: 0,
+                id = episodesItem.id ?: 0,
                 title = episodesItem.title,
                 hlsList = episodesItem.hlsList
             )
@@ -118,5 +116,5 @@ private fun SerialSeason.fillEposides(): SerialSeason {
         }
     }
     episodes.sortBy { it.id }
-    return SerialSeason(this.seasonId, episodes)
+    return SerialSeason(this.id, episodes)
 }

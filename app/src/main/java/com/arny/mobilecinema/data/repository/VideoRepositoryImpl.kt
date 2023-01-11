@@ -334,9 +334,9 @@ class VideoRepositoryImpl @Inject constructor(
         type: MovieType,
         serialData: SerialData
     ): Movie {
-        val firstSeason = serialData.seasons?.minByOrNull { it.seasonId ?: 0 }
+        val firstSeason = serialData.seasons?.minByOrNull { it.id ?: 0 }
         val episodes = firstSeason?.episodes ?: emptyList()
-        val firstEpisode = episodes.minByOrNull { it.id ?: 0 }
+        val firstEpisode = episodes.minByOrNull { it?.id ?: 0 }
         val hlsQualityMap = firstEpisode?.hlsList
         val selectedQuality = if (movie.selectedQuality.isNullOrBlank()) {
             getMinQualityKey(hlsQualityMap)
@@ -360,7 +360,7 @@ class VideoRepositoryImpl @Inject constructor(
 
     private fun updateStore(
         firstSeason: SerialSeason?,
-        value: List<SerialEpisode>
+        value: List<SerialEpisode?>
     ) {
         videoCache.currentSeason = firstSeason
         videoCache.currentEpisode = value.firstOrNull()
