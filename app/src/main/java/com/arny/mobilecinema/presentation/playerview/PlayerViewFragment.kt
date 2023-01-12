@@ -2,7 +2,10 @@ package com.arny.mobilecinema.presentation.playerview
 
 import android.content.Context
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -17,6 +20,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.utils.getConnectionType
+import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateQualityList
@@ -33,19 +38,21 @@ import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.StyledPlayerView.ControllerVisibilityListener
+import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
+import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.properties.Delegates
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     private val args: PlayerViewFragmentArgs by navArgs()
     private val viewModel: PlayerViewModel by viewModels()
     private var qualityPopUp: PopupMenu? = null
     private var player: ExoPlayer? = null
-    private var playbackPosition = 0L
-    private var playWhenReady = true
     private var trackSelector: DefaultTrackSelector? = null
+    private var qualityId: Int = 0
     var qualityList = ArrayList<Pair<String, TrackSelectionOverride>>()
     private var _binding: FPlayerViewBinding? = null
     private val binding
@@ -53,6 +60,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
 
     @Inject
     lateinit var playerSource: PlayerSource
+    private val handler = Handler(Looper.getMainLooper())
+    private var state: Int by Delegates.observable(Player.STATE_BUFFERING) { _, old, new ->
+        if (old != new) {
+            handler.removeCallbacksAndMessages(null)
+            handler.postDelayed({ updateState(new) }, 2000L)
+        }
+    }
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
@@ -87,19 +101,15 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        updateTitle(args.name)
-    }
-
     private fun observeState() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     val path = state.path
-                    Timber.d("Url:$path")
+                    binding.tvTitle.text = args.name
+                    Timber.d("setPlayerSource:$path")
                     path?.let {
-                        preparePlayer(it, state.position, args.name)
+                        setPlayerSource(path, state.position)
                     } ?: kotlin.run {
                         toast("Не найден путь")
                         findNavController().navigateUp()
@@ -109,8 +119,41 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (Util.SDK_INT >= Build.VERSION_CODES.N) {
+            Timber.d("onStart preparePlayer")
+            preparePlayer()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateTitle(args.name)
+        if (Util.SDK_INT < Build.VERSION_CODES.N) {
+            Timber.d("onResume preparePlayer")
+            preparePlayer()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (Util.SDK_INT < Build.VERSION_CODES.N) {
+            Timber.d("onPause releasePlayer")
+            releasePlayer()
+        }
+    }
+
     override fun onStop() {
         super.onStop()
+        if (Util.SDK_INT >= Build.VERSION_CODES.N) {
+            Timber.d("onStop releasePlayer")
+            releasePlayer()
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
         releasePlayer()
     }
 
@@ -130,16 +173,21 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
         }
     }
 
-    private fun preparePlayer(path: String, position: Long, name: String?) {
+    private fun preparePlayer() {
         with(binding) {
-            tvTitle.text = name
             val loadControl =
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
                     .build()
+            val bandwidthMeter = DefaultBandwidthMeter.Builder(requireContext()).build().apply {
+                addEventListener(Handler(Looper.getMainLooper())) { time, bytes, bitrate ->
+                    Timber.d("onBandwidth timeMs:$time bitrate:${bitrate.div(1024)}")
+                }
+            }
             trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
             player = ExoPlayer.Builder(requireContext())
                 .setLoadControl(loadControl)
+                .setBandwidthMeter(bandwidthMeter)
                 .setRenderersFactory(DefaultRenderersFactory(requireContext()))
                 .setTrackSelector(trackSelector!!)
                 .setSeekBackIncrementMs(5000)
@@ -151,53 +199,86 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
                 if (isVisible) {
                     if (vis == View.VISIBLE) {
                         tvTitle.isVisible = true
+                        ivQuality.isVisible = true
                         activity?.window?.showSystemUI()
                     } else {
+                        ivQuality.isVisible = false
                         tvTitle.isVisible = false
                         activity?.window?.hideSystemUI()
                     }
                 }
             })
-            val mediaSource = playerSource.getSource(path)
-            mediaSource?.let {
-                player?.apply {
-                    setMediaSource(mediaSource)
-                    seekTo(position)
-                    playWhenReady = playWhenReady
-                    addListener(this@PlayerViewFragment)
-                    prepare()
-                }
+        }
+    }
+
+    private fun setPlayerSource(path: String, position: Long) {
+        player?.apply {
+            playerSource.getSource(path)?.let {
+                setMediaSource(it)
+                seekTo(position)
+                addListener(this@PlayerViewFragment)
+                prepare()
             }
         }
     }
 
     private fun setUpQualityList() {
         qualityPopUp = PopupMenu(requireContext(), binding.ivQuality)
-        qualityList.let {
-            for ((i, videoQuality) in it.withIndex()) {
+        qualityList.let { list ->
+            for ((i, videoQuality) in list.withIndex()) {
                 qualityPopUp?.menu?.add(0, i, 0, videoQuality.first)
             }
+            // TODO fix by selected and after net changed
+            setQualityByConnection(list)
         }
         qualityPopUp?.setOnMenuItemClickListener { menuItem ->
-            qualityList[menuItem.itemId].let { quality ->
-                trackSelector?.let { selector ->
-                    selector.parameters = selector.parameters
-                        .buildUpon()
-                        .addOverride(quality.second)
-                        .setTunnelingEnabled(true)
-                        .build()
-                }
-            }
+            qualityId = menuItem.itemId
+            setQuality(qualityList[qualityId].second)
             true
+        }
+    }
+
+    private fun setQualityByConnection(list: ArrayList<Pair<String, TrackSelectionOverride>>) {
+        val connectionType = getConnectionType(requireContext())
+        val groupList = list.map { it.second }.map { it.mediaTrackGroup }
+        val formats = groupList.mapIndexed { index, trackGroup -> trackGroup.getFormat(index) }
+        val bitratesKbps = formats.map { it.bitrate.div(1024) }
+        Timber.d("current QualityId:$qualityId")
+        val newId =
+            bitratesKbps.indexOfLast { it < connectionType.speedKbps }.takeIf { it >= 0 } ?: 0
+        Timber.d("connectionType:$connectionType")
+        Timber.d("bitrates:$bitratesKbps")
+        Timber.d("selected qualityId:$qualityId")
+        if (newId > qualityId) {// Check buufering time
+            qualityId = newId
+            Timber.d("set new qualityId:$qualityId")
+            list.getOrNull(qualityId)?.second?.let { setQuality(it) }
+            // FIXME NOT Need
+        }
+    }
+
+    private fun setQuality(trackSelectionOverride: TrackSelectionOverride) {
+        trackSelector?.let { selector ->
+            selector.parameters = selector.parameters
+                .buildUpon()
+                .addOverride(trackSelectionOverride)
+                .setTunnelingEnabled(true)
+                .build()
         }
     }
 
     override fun onPlayerError(error: PlaybackException) {
         binding.progressBar.isVisible = false
-        toast(error.message)
+        toast(getFullError(error))
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
+        println("onPlaybackStateChanged:$playbackState")
+        state = playbackState
+    }
+
+    private fun updateState(playbackState: Int) {
+        println("updateState:$playbackState")
         when (playbackState) {
             Player.STATE_BUFFERING -> {
                 binding.progressBar.isVisible = true
@@ -222,6 +303,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     private fun releasePlayer() {
         player?.let {
             viewModel.setPosition(it.currentPosition)
+            it.removeListener(this)
             it.stop()
             it.release()
             player = null

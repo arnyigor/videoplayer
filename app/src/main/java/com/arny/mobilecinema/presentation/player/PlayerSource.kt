@@ -2,29 +2,33 @@ package com.arny.mobilecinema.presentation.player
 
 import android.content.Context
 import android.net.Uri
-import com.arny.mobilecinema.data.repository.AppConstants
 import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.source.ConcatenatingMediaSource
 import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.source.dash.DashChunkSource
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource
+import com.google.android.exoplayer2.upstream.BandwidthMeter
 import com.google.android.exoplayer2.upstream.DataSource
+import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
+import com.google.android.exoplayer2.upstream.DefaultDataSource
+import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
+import com.google.android.exoplayer2.upstream.FileDataSource
+import com.google.android.exoplayer2.upstream.cache.CacheDataSink
+import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.util.Util
 import javax.inject.Inject
 
 class PlayerSource @Inject constructor(
     private val context: Context
 ) {
-    fun getSource(url: String?): MediaSource? {
-        return buildMediaSource1(Uri.parse(url))
+    fun getSource(url: String?): MediaSource? = url?.let {
+        buildMediaSource1(Uri.parse(url))
     }
 
-    private fun buildMediaSource1(uri: Uri): MediaSource? {
+    private fun buildMediaSource1(uri: Uri): MediaSource {
         val item = MediaItem.Builder().apply {
             setUri(uri)
         }.build()
@@ -48,8 +52,14 @@ class PlayerSource @Inject constructor(
     }
 
     private fun dataSourceFactory(): DataSource.Factory {
-        val factory = DefaultHttpDataSource.Factory()
-        factory.setUserAgent(AppConstants.USER_AGENT)
-        return factory
+        val cache = VideoCache.getInstance(context).getDownloadCache()
+        val cacheSink = CacheDataSink.Factory().setCache(cache)
+        val upstreamFactory = DefaultDataSource.Factory(context, DefaultHttpDataSource.Factory())
+        return CacheDataSource.Factory()
+            .setCache(cache)
+            .setCacheWriteDataSinkFactory(cacheSink)
+            .setCacheReadDataSourceFactory(FileDataSource.Factory())
+            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 }
