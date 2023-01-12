@@ -11,6 +11,7 @@
     <string name="menu_preferences">Настройки</string>
     <string name="menu_history">История</string>
     <string name="menu_get_file">Выбрать файл</string>
+    <string name="menu_from_path">Открыть ссылку</string>
     <string name="menu_get_folder">Выбрать папку</string>
     <string name="menu_home">Домой</string>
     <string name="quality_format">%sp</string>

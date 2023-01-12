@@ -22,6 +22,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
+import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.databinding.FHomeBinding
@@ -29,6 +30,7 @@ import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
 import com.arny.mobilecinema.di.models.Video
 import com.arny.mobilecinema.presentation.utils.KeyboardHelper
+import com.arny.mobilecinema.presentation.utils.inputDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.requestPermission
 import com.arny.mobilecinema.presentation.utils.setDrawableRightListener
@@ -220,7 +222,7 @@ class HomeFragment : Fragment() {
                 when (menuItem.itemId) {
                     R.id.menu_action_choose_source -> {
                         viewModel.requestHosts()
-                        true
+                        false
                     }
 
                     R.id.menu_action_get_file -> {
@@ -230,12 +232,29 @@ class HomeFragment : Fragment() {
                             permission = Manifest.permission.WRITE_EXTERNAL_STORAGE,
                             checkPermissionOk = ::requestFile
                         )
-                        true
+                        false
                     }
 
-                    else -> false
+                    R.id.menu_action_from_path -> {
+                        openPath()
+                        false
+                    }
+
+                    else -> true
                 }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+
+    private fun openPath() {
+        inputDialog(
+            title = "Введите путь",
+            btnOkText = getString(android.R.string.ok),
+            dialogListener = { result ->
+                findNavController().navigate(
+                    HomeFragmentDirections.actionNavHomeToNavPlayerView(result, "Нет названия")
+                )
+            }
+        )
     }
 
     private fun onOpenFolder(data: Intent?) {

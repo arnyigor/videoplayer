@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -18,24 +19,37 @@ import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
 import com.arny.mobilecinema.presentation.player.PlayerSource
+import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.updateTitle
+import com.google.android.exoplayer2.DefaultLoadControl
+import com.google.android.exoplayer2.DefaultRenderersFactory
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
+import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
+import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.StyledPlayerView.ControllerVisibilityListener
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
-class PlayerViewFragment : Fragment(R.layout.f_player_view) {
+class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     private val args: PlayerViewFragmentArgs by navArgs()
-    private var exoPlayer: ExoPlayer? = null
     private val viewModel: PlayerViewModel by viewModels()
-    private var binding: FPlayerViewBinding? = null
+    private var qualityPopUp: PopupMenu? = null
+    private var player: ExoPlayer? = null
+    private var playbackPosition = 0L
+    private var playWhenReady = true
+    private var trackSelector: DefaultTrackSelector? = null
+    var qualityList = ArrayList<Pair<String, TrackSelectionOverride>>()
+    private var _binding: FPlayerViewBinding? = null
+    private val binding
+        get() = _binding!!
 
     @Inject
     lateinit var playerSource: PlayerSource
@@ -51,19 +65,26 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         savedInstanceState: Bundle?
     ): View {
         val view = FPlayerViewBinding.inflate(inflater, container, false)
-        binding = view
+        _binding = view
         return view.root
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        binding = null
+        _binding = null
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         args.path?.let { viewModel.setPath(it) }
         observeState()
+        initListener()
+    }
+
+    private fun initListener() {
+        binding.ivQuality.setOnClickListener {
+            qualityPopUp?.show()
+        }
     }
 
     override fun onResume() {
@@ -110,65 +131,100 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     }
 
     private fun preparePlayer(path: String, position: Long, name: String?) {
-        binding?.let {
-            with(it) {
-                tvTitle.text = name
-                exoPlayer = ExoPlayer.Builder(requireContext())
-                    .setSeekBackIncrementMs(5000)
-                    .setSeekForwardIncrementMs(5000)
+        with(binding) {
+            tvTitle.text = name
+            val loadControl =
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
                     .build()
-                exoPlayer?.playWhenReady = true
-                playerView.player = exoPlayer
-                playerView.setControllerVisibilityListener(ControllerVisibilityListener { vis ->
-                    if (isVisible) {
-                        if (vis == View.VISIBLE) {
-                            tvTitle.isVisible = true
-                            activity?.window?.showSystemUI()
-                        } else {
-                            tvTitle.isVisible = false
-                            activity?.window?.hideSystemUI()
-                        }
+            trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
+            player = ExoPlayer.Builder(requireContext())
+                .setLoadControl(loadControl)
+                .setRenderersFactory(DefaultRenderersFactory(requireContext()))
+                .setTrackSelector(trackSelector!!)
+                .setSeekBackIncrementMs(5000)
+                .setSeekForwardIncrementMs(5000)
+                .build()
+            player?.playWhenReady = true
+            playerView.player = player
+            playerView.setControllerVisibilityListener(ControllerVisibilityListener { vis ->
+                if (isVisible) {
+                    if (vis == View.VISIBLE) {
+                        tvTitle.isVisible = true
+                        activity?.window?.showSystemUI()
+                    } else {
+                        tvTitle.isVisible = false
+                        activity?.window?.hideSystemUI()
                     }
-                })
-                val mediaSource = playerSource.getSource(path)
-                mediaSource?.let {
-                    exoPlayer?.apply {
-                        setMediaSource(mediaSource)
-                        seekTo(position)
-                        playWhenReady = playWhenReady
-                        addListener(object : Player.Listener {
-                            override fun onPlayerError(error: PlaybackException) {
-                                progressBar.isVisible = false
-                                toast(error.message)
-                            }
-
-                            override fun onPlaybackStateChanged(playbackState: Int) {
-                                when (playbackState) {
-                                    Player.STATE_BUFFERING -> {
-                                        progressBar.isVisible = true
-                                    }
-
-                                    Player.STATE_READY, Player.STATE_ENDED -> {
-                                        progressBar.isVisible = false
-                                    }
-
-                                    else -> {}
-                                }
-                            }
-                        })
-                        prepare()
-                    }
+                }
+            })
+            val mediaSource = playerSource.getSource(path)
+            mediaSource?.let {
+                player?.apply {
+                    setMediaSource(mediaSource)
+                    seekTo(position)
+                    playWhenReady = playWhenReady
+                    addListener(this@PlayerViewFragment)
+                    prepare()
                 }
             }
         }
     }
 
+    private fun setUpQualityList() {
+        qualityPopUp = PopupMenu(requireContext(), binding.ivQuality)
+        qualityList.let {
+            for ((i, videoQuality) in it.withIndex()) {
+                qualityPopUp?.menu?.add(0, i, 0, videoQuality.first)
+            }
+        }
+        qualityPopUp?.setOnMenuItemClickListener { menuItem ->
+            qualityList[menuItem.itemId].let { quality ->
+                trackSelector?.let { selector ->
+                    selector.parameters = selector.parameters
+                        .buildUpon()
+                        .addOverride(quality.second)
+                        .setTunnelingEnabled(true)
+                        .build()
+                }
+            }
+            true
+        }
+    }
+
+    override fun onPlayerError(error: PlaybackException) {
+        binding.progressBar.isVisible = false
+        toast(error.message)
+    }
+
+    override fun onPlaybackStateChanged(playbackState: Int) {
+        when (playbackState) {
+            Player.STATE_BUFFERING -> {
+                binding.progressBar.isVisible = true
+            }
+
+            Player.STATE_ENDED -> {
+                binding.progressBar.isVisible = false
+            }
+
+            Player.STATE_READY -> {
+                binding.progressBar.isVisible = false
+                trackSelector?.generateQualityList(requireContext())?.let {
+                    qualityList = it
+                    setUpQualityList()
+                }
+            }
+
+            else -> {}
+        }
+    }
+
     private fun releasePlayer() {
-        exoPlayer?.let { player ->
-            viewModel.setPosition(player.currentPosition)
-            player.stop()
-            player.release()
-            exoPlayer = null
+        player?.let {
+            viewModel.setPosition(it.currentPosition)
+            it.stop()
+            it.release()
+            player = null
         }
     }
 }

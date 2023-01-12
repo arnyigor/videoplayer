@@ -1,7 +1,6 @@
 package com.arny.mobilecinema.presentation.details
 
 import android.content.Context
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
@@ -28,16 +27,6 @@ import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
 import com.arny.mobilecinema.presentation.utils.updateTitle
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.MediaMetadata
-import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
-import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.source.ProgressiveMediaSource
-import com.google.android.exoplayer2.source.dash.DashMediaSource
-import com.google.android.exoplayer2.source.hls.HlsMediaSource
-import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
-import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
@@ -407,7 +396,7 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    private fun createFileSource(fileUri: Uri): MediaSource {
+    /*private fun createFileSource(fileUri: Uri): MediaSource {
         val playerInfo: String = Util.getUserAgent(requireContext(), "ExoPlayerInfo")
         val dataSourceFactory = DefaultDataSourceFactory(
             requireContext(), playerInfo
@@ -418,7 +407,7 @@ class DetailsFragment : Fragment() {
             .build()
         return ProgressiveMediaSource.Factory(dataSourceFactory, DefaultExtractorsFactory())
             .createMediaSource(item)
-    }
+    }*/
 
     /* private fun createPlayer() {
          trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
@@ -443,20 +432,19 @@ class DetailsFragment : Fragment() {
     private fun setCustomTitleVisible(visible: Boolean) {
         binding.tvTitle.isVisible = visible
     }
-
-    private fun buildMediaSource(url: String, id: Int?): MediaSource {
-        val item = MediaItem.Builder()
-            .setUri(url)
-            .setMediaId(id.toString())
-            .build()
-        return DashMediaSource.Factory(
-            DefaultDataSourceFactory(
-                requireContext(),
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+    /*    private fun buildMediaSource(url: String, id: Int?): MediaSource {
+            val item = MediaItem.Builder()
+                .setUri(url)
+                .setMediaId(id.toString())
+                .build()
+            return DashMediaSource.Factory(
+                DefaultDataSourceFactory(
+                    requireContext(),
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
+                )
             )
-        )
-            .createMediaSource(item)
-    }
+                .createMediaSource(item)
+        }*/
 
     /*    private fun playerAddVideoData(video: Video) {
             exoPlayer?.clearMediaItems()
@@ -536,25 +524,24 @@ class DetailsFragment : Fragment() {
     private fun getMinQuality(keys: MutableSet<String>?) =
         keys?.map { it.toIntOrNull() ?: 0 }
             ?.minByOrNull { it }?.toString()
-
-    private fun createSource(
-        url: String?,
-        id: Int?,
-        title: String?,
-        serialPosition: Map<Int, Int>? = null
-    ): HlsMediaSource {
-        val metadata = MediaMetadata.Builder()
-            .setTitle(title)
-            .build()
-        val item = MediaItem.Builder()
-            .setUri(url)
-            .setTag(serialPosition)
-            .setMediaId(id.toString())
-            .setMediaMetadata(metadata)
-            .build()
-        return HlsMediaSource.Factory(DefaultHttpDataSource.Factory())
-            .createMediaSource(item)
-    }
+    /*    private fun createSource(
+            url: String?,
+            id: Int?,
+            title: String?,
+            serialPosition: Map<Int, Int>? = null
+        ): HlsMediaSource {
+            val metadata = MediaMetadata.Builder()
+                .setTitle(title)
+                .build()
+            val item = MediaItem.Builder()
+                .setUri(url)
+                .setTag(serialPosition)
+                .setMediaId(id.toString())
+                .setMediaMetadata(metadata)
+                .build()
+            return HlsMediaSource.Factory(DefaultHttpDataSource.Factory())
+                .createMediaSource(item)
+        }*/
     /* private fun releasePlayer() {
          if (exoPlayer != null) {
              exoPlayer?.removeListener(playerListener)

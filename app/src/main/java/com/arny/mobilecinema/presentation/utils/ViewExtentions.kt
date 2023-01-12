@@ -12,7 +12,6 @@ import androidx.annotation.CheckResult
 import androidx.annotation.ColorInt
 import androidx.core.widget.addTextChangedListener
 import androidx.core.widget.doOnTextChanged
-import com.google.android.exoplayer2.util.Assertions.checkMainThread
 import com.google.android.material.snackbar.BaseTransientBottomBar
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -59,11 +58,8 @@ inline fun Spinner.updateSpinnerItems(
     this.onItemSelectedListener = listener
 }
 
-@ExperimentalCoroutinesApi
-@CheckResult
 fun EditText.textChanges(): Flow<CharSequence?> =
     callbackFlow {
-        checkMainThread()
         val listener = doOnTextChanged { text, _, _, _ -> trySend(text) }
         awaitClose { removeTextChangedListener(listener) }
     }.onStart { emit(text) }

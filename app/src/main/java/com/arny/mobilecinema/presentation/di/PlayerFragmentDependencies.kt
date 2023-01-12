@@ -9,6 +9,6 @@ import dagger.Provides
 interface PlayerFragmentDependencies {
     companion object {
         @Provides
-        fun providePlayerSource(context: Context) = PlayerSource()
+        fun providePlayerSource(context: Context) = PlayerSource(context)
     }
 }

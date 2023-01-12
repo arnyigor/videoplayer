@@ -72,10 +72,13 @@ ext {
     exoplayer = { version = '2.18.2' -> Alias {
         implementation "com.google.android.exoplayer:exoplayer:$version"
         implementation "com.google.android.exoplayer:exoplayer-core:$version"
+        implementation "com.google.android.exoplayer:exoplayer-common:$version"
         implementation "com.google.android.exoplayer:exoplayer-dash:$version"
-        implementation "com.google.android.exoplayer:extension-mediasession:$version"
-        implementation "com.google.android.exoplayer:exoplayer-ui:$version"
         implementation "com.google.android.exoplayer:exoplayer-hls:$version"
+        implementation "com.google.android.exoplayer:exoplayer-smoothstreaming:$version"
+        implementation "com.google.android.exoplayer:extension-mediasession:$version"
+        implementation "com.google.android.exoplayer:exoplayer-datasource:$version"
+        implementation "com.google.android.exoplayer:exoplayer-ui:$version"
     }}
 
     cicerone = { version = '6.6' -> Alias {
