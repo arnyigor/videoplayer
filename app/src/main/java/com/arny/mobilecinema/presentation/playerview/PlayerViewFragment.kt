@@ -229,7 +229,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
                 qualityPopUp?.menu?.add(0, i, 0, videoQuality.first)
             }
             // TODO fix by selected and after net changed
-            setQualityByConnection(list)
+//            setQualityByConnection(list)
         }
         qualityPopUp?.setOnMenuItemClickListener { menuItem ->
             qualityId = menuItem.itemId
