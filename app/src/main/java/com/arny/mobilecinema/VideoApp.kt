@@ -17,6 +17,5 @@ class VideoApp : DaggerApplication() {
         }
         Stetho.initializeWithDefaults(this)
     }
-
     override fun applicationInjector() = applicationInjector
 }
