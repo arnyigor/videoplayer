@@ -85,6 +85,10 @@ ext {
         implementation "com.github.terrakok:cicerone:$version"
     }}
 
+    bouncycastle = { version = '1.46' -> Alias {
+        implementation "org.bouncycastle:bcprov-jdk16:$version"
+    }}
+
     jodaTime = { version = '2.10.8' -> Alias {
         implementation "joda-time:joda-time:$version"
     }}

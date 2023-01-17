@@ -246,11 +246,9 @@ class HomeFragment : Fragment() {
     }
 
     private fun openPath() {
-        val testUrl =
-            "https://b86-b4d-2100g0.streamalloha.live/ds/20/1673711539/0dH3MB-OstTQGNtF1b0NhQ/491/10491/manifest.mpd"
         inputDialog(
             title = "Введите путь",
-            prefill = testUrl,
+            prefill = "",
             btnOkText = getString(android.R.string.ok),
             dialogListener = { result ->
                 findNavController().navigate(

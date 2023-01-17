@@ -93,7 +93,8 @@ android {
     }
 
     testOptions.unitTests.all {
-        jvmArgs "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap"
+        useJUnitPlatform()
+//        jvmArgs "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap"
     }
 }
 android.applicationVariants.all { variant ->

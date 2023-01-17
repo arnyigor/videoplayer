@@ -7,7 +7,27 @@ import android.net.NetworkInfo
 import android.os.Build
 import android.telephony.TelephonyManager
 import retrofit2.HttpException
+import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import javax.net.ssl.SSLHandshakeException
+
+fun getDomainName(url: String): String {
+    return try {
+        val uri = URI(url)
+        val scheme: String? = uri.scheme
+        val host: String? = uri.host
+        if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
+            "${scheme}://${host}"
+        } else {
+            ""
+        }
+    } catch (e: Exception) {
+        ""
+    }
+}
+
+fun urlEncode(value: String): String? = URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
 
 sealed class ConnectionType(open val speedKbps: Int) {
     object NONE : ConnectionType(0)

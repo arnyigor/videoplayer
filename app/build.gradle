@@ -38,4 +38,5 @@ dependencies {
     exoplayer()
     unitTest()
     timber()
+    bouncycastle()
 }

@@ -29,3 +29,9 @@ fun <T : Any> doAsync(
         exception.printStackTrace()
         emit(DataResult.Error(exception))
     }
+
+suspend fun <T : Any> getDataResult(request: suspend () -> T?) = try {
+    DataResult.Success(request())
+} catch (e: Exception) {
+    DataResult.Error(e)
+}

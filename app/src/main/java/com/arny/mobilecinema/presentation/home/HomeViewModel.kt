@@ -39,7 +39,9 @@ class HomeViewModel @Inject constructor(
             mainInteractor.loadData()
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
-                .catch { throwable -> setError(throwable) }
+                .catch { throwable ->
+                    _error.emit(ThrowableString(throwable))
+                }
                 .collect { content ->
                     when (content) {
                         is DataResult.Error -> {
@@ -59,10 +61,15 @@ class HomeViewModel @Inject constructor(
             interactor.getAllVideos()
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
-                .catch { throwable -> setError(throwable) }
+                .catch { throwable ->
+                    _error.emit(ThrowableString(throwable))
+                }
                 .collect { content ->
                     when (content) {
-                        is DataResult.Error -> setError(content.throwable)
+                        is DataResult.Error -> {
+                            _error.emit(ThrowableString(content.throwable))
+                        }
+
                         is DataResult.Success -> {
                             _movies.value = content.result?.movies.orEmpty()
                         }
@@ -92,14 +99,12 @@ class HomeViewModel @Inject constructor(
             interactor.searchMovie(search)
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
-                .catch { throwable -> setError(throwable) }
+                .catch { throwable ->
+                    _error.emit(ThrowableString(throwable))
+                }
                 .collect { content ->
                 }
         }
-    }
-
-    private suspend fun setError(throwable: Throwable) {
-        _error.emit(ThrowableString(throwable))
     }
 
     fun onTypeChanged(menuLink: VideoMenuLink?) {
@@ -107,7 +112,9 @@ class HomeViewModel @Inject constructor(
             interactor.getTypedVideos(menuLink?.searchUrl)
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
-                .catch { throwable -> setError(throwable) }
+                .catch { throwable ->
+                    _error.emit(ThrowableString(throwable))
+                }
                 .collect { content ->
                 }
         }
@@ -121,7 +128,9 @@ class HomeViewModel @Inject constructor(
     fun requestHosts() {
         viewModelScope.launch {
             interactor.getAllHosts()
-                .catch { throwable -> setError(throwable) }
+                .catch { throwable ->
+                    _error.emit(ThrowableString(throwable))
+                }
                 .collect { result ->
                 }
         }
@@ -132,7 +141,9 @@ class HomeViewModel @Inject constructor(
             interactor.searchCached(searchText)
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
-                .catch { throwable -> setError(throwable) }
+                .catch { throwable ->
+                    _error.emit(ThrowableString(throwable))
+                }
                 .collect { content ->
                 }
         }

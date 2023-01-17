@@ -44,4 +44,11 @@ class UiModule {
     fun provideHistoryViewModel(
         interactor: MobileCinemaInteractor,
     ): ViewModel = HistoryViewModel(interactor)
+
+    @Provides
+    @IntoMap
+    @ViewModelKey(PlayerViewModel::class)
+    fun providePlayerViewModel(
+        interactor: MainInteractor,
+    ): ViewModel = PlayerViewModel(interactor)
 }

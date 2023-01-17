@@ -15,6 +15,7 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
@@ -23,6 +24,7 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
+import com.arny.mobilecinema.presentation.home.HomeViewModel
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
@@ -48,7 +50,10 @@ import kotlin.properties.Delegates
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     private val args: PlayerViewFragmentArgs by navArgs()
-    private val viewModel: PlayerViewModel by viewModels()
+    @Inject
+    lateinit var vmFactory: ViewModelProvider.Factory
+    private val viewModel: PlayerViewModel by viewModels { vmFactory }
+
     private var qualityPopUp: PopupMenu? = null
     private var player: ExoPlayer? = null
     private var trackSelector: DefaultTrackSelector? = null
