@@ -10,4 +10,5 @@ data class PageParserSelectors(
     val scriptSelector: String = "",
     val scriptDataSelectorRegexp: String = "",
     val scriptDataSelectorRegexpGroup: Int = 0,
+    val decodedSubstringRange: Pair<String, String>? = null,
 )

@@ -2,7 +2,6 @@ package com.arny.mobilecinema.data.repository.sources.jsoup
 
 import com.arny.mobilecinema.data.api.JsoupService
 import com.arny.mobilecinema.data.models.DataResult
-import com.arny.mobilecinema.data.models.PageParserSelectors
 import com.arny.mobilecinema.data.models.getDataResult
 import com.arny.mobilecinema.data.utils.getDomainName
 import com.arny.mobilecinema.di.models.Movie

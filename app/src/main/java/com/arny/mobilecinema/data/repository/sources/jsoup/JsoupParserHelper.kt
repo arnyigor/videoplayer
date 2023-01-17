@@ -57,6 +57,21 @@ fun getVideoUrl(
     val ecryptedScriptData = values?.getOrNull(selectors.scriptDataSelectorRegexpGroup).orEmpty()
     val anwapData = cleanAnwapEncryptedData(ecryptedScriptData)
     val encryptedData = getEncryptedData(anwapData)
-    val data = encryptedData.fromJson(AnwapMovieData::class.java)
-    return data?.fileUrl.orEmpty()
+    val substringRange = selectors.decodedSubstringRange
+    val url = try {
+        encryptedData.fromJson(AnwapMovieData::class.java)?.fileUrl.orEmpty()
+    } catch (e: Exception) {
+        if (substringRange != null) {
+            encryptedData.substringAfter(substringRange.first)
+                .substringBefore(substringRange.second)
+        } else {
+            ""
+        }
+    }
+    return getUrlFromList(url)
+}
+
+fun getUrlFromList(url: String): String {
+    val urls = url.split("or").map { it.trimIndent() }
+    return urls.getOrNull(0) ?: url
 }

@@ -12,6 +12,7 @@ object Selectors {
         fullDescSelector = ".filmopis screen3>p",
         scriptSelector = "script:containsData(playerjs)",
         scriptDataSelectorRegexp = "Playerjs\\(\"(.+)\"\\);",
-        scriptDataSelectorRegexpGroup = 1
+        scriptDataSelectorRegexpGroup = 1,
+        decodedSubstringRange = "\"file\":\"" to "\"poster\":"
     )
 }
