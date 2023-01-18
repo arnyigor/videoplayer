@@ -108,9 +108,9 @@ private fun SerialSeason.fillEposides(): SerialSeason {
     for (episodesItem in this.episodes!!) {
         if (episodesItem!=null) {
             val serialEpisode = SerialEpisode(
-                id = episodesItem.id ?: 0,
+                id = episodesItem.id,
                 title = episodesItem.title,
-                hlsList = episodesItem.hlsList
+                hls = episodesItem.hls
             )
             episodes.add(serialEpisode)
         }

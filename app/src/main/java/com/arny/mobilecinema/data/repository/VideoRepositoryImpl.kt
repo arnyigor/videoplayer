@@ -267,7 +267,7 @@ class VideoRepositoryImpl @Inject constructor(
             val serialEpisode = SerialEpisode(
                 id = index,
                 title = it.name,
-                hlsList = hashMapOf(
+                hls = hashMapOf(
                     "720" to Uri.fromFile(it).toString()
                 )
             )
@@ -337,7 +337,7 @@ class VideoRepositoryImpl @Inject constructor(
         val firstSeason = serialData.seasons?.minByOrNull { it.id ?: 0 }
         val episodes = firstSeason?.episodes ?: emptyList()
         val firstEpisode = episodes.minByOrNull { it?.id ?: 0 }
-        val hlsQualityMap = firstEpisode?.hlsList
+        val hlsQualityMap = firstEpisode?.hls
         val selectedQuality = if (movie.selectedQuality.isNullOrBlank()) {
             getMinQualityKey(hlsQualityMap)
         } else {

@@ -6,7 +6,7 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class SerialEpisode(
-	@SerializedName("id")  val id: Int? = null,
+	@SerializedName("id")  val id: Int = 0,
 	@SerializedName("title") val title: String? = null,
-	@SerializedName("hlsList") val hlsList: HashMap<String, String>? = null,
+	@SerializedName("hls") val hls: HashMap<String, String>? = null,
 ) : Parcelable

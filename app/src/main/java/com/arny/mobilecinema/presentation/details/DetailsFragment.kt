@@ -288,7 +288,7 @@ class DetailsFragment : Fragment() {
                 id = episode?.id,
                 title = episode?.title,
                 type = MovieType.SERIAL,
-                hlsList = episode?.hlsList,
+                hlsList = episode?.hls,
                 videoUrl = getUrl(episode),
                 season = playerSeason?.id,
                 episode = episode?.id
@@ -511,14 +511,14 @@ class DetailsFragment : Fragment() {
       }
   */
     private fun getUrl(episode: SerialEpisode?, key: String? = null): String? {
-        val keys = episode?.hlsList?.keys
+        val keys = episode?.hls?.keys
         val minQuality = getMinQuality(keys)
         val qualityKey = when {
             !key.isNullOrBlank() -> key
             !minQuality.isNullOrBlank() -> minQuality
             else -> keys?.first()
         }
-        return episode?.hlsList?.get(qualityKey)
+        return episode?.hls?.get(qualityKey)
     }
 
     private fun getMinQuality(keys: MutableSet<String>?) =
