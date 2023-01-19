@@ -96,6 +96,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         args.path?.let { viewModel.setPath(it) }
+        binding.progressBar.isVisible = true
         observeState()
         initListener()
     }
@@ -283,12 +284,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     }
 
     override fun onPlaybackStateChanged(playbackState: Int) {
-        println("onPlaybackStateChanged:$playbackState")
-        state = playbackState
+        updateState(playbackState)
     }
 
     private fun updateState(playbackState: Int) {
-        println("updateState:$playbackState")
         when (playbackState) {
             Player.STATE_BUFFERING -> {
                 binding.progressBar.isVisible = true
@@ -300,12 +299,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
 
             Player.STATE_READY -> {
                 binding.progressBar.isVisible = false
+                // TODO set first Time on load
                 trackSelector?.generateQualityList(requireContext())?.let {
                     qualityList = it
                     setUpQualityList()
                 }
             }
-
             else -> {}
         }
     }

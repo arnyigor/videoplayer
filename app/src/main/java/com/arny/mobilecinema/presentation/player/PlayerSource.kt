@@ -41,14 +41,11 @@ class PlayerSource @Inject constructor(
                 when {
                     uri.host?.contains("youtube") == true ->
                         getYoutubeSource(url, factory)
-
                     uri.lastPathSegment.orEmpty().substringAfterLast('.') == "mp4" ->
                         getMp4MediaSource(factory, url)
-
                     else -> DashMediaSource.Factory(factory).createMediaSource(getItem(url))
                 }
             }
-
             else -> error("Unsupported type: $type from url:$url")
         }
     }
