@@ -114,7 +114,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
                     binding.tvTitle.text = args.name
                     Timber.d("setPlayerSource:$path")
                     path?.let {
-                        setPlayerSource(path, state.position)
+                        try {
+                            setPlayerSource(path, state.position)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            toast(e.message)
+                        }
                     } ?: kotlin.run {
                         toast("Не найден путь")
                         findNavController().navigateUp()
@@ -216,7 +221,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
         }
     }
 
-    private fun setPlayerSource(path: String, position: Long) {
+    private suspend fun setPlayerSource(path: String, position: Long) {
         player?.apply {
             playerSource.getSource(path)?.let {
                 setMediaSource(it)

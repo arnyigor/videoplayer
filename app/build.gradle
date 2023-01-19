@@ -39,4 +39,5 @@ dependencies {
     unitTest()
     timber()
     bouncycastle()
+    ktor()
 }
