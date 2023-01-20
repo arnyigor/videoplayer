@@ -24,7 +24,6 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
-import com.arny.mobilecinema.presentation.home.HomeViewModel
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
@@ -36,6 +35,7 @@ import com.google.android.exoplayer2.DefaultRenderersFactory
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
@@ -46,7 +46,6 @@ import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-import kotlin.properties.Delegates
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     private val args: PlayerViewFragmentArgs by navArgs()
@@ -66,12 +65,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     @Inject
     lateinit var playerSource: PlayerSource
     private val handler = Handler(Looper.getMainLooper())
-    private var state: Int by Delegates.observable(Player.STATE_BUFFERING) { _, old, new ->
-        if (old != new) {
-            handler.removeCallbacksAndMessages(null)
-            handler.postDelayed({ updateState(new) }, 2000L)
-        }
-    }
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
@@ -116,7 +109,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
                     Timber.d("setPlayerSource:$path")
                     path?.let {
                         try {
-                            setPlayerSource(path, state.position)
+                            val mediaSource = playerSource.getSource(path)
+                            setPlayerSource(state.position, mediaSource)
                         } catch (e: Exception) {
                             e.printStackTrace()
                             toast(e.message)
@@ -222,10 +216,15 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
         }
     }
 
-    private suspend fun setPlayerSource(path: String, position: Long) {
+    private fun setPlayerSource(position: Long, source: MediaSource?) {
         player?.apply {
-            playerSource.getSource(path)?.let {
-                setMediaSource(it)
+            source?.let {
+                val title = source.mediaItem.mediaMetadata.title
+                if (!title.isNullOrBlank() && title != "null") {
+                    updateTitle(title.toString())
+                    binding.tvTitle.text = title.toString()
+                }
+                setMediaSource(source)
                 seekTo(position)
                 addListener(this@PlayerViewFragment)
                 prepare()

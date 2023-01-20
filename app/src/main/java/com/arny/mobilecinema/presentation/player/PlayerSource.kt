@@ -5,6 +5,7 @@ import android.net.Uri
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.MediaMetadata
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
@@ -23,13 +24,27 @@ import javax.inject.Inject
 class PlayerSource @Inject constructor(
     private val context: Context
 ) {
+    private companion object {
+        const val YOUTUBE_HOST = "youtube"
+        const val YOUTUBE_MAX_QUALITY_TAG = 22
+    }
+
     private val youTubeVideoRetriever = YouTubeVideoInfoRetriever()
     suspend fun getSource(url: String?): MediaSource? = url?.let {
         buildMediaSource1(url)
     }
 
-    private fun getItem(url: String?): MediaItem =
-        MediaItem.Builder().apply { setUri(Uri.parse(url)) }.build()
+    private fun getItem(url: String?, title: String? = null): MediaItem {
+        return MediaItem.Builder().apply {
+            if (title != null) {
+                val builder = MediaMetadata.Builder()
+                builder.setTitle(title)
+                setMediaMetadata(builder.build())
+            }
+            setUri(Uri.parse(url))
+        }
+            .build()
+    }
 
     private suspend fun buildMediaSource1(url: String): MediaSource {
         val uri = Uri.parse(url)
@@ -39,11 +54,13 @@ class PlayerSource @Inject constructor(
             C.CONTENT_TYPE_HLS -> getHlsMedialSource(factory, url)
             C.CONTENT_TYPE_OTHER -> {
                 when {
-                    uri.host?.contains("youtube") == true ->
+                    uri.host?.contains(YOUTUBE_HOST) == true ->
                         getYoutubeSource(url, factory)
+
                     uri.lastPathSegment.orEmpty().substringAfterLast('.') == "mp4" ->
                         getMp4MediaSource(factory, url)
-                    else -> DashMediaSource.Factory(factory).createMediaSource(getItem(url))
+
+                    else -> getMp4MediaSource(factory, url)
                 }
             }
             else -> error("Unsupported type: $type from url:$url")
@@ -52,9 +69,10 @@ class PlayerSource @Inject constructor(
 
     private fun getMp4MediaSource(
         factory: DataSource.Factory,
-        url: String?
+        url: String?,
+        title: String? = null
     ) = ProgressiveMediaSource.Factory(factory, DefaultExtractorsFactory())
-        .createMediaSource(getItem(url))
+        .createMediaSource(getItem(url, title))
 
     private fun getHlsMedialSource(
         factory: DataSource.Factory,
@@ -75,9 +93,11 @@ class PlayerSource @Inject constructor(
     ): MediaSource {
         val result = "v=(.*?)(&|$)".toRegex().find(link)?.groupValues?.getOrNull(1).toString()
         val data = youTubeVideoRetriever.retrieve(result)
-        val url = data.streamingData?.formats?.find { it?.itag == 22 }?.url
+        val title = data.videoDetails?.title
+        val format = data.streamingData?.formats?.find { it?.itag == YOUTUBE_MAX_QUALITY_TAG }
+        val url = format?.url
         return when {
-            !url.isNullOrBlank() -> getMp4MediaSource(factory, url)
+            !url.isNullOrBlank() -> getMp4MediaSource(factory, url, title)
             else -> error("Media source from Youtube link $link not found")
         }
     }
