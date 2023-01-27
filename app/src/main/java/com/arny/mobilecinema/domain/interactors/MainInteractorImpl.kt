@@ -2,6 +2,8 @@ package com.arny.mobilecinema.domain.interactors
 
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.network.responses.MoviesData
+import com.arny.mobilecinema.data.utils.fromJson
+import com.arny.mobilecinema.domain.models.MoviesData2
 import com.arny.mobilecinema.domain.repository.GistsRepository
 import com.arny.mobilecinema.domain.repository.JsoupRepository
 import com.arny.mobilecinema.domain.repository.MegaRepository
@@ -25,13 +27,12 @@ class MainInteractorImpl @Inject constructor(
         }
 
     override fun loadDb(): Flow<DataResult<Boolean>> = flow {
-        megaRepository.downloadDB()
-            .takeIf { it }
-            ?.let { megaRepository.unzipFile() }
-            ?.takeIf { it }?.let {
-                emit(DataResult.Success(true))
-            } ?: run {
-            emit(DataResult.Success(false))
+        if (megaRepository.downloadDB()) {
+            val dataFile = megaRepository.unzipFile()
+            val data = dataFile.readText()
+            val moviesData = data.fromJson(MoviesData2::class.java)
+            println("data:${moviesData?.movies?.size}")
         }
+        emit(DataResult.Success(true))
     }.flowOn(Dispatchers.IO)
 }
