@@ -30,8 +30,10 @@ import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
 import com.arny.mobilecinema.di.models.Video
 import com.arny.mobilecinema.presentation.utils.KeyboardHelper
+import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.inputDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.openAppSettings
 import com.arny.mobilecinema.presentation.utils.requestPermission
 import com.arny.mobilecinema.presentation.utils.setDrawableRightListener
 import com.arny.mobilecinema.presentation.utils.setEnterPressListener
@@ -43,7 +45,6 @@ import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.unlockOrientation
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -56,6 +57,7 @@ import kotlin.properties.Delegates
 
 class HomeFragment : Fragment() {
     private companion object {
+        const val REQUEST_LOAD: Int = 99
         const val REQUEST_OPEN_FILE: Int = 100
         const val REQUEST_OPEN_FOLDER: Int = 101
     }
@@ -98,7 +100,9 @@ class HomeFragment : Fragment() {
                         requestFile()
                     }
 
-                    else -> {}
+                    REQUEST_LOAD -> {
+                        loadDB()
+                    }
                 }
             }
         }
@@ -124,9 +128,32 @@ class HomeFragment : Fragment() {
         initUI()
         initAdapters()
         observeData()
+        requestPermission()
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+    private fun requestPermission() {
+        request = REQUEST_LOAD
+        requestPermission(
+            resultLauncher = requestPermissionLauncher,
+            permission = Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            onNeverAskAgain = {
+                alertDialog(
+                    title = getString(R.string.need_permission_message),
+                    btnOkText = getString(android.R.string.ok),
+                    onConfirm = { openAppSettings() }
+                )
+            },
+            checkPermissionOk = {
+                loadDB()
+            }
+        )
+    }
+
+    private fun loadDB() {
+        viewModel.loadDB()
+    }
+
+    @OptIn(FlowPreview::class)
     private fun initUI() {
         with(binding) {
             swiperefresh.setOnRefreshListener {
@@ -264,7 +291,7 @@ class HomeFragment : Fragment() {
         val movie = Movie(
             uuid = UUID.randomUUID().toString(),
             title = path?.substringBeforeLast(".") ?: "",
-            type = MovieType.SERIAL_LOCAL,
+            type = MovieType.CINEMA,
             detailUrl = path,
             video = Video(
                 videoUrl = uri.toString()
@@ -280,7 +307,7 @@ class HomeFragment : Fragment() {
         val movie = Movie(
             uuid = UUID.randomUUID().toString(),
             title = path?.substringBeforeLast(".") ?: "",
-            type = MovieType.CINEMA_LOCAL,
+            type = MovieType.CINEMA,
             detailUrl = path,
             video = Video(
                 videoUrl = uri.toString()
@@ -315,7 +342,7 @@ class HomeFragment : Fragment() {
         )
     }
 
-    private fun showAlertDialog(sources: List<String>, checkedItem: Int) {
+    private fun showSourceDialog(sources: List<String>, checkedItem: Int) {
         singleChoiceDialog(
             title = getString(R.string.home_choose_source),
             items = sources,

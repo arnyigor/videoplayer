@@ -313,17 +313,10 @@ fun Fragment.requestPermission(
         ContextCompat.checkSelfPermission(
             requireContext(),
             permission
-        ) == PackageManager.PERMISSION_GRANTED -> {
-            checkPermissionOk()
-        }
+        ) == PackageManager.PERMISSION_GRANTED -> checkPermissionOk()
 
-        !shouldShowRequestPermissionRationale(permission) -> {
-            onNeverAskAgain()
-        }
-
-        else -> {
-            resultLauncher.launch(permission)
-        }
+        shouldShowRequestPermissionRationale(permission) -> onNeverAskAgain()
+        else -> resultLauncher.launch(permission)
     }
 }
 

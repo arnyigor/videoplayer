@@ -2,10 +2,8 @@ package com.arny.mobilecinema.data.repository.sources.jsoup
 
 import com.arny.mobilecinema.data.models.AnwapMovieData
 import com.arny.mobilecinema.data.models.PageParserSelectors
-import com.arny.mobilecinema.data.utils.cleanAnwapEncryptedData
 import com.arny.mobilecinema.data.utils.fromJson
 import com.arny.mobilecinema.data.utils.getDomainName
-import com.arny.mobilecinema.data.utils.getEncryptedData
 import org.jsoup.nodes.Element
 
 fun getPageInfo(
@@ -55,8 +53,8 @@ fun getVideoUrl(
     val matchResult = regex.find(scriptData)
     val values = matchResult?.groupValues
     val ecryptedScriptData = values?.getOrNull(selectors.scriptDataSelectorRegexpGroup).orEmpty()
-    val anwapData = cleanAnwapEncryptedData(ecryptedScriptData)
-    val encryptedData = getEncryptedData(anwapData)
+    val anwapData = ""//cleanAnwapEncryptedData(ecryptedScriptData)
+    val encryptedData = anwapData
     val substringRange = selectors.decodedSubstringRange
     val url = try {
         encryptedData.fromJson(AnwapMovieData::class.java)?.fileUrl.orEmpty()

@@ -1,8 +1,8 @@
 package com.arny.mobilecinema.data.repository.sources.cache
 
 import com.arny.mobilecinema.di.models.Movie
-import com.arny.mobilecinema.di.models.SerialEpisode
-import com.arny.mobilecinema.di.models.SerialSeason
+import com.arny.mobilecinema.domain.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.SerialSeason
 import javax.inject.Inject
 
 class VideoCacheImpl @Inject constructor() : VideoCache {

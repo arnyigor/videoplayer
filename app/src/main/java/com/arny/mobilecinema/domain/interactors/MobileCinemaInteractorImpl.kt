@@ -54,8 +54,6 @@ class MobileCinemaInteractorImpl @Inject constructor(
     override fun searchCached(searchText: String): Flow<DataResult<List<Movie>>> =
         repository.searchCached(searchText)
 
-    override fun loadMovie(movie: Movie): Flow<DataResult<Movie>> = repository.loadMovie(movie)
-
     override fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>> =
         repository.cacheMovie(movie)
 

@@ -2,8 +2,8 @@ package com.arny.mobilecinema.data.network.sources
 
 import com.arny.mobilecinema.data.utils.fromJson
 import com.arny.mobilecinema.di.models.SerialData
-import com.arny.mobilecinema.di.models.SerialEpisode
-import com.arny.mobilecinema.di.models.SerialSeason
+import com.arny.mobilecinema.domain.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.SerialSeason
 
 fun String.toHlsListMap(): HashMap<String, String> {
     val qualityMap = hashMapOf<String, String>()

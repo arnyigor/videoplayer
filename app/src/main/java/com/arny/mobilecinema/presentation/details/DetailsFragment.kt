@@ -21,7 +21,7 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.FDetailsBinding
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
-import com.arny.mobilecinema.di.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.di.models.Video
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
@@ -283,13 +283,12 @@ class DetailsFragment : Fragment() {
         val seasons = currentMovie?.serialData?.seasons
         seasons?.let {
             val playerSeason = seasons.getOrNull(currentSeasonPosition)
-            val episode = playerSeason?.let { it.episodes?.getOrNull(currentEpisodePosition) }
+            val episode = playerSeason?.episodes?.getOrNull(currentEpisodePosition)
             currentVideo = currentVideo?.copy(
                 id = episode?.id,
                 title = episode?.title,
                 type = MovieType.SERIAL,
-                hlsList = episode?.hls,
-                videoUrl = getUrl(episode),
+                hlsList = hashMapOf(),
                 season = playerSeason?.id,
                 episode = episode?.id
             )
@@ -309,58 +308,6 @@ class DetailsFragment : Fragment() {
         updateCurrentVideo()
     }
 
-    /*private fun initPlayer(movie: Movie? = null) {
-        movie?.let {
-            if (!videoRestored) {
-                if (currentMovie?.uuid != movie.uuid) {
-                    currentMovie = movie
-                }
-                if (movie.video != currentVideo) {
-                    currentVideo = movie.video
-                }
-            }
-        }
-        currentVideo?.let { video ->
-            if (!videoRestored) {
-                videoRestored = movie == null && videoStartRestore
-                updateSpinData()
-                createPlayer()
-                *//*binding.mtvQuality.text = getString(R.string.quality_format, video.selectedHls)
-                binding.plVideoPLayer.player = exoPlayer
-                binding.plVideoPLayer.setControllerVisibilityListener { viewVisible ->
-                    if (isVisible) {
-                        playControlsVisible = when (viewVisible) {
-                            View.VISIBLE -> true
-                            else -> false
-                        }
-                    }
-                }*//*
-                setMediaItems(video, currentMovie)
-                exoPlayer?.prepare()
-                updatePlayerPosition()
-                restorePlayerState()
-            } else {
-                playControlsVisible = !video.playWhenReady
-            }
-        }
-    }*/
-    /*private fun restorePlayerState() {
-        currentVideo?.let { video ->
-            exoPlayer?.seekTo(video.currentPosition)
-            val playWhenReady = video.playWhenReady
-            exoPlayer?.playWhenReady = playWhenReady
-            if (playWhenReady) {
-                binding.plVideoPLayer.hideController()
-            }
-        }
-    }*/
-    /* private fun setMediaItems(video: Video, movie: Movie?) {
-         when (movie?.type) {
-             MovieType.CINEMA, MovieType.CINEMA_LOCAL -> playerAddVideoData(video)
-             MovieType.SERIAL, MovieType.SERIAL_LOCAL -> playerAddSerialdata(movie)
-             else -> playerAddVideoData(video)
-         }
-     }*/
     private fun updateSpinData() = with(binding) {
         val cachedSeasonPosition = currentMovie?.currentSeasonPosition ?: 0
         val cachedEpisodePosition = currentMovie?.currentEpisodePosition ?: 0
@@ -386,7 +333,7 @@ class DetailsFragment : Fragment() {
                     }
                     spinEpisodes.updateSpinnerItems(episodesChangeListener) {
                         val season = seasons.getOrNull(currentSeasonPosition)
-                        val seriesList = season?.episodes?.map { "${it?.id} серия" }
+                        val seriesList = season?.episodes?.map { "${it.id} серия" }
                         episodesTracksAdapter?.clear()
                         episodesTracksAdapter?.addAll(seriesList)
                         spinEpisodes.setSelection(currentEpisodePosition, false)
@@ -396,185 +343,11 @@ class DetailsFragment : Fragment() {
         }
     }
 
-    /*private fun createFileSource(fileUri: Uri): MediaSource {
-        val playerInfo: String = Util.getUserAgent(requireContext(), "ExoPlayerInfo")
-        val dataSourceFactory = DefaultDataSourceFactory(
-            requireContext(), playerInfo
-        )
-        val item = MediaItem.Builder()
-            .setUri(fileUri)
-            .setMediaId(id.toString())
-            .build()
-        return ProgressiveMediaSource.Factory(dataSourceFactory, DefaultExtractorsFactory())
-            .createMediaSource(item)
-    }*/
-
-    /* private fun createPlayer() {
-         trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
-         trackSelector?.let { selector ->
-             exoPlayer = ExoPlayer.Builder(requireContext())
-                 .setLoadControl(
-                     DefaultLoadControl.Builder()
-                         .setBufferDurationsMs(
-                             BUFFER_64K,
-                             BUFFER_128K,
-                             BUFFER_1K,
-                             BUFFER_1K
-                         )
-                         .build()
-                 )
-                 .setTrackSelector(selector)
-                 .build()
-             exoPlayer?.addAnalyticsListener(EventLogger(trackSelector))
-             exoPlayer?.addListener(playerListener)
-         }
-     }*/
-    private fun setCustomTitleVisible(visible: Boolean) {
-        binding.tvTitle.isVisible = visible
-    }
-    /*    private fun buildMediaSource(url: String, id: Int?): MediaSource {
-            val item = MediaItem.Builder()
-                .setUri(url)
-                .setMediaId(id.toString())
-                .build()
-            return DashMediaSource.Factory(
-                DefaultDataSourceFactory(
-                    requireContext(),
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
-                )
-            )
-                .createMediaSource(item)
-        }*/
-
-    /*    private fun playerAddVideoData(video: Video) {
-            exoPlayer?.clearMediaItems()
-            video.videoUrl?.let { url ->
-                when {
-                    "^content://.+".toRegex().matches(url) -> {
-                        exoPlayer?.setMediaSource(createFileSource(Uri.parse(url)))
-                    }
-                    url.contains(".m3u8") -> {
-                        exoPlayer?.setMediaSource(createSource(url, video.id, video.title))
-                    }
-                    url.contains(".webm") -> {
-                        exoPlayer?.setMediaSource(buildMediaSource(url, video.id))
-                    }
-                    else -> {
-                        exoPlayer?.setMediaItem(MediaItem.fromUri(url))
-                    }
-                }
-            } ?: kotlin.run {
-                toastError(DataThrowable(R.string.video_link_not_found))
-            }
-        }*/
-    /*  private fun playerAddSerialdata(movie: Movie?) {
-          exoPlayer?.clearMediaItems()
-          movie?.serialData?.seasons?.let { seasons ->
-              seasons.asSequence()
-                  .forEachIndexed { indexSeason, serialSeason ->
-                      serialSeason.episodes
-                          ?.asSequence()
-                          ?.forEachIndexed { indexEpisode, serialEpisode ->
-                              getUrl(serialEpisode, movie.selectedQuality)?.let { url ->
-                                  when {
-                                      "^content://.+".toRegex().matches(url) -> {
-                                          exoPlayer?.addMediaSource(createFileSource(Uri.parse(url)))
-                                      }
-                                      url.contains(".m3u8") -> {
-                                          exoPlayer?.addMediaSource(
-                                              createSource(
-                                                  url,
-                                                  serialEpisode.id,
-                                                  serialEpisode.title,
-                                                  hashMapOf(indexSeason to indexEpisode)
-                                              )
-                                          )
-                                      }
-                                      url.contains(".webm") -> {
-                                          exoPlayer?.addMediaSource(
-                                              buildMediaSource(
-                                                  url,
-                                                  serialEpisode.id
-                                              )
-                                          )
-                                      }
-                                      else -> {
-                                          exoPlayer?.addMediaItem(MediaItem.fromUri(url))
-                                      }
-                                  }
-                              }
-                          }
-                  }
-          }
-          binding.plVideoPLayer.setShowPreviousButton(true)
-          binding.plVideoPLayer.setShowNextButton(true)
-      }
-  */
-    private fun getUrl(episode: SerialEpisode?, key: String? = null): String? {
-        val keys = episode?.hls?.keys
-        val minQuality = getMinQuality(keys)
-        val qualityKey = when {
-            !key.isNullOrBlank() -> key
-            !minQuality.isNullOrBlank() -> minQuality
-            else -> keys?.first()
-        }
-        return episode?.hls?.get(qualityKey)
-    }
-
-    private fun getMinQuality(keys: MutableSet<String>?) =
-        keys?.map { it.toIntOrNull() ?: 0 }
-            ?.minByOrNull { it }?.toString()
-    /*    private fun createSource(
-            url: String?,
-            id: Int?,
-            title: String?,
-            serialPosition: Map<Int, Int>? = null
-        ): HlsMediaSource {
-            val metadata = MediaMetadata.Builder()
-                .setTitle(title)
-                .build()
-            val item = MediaItem.Builder()
-                .setUri(url)
-                .setTag(serialPosition)
-                .setMediaId(id.toString())
-                .setMediaMetadata(metadata)
-                .build()
-            return HlsMediaSource.Factory(DefaultHttpDataSource.Factory())
-                .createMediaSource(item)
-        }*/
-    /* private fun releasePlayer() {
-         if (exoPlayer != null) {
-             exoPlayer?.removeListener(playerListener)
-             exoPlayer?.stop()
-             cache()
-             currentVideo?.currentPosition = exoPlayer?.contentPosition ?: 0
-             currentVideo?.playWhenReady = exoPlayer?.playWhenReady ?: false
-             binding.plVideoPLayer.player = null
-             exoPlayer?.release()
-             exoPlayer = null
-             videoRestored = false
-             videoStartRestore = false
-         }
-     }
- */
-    /*private fun cache() {
-        currentVideo?.currentPosition = exoPlayer?.contentPosition ?: 0
-        currentVideo?.playWhenReady = exoPlayer?.playWhenReady ?: false
-        presenter.cacheMovie(
-            currentMovie?.copy(
-                currentEpisodePosition = currentEpisodePosition,
-                currentSeasonPosition = currentSeasonPosition,
-                video = currentVideo
-            )
-        )
-    }*/
-
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putParcelable(KEY_VIDEO, currentVideo)
         outState.putParcelable(KEY_MOVIE, currentMovie)
         outState.putInt(KEY_SEASON, currentSeasonPosition)
         outState.putInt(KEY_EPISODE, currentEpisodePosition)
-//        outState.putBoolean(KEY_ORIENTATION, orientationLocked)
     }
 
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
@@ -583,40 +356,8 @@ class DetailsFragment : Fragment() {
         currentVideo = savedInstanceState?.getParcelable(KEY_VIDEO)
         currentSeasonPosition = savedInstanceState?.getInt(KEY_SEASON) ?: 0
         currentEpisodePosition = savedInstanceState?.getInt(KEY_EPISODE) ?: 0
-//        orientationLocked = savedInstanceState?.getBoolean(KEY_ORIENTATION) ?: false
     }
 
-    /*override fun onResume() {
-        super.onResume()
-        if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
-            val appCompatActivity = activity as AppCompatActivity?
-            appCompatActivity?.supportActionBar?.hide()
-            setFullScreen(appCompatActivity, true)
-        }
-    }*/
-    /*override fun onPause() {
-        super.onPause()
-        releasePlayer()
-    }*/
-    /*override fun onStop() {
-        super.onStop()
-        if (resources.configuration.orientation == ORIENTATION_LANDSCAPE) {
-            val appCompatActivity = activity as AppCompatActivity?
-            val window = appCompatActivity?.window
-            setFullScreen(appCompatActivity, false)
-            window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
-    }*/
-    /*private fun setFullScreen(appCompatActivity: AppCompatActivity?, setFullScreen: Boolean) {
-        if (setFullScreen) {
-            requireActivity().window.hideSystemBar()
-            appCompatActivity?.window?.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
-        } else {
-            requireActivity().window.showSystemBar()
-            appCompatActivity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
-        }
-    }
-*/
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
         super.onAttach(context)

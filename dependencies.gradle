@@ -84,8 +84,8 @@ ext {
         implementation "com.github.terrakok:cicerone:$version"
     }}
 
-    bouncycastle = { version = '1.46' -> Alias {
-        implementation "org.bouncycastle:bcprov-jdk16:$version"
+    commonsCodec = { version = '1.15' -> Alias {
+        implementation "commons-codec:commons-codec:$version"
     }}
 
     jodaTime = { version = '2.10.8' -> Alias {
@@ -113,9 +113,22 @@ ext {
     }}
 
     tests = { junit = '4.13.1' -> Alias {
-        testImplementation "junit:junit:$version"
-        androidTestImplementation "androidx.test.ext:junit:1.1.2"
+        testImplementation 'org.junit.jupiter:junit-jupiter:5.5.2'
+        testImplementation 'org.junit.jupiter:junit-jupiter-api:5.5.2'
+        testCompileOnly 'org.junit.jupiter:junit-jupiter-engine:5.5.2'
+        testImplementation 'com.google.guava:guava:28.1-android'
+        testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0"
+    }}
+
+    androidTests = { -> Alias {
+        androidTestImplementation 'org.mockito:mockito-android:3.1.0'
         androidTestImplementation "androidx.test.espresso:espresso-core:3.3.0"
+        androidTestImplementation 'com.kaspersky.android-components:kaspresso:1.0.1'
+        androidTestImplementation "androidx.test.ext:junit:1.1.5"
+        androidTestImplementation 'androidx.test:runner:1.2.0'
+        androidTestImplementation 'androidx.test:rules:1.5.0'
+        implementation 'androidx.test.ext:junit-ktx:1.1.5'
+        testImplementation "androidx.test:core-ktx:1.5.0"
     }}
 
     coroutines = { version = '1.6.4' -> Alias {
@@ -235,18 +248,4 @@ ext {
         implementation "com.squareup.leakcanary:leakcanary-object-watcher-android:$version"
     }}
 
-    unitTest = { version = '' -> Alias {
-        testImplementation 'org.junit.jupiter:junit-jupiter:5.5.2'
-        testImplementation 'org.junit.jupiter:junit-jupiter-api:5.5.2'
-        testCompileOnly 'org.junit.jupiter:junit-jupiter-engine:5.5.2'
-        testImplementation 'com.google.guava:guava:28.1-android'
-        testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin:2.2.0"
-    }}
-
-    androidTest = { -> Alias {
-        androidTestImplementation 'org.mockito:mockito-android:3.1.0'
-        androidTestImplementation 'com.kaspersky.android-components:kaspresso:1.0.1'
-        androidTestImplementation 'androidx.test.ext:junit:1.1.1'
-        androidTestImplementation 'androidx.test:runner:1.2.0'
-    }}
 }

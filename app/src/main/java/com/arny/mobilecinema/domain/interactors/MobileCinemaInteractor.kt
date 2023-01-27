@@ -13,7 +13,6 @@ interface MobileCinemaInteractor {
     fun getAllHosts(): Flow<DataResult<HostsData>>
     fun setHost(source: String)
     fun searchCached(searchText: String): Flow<DataResult<List<Movie>>>
-    fun loadMovie(movie: Movie): Flow<DataResult<Movie>>
     fun cacheMovie(movie: Movie?): Flow<DataResult<Boolean>>
     fun clearCache(movie: Movie?): Flow<DataResult<Boolean>>
     fun getAllCached(): Flow<DataResult<List<Movie>>>

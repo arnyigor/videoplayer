@@ -8,6 +8,7 @@ import com.arny.mobilecinema.di.models.VideoMenuLink
 import com.arny.mobilecinema.domain.interactors.MainInteractor
 import com.arny.mobilecinema.domain.interactors.MobileCinemaInteractor
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
+import com.arny.mobilecinema.presentation.utils.strings.SimpleString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,8 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
+    private val _toast = MutableSharedFlow<IWrappedString>()
+    val toast = _toast.asSharedFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
     private val _movies = MutableStateFlow<List<Movie>>(emptyList())
@@ -145,6 +148,23 @@ class HomeViewModel @Inject constructor(
                     _error.emit(ThrowableString(throwable))
                 }
                 .collect { content ->
+                }
+        }
+    }
+
+    fun loadDB() {
+        viewModelScope.launch {
+            mainInteractor.loadDb()
+                .onStart { _loading.value = true }
+                .onCompletion { _loading.value = false }
+                .catch { _error.emit(ThrowableString(it)) }
+                .collect { result ->
+                    when (result) {
+                        is DataResult.Error -> _error.emit(ThrowableString(result.throwable))
+                        is DataResult.Success -> {
+                            _toast.emit(SimpleString("Load DB result:${result.result}"))
+                        }
+                    }
                 }
         }
     }

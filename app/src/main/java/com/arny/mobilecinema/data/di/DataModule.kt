@@ -2,6 +2,7 @@ package com.arny.mobilecinema.data.di
 
 import android.content.Context
 import com.arny.mobilecinema.data.api.JsoupService
+import com.arny.mobilecinema.data.repository.MegaRepositoryImpl
 import com.arny.mobilecinema.data.repository.VideoRepositoryImpl
 import com.arny.mobilecinema.data.repository.gists.GistsRepositoryImpl
 import com.arny.mobilecinema.data.repository.sources.assets.AssetsReader
@@ -12,8 +13,10 @@ import com.arny.mobilecinema.data.repository.sources.jsoup.JsoupRepositoryImpl
 import com.arny.mobilecinema.data.repository.sources.prefs.Prefs
 import com.arny.mobilecinema.data.repository.sources.store.StoreProvider
 import com.arny.mobilecinema.data.repository.sources.store.StoreProviderImpl
+import com.arny.mobilecinema.data.utils.MegaHandler
 import com.arny.mobilecinema.domain.repository.GistsRepository
 import com.arny.mobilecinema.domain.repository.JsoupRepository
+import com.arny.mobilecinema.domain.repository.MegaRepository
 import com.arny.mobilecinema.domain.repository.VideoRepository
 import dagger.Binds
 import dagger.Module
@@ -31,11 +34,19 @@ interface DataModule {
         @Provides
         @Singleton
         fun provideJsoupService(): JsoupService = JsoupService.getInstance()
+
+        @Provides
+        @Singleton
+        fun provideMegaHandler(): MegaHandler = MegaHandler()
     }
 
     @Binds
     @Singleton
     fun bindsVideoRepository(repository: VideoRepositoryImpl): VideoRepository
+
+    @Binds
+    @Singleton
+    fun bindsMegaRepository(impl: MegaRepositoryImpl): MegaRepository
 
     @Binds
     @Singleton

@@ -36,8 +36,9 @@ dependencies {
     constraintlayout()
     jsoup()
     exoplayer()
-    unitTest()
+    tests()
+    androidTests()
     timber()
-    bouncycastle()
+    commonsCodec()
     ktor()
 }

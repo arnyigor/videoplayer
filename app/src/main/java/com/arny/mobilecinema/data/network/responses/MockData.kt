@@ -1,6 +1,6 @@
 package com.arny.mobilecinema.data.network.responses
 
-import com.arny.mobilecinema.di.models.SerialSeason
+import com.arny.mobilecinema.domain.models.SerialSeason
 import com.google.gson.annotations.SerializedName
 
 data class MockData(
