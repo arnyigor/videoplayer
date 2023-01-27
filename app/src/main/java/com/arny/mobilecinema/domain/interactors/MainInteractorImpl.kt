@@ -3,6 +3,7 @@ package com.arny.mobilecinema.domain.interactors
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.network.responses.MoviesData
 import com.arny.mobilecinema.data.utils.fromJson
+import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.domain.models.MoviesData2
 import com.arny.mobilecinema.domain.repository.GistsRepository
 import com.arny.mobilecinema.domain.repository.JsoupRepository
@@ -10,7 +11,7 @@ import com.arny.mobilecinema.domain.repository.MegaRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class MainInteractorImpl @Inject constructor(
@@ -26,13 +27,18 @@ class MainInteractorImpl @Inject constructor(
             flow { emit(DataResult.Success(path)) }
         }
 
-    override fun loadDb(): Flow<DataResult<Boolean>> = flow {
+    override suspend fun loadDb(): DataResult<List<AnwapMovie>> = withContext(Dispatchers.IO) {
+        var result = emptyList<AnwapMovie>()
         if (megaRepository.downloadDB()) {
             val dataFile = megaRepository.unzipFile()
             val data = dataFile.readText()
             val moviesData = data.fromJson(MoviesData2::class.java)
-            println("data:${moviesData?.movies?.size}")
+            val movies = moviesData?.movies
+            println("data:${movies?.size}")
+            if (movies != null) {
+                result = movies
+            }
         }
-        emit(DataResult.Success(true))
-    }.flowOn(Dispatchers.IO)
+        DataResult.Success(result)
+    }
 }

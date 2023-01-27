@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 
 sealed class DataResult<out T : Any> {
-    data class Success<out T : Any>(val result: T?) : DataResult<T>()
+    data class Success<out T : Any>(val result: T) : DataResult<T>()
     data class Error(val throwable: Throwable) : DataResult<Nothing>()
 
     override fun toString(): String {
@@ -21,7 +21,7 @@ fun <T : Any> doAsync(
     request: suspend () -> T?
 ) = flow<DataResult<T>> {
     request().also { data ->
-        emit(DataResult.Success(data))
+        emit(DataResult.Success(data!!))
     }
 }
     .flowOn(Dispatchers.IO)
@@ -31,7 +31,7 @@ fun <T : Any> doAsync(
     }
 
 suspend fun <T : Any> getDataResult(request: suspend () -> T?) = try {
-    DataResult.Success(request())
+    DataResult.Success(request()!!)
 } catch (e: Exception) {
     DataResult.Error(e)
 }

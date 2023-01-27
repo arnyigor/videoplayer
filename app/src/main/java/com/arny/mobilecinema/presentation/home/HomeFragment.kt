@@ -29,6 +29,7 @@ import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.MovieType
 import com.arny.mobilecinema.di.models.Video
+import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.KeyboardHelper
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.inputDialog
@@ -200,8 +201,8 @@ class HomeFragment : Fragment() {
         })
         binding.rvTypesList.adapter = videoTypesAdapter
         videosAdapter = VideosAdapter { item ->
-            binding.root.findNavController()
-                .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(item))
+//            binding.root.findNavController()
+//                .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(item))
         }
         binding.rcVideoList.apply {
             adapter = videosAdapter
@@ -317,7 +318,7 @@ class HomeFragment : Fragment() {
             .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(movie))
     }
 
-    private fun updateList(movies: List<Movie>) {
+    private fun updateList(movies: List<AnwapMovie>) {
         videosAdapter?.submitList(movies.toList())
         emptyData = movies.isEmpty()
     }

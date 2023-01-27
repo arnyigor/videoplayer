@@ -7,6 +7,7 @@ import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.di.models.VideoMenuLink
 import com.arny.mobilecinema.domain.interactors.MainInteractor
 import com.arny.mobilecinema.domain.interactors.MobileCinemaInteractor
+import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.SimpleString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -30,7 +32,7 @@ class HomeViewModel @Inject constructor(
     val toast = _toast.asSharedFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
-    private val _movies = MutableStateFlow<List<Movie>>(emptyList())
+    private val _movies = MutableStateFlow<List<AnwapMovie>>(emptyList())
     val movies = _movies.asStateFlow()
 
     init {
@@ -74,7 +76,7 @@ class HomeViewModel @Inject constructor(
                         }
 
                         is DataResult.Success -> {
-                            _movies.value = content.result?.movies.orEmpty()
+                            _movies.value = emptyList()
                         }
                     }
                 }
@@ -154,15 +156,18 @@ class HomeViewModel @Inject constructor(
 
     fun loadDB() {
         viewModelScope.launch {
-            mainInteractor.loadDb()
+            flow { emit(mainInteractor.loadDb()) }
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
                 .catch { _error.emit(ThrowableString(it)) }
                 .collect { result ->
                     when (result) {
-                        is DataResult.Error -> _error.emit(ThrowableString(result.throwable))
+                        is DataResult.Error -> {
+                            _error.emit(ThrowableString(result.throwable))
+                        }
+
                         is DataResult.Success -> {
-                            _toast.emit(SimpleString("Load DB result:${result.result}"))
+                            _movies.value = result.result
                         }
                     }
                 }
