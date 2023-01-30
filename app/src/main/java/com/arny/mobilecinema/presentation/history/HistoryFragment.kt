@@ -10,11 +10,10 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import androidx.navigation.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.databinding.FHistoryBinding
-import com.arny.mobilecinema.di.models.Movie
+import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.KeyboardHelper
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
@@ -22,7 +21,6 @@ import com.arny.mobilecinema.presentation.utils.setDrawableRightListener
 import com.arny.mobilecinema.presentation.utils.setEnterPressListener
 import com.arny.mobilecinema.presentation.utils.textChanges
 import com.arny.mobilecinema.presentation.utils.toastError
-import com.arny.mobilecinema.presentation.utils.unlockOrientation
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -65,8 +63,8 @@ class HistoryFragment : Fragment() {
     private fun iniList() {
         videosAdapter = HistoryVideosAdapter(
             onItemClick = { item ->
-                binding.root.findNavController()
-                    .navigate(HistoryFragmentDirections.actionNavHistoryToNavDetails(item))
+//                binding.root.findNavController()
+//                    .navigate(HistoryFragmentDirections.actionNavHistoryToNavDetails(item))
             },
             onItemClearClick = { item ->
                 alertDialog(
@@ -75,7 +73,7 @@ class HistoryFragment : Fragment() {
                     btnOkText = getString(android.R.string.ok),
                     btnCancelText = getString(android.R.string.cancel),
                     onConfirm = {
-                        viewModel.clearCache(item)
+//                        viewModel.clearCache(item)
                     }
                 )
             }
@@ -95,7 +93,7 @@ class HistoryFragment : Fragment() {
             viewModel.mainContent.collectLatest { result ->
                 when (result) {
                     is DataResult.Error -> toastError(result.throwable)
-                    is DataResult.Success -> updateList(result.result?.movies)
+                    is DataResult.Success -> updateList(result.result)
                 }
             }
         }
@@ -103,20 +101,20 @@ class HistoryFragment : Fragment() {
             viewModel.mainContent.collectLatest { result ->
                 when (result) {
                     is DataResult.Error -> toastError(result.throwable)
-                    is DataResult.Success ->  updateList(result.result?.movies)
+                    is DataResult.Success ->  updateList(result.result)
                 }
             }
         }
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
+    @OptIn(FlowPreview::class)
     private fun initUI() {
         updateTitle(getString(R.string.f_history_title))
         with(binding) {
             binding.edtSearch.setDrawableRightListener {
                 KeyboardHelper.hideKeyboard(requireActivity())
                 edtSearch.setText("")
-                viewModel.loadHistory()
+//                viewModel.loadHistory()
             }
             edtSearch.setEnterPressListener {
                 KeyboardHelper.hideKeyboard(requireActivity())
@@ -126,13 +124,13 @@ class HistoryFragment : Fragment() {
                 .debounce(500)
                 .filter { !it.isNullOrBlank() }
                 .onEach {
-                    viewModel.searchCached(edtSearch.text.toString())
+//                    viewModel.searchCached(edtSearch.text.toString())
                 }
                 .launchIn(lifecycleScope)
         }
     }
 
-    private fun updateList(items: List<Movie>?) {
+    private fun updateList(items: List<AnwapMovie>?) {
         val empty = items.isNullOrEmpty()
         binding.tvEmptyView.isVisible = empty
         videosAdapter?.submitList(items)

@@ -2,7 +2,6 @@ package com.arny.mobilecinema.di
 
 import com.arny.mobilecinema.VideoApp
 import com.arny.mobilecinema.data.di.DataModule
-import com.arny.mobilecinema.data.network.NetworkModule
 import com.arny.mobilecinema.di.modules.AppModule
 import com.arny.mobilecinema.di.modules.UiModule
 import com.arny.mobilecinema.domain.di.DomainModule
@@ -20,7 +19,6 @@ import javax.inject.Singleton
         UiModule::class,
         DomainModule::class,
         DataModule::class,
-        NetworkModule::class
     ]
 )
 interface AppComponent : AndroidInjector<VideoApp> {

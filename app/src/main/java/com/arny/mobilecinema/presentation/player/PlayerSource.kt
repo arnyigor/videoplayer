@@ -19,19 +19,17 @@ import com.google.android.exoplayer2.upstream.FileDataSource
 import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.util.Util
-import io.ktor.client.HttpClient
 import javax.inject.Inject
 
 class PlayerSource @Inject constructor(
-    httpClient: HttpClient,
-    private val context: Context
+    private val context: Context,
+    private val retriever: YouTubeVideoInfoRetriever
 ) {
     private companion object {
         const val YOUTUBE_HOST = "youtube"
         const val YOUTUBE_MAX_QUALITY_TAG = 22
     }
 
-    private val youTubeVideoRetriever = YouTubeVideoInfoRetriever(httpClient)
     suspend fun getSource(url: String?): MediaSource? = url?.let {
         buildMediaSource1(url)
     }
@@ -94,7 +92,7 @@ class PlayerSource @Inject constructor(
         factory: DataSource.Factory
     ): MediaSource {
         val result = "v=(.*?)(&|$)".toRegex().find(link)?.groupValues?.getOrNull(1).toString()
-        val data = youTubeVideoRetriever.retrieve(result)
+        val data = retriever.retrieve(result)
         val title = data.videoDetails?.title
         val format = data.streamingData?.formats?.find { it?.itag == YOUTUBE_MAX_QUALITY_TAG }
         val url = format?.url

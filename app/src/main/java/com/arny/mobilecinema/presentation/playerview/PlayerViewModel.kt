@@ -36,24 +36,9 @@ class PlayerViewModel @Inject constructor(
 
     fun setPath(path: String) {
         viewModelScope.launch {
-            interactor.getVideoPath(path)
-                .onStart { _loading.value = true }
-                .onCompletion { _loading.value = false }
-                .catch { throwable ->
-                    _error.emit(ThrowableString(throwable))
-                }
-                .collect { content ->
-                    when (content) {
-                        is DataResult.Error -> {
-                            _error.emit(ThrowableString(content.throwable))
-                        }
-                        is DataResult.Success -> {
-                            _uiState.update { currentState ->
-                                currentState.copy(path = content.result)
-                            }
-                        }
-                    }
-                }
+            _uiState.update { currentState ->
+                currentState.copy(path = path)
+            }
         }
     }
 }

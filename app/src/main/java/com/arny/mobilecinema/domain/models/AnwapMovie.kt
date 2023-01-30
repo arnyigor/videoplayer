@@ -1,7 +1,6 @@
 package com.arny.mobilecinema.domain.models
 
 import android.os.Parcelable
-import com.arny.mobilecinema.di.models.MovieType
 import kotlinx.parcelize.Parcelize
 
 @Parcelize

@@ -20,8 +20,6 @@ class YouTubeVideoInfoRetriever constructor(
             "https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
         private const val URL_YOUTUBE_GET_VIDEO_INFO =
             "http://www.youtube.com/get_video_info?&video_id="
-        const val KEY_DASH_VIDEO = "dashmpd"
-        const val KEY_HLS_VIDEO = "hlsvp"
     }
 
     suspend fun retrieve(videoId: String) = withContext(Dispatchers.IO) {

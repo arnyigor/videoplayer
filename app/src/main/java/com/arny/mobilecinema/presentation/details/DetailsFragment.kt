@@ -15,14 +15,10 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
-import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.FDetailsBinding
-import com.arny.mobilecinema.di.models.Movie
-import com.arny.mobilecinema.di.models.MovieType
-import com.arny.mobilecinema.domain.models.SerialEpisode
-import com.arny.mobilecinema.di.models.Video
+import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
@@ -43,33 +39,11 @@ class DetailsFragment : Fragment() {
     private val viewModel: DetailsViewModel by viewModels { vmFactory }
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
-    private var currentMovie: Movie? = null
-    private var currentVideo: Video? = null
+    private var currentMovie: AnwapMovie? = null
     private var currentSeasonPosition: Int = 0
     private var currentEpisodePosition: Int = 0
     private val args: DetailsFragmentArgs by navArgs()
 
-    /*
-    private var trackSelector: DefaultTrackSelector? = null
-    private var videoStartRestore = false
-    private var videoRestored = false
-    private var exoPlayer: ExoPlayer? = null
-    private var orientationLocked: Boolean = false
-    private var playControlsVisible by Delegates.observable(true) { _, oldValue, visible ->
-        if (oldValue != visible && isVisible) {
-            val land = resources.configuration.orientation == ORIENTATION_LANDSCAPE
-            if (land) {
-                setFullScreen(activity as AppCompatActivity?, !visible)
-            }
-            setSpinEpisodesVisible(visible && currentVideo?.type == MovieType.SERIAL)
-            setCustomTitleVisible(land && visible)
-            binding.mtvQuality.isVisible = visible
-            binding.ivScreenLock.isVisible = visible
-            if (!visible) {
-                binding.plVideoPLayer.controllerShowTimeoutMs = 3000
-            }
-        }
-    }*/
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
             parent: AdapterView<*>?,
@@ -80,7 +54,7 @@ class DetailsFragment : Fragment() {
             updateCurrentSerialPosition()
             currentEpisodePosition = 0
             fillSpinners()
-            currentVideo?.currentPosition = 0
+//            currentVideo?.currentPosition = 0
             updateCurrentVideo()
         }
 
@@ -126,26 +100,17 @@ class DetailsFragment : Fragment() {
 
     private fun initUI() {
         binding.btnPlay.setOnClickListener {
-            currentVideo?.let { video ->
-                val episodesData = StringBuilder().apply {
-                    video.season?.let { append(" Сезон $it") }
-                    video.episode?.let { append(" Эпизод $it") }
-                }.toString()
-                findNavController().navigate(
-                    DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                        video.videoUrl, "${video.title}$episodesData"
-                    )
-                )
+            currentMovie?.let { movie ->
+                println(movie)
             }
         }
     }
 
     private fun updateUI() {
-        currentVideo?.let { video ->
+        currentMovie?.let { video ->
             binding.tvTitle.text = video.title
-            binding.btnPlay.isVisible = !video.videoUrl.isNullOrBlank()
-            currentVideo = video
-            setSpinEpisodesVisible(currentVideo?.type == MovieType.SERIAL)
+//            binding.btnPlay.isVisible = !video.videoUrl.isNullOrBlank()
+//            setSpinEpisodesVisible(currentVideo?.type == MovieType.SERIAL)
         }
     }
 
@@ -280,18 +245,10 @@ class DetailsFragment : Fragment() {
     }
 
     private fun updateCurrentVideo() {
-        val seasons = currentMovie?.serialData?.seasons
+        val seasons = currentMovie?.seasons
         seasons?.let {
             val playerSeason = seasons.getOrNull(currentSeasonPosition)
             val episode = playerSeason?.episodes?.getOrNull(currentEpisodePosition)
-            currentVideo = currentVideo?.copy(
-                id = episode?.id,
-                title = episode?.title,
-                type = MovieType.SERIAL,
-                hlsList = hashMapOf(),
-                season = playerSeason?.id,
-                episode = episode?.id
-            )
         }
         updateUI()
     }
@@ -301,27 +258,26 @@ class DetailsFragment : Fragment() {
         currentEpisodePosition = binding.spinEpisodes.selectedItemPosition
     }
 
-    private fun onMovieLoaded(movie: Movie?) {
+    private fun onMovieLoaded(movie: AnwapMovie?) {
         currentMovie = movie
-        currentVideo = movie?.video
         updateSpinData()
         updateCurrentVideo()
     }
 
     private fun updateSpinData() = with(binding) {
-        val cachedSeasonPosition = currentMovie?.currentSeasonPosition ?: 0
-        val cachedEpisodePosition = currentMovie?.currentEpisodePosition ?: 0
-        if (cachedSeasonPosition != 0 && currentSeasonPosition == 0) {
-            currentSeasonPosition = cachedSeasonPosition
-        }
-        if (cachedEpisodePosition != 0 && currentEpisodePosition == 0) {
-            currentEpisodePosition = cachedEpisodePosition
-        }
+//        val cachedSeasonPosition = currentMovie?.currentSeasonPosition ?: 0
+//        val cachedEpisodePosition = currentMovie?.currentEpisodePosition ?: 0
+//        if (cachedSeasonPosition != 0 && currentSeasonPosition == 0) {
+//            currentSeasonPosition = cachedSeasonPosition
+//        }
+//        if (cachedEpisodePosition != 0 && currentEpisodePosition == 0) {
+//            currentEpisodePosition = cachedEpisodePosition
+//        }
         fillSpinners()
     }
 
     private fun fillSpinners() {
-        val seasons = currentMovie?.serialData?.seasons
+        val seasons = currentMovie?.seasons
         seasons?.let {
             val seasonsList = seasons.map { "${it.id} сезон" }
             if (seasonsList.isNotEmpty()) {
@@ -344,7 +300,6 @@ class DetailsFragment : Fragment() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putParcelable(KEY_VIDEO, currentVideo)
         outState.putParcelable(KEY_MOVIE, currentMovie)
         outState.putInt(KEY_SEASON, currentSeasonPosition)
         outState.putInt(KEY_EPISODE, currentEpisodePosition)
@@ -353,7 +308,6 @@ class DetailsFragment : Fragment() {
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
         super.onViewStateRestored(savedInstanceState)
         currentMovie = savedInstanceState?.getParcelable(KEY_MOVIE)
-        currentVideo = savedInstanceState?.getParcelable(KEY_VIDEO)
         currentSeasonPosition = savedInstanceState?.getInt(KEY_SEASON) ?: 0
         currentEpisodePosition = savedInstanceState?.getInt(KEY_EPISODE) ?: 0
     }
@@ -381,7 +335,7 @@ class DetailsFragment : Fragment() {
                             getString(android.R.string.ok),
                             getString(android.R.string.cancel),
                             onConfirm = {
-                                viewModel.clearCache(currentMovie)
+//                                viewModel.clearCache(currentMovie)
                             }
                         )
                         true

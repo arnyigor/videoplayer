@@ -41,21 +41,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/rvTypesList" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvTypesList"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginVertical="8dp"
-        android:orientation="horizontal"
-        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/edtSearch"
-        tools:itemCount="5"
-        tools:listitem="@layout/i_type"
-        tools:orientation="horizontal" />
+        app:layout_constraintTop_toBottomOf="@+id/btnSearch" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swiperefresh"
@@ -65,7 +51,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/rvTypesList">
+        app:layout_constraintTop_toBottomOf="@+id/btnSearch">
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rcVideoList"

@@ -3,13 +3,9 @@ package com.arny.mobilecinema.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.data.models.DataResult
-import com.arny.mobilecinema.di.models.Movie
-import com.arny.mobilecinema.di.models.VideoMenuLink
 import com.arny.mobilecinema.domain.interactors.MainInteractor
-import com.arny.mobilecinema.domain.interactors.MobileCinemaInteractor
 import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
-import com.arny.mobilecinema.presentation.utils.strings.SimpleString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +20,6 @@ import javax.inject.Inject
 
 class HomeViewModel @Inject constructor(
     private val mainInteractor: MainInteractor,
-    private val interactor: MobileCinemaInteractor,
 ) : ViewModel() {
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
@@ -35,124 +30,6 @@ class HomeViewModel @Inject constructor(
     private val _movies = MutableStateFlow<List<AnwapMovie>>(emptyList())
     val movies = _movies.asStateFlow()
 
-    init {
-        getAllData()
-    }
-
-    private fun getAllData() {
-        viewModelScope.launch {
-            mainInteractor.loadData()
-                .onStart { _loading.value = true }
-                .onCompletion { _loading.value = false }
-                .catch { throwable ->
-                    _error.emit(ThrowableString(throwable))
-                }
-                .collect { content ->
-                    when (content) {
-                        is DataResult.Error -> {
-                            _error.emit(ThrowableString(content.throwable))
-                        }
-
-                        is DataResult.Success -> {
-                            getMockData()
-                        }
-                    }
-                }
-        }
-    }
-
-    private fun getMockData() {
-        viewModelScope.launch {
-            interactor.getAllVideos()
-                .onStart { _loading.value = true }
-                .onCompletion { _loading.value = false }
-                .catch { throwable ->
-                    _error.emit(ThrowableString(throwable))
-                }
-                .collect { content ->
-                    when (content) {
-                        is DataResult.Error -> {
-                            _error.emit(ThrowableString(content.throwable))
-                        }
-
-                        is DataResult.Success -> {
-                            _movies.value = emptyList()
-                        }
-                    }
-                }
-        }
-    }
-
-    fun restartLoading() {
-        getAllData()
-    }
-
-    fun search(search: String, fromCache: Boolean = false) {
-        if (search.isBlank()) {
-            restartLoading()
-        } else {
-            if (fromCache) {
-                searchCached(search)
-            }else{
-                searchVideo(search)
-            }
-        }
-    }
-
-    private fun searchVideo(search: String) {
-        viewModelScope.launch {
-            interactor.searchMovie(search)
-                .onStart { _loading.value = true }
-                .onCompletion { _loading.value = false }
-                .catch { throwable ->
-                    _error.emit(ThrowableString(throwable))
-                }
-                .collect { content ->
-                }
-        }
-    }
-
-    fun onTypeChanged(menuLink: VideoMenuLink?) {
-        viewModelScope.launch {
-            interactor.getTypedVideos(menuLink?.searchUrl)
-                .onStart { _loading.value = true }
-                .onCompletion { _loading.value = false }
-                .catch { throwable ->
-                    _error.emit(ThrowableString(throwable))
-                }
-                .collect { content ->
-                }
-        }
-    }
-
-    fun selectHost(source: String) {
-        interactor.setHost(source)
-        restartLoading()
-    }
-
-    fun requestHosts() {
-        viewModelScope.launch {
-            interactor.getAllHosts()
-                .catch { throwable ->
-                    _error.emit(ThrowableString(throwable))
-                }
-                .collect { result ->
-                }
-        }
-    }
-
-    private fun searchCached(searchText: String) {
-        viewModelScope.launch {
-            interactor.searchCached(searchText)
-                .onStart { _loading.value = true }
-                .onCompletion { _loading.value = false }
-                .catch { throwable ->
-                    _error.emit(ThrowableString(throwable))
-                }
-                .collect { content ->
-                }
-        }
-    }
 
     fun downloadData() {
         viewModelScope.launch {
@@ -172,5 +49,8 @@ class HomeViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    fun search(seqrch: String) {
     }
 }

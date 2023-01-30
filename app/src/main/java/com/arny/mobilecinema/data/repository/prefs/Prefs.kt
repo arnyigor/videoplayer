@@ -1,5 +1,4 @@
-package com.arny.mobilecinema.data.repository.sources.prefs
-
+package com.arny.mobilecinema.data.repository.prefs
 
 import android.content.Context
 import android.content.SharedPreferences

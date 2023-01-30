@@ -38,7 +38,7 @@
         tools:layout="@layout/f_details">
         <argument
             android:name="movie"
-            app:argType="com.arny.mobilecinema.di.models.Movie" />
+            app:argType="com.arny.mobilecinema.domain.models.AnwapMovie" />
         <action
             android:id="@+id/action_nav_details_to_nav_player_view"
             app:destination="@id/nav_player_view" />

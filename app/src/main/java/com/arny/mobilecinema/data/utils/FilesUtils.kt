@@ -26,27 +26,6 @@ fun formatFileSize(size: Long, digits: Int = 3): String {
 }
 
 /**
- * Zip file
- * @param sourceFile - full path with extention etc. filepath/filename.txt
- * @param outputZipPath - full path with extention etc. filepath/compressed.zip
- */
-fun zipFile(
-    sourceFile: String,
-    outputZipPath: String
-) {
-    val fos = FileOutputStream(outputZipPath)
-    val zipOut = ZipOutputStream(fos)
-    val fileToZip = File(sourceFile)
-    val fis = FileInputStream(fileToZip)
-    val zipEntry = ZipEntry(fileToZip.name)
-    zipOut.putNextEntry(zipEntry)
-    fis.copyTo(zipOut)
-    zipOut.close()
-    fis.close()
-    fos.close()
-}
-
-/**
  * @param zipFilePath
  * @param destDirectory
  * @throws IOException

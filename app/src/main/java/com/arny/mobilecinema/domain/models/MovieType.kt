@@ -1,4 +1,4 @@
-package com.arny.mobilecinema.di.models
+package com.arny.mobilecinema.domain.models
 import com.google.gson.annotations.SerializedName
 
 enum class MovieType(val value: Int) {

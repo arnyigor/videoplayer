@@ -27,8 +27,6 @@ fun getDomainName(url: String): String {
     }
 }
 
-fun urlEncode(value: String): String? = URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
-
 sealed class ConnectionType(open val speedKbps: Int) {
     object NONE : ConnectionType(0)
     data class MOBILE(val speed: Int) : ConnectionType(speed)

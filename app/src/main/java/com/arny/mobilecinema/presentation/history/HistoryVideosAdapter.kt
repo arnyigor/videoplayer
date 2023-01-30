@@ -5,17 +5,18 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.arny.mobilecinema.databinding.IHistoryVideoBinding
-import com.arny.mobilecinema.di.models.Movie
+import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.diffItemCallback
+import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.bumptech.glide.Glide
 
 class HistoryVideosAdapter(
-    private val onItemClick: (item: Movie) -> Unit,
-    private val onItemClearClick: (item: Movie) -> Unit
-) : ListAdapter<Movie, HistoryVideosAdapter.VideosViewHolder>(
+    private val onItemClick: (item: AnwapMovie) -> Unit,
+    private val onItemClearClick: (item: AnwapMovie) -> Unit
+) : ListAdapter<AnwapMovie, HistoryVideosAdapter.VideosViewHolder>(
     diffItemCallback(
         itemsTheSame = { item1, item2 ->
-            item1.uuid == item2.uuid
+            item1.movieId == item2.movieId
         },
         contentsTheSame = { item1, item2 ->
             item1 == item2
@@ -35,18 +36,13 @@ class HistoryVideosAdapter(
 
     inner class VideosViewHolder(private val binding: IHistoryVideoBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        fun bind(item: Movie) {
+        fun bind(item: AnwapMovie) {
             with(binding) {
                 root.setOnClickListener { onItemClick(item) }
                 ivClear.setOnClickListener { onItemClearClick(item) }
                 tvVideoTitle.text = item.title
-                var img = item.img
-                if (img.isNullOrBlank()) {
-                    img =
-                        "https://yt3.ggpht.com/a/AATXAJwQSv9J0nimhTCQgcwQmdE_ePrril6TZg1_nGSf=s900-c-k-c0xffffffff-no-rj-mo"
-                }
                 Glide.with(ivVideoIcon)
-                    .load(img)
+                    .load(item.img.getWithDomain())
                     .into(ivVideoIcon)
             }
         }
