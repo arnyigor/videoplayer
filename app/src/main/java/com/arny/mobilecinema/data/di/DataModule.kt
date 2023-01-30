@@ -4,7 +4,7 @@ import android.content.Context
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.api.JsoupService
 import com.arny.mobilecinema.data.api.KtorClient
-import com.arny.mobilecinema.data.repository.MegaRepositoryImpl
+import com.arny.mobilecinema.data.repository.DataRepositoryImpl
 import com.arny.mobilecinema.data.repository.VideoRepositoryImpl
 import com.arny.mobilecinema.data.repository.gists.GistsRepositoryImpl
 import com.arny.mobilecinema.data.repository.sources.assets.AssetsReader
@@ -18,7 +18,7 @@ import com.arny.mobilecinema.data.repository.sources.store.StoreProviderImpl
 import com.arny.mobilecinema.data.utils.MegaHandler
 import com.arny.mobilecinema.domain.repository.GistsRepository
 import com.arny.mobilecinema.domain.repository.JsoupRepository
-import com.arny.mobilecinema.domain.repository.MegaRepository
+import com.arny.mobilecinema.domain.repository.DataRepository
 import com.arny.mobilecinema.domain.repository.VideoRepository
 import dagger.Binds
 import dagger.Module
@@ -56,7 +56,7 @@ interface DataModule {
 
     @Binds
     @Singleton
-    fun bindsMegaRepository(impl: MegaRepositoryImpl): MegaRepository
+    fun bindsMegaRepository(impl: DataRepositoryImpl): DataRepository
 
     @Binds
     @Singleton

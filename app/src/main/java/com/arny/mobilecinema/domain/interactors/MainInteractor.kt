@@ -7,6 +7,6 @@ import kotlinx.coroutines.flow.Flow
 
 interface MainInteractor {
     fun loadData(): Flow<DataResult<MoviesData>>
-    suspend fun loadDb(): DataResult<List<AnwapMovie>>
+    suspend fun downloadData(): DataResult<List<AnwapMovie>>
     fun getVideoPath(path: String): Flow<DataResult<String>>
 }

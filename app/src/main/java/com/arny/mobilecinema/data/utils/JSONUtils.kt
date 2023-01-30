@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.data.utils
 
+import android.util.JsonReader
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer

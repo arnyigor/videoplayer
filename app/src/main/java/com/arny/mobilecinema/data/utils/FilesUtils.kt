@@ -6,6 +6,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.text.DecimalFormat
 import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 import kotlin.math.log10
@@ -46,47 +47,30 @@ fun zipFile(
 }
 
 /**
- * UnzipFile
- * @param fileZip - full path with extention etc. filepath/filename.txt
- * @param destDirPath - destination folder path
+ * @param zipFilePath
+ * @param destDirectory
+ * @throws IOException
  */
-fun unzipFile(
-    fileZip: String,
-    destDirPath: String
-) {
-    val destDir = File(destDirPath)
-    val zis = ZipInputStream(FileInputStream(fileZip))
-    var zipEntry: ZipEntry? = zis.nextEntry
-    while (zipEntry != null) {
-        val newFile: File = newFile(destDir, zipEntry)
-        if (zipEntry.isDirectory) {
-            if (!newFile.isDirectory && !newFile.mkdirs()) {
-                throw IOException("Failed to create directory $newFile")
-            }
-        } else {
-            val parent = newFile.parentFile
-            if (parent != null) {
-                if (!parent.isDirectory && !parent.mkdirs()) {
-                    throw IOException("Failed to create directory $parent")
+@Throws(IOException::class)
+fun unzip(zipFilePath: File, destDirectory: String) {
+    File(destDirectory).run {
+        if (!exists()) {
+            mkdirs()
+        }
+    }
+    ZipFile(zipFilePath).use { zip ->
+        zip.entries().asSequence().forEach { entry ->
+            zip.getInputStream(entry).use { input ->
+                val filePath = destDirectory + File.separator + entry.name
+                if (!entry.isDirectory) {
+                    // if the entry is a file, extracts it
+                    FileOutputStream(filePath).use { input.copyTo(it) }
+                } else {
+                    // if the entry is a directory, make the directory
+                    val dir = File(filePath)
+                    dir.mkdir()
                 }
             }
-            val fos = FileOutputStream(newFile)
-            zis.copyTo(fos)
-            fos.close()
         }
-        zipEntry = zis.nextEntry
     }
-    zis.closeEntry()
-    zis.close()
-}
-
-@Throws(IOException::class)
-fun newFile(destinationDir: File, zipEntry: ZipEntry): File {
-    val destFile = File(destinationDir, zipEntry.name)
-    val destDirPath = destinationDir.canonicalPath
-    val destFilePath = destFile.canonicalPath
-    if (!destFilePath.startsWith(destDirPath + File.separator)) {
-        throw IOException("Entry is outside of the target dir: " + zipEntry.name)
-    }
-    return destFile
 }

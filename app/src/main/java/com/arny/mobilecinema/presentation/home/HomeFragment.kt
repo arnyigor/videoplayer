@@ -102,7 +102,7 @@ class HomeFragment : Fragment() {
                     }
 
                     REQUEST_LOAD -> {
-                        loadDB()
+                        downloadData()
                     }
                 }
             }
@@ -145,13 +145,13 @@ class HomeFragment : Fragment() {
                 )
             },
             checkPermissionOk = {
-                loadDB()
+                downloadData()
             }
         )
     }
 
-    private fun loadDB() {
-        viewModel.loadDB()
+    private fun downloadData() {
+        viewModel.downloadData()
     }
 
     @OptIn(FlowPreview::class)

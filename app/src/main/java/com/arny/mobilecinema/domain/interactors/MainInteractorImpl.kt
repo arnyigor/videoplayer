@@ -2,22 +2,27 @@ package com.arny.mobilecinema.domain.interactors
 
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.network.responses.MoviesData
-import com.arny.mobilecinema.data.utils.fromJson
+import com.arny.mobilecinema.data.utils.formatFileSize
+import com.arny.mobilecinema.data.utils.isFileExists
 import com.arny.mobilecinema.domain.models.AnwapMovie
-import com.arny.mobilecinema.domain.models.MoviesData2
+import com.arny.mobilecinema.domain.models.Data
+import com.arny.mobilecinema.domain.repository.DataRepository
 import com.arny.mobilecinema.domain.repository.GistsRepository
 import com.arny.mobilecinema.domain.repository.JsoupRepository
-import com.arny.mobilecinema.domain.repository.MegaRepository
+import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
+import timber.log.Timber
+import java.io.File
+import java.io.FileReader
 import javax.inject.Inject
 
 class MainInteractorImpl @Inject constructor(
     private val gistsRepository: GistsRepository,
     private val jsoupRepository: JsoupRepository,
-    private val megaRepository: MegaRepository,
+    private val dataRepository: DataRepository,
 ) : MainInteractor {
     override fun loadData(): Flow<DataResult<MoviesData>> = gistsRepository.loadData()
     override fun getVideoPath(path: String): Flow<DataResult<String>> =
@@ -27,18 +32,23 @@ class MainInteractorImpl @Inject constructor(
             flow { emit(DataResult.Success(path)) }
         }
 
-    override suspend fun loadDb(): DataResult<List<AnwapMovie>> = withContext(Dispatchers.IO) {
-        var result = emptyList<AnwapMovie>()
-        if (megaRepository.downloadDataFile()) {
-            val dataFile = megaRepository.unzipFile()
-            val data = dataFile.readText()
-            val moviesData = data.fromJson(MoviesData2::class.java)
-            val movies = moviesData?.movies
-            println("data:${movies?.size}")
-            if (movies != null) {
-                result = movies
+    override suspend fun downloadData(): DataResult<List<AnwapMovie>> =
+        withContext(Dispatchers.IO) {
+            var result = emptyList<AnwapMovie>()
+            val file = dataRepository.downloadDataFile()
+            if (file.isFileExists() && file.length() > 0) {
+                val dataFile = dataRepository.unzipFile(file)
+                Timber.d("dataFile size:${formatFileSize(dataFile.length())}")
+                val movies = readFile(dataFile)
+                if (movies.isNotEmpty()) {
+                    result = movies
+                }
             }
+            DataResult.Success(result)
         }
-        DataResult.Success(result)
+
+    private fun readFile(dataFile: File): List<AnwapMovie> {
+        val fromJson = Gson().fromJson(FileReader(dataFile), Data::class.java)
+        return fromJson.movies
     }
 }

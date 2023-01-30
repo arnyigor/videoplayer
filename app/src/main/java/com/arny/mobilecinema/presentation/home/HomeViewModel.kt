@@ -154,9 +154,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadDB() {
+    fun downloadData() {
         viewModelScope.launch {
-            flow { emit(mainInteractor.loadDb()) }
+            flow { emit(mainInteractor.downloadData()) }
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
                 .catch { _error.emit(ThrowableString(it)) }
