@@ -5,15 +5,16 @@ import com.arny.mobilecinema.data.network.youtube.YoutubeClient
 import com.arny.mobilecinema.data.network.youtube.YoutubeContext
 import com.arny.mobilecinema.data.network.youtube.YoutubeRequestBody
 import com.arny.mobilecinema.data.network.youtube.YoutubeVideoData
+import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class YouTubeVideoInfoRetriever {
-    private val ktorClient = KtorClient.getInstance().client
-
+class YouTubeVideoInfoRetriever constructor(
+    private val httpClient: HttpClient
+) {
     companion object {
         private const val URL_YOUTUBE_PLAYER_LINK =
             "https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
@@ -30,7 +31,7 @@ class YouTubeVideoInfoRetriever {
             videoId = videoId,
             context = YoutubeContext(youtubeClient)
         )
-        ktorClient.post(URL_YOUTUBE_PLAYER_LINK) { setBody(requestBody) }
+        httpClient.post(URL_YOUTUBE_PLAYER_LINK) { setBody(requestBody) }
             .body<YoutubeVideoData>()
     }
 }

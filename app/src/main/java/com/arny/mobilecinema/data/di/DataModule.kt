@@ -1,7 +1,9 @@
 package com.arny.mobilecinema.data.di
 
 import android.content.Context
+import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.api.JsoupService
+import com.arny.mobilecinema.data.api.KtorClient
 import com.arny.mobilecinema.data.repository.MegaRepositoryImpl
 import com.arny.mobilecinema.data.repository.VideoRepositoryImpl
 import com.arny.mobilecinema.data.repository.gists.GistsRepositoryImpl
@@ -38,6 +40,14 @@ interface DataModule {
         @Provides
         @Singleton
         fun provideMegaHandler(): MegaHandler = MegaHandler()
+
+        @Provides
+        @Singleton
+        fun provideKtorClient(): KtorClient = KtorClient()
+
+        @Provides
+        @Singleton
+        fun provideApiService(ktor: KtorClient): ApiService = ApiService(ktor.client)
     }
 
     @Binds

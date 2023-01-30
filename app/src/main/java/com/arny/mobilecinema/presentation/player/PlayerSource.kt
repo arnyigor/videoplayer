@@ -19,9 +19,11 @@ import com.google.android.exoplayer2.upstream.FileDataSource
 import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.util.Util
+import io.ktor.client.HttpClient
 import javax.inject.Inject
 
 class PlayerSource @Inject constructor(
+    httpClient: HttpClient,
     private val context: Context
 ) {
     private companion object {
@@ -29,7 +31,7 @@ class PlayerSource @Inject constructor(
         const val YOUTUBE_MAX_QUALITY_TAG = 22
     }
 
-    private val youTubeVideoRetriever = YouTubeVideoInfoRetriever()
+    private val youTubeVideoRetriever = YouTubeVideoInfoRetriever(httpClient)
     suspend fun getSource(url: String?): MediaSource? = url?.let {
         buildMediaSource1(url)
     }

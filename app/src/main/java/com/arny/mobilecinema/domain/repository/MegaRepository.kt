@@ -3,6 +3,6 @@ package com.arny.mobilecinema.domain.repository
 import java.io.File
 
 interface MegaRepository {
-    fun downloadDB(): Boolean
-    fun unzipFile(): File
+  suspend fun downloadDataFile(): Boolean
+  fun unzipFile(): File
 }

@@ -5,9 +5,9 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.arny.mobilecinema.databinding.IHomeVideoBinding
-import com.arny.mobilecinema.di.models.Movie
 import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.diffItemCallback
+import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.bumptech.glide.Glide
 
 class VideosAdapter(
@@ -42,9 +42,8 @@ class VideosAdapter(
                     onItemClick(item)
                 }
                 tvVideoTitle.text = item.title
-                val img = item.img
                 Glide.with(ivVideoIcon)
-                    .load(img)
+                    .load(item.img.getWithDomain())
                     .into(ivVideoIcon)
             }
         }

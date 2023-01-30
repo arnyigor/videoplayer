@@ -29,7 +29,7 @@ class MainInteractorImpl @Inject constructor(
 
     override suspend fun loadDb(): DataResult<List<AnwapMovie>> = withContext(Dispatchers.IO) {
         var result = emptyList<AnwapMovie>()
-        if (megaRepository.downloadDB()) {
+        if (megaRepository.downloadDataFile()) {
             val dataFile = megaRepository.unzipFile()
             val data = dataFile.readText()
             val moviesData = data.fromJson(MoviesData2::class.java)
