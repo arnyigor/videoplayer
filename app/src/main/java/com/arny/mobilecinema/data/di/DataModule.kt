@@ -1,14 +1,15 @@
 package com.arny.mobilecinema.data.di
 
+import android.app.DownloadManager
 import android.content.Context
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.api.JsoupService
 import com.arny.mobilecinema.data.api.KtorClient
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
-import com.arny.mobilecinema.data.repository.DataRepositoryImpl
+import com.arny.mobilecinema.data.repository.update.UpdateRepositoryImpl
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.MegaHandler
-import com.arny.mobilecinema.domain.repository.DataRepository
+import com.arny.mobilecinema.domain.repository.UpdateRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -46,5 +47,5 @@ interface DataModule {
 
     @Binds
     @Singleton
-    fun bindsDataRepository(impl: DataRepositoryImpl): DataRepository
+    fun bindsDataRepository(impl: UpdateRepositoryImpl): UpdateRepository
 }

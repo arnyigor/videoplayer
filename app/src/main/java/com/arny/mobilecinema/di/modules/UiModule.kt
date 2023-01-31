@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.arny.mobilecinema.di.AppViewModelFactory
 import com.arny.mobilecinema.di.scopes.ViewModelKey
 import com.arny.mobilecinema.domain.interactors.MainInteractor
+import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.presentation.details.DetailsViewModel
 import com.arny.mobilecinema.presentation.history.HistoryViewModel
 import com.arny.mobilecinema.presentation.home.HomeViewModel
@@ -26,7 +27,7 @@ class UiModule {
     @IntoMap
     @ViewModelKey(HomeViewModel::class)
     fun provideHomeViewModel(
-        interactor: MainInteractor,
+        interactor: DataUpdateInteractor,
     ): ViewModel = HomeViewModel(interactor)
 
     @Provides

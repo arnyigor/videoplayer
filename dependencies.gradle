@@ -101,17 +101,11 @@ ext {
     }}
 
     ktor = { version = '2.2.2' -> Alias {
-        implementation("io.ktor:ktor-client-android:$version")
         implementation("io.ktor:ktor-client-okhttp:$version")
-        implementation("io.ktor:ktor-client-logging-jvm:$version")
         implementation("io.ktor:ktor-client-logging:$version")
         implementation("io.ktor:ktor-client-core:$version")
         implementation("io.ktor:ktor-client-content-negotiation:$version")
         implementation("io.ktor:ktor-serialization-gson:$version")
-    }}
-
-    viewbindingpropertydelegate = { version = '1.3.0' -> Alias {
-        implementation "com.kirich1409.viewbindingpropertydelegate:vbpd-noreflection:$version"
     }}
 
     tests = { junit = '4.13.1' -> Alias {

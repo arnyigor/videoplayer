@@ -35,7 +35,8 @@ fun formatFileSize(size: Long, digits: Int = 3): String {
  * @throws IOException
  */
 @Throws(IOException::class)
-fun unzip(zipFilePath: File, destDirectory: String) {
+fun File.unzip(destDirectory: String) {
+    val zipFilePath = this
     File(destDirectory).run {
         if (!exists()) {
             mkdirs()
