@@ -108,6 +108,12 @@ ext {
         implementation("io.ktor:ktor-serialization-gson:$version")
     }}
 
+    roomDB = { version = '2.5.0' -> Alias {
+        implementation("androidx.room:room-runtime:$version")
+        kapt("androidx.room:room-compiler:$version")
+        implementation("androidx.room:room-paging:$version")
+    }}
+
     tests = { junit = '4.13.1' -> Alias {
         testImplementation 'org.junit.jupiter:junit-jupiter:5.5.2'
         testImplementation 'org.junit.jupiter:junit-jupiter-api:5.5.2'

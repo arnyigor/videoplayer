@@ -6,26 +6,8 @@ import android.net.NetworkCapabilities
 import android.net.NetworkInfo
 import android.os.Build
 import android.telephony.TelephonyManager
-import retrofit2.HttpException
 import java.net.URI
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 import javax.net.ssl.SSLHandshakeException
-
-fun getDomainName(url: String): String {
-    return try {
-        val uri = URI(url)
-        val scheme: String? = uri.scheme
-        val host: String? = uri.host
-        if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
-            "${scheme}://${host}"
-        } else {
-            ""
-        }
-    } catch (e: Exception) {
-        ""
-    }
-}
 
 sealed class ConnectionType(open val speedKbps: Int) {
     object NONE : ConnectionType(0)
@@ -111,20 +93,21 @@ fun getFullError(throwable: Throwable): String {
     val code: Int
     try {
         when (throwable) {
-            is HttpException -> {
-                code = throwable.code()
-                error = throwable.response()?.errorBody()?.string().toString()
-                when (code) {
-                    500 -> error = "Внутренняя ошибка сервера"
-                    504 -> error = "Время ожидания истекло, повторите запрос позже"
-                    503 -> error = "Сервис временно недоступен, повторите запрос позже"
-                    403 -> error = "Сервис заблокирован"
-                    404 -> error = "Страница не найдена"
-                }
-            }
+//            is HttpException -> {
+//                code = throwable.code()
+//                error = throwable.response()?.errorBody()?.string().toString()
+//                when (code) {
+//                    500 -> error = "Внутренняя ошибка сервера"
+//                    504 -> error = "Время ожидания истекло, повторите запрос позже"
+//                    503 -> error = "Сервис временно недоступен, повторите запрос позже"
+//                    403 -> error = "Сервис заблокирован"
+//                    404 -> error = "Страница не найдена"
+//                }
+//            }
             is SSLHandshakeException -> {
                 error = "Ошибка сертификата сервера"
             }
+
             else -> {
                 error = getMessage(throwable)
             }

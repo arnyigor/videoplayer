@@ -11,6 +11,7 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.utils.isFileExists
 import com.arny.mobilecinema.data.utils.unzip
 import com.arny.mobilecinema.domain.models.AnwapMovie
@@ -23,12 +24,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileReader
+import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
 
 class UpdateService : LifecycleService(), CoroutineScope {
     private companion object {
         const val NOTICE_ID = 1001
     }
+
+    @Inject
+    lateinit var dao: MovieDao
 
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
