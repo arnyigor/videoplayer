@@ -3,7 +3,9 @@ package com.arny.mobilecinema.presentation.utils
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Context
 import android.content.DialogInterface
+import android.graphics.drawable.Drawable
 import android.text.Html.fromHtml
 import android.text.InputType
 import android.view.LayoutInflater
@@ -93,14 +95,39 @@ fun Fragment.checkDialog(
 fun Fragment.alertDialog(
     title: String,
     content: String? = null,
-    btnOkText: String? = context?.getString(android.R.string.ok),
+    btnOkText: String? = requireContext().getString(android.R.string.ok),
     btnCancelText: String? = null,
     cancelable: Boolean = false,
     onConfirm: () -> Unit = {},
     onCancel: () -> Unit = {},
-    autoDismiss: Boolean = true
+    autoDismiss: Boolean = true,
+    icon: Drawable? = null,
+): MaterialDialog = materialDialog(
+    context = requireContext(),
+    title = title,
+    cancelable = cancelable,
+    btnOkText = btnOkText,
+    autoDismiss = autoDismiss,
+    onConfirm = onConfirm,
+    btnCancelText = btnCancelText,
+    onCancel = onCancel,
+    content = content,
+    drawable = icon
+)
+
+private fun materialDialog(
+    context: Context,
+    title: String,
+    cancelable: Boolean,
+    btnOkText: String?,
+    autoDismiss: Boolean,
+    onConfirm: () -> Unit,
+    btnCancelText: String?,
+    onCancel: () -> Unit,
+    content: String?,
+    drawable: Drawable?
 ): MaterialDialog {
-    val materialDialog = MaterialDialog(requireContext())
+    val materialDialog = MaterialDialog(context)
     materialDialog.title(text = title)
     materialDialog.cancelable(cancelable)
     if (btnOkText != null) {
@@ -120,9 +147,15 @@ fun Fragment.alertDialog(
         }
     }
     if (!content.isNullOrBlank()) {
-        materialDialog.message(text = fromHtml(content))
+        materialDialog.message(text = content)
     }
-    materialDialog.show()
+    if (drawable != null) {
+        materialDialog.show {
+            icon(drawable = drawable)
+        }
+    } else {
+        materialDialog.show()
+    }
     return materialDialog
 }
 
@@ -134,33 +167,20 @@ fun Activity.alertDialog(
     cancelable: Boolean = false,
     onConfirm: () -> Unit = {},
     onCancel: () -> Unit = {},
-    autoDismiss: Boolean = true
-): MaterialDialog {
-    val materialDialog = MaterialDialog(this)
-    materialDialog.title(text = title)
-    materialDialog.cancelable(cancelable)
-    if (btnOkText != null) {
-        materialDialog.positiveButton(text = btnOkText) {
-            if (autoDismiss) {
-                it.dismiss()
-            }
-            onConfirm.invoke()
-        }
-    }
-    if (btnCancelText != null) {
-        materialDialog.negativeButton(text = btnCancelText) {
-            if (autoDismiss) {
-                it.dismiss()
-            }
-            onCancel.invoke()
-        }
-    }
-    if (!content.isNullOrBlank()) {
-        materialDialog.message(text = fromHtml(content))
-    }
-    materialDialog.show()
-    return materialDialog
-}
+    autoDismiss: Boolean = true,
+    icon: Drawable? = null,
+): MaterialDialog = materialDialog(
+    context = this,
+    title = title,
+    cancelable = cancelable,
+    btnOkText = btnOkText,
+    autoDismiss = autoDismiss,
+    onConfirm = onConfirm,
+    btnCancelText = btnCancelText,
+    onCancel = onCancel,
+    content = content,
+    drawable = icon
+)
 
 @SuppressLint("CheckResult")
 fun Fragment.inputDialog(

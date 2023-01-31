@@ -28,6 +28,7 @@ import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.KeyboardHelper
 import com.arny.mobilecinema.presentation.utils.alertDialog
+import com.arny.mobilecinema.presentation.utils.getImg
 import com.arny.mobilecinema.presentation.utils.inputDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.openAppSettings
@@ -213,6 +214,29 @@ class HomeFragment : Fragment() {
         launchWhenCreated {
             viewModel.movies.collectLatest { movies ->
                 updateList(movies)
+            }
+        }
+        launchWhenCreated {
+            viewModel.toast.collectLatest { wrappedString ->
+                toast(wrappedString.toString(requireContext()))
+            }
+        }
+        launchWhenCreated {
+            viewModel.alert.collectLatest { alert ->
+                alertDialog(
+                    title = alert.title.toString(requireContext()).orEmpty(),
+                    content = alert.content?.toString(requireContext()),
+                    btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
+                    btnCancelText = alert.btnCancel?.toString(requireContext()),
+                    cancelable = alert.cancelable,
+                    icon = alert.icon?.let { requireContext().getImg(it) },
+                    onConfirm = {
+                        viewModel.onConfirmAlert(alert.type)
+                    },
+                    onCancel = {
+                        viewModel.onCancelAlert(alert.type)
+                    }
+                )
             }
         }
     }

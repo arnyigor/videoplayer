@@ -5,6 +5,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.DefaultRequest
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.logging.ANDROID
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
@@ -14,21 +15,18 @@ import javax.inject.Inject
 
 class KtorClient @Inject constructor() {
     val client = HttpClient(OkHttp) {
-        install(DefaultRequest) {
-            headers.append("Content-Type", "application/json")
+        install(Logging) {
+            logger = Logger.ANDROID
+            level = LogLevel.HEADERS
         }
         install(ContentNegotiation) {
             gson()
         }
-        install(Logging) {
-            logger = Logger.SIMPLE
-            level = LogLevel.NONE
-        }
         // Timeout
         install(HttpTimeout) {
-            requestTimeoutMillis = 15000L
-            connectTimeoutMillis = 15000L
-            socketTimeoutMillis = 15000L
+            requestTimeoutMillis = 120000L
+            connectTimeoutMillis = 120000L
+            socketTimeoutMillis = 120000L
         }
     }
 }

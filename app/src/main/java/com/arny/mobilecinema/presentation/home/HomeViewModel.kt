@@ -2,10 +2,15 @@ package com.arny.mobilecinema.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.MainInteractor
 import com.arny.mobilecinema.domain.models.AnwapMovie
+import com.arny.mobilecinema.presentation.uimodels.Alert
+import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
+import com.arny.mobilecinema.presentation.utils.strings.ResourceString
+import com.arny.mobilecinema.presentation.utils.strings.SimpleString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,15 +30,16 @@ class HomeViewModel @Inject constructor(
     val error = _error.asSharedFlow()
     private val _toast = MutableSharedFlow<IWrappedString>()
     val toast = _toast.asSharedFlow()
+    private val _alert = MutableSharedFlow<Alert>()
+    val alert = _alert.asSharedFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
     private val _movies = MutableStateFlow<List<AnwapMovie>>(emptyList())
     val movies = _movies.asStateFlow()
 
-
     fun downloadData() {
         viewModelScope.launch {
-            flow { emit(mainInteractor.downloadData()) }
+            flow { emit(mainInteractor.getUpdateDate()) }
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
                 .catch { _error.emit(ThrowableString(it)) }
@@ -44,7 +50,21 @@ class HomeViewModel @Inject constructor(
                         }
 
                         is DataResult.Success -> {
-                            _movies.value = result.result
+                            val updateTime = result.result
+                            if (updateTime.isNotBlank()) {
+                                _alert.emit(
+                                    Alert(
+                                        title = ResourceString(R.string.new_films_update),
+                                        content = ResourceString(
+                                            R.string.question_update_format,
+                                            updateTime
+                                        ),
+                                        btnOk = ResourceString(android.R.string.ok),
+                                        btnCancel = ResourceString(android.R.string.cancel),
+                                        type = AlertType.Update
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -52,5 +72,21 @@ class HomeViewModel @Inject constructor(
     }
 
     fun search(seqrch: String) {
+    }
+
+    fun onConfirmAlert(type: AlertType) {
+        viewModelScope.launch {
+            when (type) {
+                AlertType.Update -> _toast.emit(SimpleString("ok moment"))
+            }
+        }
+    }
+
+    fun onCancelAlert(type: AlertType) {
+        viewModelScope.launch {
+            when (type) {
+                AlertType.Update -> {}
+            }
+        }
     }
 }

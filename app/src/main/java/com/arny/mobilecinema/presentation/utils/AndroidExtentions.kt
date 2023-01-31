@@ -320,9 +320,7 @@ fun Fragment.requestPermission(
     }
 }
 
-fun Context.getImg(@DrawableRes res: Int): Drawable? {
-    return ContextCompat.getDrawable(this, res)
-}
+fun Context.getImg(@DrawableRes res: Int): Drawable? = ContextCompat.getDrawable(this, res)
 
 fun ImageView.setImgFromUrl(
     url: String,

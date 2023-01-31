@@ -1,18 +1,22 @@
 package com.arny.mobilecinema.data.utils
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.text.DecimalFormat
-import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
 import kotlin.math.log10
 import kotlin.math.pow
 
 fun File.isFileExists(): Boolean = isFile && exists()
+
+suspend fun File.create() {
+    if (!this.isFileExists()) {
+        check(withContext(Dispatchers.IO) { createNewFile() })
+    }
+}
 
 fun formatFileSize(size: Long, digits: Int = 3): String {
     if (size <= 0) return "0"

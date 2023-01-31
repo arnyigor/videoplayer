@@ -1,6 +1,5 @@
 package com.arny.mobilecinema.data.repository.prefs
 
 object PrefsConstants {
-    const val PREF_CURRENT_HOST = "PREF_CURRENT_HOST"
-    const val PREF_SAVE_TO_STORE = "PREF_SAVE_TO_STORE"
+    const val LAST_DATA_UPDATE = "last_data_update"
 }

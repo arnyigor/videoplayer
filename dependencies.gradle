@@ -101,7 +101,9 @@ ext {
     }}
 
     ktor = { version = '2.2.2' -> Alias {
+        implementation("io.ktor:ktor-client-android:$version")
         implementation("io.ktor:ktor-client-okhttp:$version")
+        implementation("io.ktor:ktor-client-logging-jvm:$version")
         implementation("io.ktor:ktor-client-logging:$version")
         implementation("io.ktor:ktor-client-core:$version")
         implementation("io.ktor:ktor-client-content-negotiation:$version")

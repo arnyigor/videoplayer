@@ -28,4 +28,6 @@
     <string name="action_settings">Настройки</string>
     <string name="play">Смотреть</string>
     <string name="need_permission_message">Для работы приложения необходимо разрешить доступ на запись</string>
+    <string name="new_films_update">Доступно новое обновление фильмов</string>
+    <string name="question_update_format">Вы хотите загрузить новые фильмы от %s?</string>
 </resources>
