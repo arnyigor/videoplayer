@@ -25,7 +25,7 @@
         android:layout_marginHorizontal="8dp"
         android:background="@color/colorGray"
         android:padding="8dp"
-        android:textColor="@color/white"
+        android:textColor="@android:color/white"
         android:textSize="16sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="@+id/ivVideoIcon"

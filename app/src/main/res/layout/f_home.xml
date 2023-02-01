@@ -6,64 +6,18 @@
     android:layout_height="match_parent"
     tools:menu="@menu/home_menu">
 
-    <EditText
-        android:id="@+id/edtSearch"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        android:autofillHints="true"
-        android:drawableEnd="@android:drawable/ic_menu_close_clear_cancel"
-        android:hint="@string/home_search"
-        android:imeOptions="actionDone"
-        android:inputType="text"
-        app:layout_constraintEnd_toStartOf="@+id/btnSearch"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="text" />
-
-    <Button
-        android:id="@+id/btnSearch"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:text="@string/home_search"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/edtSearch" />
-
-    <TextView
-        android:id="@+id/tvEmptyView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:padding="8dp"
-        android:text="@string/film_not_found"
-        android:textAppearance="@style/TextAppearance.AppCompat"
-        android:visibility="gone"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnSearch" />
-
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swiperefresh"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rcVideoList"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="8dp"
+        android:orientation="vertical"
+        app:layoutManager="GridLayoutManager"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/btnSearch">
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rcVideoList"
-            android:layout_width="0dp"
-            android:orientation="vertical"
-            app:spanCount="2"
-            android:layout_height="0dp"
-            android:layout_marginTop="8dp"
-            app:layoutManager="GridLayoutManager"
-            tools:listitem="@layout/i_home_video" />
-
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+        app:layout_constraintTop_toTopOf="parent"
+        app:spanCount="2"
+        tools:listitem="@layout/i_home_video" />
 
     <ProgressBar
         android:id="@+id/pbLoading"

@@ -31,7 +31,6 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         super.onCreate(savedInstanceState)
         binding = AMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(findViewById(R.id.toolbar))
         val navController = findNavController(R.id.nav_host_fragment)
         // Find reference to bottom navigation view
         val navView: BottomNavigationView = findViewById(R.id.bottom_nav_view)

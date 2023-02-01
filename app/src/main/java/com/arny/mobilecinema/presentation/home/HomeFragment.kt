@@ -20,35 +20,25 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.databinding.FHomeBinding
-import com.arny.mobilecinema.presentation.utils.KeyboardHelper
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.getImg
 import com.arny.mobilecinema.presentation.utils.inputDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.openAppSettings
 import com.arny.mobilecinema.presentation.utils.requestPermission
-import com.arny.mobilecinema.presentation.utils.setDrawableRightListener
-import com.arny.mobilecinema.presentation.utils.setEnterPressListener
+import com.arny.mobilecinema.presentation.utils.setupSearchView
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
-import com.arny.mobilecinema.presentation.utils.textChanges
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.unlockOrientation
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import javax.inject.Inject
-import kotlin.properties.Delegates
 
 class HomeFragment : Fragment() {
     private companion object {
@@ -63,12 +53,6 @@ class HomeFragment : Fragment() {
     private lateinit var binding: FHomeBinding
     private var request: Int = -1
     private var videosAdapter: VideosAdapter? = null
-    private var emptyData by Delegates.observable(true) { _, _, empty ->
-        with(binding) {
-            rcVideoList.isVisible = !empty
-            tvEmptyView.isVisible = empty
-        }
-    }
     private val startForResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result: ActivityResult ->
@@ -119,7 +103,6 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         updateTitle(getString(R.string.app_name))
         initMenu()
-        initUI()
         initAdapters()
         observeData()
         requestPermission()
@@ -147,34 +130,6 @@ class HomeFragment : Fragment() {
         viewModel.downloadData()
     }
 
-    @OptIn(FlowPreview::class)
-    private fun initUI() {
-        with(binding) {
-            swiperefresh.setOnRefreshListener {
-                swiperefresh.isRefreshing = false
-            }
-            btnSearch.setOnClickListener {
-                KeyboardHelper.hideKeyboard(requireActivity())
-                searchVideo()
-            }
-            edtSearch.setDrawableRightListener {
-                KeyboardHelper.hideKeyboard(requireActivity())
-                edtSearch.setText("")
-            }
-            edtSearch.setEnterPressListener {
-                KeyboardHelper.hideKeyboard(requireActivity())
-            }
-            binding.edtSearch
-                .textChanges()
-                .debounce(500)
-                .filter { !it.isNullOrBlank() }
-                .onEach {
-                    viewModel.search(it.toString())
-                }
-                .launchIn(lifecycleScope)
-        }
-    }
-
     override fun onResume() {
         super.onResume()
         requireActivity().unlockOrientation()
@@ -195,8 +150,6 @@ class HomeFragment : Fragment() {
         launchWhenCreated {
             viewModel.loading.collectLatest { loading ->
                 binding.pbLoading.isVisible = loading
-                binding.edtSearch.isVisible = !loading
-                binding.btnSearch.isVisible = !loading
             }
         }
         launchWhenCreated {
@@ -246,19 +199,26 @@ class HomeFragment : Fragment() {
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
+                menu.clear()
                 menuInflater.inflate(R.menu.home_menu, menu)
+                setupSearchView(
+                    menuItem = menu.findItem(R.id.action_search),
+                    onQueryChange = { text ->
+                    },
+                    onMenuCollapse = {
+                    },
+                    onSubmitAvailable = true,
+                    onQuerySubmit = { query ->
+                        viewModel.search(query.orEmpty())
+                    }
+                )
             }
 
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
                 when (menuItem.itemId) {
-
-                    R.id.menu_action_get_file -> {
-                        request = REQUEST_OPEN_FILE
-                        requestPermission(
-                            resultLauncher = requestPermissionLauncher,
-                            permission = Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                            checkPermissionOk = ::requestFile
-                        )
+                    R.id.action_search -> false
+                    R.id.action_search_settings -> {
+                        // TODO: Add search settings
                         false
                     }
 
@@ -295,10 +255,6 @@ class HomeFragment : Fragment() {
         val uri = data?.data
         val path = FilePathUtils.getPath(uri, requireContext())
         println(path)
-    }
-
-    private fun FHomeBinding.searchVideo() {
-        tvEmptyView.isVisible = false
     }
 
     private fun requestFile() {

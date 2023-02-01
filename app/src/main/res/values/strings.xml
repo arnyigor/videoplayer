@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Мобильный кинотеатр</string>
+    <string name="app_name">Anwap Movies</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
     <string name="film_not_found">Список видео пуст</string>
@@ -33,4 +33,5 @@
     <string name="downloading_update">Загружаем обновление фильмов</string>
     <string name="wating">Подождите...</string>
     <string name="update_started">Обновление началось</string>
+    <string name="search_prefs">Настройки поиска</string>
 </resources>
