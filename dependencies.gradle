@@ -114,6 +114,10 @@ ext {
         implementation("androidx.room:room-paging:$version")
     }}
 
+    debugDB = { version = '' -> Alias {
+        debugImplementation 'com.github.amitshekhariitbhu.Android-Debug-Database:debug-db:v1.0.6'
+    }}
+
     tests = { junit = '4.13.1' -> Alias {
         testImplementation 'org.junit.jupiter:junit-jupiter:5.5.2'
         testImplementation 'org.junit.jupiter:junit-jupiter-api:5.5.2'
@@ -125,7 +129,6 @@ ext {
     androidTests = { -> Alias {
         androidTestImplementation 'org.mockito:mockito-android:3.1.0'
         androidTestImplementation "androidx.test.espresso:espresso-core:3.3.0"
-        androidTestImplementation 'com.kaspersky.android-components:kaspresso:1.0.1'
         androidTestImplementation "androidx.test.ext:junit:1.1.5"
         androidTestImplementation 'androidx.test:runner:1.2.0'
         androidTestImplementation 'androidx.test:rules:1.5.0'

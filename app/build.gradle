@@ -29,7 +29,6 @@ dependencies {
     jodaTime()
     appcompat()
     materialDialog()
-    stetho()
     preference()
     constraintlayout()
     exoplayer()
@@ -39,4 +38,5 @@ dependencies {
     commonsCodec()
     ktor()
     roomDB()
+    debugDB()
 }

@@ -24,6 +24,9 @@ interface MovieDao : BaseDao<MovieEntity> {
     @Query("SELECT dbId, pageUrl, updated FROM movies WHERE pageUrl= :page")
     fun findByPageUrl(page: String): MovieMinimal?
 
+    @Query("SELECT dbId, pageUrl, updated FROM movies")
+    fun getAllMinimal(): List<MovieMinimal>
+
     @Insert
     fun insertAll(vararg movies: MovieEntity)
 

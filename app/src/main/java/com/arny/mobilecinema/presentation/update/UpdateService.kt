@@ -74,6 +74,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
                         file.delete()
                         dataFile.delete()
                         repository.updateMovies(anwapMovies)
+                        repository.setLastUpdate()
                     }
                     stop()
                 }
@@ -119,6 +120,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
     ): Notification {
         return getNotificationBuilder(channelId, channelName)
             .apply {
+                setContentText("Обновление")
                 setContentTitle(title)
                 setAutoCancel(false)
                 setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

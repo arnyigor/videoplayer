@@ -48,9 +48,13 @@ class DataUpdateInteractorImpl @Inject constructor(
     }
 
     override suspend fun getUpdateDate(): DataResult<String> {
-        val updateFile = withContext(Dispatchers.IO) { repository.downloadUpdate() }
-        val newUpdate = updateFile.readText()
-        return if (repository.getLastUpdate() != newUpdate) {
+        var newUpdate = ""
+        if (repository.newUpdate.isBlank()) {
+            val updateFile = withContext(Dispatchers.IO) { repository.downloadUpdate() }
+            newUpdate = updateFile.readText()
+        }
+        return if (repository.lastUpdate != newUpdate && newUpdate.isNotBlank()) {
+            repository.newUpdate = newUpdate
             DataResult.Success(newUpdate)
         } else {
             DataResult.Success("")
