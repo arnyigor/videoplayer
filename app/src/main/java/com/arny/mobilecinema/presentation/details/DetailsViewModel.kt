@@ -2,7 +2,7 @@ package com.arny.mobilecinema.presentation.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.arny.mobilecinema.domain.interactors.MainInteractor
+import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class DetailsViewModel @Inject constructor(
-    private val interactor: MainInteractor
+    private val interactor: MoviesInteractor
 ) : ViewModel() {
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()

@@ -110,8 +110,10 @@ ext {
 
     roomDB = { version = '2.5.0' -> Alias {
         implementation("androidx.room:room-runtime:$version")
+        implementation("androidx.room:room-ktx:$version")
         kapt("androidx.room:room-compiler:$version")
         implementation("androidx.room:room-paging:$version")
+        implementation("androidx.paging:paging-runtime-ktx:3.1.1")
     }}
 
     debugDB = { version = '' -> Alias {

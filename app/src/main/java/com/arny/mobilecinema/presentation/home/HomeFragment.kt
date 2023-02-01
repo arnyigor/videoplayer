@@ -25,7 +25,6 @@ import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.databinding.FHomeBinding
-import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.KeyboardHelper
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.getImg
@@ -212,8 +211,8 @@ class HomeFragment : Fragment() {
             }
         }
         launchWhenCreated {
-            viewModel.movies.collectLatest { movies ->
-                updateList(movies)
+            viewModel.moviesData.collectLatest { movies ->
+                videosAdapter?.submitData(movies)
             }
         }
         launchWhenCreated {
@@ -296,11 +295,6 @@ class HomeFragment : Fragment() {
         val uri = data?.data
         val path = FilePathUtils.getPath(uri, requireContext())
         println(path)
-    }
-
-    private fun updateList(movies: List<AnwapMovie>) {
-        videosAdapter?.submitList(movies.toList())
-        emptyData = movies.isEmpty()
     }
 
     private fun FHomeBinding.searchVideo() {

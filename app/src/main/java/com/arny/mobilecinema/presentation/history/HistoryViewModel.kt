@@ -2,7 +2,7 @@ package com.arny.mobilecinema.presentation.history
 
 import androidx.lifecycle.ViewModel
 import com.arny.mobilecinema.data.models.DataResult
-import com.arny.mobilecinema.domain.interactors.MainInteractor
+import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 
 class HistoryViewModel @Inject constructor(
-    private val interactor: MainInteractor
+    private val interactor: MoviesInteractor
 ) : ViewModel() {
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()

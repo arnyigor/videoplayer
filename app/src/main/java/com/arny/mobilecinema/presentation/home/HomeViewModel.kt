@@ -2,8 +2,10 @@ package com.arny.mobilecinema.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.cachedIn
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.presentation.uimodels.Alert
@@ -24,6 +26,7 @@ import javax.inject.Inject
 
 class HomeViewModel @Inject constructor(
     private val dataUpdateInteractor: DataUpdateInteractor,
+    moviesInteractor: MoviesInteractor,
 ) : ViewModel() {
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
@@ -35,6 +38,7 @@ class HomeViewModel @Inject constructor(
     val loading = _loading.asStateFlow()
     private val _movies = MutableStateFlow<List<AnwapMovie>>(emptyList())
     val movies = _movies.asStateFlow()
+    val moviesData = moviesInteractor.moviesPagingData.cachedIn(viewModelScope)
 
     fun downloadData() {
         viewModelScope.launch {

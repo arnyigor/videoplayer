@@ -9,27 +9,15 @@ import com.arny.mobilecinema.data.db.models.MovieMinimal
 
 @Dao
 interface MovieDao : BaseDao<MovieEntity> {
-    @Query("SELECT * FROM movies")
-    fun getAll(): List<MovieEntity>
-
-    @Query("SELECT * FROM movies WHERE dbId IN (:ids)")
-    fun loadAllByIds(ids: IntArray): List<MovieEntity>
+    @Query("SELECT * FROM movies ORDER BY dbId ASC LIMIT :limit OFFSET :offset")
+    suspend fun getPagedList(limit: Int, offset: Int): List<MovieEntity>
 
     @Query("SELECT * FROM movies WHERE title LIKE :title")
-    fun findByTitle(title: String): List<MovieEntity>
+    suspend fun findByTitle(title: String): List<MovieEntity>
 
     @Query("SELECT COUNT(dbId) FROM movies")
     fun getCount(): Int
 
-    @Query("SELECT dbId, pageUrl, updated FROM movies WHERE pageUrl= :page")
-    fun findByPageUrl(page: String): MovieMinimal?
-
     @Query("SELECT dbId, pageUrl, updated FROM movies")
     fun getAllMinimal(): List<MovieMinimal>
-
-    @Insert
-    fun insertAll(vararg movies: MovieEntity)
-
-    @Delete
-    fun delete(movieEntity: MovieEntity)
 }
