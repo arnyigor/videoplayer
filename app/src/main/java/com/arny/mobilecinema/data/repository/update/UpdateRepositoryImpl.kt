@@ -56,7 +56,6 @@ class UpdateRepositoryImpl @Inject constructor(
                 val minimal = dbList.find { it.pageUrl == movie.pageUrl }
                 if (minimal != null) {
                     if (minimal.updated < movie.info.updated) {
-                        Timber.d("moviesDao update ${movie.pageUrl}")
                         entity = entity.setData(movie)
                         moviesDao.update(entity)
                     }
