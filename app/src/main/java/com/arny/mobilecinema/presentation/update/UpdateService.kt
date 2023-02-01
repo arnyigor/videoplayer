@@ -11,12 +11,13 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.utils.isFileExists
 import com.arny.mobilecinema.data.utils.unzip
 import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.domain.models.MoviesData
+import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.google.gson.Gson
+import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,7 +34,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
     }
 
     @Inject
-    lateinit var dao: MovieDao
+    lateinit var repository: UpdateRepository
 
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
@@ -41,6 +42,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
 
     override fun onCreate() {
         super.onCreate()
+        AndroidInjection.inject(this)
         startForeground(
             NOTICE_ID,
             getNotice("channelId", "channelName", "Обновление")
@@ -52,6 +54,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
             try {
                 update(intent)
             } catch (e: Exception) {
+                // TODO: Отобразить ошибку и записать
                 e.printStackTrace()
                 stop()
             }
@@ -70,17 +73,12 @@ class UpdateService : LifecycleService(), CoroutineScope {
                     if (anwapMovies.isNotEmpty()) {
                         file.delete()
                         dataFile.delete()
-                        println("movies:${anwapMovies.size}")
-                        updateMovies(anwapMovies)
+                        repository.updateMovies(anwapMovies)
                     }
                     stop()
                 }
             }
         }
-    }
-
-    private suspend fun updateMovies(movies: List<AnwapMovie>) {
-
     }
 
     private fun stop() {

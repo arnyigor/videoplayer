@@ -5,10 +5,10 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class SerialEpisode(
-	var id: Int = 0,
-	var episode: String = "",
-	var title: String = "",
-	var hls: String = "",
-	var dash: String = "",
-	var poster: String = "",
+	val id: Int = 0,
+	val episode: String = "",
+	val title: String = "",
+	val hls: String = "",
+	val dash: String = "",
+	val poster: String = "",
 ) : Parcelable

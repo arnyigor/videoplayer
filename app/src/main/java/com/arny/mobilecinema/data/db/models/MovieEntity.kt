@@ -2,12 +2,16 @@ package com.arny.mobilecinema.data.db.models
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.arny.mobilecinema.domain.models.MovieType
 
-@Entity(tableName = "movies")
+@Entity(
+    tableName = "movies",
+    indices = [Index(value = ["title","pageUrl"], unique = true)]
+)
 data class MovieEntity(
-    @PrimaryKey(autoGenerate = true) var dbId: Long = 0,
+    @PrimaryKey(autoGenerate = true) val dbId: Long = 0,
     @ColumnInfo(name = "movie_id") val movieId: Int = 0,
     @ColumnInfo(name = "title") val title: String = "",
     @ColumnInfo(name = "origTitle") val origTitle: String = "",

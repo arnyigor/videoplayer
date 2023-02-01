@@ -5,14 +5,14 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class AnwapMovie constructor(
-    var dbId: Int = 0,
-    var movieId: Int = 0,
-    var title: String = "",
-    var origTitle: String = "",
-    var type: MovieType = MovieType.NO_TYPE,
-    var pageUrl: String = "",
-    var img: String = "",
-    var info: MovieInfo = MovieInfo(),
-    var seasons: List<SerialSeason> = emptyList(),
-    var cinemaUrlData: CinemaUrlData? = null,
+    val dbId: Long = 0,
+    val movieId: Int = 0,
+    val title: String = "",
+    val origTitle: String = "",
+    val type: MovieType = MovieType.NO_TYPE,
+    val pageUrl: String = "",
+    val img: String = "",
+    val info: MovieInfo = MovieInfo(),
+    val seasons: List<SerialSeason> = emptyList(),
+    val cinemaUrlData: CinemaUrlData? = null,
 ):Parcelable
