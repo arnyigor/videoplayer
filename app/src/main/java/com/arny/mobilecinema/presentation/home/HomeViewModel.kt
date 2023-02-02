@@ -2,31 +2,39 @@ package com.arny.mobilecinema.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
-import com.arny.mobilecinema.domain.models.AnwapMovie
+import com.arny.mobilecinema.domain.models.ViewMovie
+import com.arny.mobilecinema.presentation.home.HomeViewModel.UiAction
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel @Inject constructor(
     private val dataUpdateInteractor: DataUpdateInteractor,
-    moviesInteractor: MoviesInteractor,
+    private val moviesInteractor: MoviesInteractor,
 ) : ViewModel() {
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
@@ -36,9 +44,20 @@ class HomeViewModel @Inject constructor(
     val alert = _alert.asSharedFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
-    private val _movies = MutableStateFlow<List<AnwapMovie>>(emptyList())
-    val movies = _movies.asStateFlow()
-    val moviesData = moviesInteractor.moviesPagingData.cachedIn(viewModelScope)
+    private val actionStateFlow = MutableSharedFlow<UiAction>()
+    var moviesDataFlow: Flow<PagingData<ViewMovie>>
+    init {
+        moviesDataFlow = actionStateFlow
+            .filterIsInstance<UiAction.Search>()
+            .distinctUntilChanged()
+            .onStart { emit(UiAction.Search(query = "")) }
+            .flatMapLatest { moviesInteractor.getMovies(search = it.query) }
+            .cachedIn(viewModelScope)
+    }
+
+    sealed class UiAction {
+        data class Search(val query: String) : UiAction()
+    }
 
     fun downloadData() {
         viewModelScope.launch {
@@ -74,7 +93,10 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun search(seqrch: String) {
+    fun search(search: String) {
+        viewModelScope.launch {
+            actionStateFlow.emit(UiAction.Search(search))
+        }
     }
 
     fun onConfirmAlert(type: AlertType) {

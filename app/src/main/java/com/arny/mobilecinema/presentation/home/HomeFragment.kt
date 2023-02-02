@@ -164,7 +164,7 @@ class HomeFragment : Fragment() {
             }
         }
         launchWhenCreated {
-            viewModel.moviesData.collectLatest { movies ->
+            viewModel.moviesDataFlow.collectLatest { movies ->
                 videosAdapter?.submitData(movies)
             }
         }
@@ -203,9 +203,11 @@ class HomeFragment : Fragment() {
                 menuInflater.inflate(R.menu.home_menu, menu)
                 setupSearchView(
                     menuItem = menu.findItem(R.id.action_search),
-                    onQueryChange = { text ->
+                    onQueryChange = { query ->
+                        viewModel.search(query.orEmpty())
                     },
                     onMenuCollapse = {
+                        viewModel.search("")
                     },
                     onSubmitAvailable = true,
                     onQuerySubmit = { query ->

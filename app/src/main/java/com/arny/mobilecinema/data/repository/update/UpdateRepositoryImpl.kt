@@ -11,7 +11,6 @@ import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
 import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
-import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
 
@@ -51,7 +50,7 @@ class UpdateRepositoryImpl @Inject constructor(
                 moviesDao.insert(entity)
             }
         } else {
-            val dbList = moviesDao.getAllMinimal()
+            val dbList = moviesDao.getUpdateMovies()
             movies.forEach { movie ->
                 val minimal = dbList.find { it.pageUrl == movie.pageUrl }
                 if (minimal != null) {

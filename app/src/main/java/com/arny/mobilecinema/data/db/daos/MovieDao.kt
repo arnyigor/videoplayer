@@ -1,23 +1,25 @@
 package com.arny.mobilecinema.data.db.daos
 
 import androidx.room.Dao
-import androidx.room.Delete
-import androidx.room.Insert
 import androidx.room.Query
 import com.arny.mobilecinema.data.db.models.MovieEntity
-import com.arny.mobilecinema.data.db.models.MovieMinimal
+import com.arny.mobilecinema.data.db.models.MovieUpdate
+import com.arny.mobilecinema.domain.models.ViewMovie
 
 @Dao
 interface MovieDao : BaseDao<MovieEntity> {
-    @Query("SELECT * FROM movies ORDER BY dbId ASC LIMIT :limit OFFSET :offset")
-    suspend fun getPagedList(limit: Int, offset: Int): List<MovieEntity>
+    @Query("SELECT dbId, title, type, img FROM movies ORDER BY updated DESC LIMIT :limit OFFSET :offset")
+    suspend fun getPagedList(limit: Int, offset: Int): List<ViewMovie>
 
-    @Query("SELECT * FROM movies WHERE title LIKE :title")
-    suspend fun findByTitle(title: String): List<MovieEntity>
+    @Query("SELECT dbId, title, type, img FROM movies WHERE title LIKE :search ORDER BY dbId ASC LIMIT :limit OFFSET :offset")
+    suspend fun getPagedList(search: String, limit: Int, offset: Int): List<ViewMovie>
 
     @Query("SELECT COUNT(dbId) FROM movies")
     fun getCount(): Int
 
     @Query("SELECT dbId, pageUrl, updated FROM movies")
-    fun getAllMinimal(): List<MovieMinimal>
+    fun getUpdateMovies(): List<MovieUpdate>
+
+    @Query("SELECT * FROM movies WHERE dbId = :id")
+    fun getMovie(id: Long): MovieEntity?
 }
