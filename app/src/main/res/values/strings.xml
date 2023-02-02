@@ -38,4 +38,5 @@
     <string name="serial">Сериал</string>
     <string name="imdb">IMDB</string>
     <string name="kp">KP</string>
+    <string name="updating">Обновление %d%%</string>
 </resources>

@@ -3,6 +3,7 @@ package com.arny.mobilecinema.presentation.update
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -11,11 +12,13 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.utils.isFileExists
 import com.arny.mobilecinema.data.utils.unzip
 import com.arny.mobilecinema.domain.models.AnwapMovie
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
+import com.arny.mobilecinema.presentation.MainActivity
 import com.google.gson.Gson
 import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
@@ -62,6 +65,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
         return super.onStartCommand(intent, flags, startId)
     }
 
+
     private suspend fun update(intent: Intent?) {
         withContext(Dispatchers.IO) {
             val filePath = intent?.getStringExtra("file")
@@ -73,7 +77,9 @@ class UpdateService : LifecycleService(), CoroutineScope {
                     if (anwapMovies.isNotEmpty()) {
                         file.delete()
                         dataFile.delete()
-                        repository.updateMovies(anwapMovies)
+                        repository.updateMovies(anwapMovies) { pers ->
+                            updateNotification(getString(R.string.updating, pers))
+                        }
                         repository.setLastUpdate()
                     }
                     stop()
@@ -113,16 +119,32 @@ class UpdateService : LifecycleService(), CoroutineScope {
             MoviesData::class.java
         ).movies
 
+    private fun updateNotification(title: String) {
+        val mNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        mNotificationManager.notify(
+            NOTICE_ID,
+            getNotice("channelId", "channelName", title)
+        )
+    }
+
     private fun Context.getNotice(
         channelId: String,
         channelName: String,
         title: String
     ): Notification {
+        val contentIntent = PendingIntent.getActivity(
+            /* context = */ this,
+            /* requestCode = */ 0,
+            /* intent = */ Intent(this, MainActivity::class.java),
+            /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
+        )
         return getNotificationBuilder(channelId, channelName)
             .apply {
-                setContentText("Обновление")
                 setContentTitle(title)
                 setAutoCancel(false)
+                setSilent(true)
+                setSmallIcon(android.R.drawable.stat_sys_download)
+                setContentIntent(contentIntent)
                 setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             }.build()
     }

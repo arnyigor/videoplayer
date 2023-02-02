@@ -52,6 +52,7 @@ class DataUpdateInteractorImpl @Inject constructor(
         if (repository.newUpdate.isBlank()) {
             val updateFile = withContext(Dispatchers.IO) { repository.downloadUpdate() }
             newUpdate = updateFile.readText()
+            updateFile.delete()
         }
         return if (repository.lastUpdate != newUpdate && newUpdate.isNotBlank()) {
             repository.newUpdate = newUpdate

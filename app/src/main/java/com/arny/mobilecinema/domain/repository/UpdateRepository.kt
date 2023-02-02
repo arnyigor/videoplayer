@@ -8,6 +8,6 @@ interface UpdateRepository {
     var updateDownloadId: Long
     var lastUpdate: String
     suspend fun downloadUpdate(): File
-    fun updateMovies(movies: List<AnwapMovie>)
     fun setLastUpdate()
+    fun updateMovies(movies: List<AnwapMovie>, onUpdate: (ind: Int) -> Unit)
 }

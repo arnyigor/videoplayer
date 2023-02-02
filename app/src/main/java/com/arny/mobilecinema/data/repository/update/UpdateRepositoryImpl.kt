@@ -42,16 +42,20 @@ class UpdateRepositoryImpl @Inject constructor(
         return file
     }
 
-    override fun updateMovies(movies: List<AnwapMovie>) {
+    override fun updateMovies(movies: List<AnwapMovie>, onUpdate: (ind: Int) -> Unit) {
         var entity = MovieEntity()
+        val size = movies.size
         if (moviesDao.getCount() == 0) {
-            for (movie in movies) {
+            for ((ind, movie) in movies.withIndex()) {
                 entity = entity.setData(movie)
                 moviesDao.insert(entity)
+                if (ind % 1000 == 0) {
+                    onUpdate(getPersent(ind, size))
+                }
             }
         } else {
             val dbList = moviesDao.getUpdateMovies()
-            movies.forEach { movie ->
+            movies.forEachIndexed { index, movie ->
                 val minimal = dbList.find { it.pageUrl == movie.pageUrl }
                 if (minimal != null) {
                     if (minimal.updated < movie.info.updated) {
@@ -62,7 +66,13 @@ class UpdateRepositoryImpl @Inject constructor(
                     entity = entity.setData(movie)
                     moviesDao.insert(entity)
                 }
+                if (index % 1000 == 0) {
+                    onUpdate(getPersent(index, size))
+                }
             }
         }
     }
+
+    private fun getPersent(ind: Int, size: Int) =
+        ((ind.toDouble() / size.toDouble()) * 100).toInt()
 }
