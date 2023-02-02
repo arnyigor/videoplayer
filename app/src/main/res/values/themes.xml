@@ -5,12 +5,16 @@
         <item name="colorPrimaryVariant">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
-        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:textColorPrimary">@color/colorPrimary</item>
         <item name="android:textColorSecondary">@color/textColorSecondary</item>
         <item name="android:textColor">@color/textColorPrimary</item>
         <item name="android:textColorHint">@color/textColorSecondary</item>
         <item name="android:windowBackground">@color/colorPrimary</item>
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <item name="android:navigationBarColor">?attr/colorPrimaryDark</item>
+        <item name="android:itemTextAppearance">@style/ItemMenuTextAppearance</item>
+    </style>
+    <style name="ItemMenuTextAppearance">
+        <item name="android:textColor">@color/colorPrimaryDark</item>
     </style>
 </resources>

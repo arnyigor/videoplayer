@@ -34,4 +34,8 @@
     <string name="wating">Подождите...</string>
     <string name="update_started">Обновление началось</string>
     <string name="search_prefs">Настройки поиска</string>
+    <string name="cinema">Фильм</string>
+    <string name="serial">Сериал</string>
+    <string name="imdb">IMDB</string>
+    <string name="kp">KP</string>
 </resources>

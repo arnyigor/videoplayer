@@ -14,15 +14,11 @@ class MainPagingSource(
         val page = params.key ?: 0
 
         return try {
-            println("search:$search")
             val list = if (search.isNotBlank()) {
                 dao.getPagedList(search, params.loadSize, page * params.loadSize)
             } else {
                 dao.getPagedList(params.loadSize, page * params.loadSize)
             }
-            println("list:${list.size}")
-//            val entities = list.map { anwapMovieMapper.transform(it) }
-            // simulate page loading
             if (page != 0) delay(1000)
             LoadResult.Page(
                 data = list,

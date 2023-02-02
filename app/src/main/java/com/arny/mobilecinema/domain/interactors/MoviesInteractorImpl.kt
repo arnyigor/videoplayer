@@ -19,5 +19,5 @@ class MoviesInteractorImpl @Inject constructor(
                 enablePlaceholders = false,
                 initialLoadSize = 20
             ),
-        ) { MainPagingSource(movieDao, search) }.flow
+        ) { MainPagingSource(movieDao, search.trim()) }.flow
 }

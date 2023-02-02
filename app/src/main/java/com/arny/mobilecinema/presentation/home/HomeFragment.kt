@@ -52,7 +52,7 @@ class HomeFragment : Fragment() {
     private val viewModel: HomeViewModel by viewModels { vmFactory }
     private lateinit var binding: FHomeBinding
     private var request: Int = -1
-    private var videosAdapter: VideosAdapter? = null
+    private var itemsAdapter: HomeItemsAdapter? = null
     private val startForResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result: ActivityResult ->
@@ -136,12 +136,12 @@ class HomeFragment : Fragment() {
     }
 
     private fun initAdapters() {
-        videosAdapter = VideosAdapter { item ->
+        itemsAdapter = HomeItemsAdapter { item ->
 //            binding.root.findNavController()
 //                .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(item))
         }
         binding.rcVideoList.apply {
-            adapter = videosAdapter
+            adapter = itemsAdapter
             setHasFixedSize(true)
         }
     }
@@ -165,7 +165,7 @@ class HomeFragment : Fragment() {
         }
         launchWhenCreated {
             viewModel.moviesDataFlow.collectLatest { movies ->
-                videosAdapter?.submitData(movies)
+                itemsAdapter?.submitData(movies)
             }
         }
         launchWhenCreated {
