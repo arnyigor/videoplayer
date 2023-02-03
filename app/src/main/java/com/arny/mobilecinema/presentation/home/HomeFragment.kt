@@ -2,6 +2,7 @@ package com.arny.mobilecinema.presentation.home
 
 import android.Manifest
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -22,6 +23,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.presentation.utils.alertDialog
@@ -29,12 +31,14 @@ import com.arny.mobilecinema.presentation.utils.getImg
 import com.arny.mobilecinema.presentation.utils.inputDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.openAppSettings
+import com.arny.mobilecinema.presentation.utils.registerReceiver
 import com.arny.mobilecinema.presentation.utils.requestPermission
 import com.arny.mobilecinema.presentation.utils.setupSearchView
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.unlockOrientation
+import com.arny.mobilecinema.presentation.utils.unregisterReceiver
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
@@ -85,6 +89,12 @@ class HomeFragment : Fragment() {
             }
         }
 
+    private val updateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            viewModel.loadMovies()
+        }
+    }
+
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
         super.onAttach(context)
@@ -133,6 +143,12 @@ class HomeFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         requireActivity().unlockOrientation()
+        registerReceiver(AppConstants.ACTION_UPDATE_COMPLETE, updateReceiver)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterReceiver(updateReceiver)
     }
 
     private fun initAdapters() {
@@ -204,14 +220,14 @@ class HomeFragment : Fragment() {
                 setupSearchView(
                     menuItem = menu.findItem(R.id.action_search),
                     onQueryChange = { query ->
-                        viewModel.search(query.orEmpty())
+                        viewModel.loadMovies(query.orEmpty())
                     },
                     onMenuCollapse = {
-                        viewModel.search("")
+                        viewModel.loadMovies()
                     },
                     onSubmitAvailable = true,
                     onQuerySubmit = { query ->
-                        viewModel.search(query.orEmpty())
+                        viewModel.loadMovies(query.orEmpty())
                     }
                 )
             }

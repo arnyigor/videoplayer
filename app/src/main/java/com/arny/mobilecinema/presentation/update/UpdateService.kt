@@ -12,7 +12,9 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.isFileExists
 import com.arny.mobilecinema.data.utils.unzip
 import com.arny.mobilecinema.domain.models.AnwapMovie
@@ -45,6 +47,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
 
     override fun onCreate() {
         super.onCreate()
+
         AndroidInjection.inject(this)
         startForeground(
             NOTICE_ID,
@@ -82,6 +85,10 @@ class UpdateService : LifecycleService(), CoroutineScope {
                         }
                         repository.setLastUpdate()
                     }
+                    LocalBroadcastManager.getInstance(applicationContext)
+                        .sendBroadcast(Intent().apply {
+                            action = AppConstants.ACTION_UPDATE_COMPLETE
+                        })
                     stop()
                 }
             }

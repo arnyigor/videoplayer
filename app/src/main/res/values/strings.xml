@@ -31,12 +31,12 @@
     <string name="new_films_update">Доступно новое обновление фильмов</string>
     <string name="question_update_format">Вы хотите загрузить новые фильмы от %s?</string>
     <string name="downloading_update">Загружаем обновление фильмов</string>
-    <string name="wating">Подождите...</string>
+    <string name="wating">Подождите…</string>
     <string name="update_started">Обновление началось</string>
     <string name="search_prefs">Настройки поиска</string>
     <string name="cinema">Фильм</string>
     <string name="serial">Сериал</string>
     <string name="imdb">IMDB</string>
     <string name="kp">KP</string>
-    <string name="updating">Обновление %d%%</string>
+    <string name="updating">Обновление фильмов и сериалов %d%%</string>
 </resources>

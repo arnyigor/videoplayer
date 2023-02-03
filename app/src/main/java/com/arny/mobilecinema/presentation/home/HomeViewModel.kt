@@ -86,7 +86,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun search(search: String) {
+    fun loadMovies(search: String = "") {
         viewModelScope.launch {
             actionStateFlow.emit(search)
         }
