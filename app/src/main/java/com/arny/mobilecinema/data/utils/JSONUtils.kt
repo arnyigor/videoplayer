@@ -9,8 +9,8 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
-fun Any?.toJson(): String? {
-    return if (this != null) Gson().toJson(this) else null
+fun Any?.toJson(gson: Gson = GsonBuilder().setLenient().create()): String? {
+    return if (this != null) gson.toJson(this) else null
 }
 
 fun <T> Any?.fromTypedJson(): T? {
@@ -18,17 +18,23 @@ fun <T> Any?.fromTypedJson(): T? {
     return Gson().fromJson(this.toString(), typeToken)
 }
 
-fun <T> Any?.fromJson(cls: Class<T>): T? {
-    return Gson().fromJson(this.toString(), cls)
+inline fun <reified T> String?.fromJson(cls: Class<T>, gson: Gson = GsonBuilder().setLenient().create()): T {
+    return gson.fromJson(this, cls)
+}
+
+inline fun <reified T> String?.fromJsonToList(gson: Gson = GsonBuilder().setLenient().create()): List<T> {
+    return gson.fromJson<List<T>>(this, ArrayList::class.java).orEmpty()
 }
 
 fun <T> String?.fromJson(clazz: Class<*>, deserialize: (JsonElement) -> T): T {
-    return GsonBuilder()
+    val create = GsonBuilder()
+        .setLenient()
         .registerTypeAdapter(
             clazz,
             JsonDeserializer { json, _, _ -> deserialize.invoke(json) }
         )
-        .create().fromJson<T>(this, clazz)
+        .create()
+    return create.fromJson<T>(this, clazz)
 }
 
 fun JSONObject.toMap(): HashMap<String, Any> {

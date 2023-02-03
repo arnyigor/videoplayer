@@ -4,7 +4,7 @@ import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
-data class AnwapUrl(
+data class UrlData(
     val duration: String? = null,
     val file: String? = null,
     val poster: String? = null,

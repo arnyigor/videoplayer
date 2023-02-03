@@ -2,11 +2,9 @@ package com.arny.mobilecinema.data.models
 
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.utils.toJson
-import com.arny.mobilecinema.domain.models.AnwapMovie
-import com.arny.mobilecinema.domain.models.Mapper
-import javax.inject.Inject
+import com.arny.mobilecinema.domain.models.Movie
 
-fun MovieEntity.setData(data: AnwapMovie): MovieEntity {
+fun MovieEntity.setData(data: Movie): MovieEntity {
     movieId = data.movieId
     title = data.title
     type = data.type.value

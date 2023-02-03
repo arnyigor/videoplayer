@@ -12,9 +12,9 @@ android {
 }
 
 dependencies {
-    core()
     kotlin()
     core()
+    coordinator()
     coroutines()
     lifecycle()
     activity()

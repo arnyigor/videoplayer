@@ -39,4 +39,14 @@
     <string name="imdb">IMDB</string>
     <string name="kp">KP</string>
     <string name="updating">Обновление фильмов и сериалов %d%%</string>
+    <string name="no_movie_title">Нет названия</string>
+    <string name="movie_not_found">Фильм или сериал не найден</string>
+    <string name="watch_trailer">Смотреть трейлер</string>
+    <string name="watch">Смотреть</string>
+    <string name="seasons">Сезоны</string>
+    <string name="spinner_season">сезон</string>
+    <string name="spinner_episode">серия</string>
+    <string name="seasons_count">сезонов</string>
+    <string name="episodes_count">эпизодов</string>
+    <string name="path_not_found">Не найден путь</string>
 </resources>

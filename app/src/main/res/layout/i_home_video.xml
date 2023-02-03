@@ -33,7 +33,7 @@
             app:layout_constraintEnd_toEndOf="@+id/ivVideoIcon"
             app:layout_constraintStart_toStartOf="@+id/ivVideoIcon"
             app:layout_constraintTop_toBottomOf="@+id/ivVideoIcon"
-            tools:text="Очень очень очень длинный Заголовок карточки" />
+            tools:text="Очень очень очень длинный Заголовок" />
 
         <TextView
             android:id="@+id/tvTypeYear"
@@ -43,7 +43,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/tvVideoTitle"
-            tools:text="Сериал 2021" />
+            tools:text="2021 Сериал" />
 
         <TextView
             android:id="@+id/tvInfo"

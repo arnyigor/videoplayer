@@ -5,7 +5,7 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class CinemaUrlData(
-    val hdUrl: AnwapUrl? = null,
-    val cinemaUrl: AnwapUrl? = null,
-    val trailerUrl: AnwapUrl? = null
+    val hdUrl: UrlData? = null,
+    val cinemaUrl: UrlData? = null,
+    val trailerUrl: UrlData? = null
 ):Parcelable

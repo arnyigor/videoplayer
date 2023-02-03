@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
 
     private fun initHideShowNavBar(navController: NavController) {
         navController.addOnDestinationChangedListener { _, destination, _ ->
-            showBottomNav(destination.id !in listOf(R.id.nav_player_view))
+            showBottomNav(destination.id !in listOf(R.id.nav_player_view, R.id.nav_details))
         }
     }
 

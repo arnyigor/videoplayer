@@ -1,11 +1,8 @@
 package com.arny.mobilecinema.presentation.playerview
 
 import android.content.Context
-import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -30,17 +27,13 @@ import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.updateTitle
-import com.google.android.exoplayer2.DefaultLoadControl
-import com.google.android.exoplayer2.DefaultRenderersFactory
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.PlaybackException
-import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
+import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.ui.StyledPlayerView.ControllerVisibilityListener
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
@@ -49,14 +42,22 @@ import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     private val args: PlayerViewFragmentArgs by navArgs()
+
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
     private val viewModel: PlayerViewModel by viewModels { vmFactory }
-
+    private val resizeModes = arrayOf(
+        AspectRatioFrameLayout.RESIZE_MODE_FIT,
+        AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH,
+        AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT,
+        AspectRatioFrameLayout.RESIZE_MODE_FILL,
+        AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+    )
     private var qualityPopUp: PopupMenu? = null
     private var player: ExoPlayer? = null
     private var trackSelector: DefaultTrackSelector? = null
     private var qualityId: Int = 0
+    private var resizeIndex = 0
     var qualityList = ArrayList<Pair<String, TrackSelectionOverride>>()
     private var _binding: FPlayerViewBinding? = null
     private val binding
@@ -64,7 +65,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
 
     @Inject
     lateinit var playerSource: PlayerSource
-    private val handler = Handler(Looper.getMainLooper())
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
@@ -81,33 +81,53 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
         return view.root
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         args.path?.let { viewModel.setPath(it) }
+        args.movie?.let { viewModel.setMovie(it) }
         binding.progressBar.isVisible = true
         observeState()
         initListener()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 
     private fun initListener() {
         binding.ivQuality.setOnClickListener {
             qualityPopUp?.show()
         }
+        binding.ivResizes.setOnClickListener {
+            changeResize()
+        }
+    }
+
+    private fun changeResize() {
+        resizeIndex += 1
+        if (resizeIndex > resizeModes.size - 1) {
+            resizeIndex = 0
+        }
+        binding.playerView.resizeMode = resizeModes[resizeIndex]
+
     }
 
     private fun observeState() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
-                    val path = state.path
-                    binding.tvTitle.text = args.name
-                    Timber.d("setPlayerSource:$path")
-                    path?.let {
+                    val movie = state.movie
+                    val hdUrl = movie?.cinemaUrlData?.hdUrl?.urls?.firstOrNull()
+                    val cinemaUrl = movie?.cinemaUrlData?.cinemaUrl?.urls?.firstOrNull()
+                    val path = when {
+                        !state.path.isNullOrBlank() -> state.path
+                        !hdUrl.isNullOrBlank() -> hdUrl
+                        !cinemaUrl.isNullOrBlank() -> cinemaUrl
+                        else -> ""
+                    }
+                    binding.tvTitle.text = movie?.title ?: getString(R.string.no_movie_title)
+                    path.takeIf { it.isNotBlank() }?.let {
                         try {
                             val mediaSource = playerSource.getSource(path)
                             setPlayerSource(state.position, mediaSource)
@@ -116,7 +136,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
                             toast(e.message)
                         }
                     } ?: kotlin.run {
-                        toast("Не найден путь")
+                        toast(getString(R.string.path_not_found))
                         findNavController().navigateUp()
                     }
                 }
@@ -127,24 +147,28 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     override fun onStart() {
         super.onStart()
         if (Util.SDK_INT >= Build.VERSION_CODES.N) {
-            Timber.d("onStart preparePlayer")
             preparePlayer()
         }
     }
 
     override fun onResume() {
         super.onResume()
-        updateTitle(args.name)
+        with((requireActivity() as AppCompatActivity)) {
+            supportActionBar?.hide()
+            window.hideSystemUI()
+        }
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
-            Timber.d("onResume preparePlayer")
             preparePlayer()
         }
     }
 
     override fun onPause() {
         super.onPause()
+        with((requireActivity() as AppCompatActivity)) {
+            supportActionBar?.show()
+            window.showSystemUI()
+        }
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
-            Timber.d("onPause releasePlayer")
             releasePlayer()
         }
     }
@@ -152,7 +176,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     override fun onStop() {
         super.onStop()
         if (Util.SDK_INT >= Build.VERSION_CODES.N) {
-            Timber.d("onStop releasePlayer")
             releasePlayer()
         }
     }
@@ -162,37 +185,21 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
         releasePlayer()
     }
 
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        val currentOrientation = resources.configuration.orientation
-        if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
-            with((requireActivity() as AppCompatActivity)) {
-                supportActionBar?.hide()
-                window.hideSystemUI()
-            }
-        } else {
-            with((requireActivity() as AppCompatActivity)) {
-                supportActionBar?.show()
-                window.showSystemUI()
-            }
-        }
-    }
-
     private fun preparePlayer() {
         with(binding) {
             val loadControl =
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
                     .build()
-            val bandwidthMeter = DefaultBandwidthMeter.Builder(requireContext()).build().apply {
+/*            val bandwidthMeter = DefaultBandwidthMeter.Builder(requireContext()).build().apply {
                 addEventListener(Handler(Looper.getMainLooper())) { time, bytes, bitrate ->
                     Timber.d("onBandwidth timeMs:$time bitrate:${bitrate.div(1024)}")
                 }
-            }
+            }*/
             trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
             player = ExoPlayer.Builder(requireContext())
                 .setLoadControl(loadControl)
-                .setBandwidthMeter(bandwidthMeter)
+//                .setBandwidthMeter(DefaultBandwidthMeter.Builder(requireContext()).build())
                 .setRenderersFactory(DefaultRenderersFactory(requireContext()))
                 .setTrackSelector(trackSelector!!)
                 .setSeekBackIncrementMs(5000)
@@ -200,13 +207,16 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
                 .build()
             player?.playWhenReady = true
             playerView.player = player
+            playerView.resizeMode = resizeModes[resizeIndex]
             playerView.setControllerVisibilityListener(ControllerVisibilityListener { vis ->
                 if (isVisible) {
                     if (vis == View.VISIBLE) {
                         tvTitle.isVisible = true
                         ivQuality.isVisible = true
+                        ivResizes.isVisible = true
                         activity?.window?.showSystemUI()
                     } else {
+                        ivResizes.isVisible = false
                         ivQuality.isVisible = false
                         tvTitle.isVisible = false
                         activity?.window?.hideSystemUI()

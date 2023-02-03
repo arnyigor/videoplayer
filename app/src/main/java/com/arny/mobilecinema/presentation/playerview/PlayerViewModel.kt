@@ -3,6 +3,7 @@ package com.arny.mobilecinema.presentation.playerview
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
+import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,14 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { currentState ->
                 currentState.copy(path = path)
+            }
+        }
+    }
+
+    fun setMovie(movie: Movie) {
+        viewModelScope.launch {
+            _uiState.update { currentState ->
+                currentState.copy(movie = movie)
             }
         }
     }

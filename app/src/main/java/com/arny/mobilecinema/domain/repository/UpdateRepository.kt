@@ -1,6 +1,6 @@
 package com.arny.mobilecinema.domain.repository
 
-import com.arny.mobilecinema.domain.models.AnwapMovie
+import com.arny.mobilecinema.domain.models.Movie
 import java.io.File
 
 interface UpdateRepository {
@@ -9,5 +9,5 @@ interface UpdateRepository {
     var lastUpdate: String
     suspend fun downloadUpdate(): File
     fun setLastUpdate()
-    fun updateMovies(movies: List<AnwapMovie>, onUpdate: (ind: Int) -> Unit)
+    fun updateMovies(movies: List<Movie>, onUpdate: (ind: Int) -> Unit)
 }

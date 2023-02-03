@@ -4,7 +4,7 @@ import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
-data class AnwapMovie constructor(
+data class Movie constructor(
     val dbId: Long = 0,
     val movieId: Int = 0,
     val title: String = "",

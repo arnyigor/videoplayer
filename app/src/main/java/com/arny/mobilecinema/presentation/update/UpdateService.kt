@@ -17,17 +17,13 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.isFileExists
 import com.arny.mobilecinema.data.utils.unzip
-import com.arny.mobilecinema.domain.models.AnwapMovie
+import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
-import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import dagger.android.AndroidInjection
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.io.File
 import java.io.FileReader
 import javax.inject.Inject
@@ -120,8 +116,10 @@ class UpdateService : LifecycleService(), CoroutineScope {
         return dataFile
     }
 
-    private fun readData(file: File): List<AnwapMovie> =
-        Gson().fromJson(
+    private fun readData(file: File): List<Movie> = GsonBuilder()
+        .setLenient()
+        .create()
+        .fromJson(
             FileReader(file),
             MoviesData::class.java
         ).movies

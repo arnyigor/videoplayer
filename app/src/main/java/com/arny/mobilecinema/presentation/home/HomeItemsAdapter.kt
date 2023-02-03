@@ -44,7 +44,7 @@ class HomeItemsAdapter(
                     .load(item.img.getWithDomain())
                     .into(ivVideoIcon)
                 val type = getType(item, context)
-                tvTypeYear.text = String.format("%s %d", type, item.year)
+                tvTypeYear.text = String.format("%d %s", item.year, type)
                 tvInfo.text =
                     String.format("%d\uD83D\uDC4D %d\uD83D\uDC4E", item.likes, item.dislikes)
             }

@@ -5,5 +5,5 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class MoviesData constructor(
-    val movies: List<AnwapMovie> = emptyList(),
+    val movies: List<Movie> = emptyList(),
 ) : Parcelable

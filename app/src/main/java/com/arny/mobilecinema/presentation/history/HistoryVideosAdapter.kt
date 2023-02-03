@@ -5,15 +5,15 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.arny.mobilecinema.databinding.IHistoryVideoBinding
-import com.arny.mobilecinema.domain.models.AnwapMovie
+import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.presentation.utils.diffItemCallback
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.bumptech.glide.Glide
 
 class HistoryVideosAdapter(
-    private val onItemClick: (item: AnwapMovie) -> Unit,
-    private val onItemClearClick: (item: AnwapMovie) -> Unit
-) : ListAdapter<AnwapMovie, HistoryVideosAdapter.VideosViewHolder>(
+    private val onItemClick: (item: Movie) -> Unit,
+    private val onItemClearClick: (item: Movie) -> Unit
+) : ListAdapter<Movie, HistoryVideosAdapter.VideosViewHolder>(
     diffItemCallback(
         itemsTheSame = { item1, item2 ->
             item1.movieId == item2.movieId
@@ -36,7 +36,7 @@ class HistoryVideosAdapter(
 
     inner class VideosViewHolder(private val binding: IHistoryVideoBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        fun bind(item: AnwapMovie) {
+        fun bind(item: Movie) {
             with(binding) {
                 root.setOnClickListener { onItemClick(item) }
                 ivClear.setOnClickListener { onItemClearClick(item) }

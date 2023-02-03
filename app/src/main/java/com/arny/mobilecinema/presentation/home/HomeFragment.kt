@@ -7,12 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.MenuProvider
@@ -26,20 +21,8 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.databinding.FHomeBinding
-import com.arny.mobilecinema.presentation.utils.alertDialog
-import com.arny.mobilecinema.presentation.utils.getImg
-import com.arny.mobilecinema.presentation.utils.inputDialog
-import com.arny.mobilecinema.presentation.utils.launchWhenCreated
-import com.arny.mobilecinema.presentation.utils.openAppSettings
-import com.arny.mobilecinema.presentation.utils.registerReceiver
-import com.arny.mobilecinema.presentation.utils.requestPermission
-import com.arny.mobilecinema.presentation.utils.setupSearchView
+import com.arny.mobilecinema.presentation.utils.*
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
-import com.arny.mobilecinema.presentation.utils.toast
-import com.arny.mobilecinema.presentation.utils.toastError
-import com.arny.mobilecinema.presentation.utils.unlockOrientation
-import com.arny.mobilecinema.presentation.utils.unregisterReceiver
-import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
@@ -153,8 +136,7 @@ class HomeFragment : Fragment() {
 
     private fun initAdapters() {
         itemsAdapter = HomeItemsAdapter { item ->
-//            binding.root.findNavController()
-//                .navigate(HomeFragmentDirections.actionNavHomeToNavDetails(item))
+            findNavController().navigate(HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId))
         }
         binding.rcVideoList.apply {
             adapter = itemsAdapter
@@ -257,7 +239,7 @@ class HomeFragment : Fragment() {
             btnOkText = getString(android.R.string.ok),
             dialogListener = { result ->
                 findNavController().navigate(
-                    HomeFragmentDirections.actionNavHomeToNavPlayerView(result, "Нет названия")
+                    HomeFragmentDirections.actionNavHomeToNavPlayerView(result, null)
                 )
             }
         )

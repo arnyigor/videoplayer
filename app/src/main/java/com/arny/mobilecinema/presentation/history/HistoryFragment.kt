@@ -13,7 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.databinding.FHistoryBinding
-import com.arny.mobilecinema.domain.models.AnwapMovie
+import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.presentation.utils.KeyboardHelper
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
@@ -23,7 +23,6 @@ import com.arny.mobilecinema.presentation.utils.textChanges
 import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -63,8 +62,7 @@ class HistoryFragment : Fragment() {
     private fun iniList() {
         videosAdapter = HistoryVideosAdapter(
             onItemClick = { item ->
-//                binding.root.findNavController()
-//                    .navigate(HistoryFragmentDirections.actionNavHistoryToNavDetails(item))
+//               findNavController().navigate(HistoryFragmentDirections.actionNavHistoryToNavDetails())
             },
             onItemClearClick = { item ->
                 alertDialog(
@@ -130,7 +128,7 @@ class HistoryFragment : Fragment() {
         }
     }
 
-    private fun updateList(items: List<AnwapMovie>?) {
+    private fun updateList(items: List<Movie>?) {
         val empty = items.isNullOrEmpty()
         binding.tvEmptyView.isVisible = empty
         videosAdapter?.submitList(items)

@@ -11,11 +11,6 @@
         android:label="f_home"
         tools:layout="@layout/f_home">
         <action
-            android:id="@+id/action_nav_home_to_nav_details"
-            app:destination="@id/nav_details"
-            app:enterAnim="@anim/nav_default_enter_anim"
-            app:exitAnim="@anim/nav_default_exit_anim" />
-        <action
             android:id="@+id/action_nav_home_to_nav_prefs"
             app:destination="@id/nav_prefs"
             app:enterAnim="@anim/nav_default_enter_anim"
@@ -30,18 +25,21 @@
             app:destination="@id/nav_history"
             app:enterAnim="@anim/nav_default_enter_anim"
             app:exitAnim="@anim/nav_default_exit_anim" />
+        <action
+            android:id="@+id/action_nav_home_to_nav_details"
+            app:destination="@id/nav_details" />
     </fragment>
     <fragment
         android:id="@+id/nav_details"
         android:name="com.arny.mobilecinema.presentation.details.DetailsFragment"
         android:label="details_fragment"
         tools:layout="@layout/f_details">
-        <argument
-            android:name="movie"
-            app:argType="com.arny.mobilecinema.domain.models.AnwapMovie" />
         <action
             android:id="@+id/action_nav_details_to_nav_player_view"
             app:destination="@id/nav_player_view" />
+        <argument
+            android:name="id"
+            app:argType="long" />
     </fragment>
     <fragment
         android:id="@+id/nav_history"
@@ -66,8 +64,8 @@
             app:argType="string"
             app:nullable="true" />
         <argument
-            android:name="name"
-            app:argType="string"
+            android:name="movie"
+            app:argType="com.arny.mobilecinema.domain.models.Movie"
             app:nullable="true" />
     </fragment>
 </navigation>

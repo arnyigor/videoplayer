@@ -197,6 +197,10 @@ ext {
         implementation "androidx.appcompat:appcompat:$version"
     }}
 
+    coordinator = { version = '1.0.0' -> Alias {
+        implementation "androidx.coordinatorlayout:coordinatorlayout:$version"
+    }}
+
     supportLegacy = { version = '1.0.0' -> Alias {
         implementation "androidx.legacy:legacy-support-v4:$version"
     }}

@@ -1,3 +1,9 @@
 package com.arny.mobilecinema.presentation.playerview
 
-data class PlayerUiState(val path: String? = null, val position: Long = 0)
+import com.arny.mobilecinema.domain.models.Movie
+
+data class PlayerUiState(
+    val path: String? = null,
+    val position: Long = 0,
+    val movie: Movie? = null
+)

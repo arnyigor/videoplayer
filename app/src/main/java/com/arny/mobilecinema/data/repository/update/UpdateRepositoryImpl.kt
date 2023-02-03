@@ -9,7 +9,7 @@ import com.arny.mobilecinema.data.models.setData
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
-import com.arny.mobilecinema.domain.models.AnwapMovie
+import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import java.io.File
 import javax.inject.Inject
@@ -42,7 +42,7 @@ class UpdateRepositoryImpl @Inject constructor(
         return file
     }
 
-    override fun updateMovies(movies: List<AnwapMovie>, onUpdate: (ind: Int) -> Unit) {
+    override fun updateMovies(movies: List<Movie>, onUpdate: (ind: Int) -> Unit) {
         var entity = MovieEntity()
         val size = movies.size
         if (moviesDao.getCount() == 0) {
