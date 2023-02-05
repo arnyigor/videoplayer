@@ -21,13 +21,19 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
+import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
-import com.arny.mobilecinema.presentation.utils.updateTitle
-import com.google.android.exoplayer2.*
+import com.google.android.exoplayer2.DefaultLoadControl
+import com.google.android.exoplayer2.DefaultRenderersFactory
+import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.PlaybackException
+import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
@@ -40,7 +46,7 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
-class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
+class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     private val args: PlayerViewFragmentArgs by navArgs()
 
     @Inject
@@ -58,7 +64,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     private var trackSelector: DefaultTrackSelector? = null
     private var qualityId: Int = 0
     private var resizeIndex = 0
-    var qualityList = ArrayList<Pair<String, TrackSelectionOverride>>()
+    private var qualityList = ArrayList<Pair<String, TrackSelectionOverride>>()
     private var _binding: FPlayerViewBinding? = null
     private val binding
         get() = _binding!!
@@ -110,7 +116,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
             resizeIndex = 0
         }
         binding.playerView.resizeMode = resizeModes[resizeIndex]
-
     }
 
     private fun observeState() {
@@ -118,29 +123,101 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     val movie = state.movie
-                    val hdUrl = movie?.cinemaUrlData?.hdUrl?.urls?.firstOrNull()
-                    val cinemaUrl = movie?.cinemaUrlData?.cinemaUrl?.urls?.firstOrNull()
-                    val path = when {
-                        !state.path.isNullOrBlank() -> state.path
-                        !hdUrl.isNullOrBlank() -> hdUrl
-                        !cinemaUrl.isNullOrBlank() -> cinemaUrl
-                        else -> ""
-                    }
                     binding.tvTitle.text = movie?.title ?: getString(R.string.no_movie_title)
-                    path.takeIf { it.isNotBlank() }?.let {
-                        try {
-                            val mediaSource = playerSource.getSource(path)
-                            setPlayerSource(state.position, mediaSource)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            toast(e.message)
-                        }
-                    } ?: kotlin.run {
-                        toast(getString(R.string.path_not_found))
-                        findNavController().navigateUp()
-                    }
+                    setMediaSources(state.path, state.position, movie)
                 }
             }
+        }
+    }
+
+    private suspend fun setMediaSources(
+        path: String?,
+        position: Long,
+        movie: Movie?
+    ) {
+        when {
+            !path.isNullOrBlank() -> {
+                try {
+                    val mediaSource =
+                        playerSource.getSource(path, getString(R.string.no_movie_title))
+                    setPlayerSource(position, mediaSource)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    toast(e.message)
+                }
+            }
+
+            movie != null && movie.type == MovieType.CINEMA -> setCinemaUrls(movie, position)
+            movie != null && movie.type == MovieType.SERIAL -> setSerialUrls(movie)
+            else -> {
+                toast(getString(R.string.path_not_found))
+                findNavController().navigateUp()
+            }
+        }
+    }
+
+    private suspend fun setSerialUrls(movie: Movie) {
+        val allEpisodes = movie.seasons.sortedBy { it.id }
+            .flatMap { it.episodes.sortedBy { episode -> episode.episode.toIntOrNull() } }
+        if (allEpisodes.all { it.dash.isNotBlank() || it.hls.isNotBlank() }) {
+            println("allEpisodes:${allEpisodes.map { it.episode }}")
+            val size = allEpisodes.size
+            allEpisodes.forEach { episode ->
+                playerSource.getSource(
+                    url = episode.dash.ifBlank { episode.hls },
+                    title = episode.title
+                )?.let { source ->
+                    player?.addMediaSource(source)
+                }
+            }
+            binding.playerView.setShowNextButton(size > 0)
+            binding.playerView.setShowPreviousButton(size > 0)
+            player?.apply {
+                addListener(listener)
+                prepare()
+            }
+        } else {
+            toast(getString(R.string.episodes_not_found))
+            findNavController().navigateUp()
+        }
+    }
+
+    private val listener = object : Player.Listener {
+        override fun onPlayerError(error: PlaybackException) {
+            binding.progressBar.isVisible = false
+            toast(getFullError(error))
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            updateState(playbackState)
+        }
+
+        override fun onTracksChanged(tracks: Tracks) {
+            setCurrentTitle(player?.currentMediaItem?.mediaMetadata?.title.toString())
+        }
+    }
+
+    private suspend fun setCinemaUrls(
+        movie: Movie,
+        position: Long
+    ) {
+        val hdUrl = movie.cinemaUrlData?.hdUrl?.urls?.firstOrNull()
+        val cinemaUrl = movie.cinemaUrlData?.cinemaUrl?.urls?.firstOrNull()
+        val url = when {
+            !hdUrl.isNullOrBlank() -> hdUrl
+            !cinemaUrl.isNullOrBlank() -> cinemaUrl
+            else -> ""
+        }
+        url.takeIf { it.isNotBlank() }?.let {
+            try {
+                setPlayerSource(position, playerSource.getSource(it, movie.title))
+            } catch (e: Exception) {
+                e.printStackTrace()
+                toast(e.message)
+            }
+        } ?: kotlin.run {
+            toast(getString(R.string.path_not_found))
+            findNavController().navigateUp()
         }
     }
 
@@ -226,18 +303,29 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
         }
     }
 
-    private fun setPlayerSource(position: Long, source: MediaSource?) {
+    private fun setPlayerSource(position: Long = 0, source: MediaSource?) {
         player?.apply {
             source?.let {
-                val title = source.mediaItem.mediaMetadata.title
-                if (!title.isNullOrBlank() && title != "null") {
-                    updateTitle(title.toString())
-                    binding.tvTitle.text = title.toString()
-                }
                 setMediaSource(source)
                 seekTo(position)
-                addListener(this@PlayerViewFragment)
+                addListener(listener)
                 prepare()
+            }
+        }
+    }
+
+    private fun setCurrentTitle(title: String?) {
+        if (!title.isNullOrBlank() && title != "null") {
+            binding.tvTitle.text = title.toString()
+        } else {
+            binding.tvTitle.text = getString(R.string.no_movie_title)
+        }
+    }
+
+    private fun addPlayerSource(source: MediaSource?) {
+        player?.apply {
+            source?.let {
+                addMediaSource(source)
             }
         }
     }
@@ -287,15 +375,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
         }
     }
 
-    override fun onPlayerError(error: PlaybackException) {
-        binding.progressBar.isVisible = false
-        toast(getFullError(error))
-    }
-
-    override fun onPlaybackStateChanged(playbackState: Int) {
-        updateState(playbackState)
-    }
-
     private fun updateState(playbackState: Int) {
         when (playbackState) {
             Player.STATE_BUFFERING -> {
@@ -321,7 +400,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), Player.Listener {
     private fun releasePlayer() {
         player?.let {
             viewModel.setPosition(it.currentPosition)
-            it.removeListener(this)
+            it.removeListener(listener)
             it.stop()
             it.release()
             player = null

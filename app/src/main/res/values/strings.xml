@@ -49,4 +49,5 @@
     <string name="seasons_count">сезонов</string>
     <string name="episodes_count">эпизодов</string>
     <string name="path_not_found">Не найден путь</string>
+    <string name="episodes_not_found">Не найдены эпизоды</string>
 </resources>

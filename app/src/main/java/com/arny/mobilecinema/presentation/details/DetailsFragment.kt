@@ -245,7 +245,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun fillSpinners(movie: Movie?) {
         val seasons = movie?.seasons.orEmpty()
-        val seasonsList = seasons.map { getSeasonTitle(it) }
+        val seasonsList = seasons.sortedBy { it.id }.map { getSeasonTitle(it) }
         if (seasonsList.isNotEmpty()) {
             with(binding) {
                 spinSeasons.updateSpinnerItems(seasonsChangeListener) {
@@ -255,7 +255,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
                 spinEpisodes.updateSpinnerItems(episodesChangeListener) {
                     val episodes = seasons.getOrNull(currentSeasonPosition)?.episodes.orEmpty()
-                    val seriesList = episodes.map { getEpisodeTitle(it) }
+                    val seriesList = episodes.sortedBy { it.episode }.map { getEpisodeTitle(it) }
                     episodesTracksAdapter?.clear()
                     episodesTracksAdapter?.addAll(seriesList)
                     spinEpisodes.setSelection(currentEpisodePosition, false)

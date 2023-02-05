@@ -30,8 +30,8 @@ class PlayerSource @Inject constructor(
         const val YOUTUBE_MAX_QUALITY_TAG = 22
     }
 
-    suspend fun getSource(url: String?): MediaSource? = url?.let {
-        buildMediaSource1(url)
+    suspend fun getSource(url: String?, title: String? = null): MediaSource? = url?.let {
+        buildMediaSource1(url, title)
     }
 
     private fun getItem(url: String?, title: String? = null): MediaItem {
@@ -46,21 +46,21 @@ class PlayerSource @Inject constructor(
             .build()
     }
 
-    private suspend fun buildMediaSource1(url: String): MediaSource {
+    private suspend fun buildMediaSource1(url: String, title: String? = null): MediaSource {
         val uri = Uri.parse(url)
         val factory = dataSourceFactory()
         return when (val type: @C.ContentType Int = Util.inferContentType(uri)) {
-            C.CONTENT_TYPE_DASH -> getDashMediaSource(factory, url)
-            C.CONTENT_TYPE_HLS -> getHlsMedialSource(factory, url)
+            C.CONTENT_TYPE_DASH -> getDashMediaSource(factory, url, title)
+            C.CONTENT_TYPE_HLS -> getHlsMedialSource(factory, url, title)
             C.CONTENT_TYPE_OTHER -> {
                 when {
                     uri.host?.contains(YOUTUBE_HOST) == true ->
                         getYoutubeSource(url, factory)
 
                     uri.lastPathSegment.orEmpty().substringAfterLast('.') == "mp4" ->
-                        getMp4MediaSource(factory, url)
+                        getMp4MediaSource(factory, url, title)
 
-                    else -> getMp4MediaSource(factory, url)
+                    else -> getMp4MediaSource(factory, url, title)
                 }
             }
             else -> error("Unsupported type: $type from url:$url")
@@ -76,16 +76,18 @@ class PlayerSource @Inject constructor(
 
     private fun getHlsMedialSource(
         factory: DataSource.Factory,
-        url: String?
-    ) = HlsMediaSource.Factory(factory).createMediaSource(getItem(url))
+        url: String?,
+        title: String? = null
+    ) = HlsMediaSource.Factory(factory).createMediaSource(getItem(url, title))
 
     private fun getDashMediaSource(
         factory: DataSource.Factory,
-        url: String?
+        url: String?,
+        title: String?
     ) = DashMediaSource.Factory(
         /* chunkSourceFactory = */ DefaultDashChunkSource.Factory(factory),
         /* manifestDataSourceFactory = */ factory
-    ).createMediaSource(getItem(url))
+    ).createMediaSource(getItem(url, title))
 
     private suspend fun getYoutubeSource(
         link: String,
