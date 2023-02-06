@@ -7,6 +7,44 @@ import com.google.android.exoplayer2.trackselection.MappingTrackSelector.MappedT
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.trackselection.TrackSelectionParameters
 
+fun DefaultTrackSelector.generateLanguagesList(context: Context): ArrayList<Pair<String, TrackSelectionOverride>> {
+    val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
+    val renderTrack = this.currentMappedTrackInfo
+    val renderCount = renderTrack?.rendererCount ?: 0
+    for (rendererIndex in 0 until renderCount) {
+        if (isSupportedFormat(renderTrack, rendererIndex)) {
+            val trackGroupType = renderTrack?.getRendererType(rendererIndex)
+            val trackGroups = renderTrack?.getTrackGroups(rendererIndex)
+            val trackGroupsCount = trackGroups?.length!!
+            if (trackGroupType == C.TRACK_TYPE_AUDIO) {
+                for (groupIndex in 0 until trackGroupsCount) {
+                    val trackCount = trackGroups[groupIndex].length
+                    for (trackIndex in 0 until trackCount) {
+                        val isTrackSupported = renderTrack.getTrackSupport(
+                            rendererIndex,
+                            groupIndex,
+                            trackIndex
+                        ) == C.FORMAT_HANDLED
+                        if (isTrackSupported) {
+                            val track = trackGroups[groupIndex]
+                            val trackName = track.getFormat(trackIndex).language.orEmpty()
+                            if (track.getFormat(trackIndex).selectionFlags == C.SELECTION_FLAG_AUTOSELECT) {
+                                trackName.plus(" (Default)")
+                            }
+                            val builder = TrackSelectionParameters.Builder(context).clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                            val override = TrackSelectionOverride(track, listOf(trackIndex)).apply {
+                                setParameters(builder.build())
+                            }
+                            trackOverrideList.add(Pair(trackName, override))
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return trackOverrideList
+}
+
 fun DefaultTrackSelector.generateQualityList(context: Context): ArrayList<Pair<String, TrackSelectionOverride>> {
     //Render Track -> TRACK GROUPS (Track Array)(Video,Audio,Text)->Track
     val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()

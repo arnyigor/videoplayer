@@ -19,7 +19,6 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
-import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
 import com.arny.mobilecinema.domain.models.Movie
@@ -27,28 +26,22 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.PlayerSource
+import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.secToMs
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
-import com.google.android.exoplayer2.DefaultLoadControl
-import com.google.android.exoplayer2.DefaultRenderersFactory
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.PlaybackException
-import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.Tracks
+import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
-import com.google.android.exoplayer2.ui.StyledPlayerView.ControllerVisibilityListener
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
@@ -66,11 +59,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     )
     private var qualityPopUp: PopupMenu? = null
+    private var langPopUp: PopupMenu? = null
     private var player: ExoPlayer? = null
     private var trackSelector: DefaultTrackSelector? = null
-    private var qualityId: Int = 0
     private var resizeIndex = 0
-    private var setupQuality = true
+    private var setupPopupMenus = true
     private var _binding: FPlayerViewBinding? = null
     private val binding
         get() = _binding!!
@@ -107,9 +100,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     }
 
     private fun initListener() {
-        binding.ivQuality.setOnClickListener {
-            qualityPopUp?.show()
-        }
+        binding.ivQuality.setOnClickListener { qualityPopUp?.show() }
+        binding.ivLang.setOnClickListener { langPopUp?.show() }
         binding.ivResizes.setOnClickListener {
             changeResize()
         }
@@ -254,7 +246,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
                 viewModel.saveCurrentSerialPosition(season, episode)
                 setCurrentTitle(metadata?.title.toString())
-                setupQuality = true
+                setupPopupMenus = true
             }
         }
     }
@@ -340,6 +332,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                     )
                     .build()
             trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
+            trackSelector?.parameters?.buildUpon()?.setPreferredAudioLanguage("rus")
             player = ExoPlayer.Builder(requireContext())
                 .setLoadControl(loadControl)
                 .setBandwidthMeter(DefaultBandwidthMeter.Builder(requireContext()).build())
@@ -351,21 +344,23 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             player?.playWhenReady = true
             playerView.player = player
             playerView.resizeMode = resizeModes[resizeIndex]
-            playerView.setControllerVisibilityListener(ControllerVisibilityListener {
+            playerView.setControllerVisibilityListener {
                 if (isVisible) {
                     if (it == View.VISIBLE) {
                         tvTitle.isVisible = true
                         ivQuality.isVisible = true
                         ivResizes.isVisible = true
+                        ivLang.isVisible = true
                         activity?.window?.showSystemUI()
                     } else {
                         ivResizes.isVisible = false
                         ivQuality.isVisible = false
                         tvTitle.isVisible = false
+                        ivLang.isVisible = false
                         activity?.window?.hideSystemUI()
                     }
                 }
-            })
+            }
         }
     }
 
@@ -388,47 +383,71 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         }
     }
 
-    private fun setUpQualityList() {
-        if (setupQuality) {
-            setupQuality = false
-            trackSelector?.generateQualityList(requireContext())?.let { qualityList ->
-                qualityPopUp = PopupMenu(requireContext(), binding.ivQuality)
-                for ((i, videoQuality) in qualityList.withIndex()) {
-                    qualityPopUp?.menu?.add(0, i, 0, videoQuality.first)
+    private fun setUpPopups() {
+        if (setupPopupMenus) {
+            setupPopupMenus = false
+            trackSelector?.generateLanguagesList(requireContext())?.let { list ->
+                binding.ivLang.isVisible = list.isNotEmpty()
+                if (list.isNotEmpty()) {
+                    langPopUp = PopupMenu(requireContext(), binding.ivQuality)
+                    for ((i, videoQuality) in list.withIndex()) {
+                        langPopUp?.menu?.add(0, i, 0, videoQuality.first)
+                    }
+                    langPopUp?.setOnMenuItemClickListener { menuItem ->
+                        setLang(list[menuItem.itemId].second)
+                        true
+                    }
                 }
-                qualityPopUp?.setOnMenuItemClickListener { menuItem ->
-                    qualityId = menuItem.itemId
-                    setQuality(qualityList[qualityId].second)
-                    true
+            }
+            trackSelector?.generateQualityList(requireContext())?.let { list ->
+                binding.ivQuality.isVisible = list.isNotEmpty()
+                if (list.isNotEmpty()) {
+                    qualityPopUp = PopupMenu(requireContext(), binding.ivQuality)
+                    for ((i, videoQuality) in list.withIndex()) {
+                        qualityPopUp?.menu?.add(0, i, 0, videoQuality.first)
+                    }
+                    qualityPopUp?.setOnMenuItemClickListener { menuItem ->
+                        setQuality(list[menuItem.itemId].second)
+                        true
+                    }
                 }
             }
         }
     }
-
-    private fun setQualityByConnection(list: ArrayList<Pair<String, TrackSelectionOverride>>) {
-        val connectionType = getConnectionType(requireContext())
-        val groupList = list.map { it.second }.map { it.mediaTrackGroup }
-        val formats = groupList.mapIndexed { index, trackGroup -> trackGroup.getFormat(index) }
-        val bitratesKbps = formats.map { it.bitrate.div(1024) }
-        Timber.d("current QualityId:$qualityId")
-        val newId =
-            bitratesKbps.indexOfLast { it < connectionType.speedKbps }.takeIf { it >= 0 } ?: 0
-        Timber.d("connectionType:$connectionType")
-        Timber.d("bitrates:$bitratesKbps")
-        Timber.d("selected qualityId:$qualityId")
-        if (newId > qualityId) {// Check buufering time
-            qualityId = newId
-            Timber.d("set new qualityId:$qualityId")
-            list.getOrNull(qualityId)?.second?.let { setQuality(it) }
-        }
-    }
-
+    /*    private fun setQualityByConnection(list: ArrayList<Pair<String, TrackSelectionOverride>>) {
+            val connectionType = getConnectionType(requireContext())
+            val groupList = list.map { it.second }.map { it.mediaTrackGroup }
+            val formats = groupList.mapIndexed { index, trackGroup -> trackGroup.getFormat(index) }
+            val bitratesKbps = formats.map { it.bitrate.div(1024) }
+            Timber.d("current QualityId:$qualityId")
+            val newId =
+                bitratesKbps.indexOfLast { it < connectionType.speedKbps }.takeIf { it >= 0 } ?: 0
+            Timber.d("connectionType:$connectionType")
+            Timber.d("bitrates:$bitratesKbps")
+            Timber.d("selected qualityId:$qualityId")
+            if (newId > qualityId) {// Check buufering time
+                qualityId = newId
+                Timber.d("set new qualityId:$qualityId")
+                list.getOrNull(qualityId)?.second?.let { setQuality(it) }
+            }
+        }*/
     private fun setQuality(trackSelectionOverride: TrackSelectionOverride) {
         trackSelector?.let { selector ->
             selector.parameters = selector.parameters
                 .buildUpon()
+                .clearOverrides()
                 .addOverride(trackSelectionOverride)
                 .setTunnelingEnabled(true)
+                .build()
+        }
+    }
+
+    private fun setLang(override: TrackSelectionOverride) {
+        trackSelector?.let { selector ->
+            selector.parameters = selector.parameters
+                .buildUpon()
+                .clearOverrides()
+                .addOverride(override)
                 .build()
         }
     }
@@ -438,14 +457,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             Player.STATE_BUFFERING -> {
                 binding.progressBar.isVisible = true
             }
-
             Player.STATE_ENDED -> {
                 binding.progressBar.isVisible = false
             }
 
             Player.STATE_READY -> {
                 binding.progressBar.isVisible = false
-                setUpQualityList()
+                setUpPopups()
             }
             else -> {}
         }
