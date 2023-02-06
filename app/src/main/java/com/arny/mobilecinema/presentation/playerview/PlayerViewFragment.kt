@@ -24,9 +24,12 @@ import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
+import com.arny.mobilecinema.presentation.utils.secToMs
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.google.android.exoplayer2.DefaultLoadControl
@@ -40,7 +43,7 @@ import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
-import com.google.android.exoplayer2.ui.StyledPlayerView.ControllerVisibilityListener
+import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
@@ -48,6 +51,7 @@ import timber.log.Timber
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
+    private var mediaItemIndex: Int = 0
     private val args: PlayerViewFragmentArgs by navArgs()
 
     @Inject
@@ -65,7 +69,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     private var trackSelector: DefaultTrackSelector? = null
     private var qualityId: Int = 0
     private var resizeIndex = 0
-    private var setupQuality = false
+    private var setupQuality = true
     private var _binding: FPlayerViewBinding? = null
     private val binding
         get() = _binding!!
@@ -171,41 +175,62 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     private suspend fun setSerialUrls(movie: Movie, seasonIndex: Int?, episodeIndex: Int?) {
         val serialSeasons = movie.seasons.sortedBy { it.id }
-        val allEpisodes =
-            serialSeasons.flatMap { it.episodes.sortedBy { episode -> episode.episode.toIntOrNull() } }
-        val size = allEpisodes.size
-        var currentIndexEpisode = 0
-        if (allEpisodes.all { it.dash.isNotBlank() || it.hls.isNotBlank() }) {
-            for ((s, season) in serialSeasons.withIndex()) {
-                val episodes = season.episodes.sortedBy { episode -> episode.episode.toIntOrNull() }
-                for ((e, episode) in episodes.withIndex()) {
-                    if (seasonIndex == s && episodeIndex == e) {
-                        currentIndexEpisode = allEpisodes.indexOf(episode)
-                        if (currentIndexEpisode == -1) {
-                            currentIndexEpisode = 0
-                        }
-                    }
-                    playerSource.getSource(
-                        url = episode.dash.ifBlank { episode.hls },
-                        title = episode.title,
-                        season = s,
-                        episode = e
-                    )?.let { source ->
-                        player?.addMediaSource(source)
-                    }
-                }
+        val allEpisodes = serialSeasons.flatMap {
+            it.episodes.sortedBy { episode ->
+                // fixme может возникуть ошибка
+                episode.episode.toIntOrNull()
             }
+        }
+        val size = allEpisodes.size
+        if (allEpisodes.all { it.dash.isNotBlank() || it.hls.isNotBlank() }) {
+            val startEpisodeIndex = fillPlayerEpisodes(
+                serialSeasons = serialSeasons,
+                seasonIndex = seasonIndex,
+                episodeIndex = episodeIndex,
+                allEpisodes = allEpisodes
+            )
             binding.playerView.setShowNextButton(size > 0)
             binding.playerView.setShowPreviousButton(size > 0)
             player?.apply {
+                if (startEpisodeIndex > 0) {
+                    player?.seekTo(startEpisodeIndex, 0)
+                }
                 addListener(listener)
                 prepare()
-                player?.seekTo(currentIndexEpisode, 0)
             }
         } else {
             toast(getString(R.string.episodes_not_found))
             findNavController().navigateUp()
         }
+    }
+
+    private suspend fun fillPlayerEpisodes(
+        serialSeasons: List<SerialSeason>,
+        seasonIndex: Int?,
+        episodeIndex: Int?,
+        allEpisodes: List<SerialEpisode>
+    ): Int {
+        var currentIndexEpisode = 0
+        for ((s, season) in serialSeasons.withIndex()) {
+            val episodes = season.episodes.sortedBy { episode -> episode.episode.toIntOrNull() }
+            for ((e, episode) in episodes.withIndex()) {
+                if (seasonIndex == s && episodeIndex == e) {
+                    currentIndexEpisode = allEpisodes.indexOf(episode)
+                    if (currentIndexEpisode == -1) {
+                        currentIndexEpisode = 0
+                    }
+                }
+                playerSource.getSource(
+                    url = episode.dash.ifBlank { episode.hls },
+                    title = episode.title,
+                    season = s,
+                    episode = e
+                )?.let { source ->
+                    player?.addMediaSource(source)
+                }
+            }
+        }
+        return currentIndexEpisode
     }
 
     private val listener = object : Player.Listener {
@@ -219,13 +244,17 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         }
 
         override fun onTracksChanged(tracks: Tracks) {
-            val metadata = player?.currentMediaItem?.mediaMetadata
-            val bundle = metadata?.extras
-            val season = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
-            val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
-            viewModel.saveCurrentSerialPosition(season, episode)
-            setCurrentTitle(metadata?.title.toString())
-            setupQuality = false
+            val index = player?.currentMediaItemIndex ?: 0
+            if (index != mediaItemIndex) {
+                mediaItemIndex = index
+                val metadata = player?.currentMediaItem?.mediaMetadata
+                val bundle = metadata?.extras
+                val season = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
+                val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
+                viewModel.saveCurrentSerialPosition(season, episode)
+                setCurrentTitle(metadata?.title.toString())
+                setupQuality = true
+            }
         }
     }
 
@@ -298,28 +327,32 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         with(binding) {
             val loadControl =
                 DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
+                    .setBufferDurationsMs(
+                        /* minBufferMs = */
+                        secToMs(10).toInt(),
+                        /* maxBufferMs = */
+                        secToMs(120).toInt(),
+                        /* bufferForPlaybackMs = */
+                        secToMs(1).toInt(),
+                        /* bufferForPlaybackAfterRebufferMs = */
+                        secToMs(1).toInt()
+                    )
                     .build()
-/*            val bandwidthMeter = DefaultBandwidthMeter.Builder(requireContext()).build().apply {
-                addEventListener(Handler(Looper.getMainLooper())) { time, bytes, bitrate ->
-                    Timber.d("onBandwidth timeMs:$time bitrate:${bitrate.div(1024)}")
-                }
-            }*/
             trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
             player = ExoPlayer.Builder(requireContext())
                 .setLoadControl(loadControl)
-//                .setBandwidthMeter(DefaultBandwidthMeter.Builder(requireContext()).build())
+                .setBandwidthMeter(DefaultBandwidthMeter.Builder(requireContext()).build())
                 .setRenderersFactory(DefaultRenderersFactory(requireContext()))
                 .setTrackSelector(trackSelector!!)
-                .setSeekBackIncrementMs(5000)
-                .setSeekForwardIncrementMs(5000)
+                .setSeekBackIncrementMs(secToMs(5))
+                .setSeekForwardIncrementMs(secToMs(5))
                 .build()
             player?.playWhenReady = true
             playerView.player = player
             playerView.resizeMode = resizeModes[resizeIndex]
-            playerView.setControllerVisibilityListener(ControllerVisibilityListener { vis ->
+            playerView.setControllerVisibilityListener {
                 if (isVisible) {
-                    if (vis == View.VISIBLE) {
+                    if (it == View.VISIBLE) {
                         tvTitle.isVisible = true
                         ivQuality.isVisible = true
                         ivResizes.isVisible = true
@@ -331,7 +364,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                         activity?.window?.hideSystemUI()
                     }
                 }
-            })
+            }
         }
     }
 
@@ -355,16 +388,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     }
 
     private fun setUpQualityList() {
-        if (!setupQuality) {
-            setupQuality = true
-            Timber.d("generateQualityList")
+        if (setupQuality) {
+            setupQuality = false
             trackSelector?.generateQualityList(requireContext())?.let { qualityList ->
                 qualityPopUp = PopupMenu(requireContext(), binding.ivQuality)
                 for ((i, videoQuality) in qualityList.withIndex()) {
                     qualityPopUp?.menu?.add(0, i, 0, videoQuality.first)
                 }
-                // TODO fix by selected and after net changed
-//            setQualityByConnection(list)
                 qualityPopUp?.setOnMenuItemClickListener { menuItem ->
                     qualityId = menuItem.itemId
                     setQuality(qualityList[qualityId].second)
@@ -389,7 +419,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             qualityId = newId
             Timber.d("set new qualityId:$qualityId")
             list.getOrNull(qualityId)?.second?.let { setQuality(it) }
-            // FIXME NOT Need
         }
     }
 
