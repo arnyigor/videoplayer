@@ -7,5 +7,5 @@
     <color name="textColorPrimary">#ffffff</color>
     <color name="textColorSecondary">#fafafa</color>
     <color name="colorIcon">#FFFFFF</color>
-    <color name="btn_state_normal">#1976d2</color>
+    <color name="colorOverlay">#4D000000</color>
 </resources>

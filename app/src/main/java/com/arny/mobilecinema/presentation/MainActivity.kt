@@ -9,6 +9,7 @@ import androidx.navigation.findNavController
 import androidx.navigation.ui.setupWithNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.AMainBinding
+import com.arny.mobilecinema.presentation.utils.getImg
 import com.arny.mobilecinema.presentation.utils.showSnackBar
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.android.AndroidInjection
@@ -31,23 +32,29 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         super.onCreate(savedInstanceState)
         binding = AMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setSupportActionBar(binding.toolbar)
         val navController = findNavController(R.id.nav_host_fragment)
         // Find reference to bottom navigation view
         val navView: BottomNavigationView = findViewById(R.id.bottom_nav_view)
         // Hook your navigation controller to bottom navigation view
         navView.setupWithNavController(navController)
         initOnBackPress(navController)
-        initHideShowNavBar(navController)
+        initUI(navController)
     }
 
-    private fun initHideShowNavBar(navController: NavController) {
+    private fun initUI(navController: NavController) {
         navController.addOnDestinationChangedListener { _, destination, _ ->
             showBottomNav(destination.id !in listOf(R.id.nav_player_view, R.id.nav_details))
+            showHome(destination.id !in listOf(R.id.nav_home, R.id.nav_prefs, R.id.nav_history))
         }
     }
 
     private fun showBottomNav(show: Boolean) {
         binding.bottomNavView.isVisible = show
+    }
+
+    private fun showHome(show: Boolean) {
+        supportActionBar?.setDisplayHomeAsUpEnabled(show)
     }
 
     private fun initOnBackPress(navController: NavController) {

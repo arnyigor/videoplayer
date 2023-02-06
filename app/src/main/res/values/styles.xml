@@ -15,24 +15,22 @@
     </style>
 
     <style name="DetailsTitleStyle" parent="TextAppearance.AppCompat">
-        <item name="android:textSize">24sp</item>
+        <item name="android:textSize">22sp</item>
         <item name="android:padding">8sp</item>
         <item name="android:textColor">@color/textColorPrimary</item>
         <item name="android:textStyle">bold</item>
     </style>
 
     <style name="DetailsSubTitleStyle" parent="TextAppearance.AppCompat">
-        <item name="android:textSize">18sp</item>
+        <item name="android:textSize">16sp</item>
         <item name="android:padding">4sp</item>
         <item name="android:textColor">@color/textColorSecondary</item>
     </style>
 
     <style name="PlayButton">
-        <item name="android:layout_marginStart">8dp</item>
-        <item name="android:layout_marginEnd">8dp</item>
         <item name="android:padding">8dp</item>
         <item name="android:textSize">20sp</item>
-        <item name="android:background">@drawable/bg_btn_play</item>
+        <item name="android:background">@drawable/btn_background</item>
         <item name="android:textColor">?attr/colorPrimary</item>
     </style>
 

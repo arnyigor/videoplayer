@@ -39,6 +39,7 @@ import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.database.getStringOrNull
@@ -217,6 +218,14 @@ fun TextView.setOnLeftDrawerClickListener(onClick: () -> Unit) {
 
 fun Fragment.updateTitle(title: String?) {
     (requireActivity() as AppCompatActivity).supportActionBar?.title = title
+}
+
+fun Fragment.setToolbar(toolbar: Toolbar) {
+    (requireActivity() as AppCompatActivity).setSupportActionBar(toolbar)
+}
+
+fun Fragment.showHome(show: Boolean) {
+    (requireActivity() as AppCompatActivity).supportActionBar?.setDisplayHomeAsUpEnabled(show)
 }
 
 fun <T> autoClean(init: () -> T): ReadOnlyProperty<Fragment, T> = AutoClean(init)

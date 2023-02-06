@@ -9,7 +9,6 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -27,7 +26,9 @@ import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
+import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
@@ -102,16 +103,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         viewModel.loadVideo(args.id)
     }
 
-    override fun onResume() {
-        super.onResume()
-        (requireActivity() as AppCompatActivity).supportActionBar?.hide()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        (requireActivity() as AppCompatActivity).supportActionBar?.show()
-    }
-
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt(KEY_SEASON, currentSeasonPosition)
         outState.putInt(KEY_EPISODE, currentEpisodePosition)
@@ -129,11 +120,16 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
-                menuInflater.inflate(R.menu.home_menu, menu)
+                menuInflater.inflate(R.menu.details_menu, menu)
             }
 
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
                 when (menuItem.itemId) {
+                    android.R.id.home -> {
+                        findNavController().popBackStack()
+                        true
+                    }
+
                     R.id.menu_action_clear_cache -> {
                         alertDialog(
                             getString(R.string.question_remove),
@@ -189,16 +185,18 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         Glide.with(requireContext())
             .load(movie.img.getWithDomain())
             .into(ivBanner)
+        updateTitle(movie.title)
         tvTitle.text = movie.title
         val info = movie.info
         tvDescription.text = info.description
+        tvDescription.makeTextViewResizable()
         tvRating.text = StringBuilder().apply {
             if (info.ratingImdb > 0) {
-                append("%s:%.02f".format("IMDB", info.ratingImdb))
+                append("%s:%.02f".format(getString(R.string.imdb), info.ratingImdb))
                 append(",")
             }
             if (info.ratingKP > 0) {
-                append("%s:%.02f".format("KP", info.ratingImdb))
+                append("%s:%.02f".format(getString(R.string.kp), info.ratingImdb))
                 append(" ")
             }
             append(String.format("%d\uD83D\uDC4D %d\uD83D\uDC4E", info.likes, info.dislikes))
@@ -220,7 +218,10 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 append(getString(R.string.cinema))
             }
         }.toString()
-        tvQuality.text = info.quality
+        tvQuality.text = getString(R.string.quality_format, info.quality)
+        tvGenres.text = getString(R.string.genre_format, info.genre.joinToString())
+        tvDirectors.text = getString(R.string.directors_format, info.directors.joinToString())
+        tvActors.text = getString(R.string.actors_format, info.actors.joinToString())
     }
 
     private fun initTrackAdapters() {

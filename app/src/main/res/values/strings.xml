@@ -14,7 +14,10 @@
     <string name="menu_from_path">Открыть ссылку</string>
     <string name="menu_get_folder">Выбрать папку</string>
     <string name="menu_home">Домой</string>
-    <string name="quality_format">%sp</string>
+    <string name="quality_format">Качество:%s</string>
+    <string name="genre_format">Жанр:%s</string>
+    <string name="actors_format">Актеры:%s</string>
+    <string name="directors_format">Режисеры:%s</string>
     <string name="video_quality">Качество</string>
     <string name="f_history_title">История просмотров</string>
     <string name="menu_clear_file_cache">Очистить кеш</string>
@@ -50,4 +53,6 @@
     <string name="episodes_count">эпизодов</string>
     <string name="path_not_found">Не найден путь</string>
     <string name="episodes_not_found">Не найдены эпизоды</string>
+    <string name="more">больше</string>
+    <string name="less">меньше</string>
 </resources>

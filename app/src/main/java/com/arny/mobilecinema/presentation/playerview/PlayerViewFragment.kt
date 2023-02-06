@@ -43,6 +43,7 @@ import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
+import com.google.android.exoplayer2.ui.StyledPlayerView.ControllerVisibilityListener
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
@@ -350,7 +351,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             player?.playWhenReady = true
             playerView.player = player
             playerView.resizeMode = resizeModes[resizeIndex]
-            playerView.setControllerVisibilityListener {
+            playerView.setControllerVisibilityListener(ControllerVisibilityListener {
                 if (isVisible) {
                     if (it == View.VISIBLE) {
                         tvTitle.isVisible = true
@@ -364,7 +365,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                         activity?.window?.hideSystemUI()
                     }
                 }
-            }
+            })
         }
     }
 
