@@ -18,6 +18,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
@@ -35,6 +36,7 @@ import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.source.MediaSource
+import com.google.android.exoplayer2.source.TrackGroup
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
@@ -89,8 +91,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        args.path?.let { viewModel.setPath(it) }
-        args.movie?.let { viewModel.setMovie(it) }
+        viewModel.setPlayData(args.path, args.movie, args.seasonIndex, args.episodeIndex)
         binding.progressBar.isVisible = true
         observeState()
         initListener()
@@ -124,7 +125,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 viewModel.uiState.collect { state ->
                     val movie = state.movie
                     binding.tvTitle.text = movie?.title ?: getString(R.string.no_movie_title)
-                    setMediaSources(state.path, state.position, movie)
+                    setMediaSources(
+                        path = state.path,
+                        position = state.position,
+                        movie = movie,
+                        seasonIndex = state.season,
+                        episodeIndex = state.episode
+                    )
                 }
             }
         }
@@ -133,7 +140,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     private suspend fun setMediaSources(
         path: String?,
         position: Long,
-        movie: Movie?
+        movie: Movie?,
+        seasonIndex: Int? = 0,
+        episodeIndex: Int? = 0
     ) {
         when {
             !path.isNullOrBlank() -> {
@@ -148,7 +157,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             }
 
             movie != null && movie.type == MovieType.CINEMA -> setCinemaUrls(movie, position)
-            movie != null && movie.type == MovieType.SERIAL -> setSerialUrls(movie)
+            movie != null && movie.type == MovieType.SERIAL -> setSerialUrls(
+                movie = movie,
+                seasonIndex = seasonIndex,
+                episodeIndex = episodeIndex
+            )
+
             else -> {
                 toast(getString(R.string.path_not_found))
                 findNavController().navigateUp()
@@ -156,18 +170,30 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         }
     }
 
-    private suspend fun setSerialUrls(movie: Movie) {
-        val allEpisodes = movie.seasons.sortedBy { it.id }
-            .flatMap { it.episodes.sortedBy { episode -> episode.episode.toIntOrNull() } }
+    private suspend fun setSerialUrls(movie: Movie, seasonIndex: Int?, episodeIndex: Int?) {
+        val serialSeasons = movie.seasons.sortedBy { it.id }
+        val allEpisodes =
+            serialSeasons.flatMap { it.episodes.sortedBy { episode -> episode.episode.toIntOrNull() } }
+        val size = allEpisodes.size
+        var currentIndexEpisode = 0
         if (allEpisodes.all { it.dash.isNotBlank() || it.hls.isNotBlank() }) {
-            println("allEpisodes:${allEpisodes.map { it.episode }}")
-            val size = allEpisodes.size
-            allEpisodes.forEach { episode ->
-                playerSource.getSource(
-                    url = episode.dash.ifBlank { episode.hls },
-                    title = episode.title
-                )?.let { source ->
-                    player?.addMediaSource(source)
+            for ((s, season) in serialSeasons.withIndex()) {
+                val episodes = season.episodes.sortedBy { episode -> episode.episode.toIntOrNull() }
+                for ((e, episode) in episodes.withIndex()) {
+                    if (seasonIndex == s && episodeIndex == e) {
+                        currentIndexEpisode = allEpisodes.indexOf(episode)
+                        if (currentIndexEpisode == -1) {
+                            currentIndexEpisode = 0
+                        }
+                    }
+                    playerSource.getSource(
+                        url = episode.dash.ifBlank { episode.hls },
+                        title = episode.title,
+                        season = s,
+                        episode = e
+                    )?.let { source ->
+                        player?.addMediaSource(source)
+                    }
                 }
             }
             binding.playerView.setShowNextButton(size > 0)
@@ -175,6 +201,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             player?.apply {
                 addListener(listener)
                 prepare()
+                player?.seekTo(currentIndexEpisode, 0)
             }
         } else {
             toast(getString(R.string.episodes_not_found))
@@ -193,7 +220,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         }
 
         override fun onTracksChanged(tracks: Tracks) {
-            setCurrentTitle(player?.currentMediaItem?.mediaMetadata?.title.toString())
+            val metadata = player?.currentMediaItem?.mediaMetadata
+            val bundle = metadata?.extras
+            val season = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
+            val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
+            viewModel.saveCurrentSerialPosition(season, episode)
+            setCurrentTitle(metadata?.title.toString())
         }
     }
 
@@ -399,7 +431,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     private fun releasePlayer() {
         player?.let {
-            viewModel.setPosition(it.currentPosition)
+            viewModel.saveCurrentPosition(it.currentPosition)
             it.removeListener(listener)
             it.stop()
             it.release()

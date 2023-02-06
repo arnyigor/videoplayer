@@ -2,7 +2,9 @@ package com.arny.mobilecinema.presentation.player
 
 import android.content.Context
 import android.net.Uri
+import androidx.core.os.bundleOf
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.MediaMetadata
@@ -30,64 +32,75 @@ class PlayerSource @Inject constructor(
         const val YOUTUBE_MAX_QUALITY_TAG = 22
     }
 
-    suspend fun getSource(url: String?, title: String? = null): MediaSource? = url?.let {
-        buildMediaSource1(url, title)
+    suspend fun getSource(
+        url: String?,
+        title: String? = null,
+        season: Int? = null,
+        episode: Int? = null
+    ): MediaSource? = url?.let {
+        val uri = Uri.parse(url)
+        val factory = dataSourceFactory()
+        val mediaItem = getItem(url, title, season, episode)
+        when (val type: @C.ContentType Int = Util.inferContentType(uri)) {
+            C.CONTENT_TYPE_DASH -> getDashMediaSource(factory, mediaItem)
+            C.CONTENT_TYPE_HLS -> getHlsMedialSource(factory, mediaItem)
+            C.CONTENT_TYPE_OTHER -> {
+                when {
+                    uri.host?.contains(YOUTUBE_HOST) == true -> getYoutubeSource(url, factory)
+                    uri.lastPathSegment.orEmpty().substringAfterLast('.') == "mp4" ->
+                        getMp4MediaSource(factory, mediaItem)
+
+                    else -> getMp4MediaSource(factory, mediaItem)
+                }
+            }
+
+            else -> error("Unsupported type: $type from url:$url")
+        }
     }
 
-    private fun getItem(url: String?, title: String? = null): MediaItem {
+    private fun getItem(
+        url: String?,
+        title: String? = null,
+        season: Int? = null,
+        episode: Int? = null
+    ): MediaItem {
         return MediaItem.Builder().apply {
-            if (title != null) {
-                val builder = MediaMetadata.Builder()
+            val builder = MediaMetadata.Builder()
+            if (!title.isNullOrBlank()) {
                 builder.setTitle(title)
-                setMediaMetadata(builder.build())
             }
+            if (season != null && episode != null) {
+                builder.setExtras(
+                    bundleOf(
+                        AppConstants.Player.SEASON to season,
+                        AppConstants.Player.EPISODE to episode
+                    )
+                )
+            }
+            setMediaMetadata(builder.build())
             setUri(Uri.parse(url))
         }
             .build()
     }
 
-    private suspend fun buildMediaSource1(url: String, title: String? = null): MediaSource {
-        val uri = Uri.parse(url)
-        val factory = dataSourceFactory()
-        return when (val type: @C.ContentType Int = Util.inferContentType(uri)) {
-            C.CONTENT_TYPE_DASH -> getDashMediaSource(factory, url, title)
-            C.CONTENT_TYPE_HLS -> getHlsMedialSource(factory, url, title)
-            C.CONTENT_TYPE_OTHER -> {
-                when {
-                    uri.host?.contains(YOUTUBE_HOST) == true ->
-                        getYoutubeSource(url, factory)
-
-                    uri.lastPathSegment.orEmpty().substringAfterLast('.') == "mp4" ->
-                        getMp4MediaSource(factory, url, title)
-
-                    else -> getMp4MediaSource(factory, url, title)
-                }
-            }
-            else -> error("Unsupported type: $type from url:$url")
-        }
-    }
-
     private fun getMp4MediaSource(
         factory: DataSource.Factory,
-        url: String?,
-        title: String? = null
+        item: MediaItem
     ) = ProgressiveMediaSource.Factory(factory, DefaultExtractorsFactory())
-        .createMediaSource(getItem(url, title))
+        .createMediaSource(item)
 
     private fun getHlsMedialSource(
         factory: DataSource.Factory,
-        url: String?,
-        title: String? = null
-    ) = HlsMediaSource.Factory(factory).createMediaSource(getItem(url, title))
+        item: MediaItem
+    ) = HlsMediaSource.Factory(factory).createMediaSource(item)
 
     private fun getDashMediaSource(
         factory: DataSource.Factory,
-        url: String?,
-        title: String?
+        item: MediaItem
     ) = DashMediaSource.Factory(
         /* chunkSourceFactory = */ DefaultDashChunkSource.Factory(factory),
         /* manifestDataSourceFactory = */ factory
-    ).createMediaSource(getItem(url, title))
+    ).createMediaSource(item)
 
     private suspend fun getYoutubeSource(
         link: String,
@@ -99,7 +112,7 @@ class PlayerSource @Inject constructor(
         val format = data.streamingData?.formats?.find { it?.itag == YOUTUBE_MAX_QUALITY_TAG }
         val url = format?.url
         return when {
-            !url.isNullOrBlank() -> getMp4MediaSource(factory, url, title)
+            !url.isNullOrBlank() -> getMp4MediaSource(factory, getItem(url, title))
             else -> error("Media source from Youtube link $link not found")
         }
     }

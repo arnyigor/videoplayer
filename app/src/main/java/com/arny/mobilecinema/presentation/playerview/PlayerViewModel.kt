@@ -24,24 +24,35 @@ class PlayerViewModel @Inject constructor(
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
 
-    fun setPosition(position: Long) {
-        _uiState.update { currentState ->
-            currentState.copy(position = position)
+    fun saveCurrentPosition(position: Long) {
+        viewModelScope.launch {
+            // todo save position
         }
     }
 
-    fun setPath(path: String) {
+    fun setPlayData(path: String?, movie: Movie?, seasonIndex: Int, episodeIndex: Int) {
         viewModelScope.launch {
             _uiState.update { currentState ->
-                currentState.copy(path = path)
+                currentState.copy(
+                    path = path,
+                    movie = movie,
+                    season = seasonIndex,
+                    episode = episodeIndex
+                )
             }
         }
     }
 
-    fun setMovie(movie: Movie) {
+    fun saveCurrentSerialPosition(season: Int, episode: Int) {
+        viewModelScope.launch {
+            // todo save
+        }
+    }
+
+    fun setCurrentSerialPosition(season: Int, episode: Int) {
         viewModelScope.launch {
             _uiState.update { currentState ->
-                currentState.copy(movie = movie)
+                currentState.copy(season = season, episode = episode)
             }
         }
     }

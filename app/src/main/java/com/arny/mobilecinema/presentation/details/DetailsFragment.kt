@@ -2,7 +2,12 @@ package com.arny.mobilecinema.presentation.details
 
 import android.content.Context
 import android.os.Bundle
-import android.view.*
+import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
 import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.MenuProvider
@@ -151,8 +156,10 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             currentMovie?.let { movie ->
                 findNavController().navigate(
                     DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                        null,
-                        movie
+                        path = null,
+                        movie = movie,
+                        seasonIndex = currentSeasonPosition,
+                        episodeIndex = currentEpisodePosition
                     )
                 )
             }
@@ -255,7 +262,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
                 spinEpisodes.updateSpinnerItems(episodesChangeListener) {
                     val episodes = seasons.getOrNull(currentSeasonPosition)?.episodes.orEmpty()
-                    val seriesList = episodes.sortedBy { it.episode }.map { getEpisodeTitle(it) }
+                    val seriesList =
+                        episodes.sortedBy { it.episode.toIntOrNull() }.map { getEpisodeTitle(it) }
                     episodesTracksAdapter?.clear()
                     episodesTracksAdapter?.addAll(seriesList)
                     spinEpisodes.setSelection(currentEpisodePosition, false)

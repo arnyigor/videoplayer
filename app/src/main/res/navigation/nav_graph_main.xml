@@ -34,12 +34,12 @@
         android:name="com.arny.mobilecinema.presentation.details.DetailsFragment"
         android:label="details_fragment"
         tools:layout="@layout/f_details">
-        <action
-            android:id="@+id/action_nav_details_to_nav_player_view"
-            app:destination="@id/nav_player_view" />
         <argument
             android:name="id"
             app:argType="long" />
+        <action
+            android:id="@+id/action_nav_details_to_nav_player_view"
+            app:destination="@id/nav_player_view" />
     </fragment>
     <fragment
         android:id="@+id/nav_history"
@@ -67,5 +67,13 @@
             android:name="movie"
             app:argType="com.arny.mobilecinema.domain.models.Movie"
             app:nullable="true" />
+        <argument
+            android:name="seasonIndex"
+            app:argType="integer"
+            android:defaultValue="0" />
+        <argument
+            android:name="episodeIndex"
+            app:argType="integer"
+            android:defaultValue="0" />
     </fragment>
 </navigation>
