@@ -36,7 +36,6 @@ import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.source.TrackGroup
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
@@ -66,7 +65,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     private var trackSelector: DefaultTrackSelector? = null
     private var qualityId: Int = 0
     private var resizeIndex = 0
-    private var qualityList = ArrayList<Pair<String, TrackSelectionOverride>>()
+    private var setupQuality = false
     private var _binding: FPlayerViewBinding? = null
     private val binding
         get() = _binding!!
@@ -226,6 +225,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
             viewModel.saveCurrentSerialPosition(season, episode)
             setCurrentTitle(metadata?.title.toString())
+            setupQuality = false
         }
     }
 
@@ -354,27 +354,23 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         }
     }
 
-    private fun addPlayerSource(source: MediaSource?) {
-        player?.apply {
-            source?.let {
-                addMediaSource(source)
-            }
-        }
-    }
-
     private fun setUpQualityList() {
-        qualityPopUp = PopupMenu(requireContext(), binding.ivQuality)
-        qualityList.let { list ->
-            for ((i, videoQuality) in list.withIndex()) {
-                qualityPopUp?.menu?.add(0, i, 0, videoQuality.first)
-            }
-            // TODO fix by selected and after net changed
+        if (!setupQuality) {
+            setupQuality = true
+            Timber.d("generateQualityList")
+            trackSelector?.generateQualityList(requireContext())?.let { qualityList ->
+                qualityPopUp = PopupMenu(requireContext(), binding.ivQuality)
+                for ((i, videoQuality) in qualityList.withIndex()) {
+                    qualityPopUp?.menu?.add(0, i, 0, videoQuality.first)
+                }
+                // TODO fix by selected and after net changed
 //            setQualityByConnection(list)
-        }
-        qualityPopUp?.setOnMenuItemClickListener { menuItem ->
-            qualityId = menuItem.itemId
-            setQuality(qualityList[qualityId].second)
-            true
+                qualityPopUp?.setOnMenuItemClickListener { menuItem ->
+                    qualityId = menuItem.itemId
+                    setQuality(qualityList[qualityId].second)
+                    true
+                }
+            }
         }
     }
 
@@ -419,11 +415,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
             Player.STATE_READY -> {
                 binding.progressBar.isVisible = false
-                // TODO set first Time on load
-                trackSelector?.generateQualityList(requireContext())?.let {
-                    qualityList = it
-                    setUpQualityList()
-                }
+                setUpQualityList()
             }
             else -> {}
         }
