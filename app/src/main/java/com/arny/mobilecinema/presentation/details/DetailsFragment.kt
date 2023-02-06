@@ -222,6 +222,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         tvGenres.text = getString(R.string.genre_format, info.genre.joinToString())
         tvDirectors.text = getString(R.string.directors_format, info.directors.joinToString())
         tvActors.text = getString(R.string.actors_format, info.actors.joinToString())
+        binding.root.invalidate()
     }
 
     private fun initTrackAdapters() {

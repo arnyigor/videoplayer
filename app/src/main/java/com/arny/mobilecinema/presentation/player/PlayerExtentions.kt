@@ -35,7 +35,9 @@ fun DefaultTrackSelector.generateLanguagesList(context: Context): ArrayList<Pair
                             val override = TrackSelectionOverride(track, listOf(trackIndex)).apply {
                                 setParameters(builder.build())
                             }
-                            trackOverrideList.add(Pair(trackName, override))
+                            if (trackName.isNotBlank()) {
+                                trackOverrideList.add(Pair(trackName, override))
+                            }
                         }
                     }
                 }
@@ -46,7 +48,6 @@ fun DefaultTrackSelector.generateLanguagesList(context: Context): ArrayList<Pair
 }
 
 fun DefaultTrackSelector.generateQualityList(context: Context): ArrayList<Pair<String, TrackSelectionOverride>> {
-    //Render Track -> TRACK GROUPS (Track Array)(Video,Audio,Text)->Track
     val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
     val renderTrack = this.currentMappedTrackInfo
     val renderCount = renderTrack?.rendererCount ?: 0
@@ -76,7 +77,9 @@ fun DefaultTrackSelector.generateQualityList(context: Context): ArrayList<Pair<S
                             val override = TrackSelectionOverride(track, listOf(trackIndex)).apply {
                                 setParameters(builder.build())
                             }
-                            trackOverrideList.add(Pair(trackName, override))
+                            if (trackName.isNotBlank()) {
+                                trackOverrideList.add(Pair(trackName, override))
+                            }
                         }
                     }
                 }

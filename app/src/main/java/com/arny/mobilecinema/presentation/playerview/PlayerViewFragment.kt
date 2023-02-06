@@ -45,6 +45,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
+    private var qualityVisible: Boolean = false
+    private var langVisible: Boolean = false
     private var mediaItemIndex: Int = 0
     private val args: PlayerViewFragmentArgs by navArgs()
 
@@ -348,9 +350,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 if (isVisible) {
                     if (it == View.VISIBLE) {
                         tvTitle.isVisible = true
-                        ivQuality.isVisible = true
+                        ivQuality.isVisible = qualityVisible
                         ivResizes.isVisible = true
-                        ivLang.isVisible = true
+                        ivLang.isVisible = langVisible
                         activity?.window?.showSystemUI()
                     } else {
                         ivResizes.isVisible = false
@@ -387,8 +389,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         if (setupPopupMenus) {
             setupPopupMenus = false
             trackSelector?.generateLanguagesList(requireContext())?.let { list ->
-                binding.ivLang.isVisible = list.isNotEmpty()
-                if (list.isNotEmpty()) {
+                langVisible = list.size > 1
+                binding.ivLang.isVisible = langVisible
+                if (langVisible) {
                     langPopUp = PopupMenu(requireContext(), binding.ivQuality)
                     for ((i, videoQuality) in list.withIndex()) {
                         langPopUp?.menu?.add(0, i, 0, videoQuality.first)
@@ -400,8 +403,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 }
             }
             trackSelector?.generateQualityList(requireContext())?.let { list ->
-                binding.ivQuality.isVisible = list.isNotEmpty()
-                if (list.isNotEmpty()) {
+                qualityVisible = list.size > 1
+                binding.ivQuality.isVisible = qualityVisible
+                if (qualityVisible) {
                     qualityPopUp = PopupMenu(requireContext(), binding.ivQuality)
                     for ((i, videoQuality) in list.withIndex()) {
                         qualityPopUp?.menu?.add(0, i, 0, videoQuality.first)
