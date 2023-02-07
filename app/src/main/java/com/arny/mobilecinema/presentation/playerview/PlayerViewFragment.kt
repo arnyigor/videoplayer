@@ -19,6 +19,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
 import com.arny.mobilecinema.domain.models.Movie
@@ -50,8 +51,16 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     private var mediaItemIndex: Int = 0
     private val args: PlayerViewFragmentArgs by navArgs()
 
+    private companion object {
+        const val MIN_BUFFER_SEC = 5L
+        const val MAX_BUFFER_SEC = 60L
+    }
+
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
+
+    @Inject
+    lateinit var prefs: Prefs
     private val viewModel: PlayerViewModel by viewModels { vmFactory }
     private val resizeModes = arrayOf(
         AspectRatioFrameLayout.RESIZE_MODE_FIT,
@@ -302,6 +311,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             supportActionBar?.show()
             window.showSystemUI()
         }
+        player?.let { savePosition(it.currentPosition) }
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
             releasePlayer()
         }
@@ -320,14 +330,18 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     }
 
     private fun preparePlayer() {
+        val min = prefs.get<String>(getString(R.string.pref_key_player_min_cache_sec))
+            ?.toLongOrNull() ?: MIN_BUFFER_SEC
+        val max = prefs.get<String>(getString(R.string.pref_key_player_max_cache_sec))
+            ?.toLongOrNull() ?: MAX_BUFFER_SEC
         with(binding) {
             val loadControl =
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(
                         /* minBufferMs = */
-                        secToMs(10).toInt(),
+                        secToMs(min).toInt(),
                         /* maxBufferMs = */
-                        secToMs(120).toInt(),
+                        secToMs(max).toInt(),
                         /* bufferForPlaybackMs = */
                         secToMs(1).toInt(),
                         /* bufferForPlaybackAfterRebufferMs = */
@@ -477,11 +491,14 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     private fun releasePlayer() {
         player?.let {
-            viewModel.saveCurrentPosition(it.currentPosition, args.movie?.dbId)
             it.removeListener(listener)
             it.stop()
             it.release()
             player = null
         }
+    }
+
+    private fun savePosition(position: Long) {
+        viewModel.saveCurrentPosition(position, args.movie?.dbId)
     }
 }
