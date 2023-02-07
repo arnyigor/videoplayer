@@ -55,4 +55,7 @@
     <string name="episodes_not_found">Не найдены эпизоды</string>
     <string name="more">больше</string>
     <string name="less">меньше</string>
+    <string name="update_finished">Обновление завершено</string>
+    <string name="attention">Внимание!</string>
+    <string name="mobile_netwotk_play">Вы не подключены к WIFI\nПродолжить?</string>
 </resources>

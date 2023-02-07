@@ -5,15 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,6 +21,8 @@ class DetailsViewModel @Inject constructor(
     val loading = _loading.asStateFlow()
     private val _movie = MutableSharedFlow<Movie>()
     val movie = _movie.asSharedFlow()
+    private val _saveData = MutableSharedFlow<SaveData>()
+    val saveData = _saveData.asSharedFlow()
 
     fun loadVideo(id: Long) {
         viewModelScope.launch {
@@ -44,6 +41,12 @@ class DetailsViewModel @Inject constructor(
                         }
                     }
                 }
+        }
+    }
+
+    fun loadSaveData(dbId: Long) {
+        viewModelScope.launch {
+            _saveData.emit(interactor.getSaveData(dbId))
         }
     }
 }

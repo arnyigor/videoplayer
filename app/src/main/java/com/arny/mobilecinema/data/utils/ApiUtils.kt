@@ -6,7 +6,6 @@ import android.net.NetworkCapabilities
 import android.net.NetworkInfo
 import android.os.Build
 import android.telephony.TelephonyManager
-import java.net.URI
 import javax.net.ssl.SSLHandshakeException
 
 sealed class ConnectionType(open val speedKbps: Int) {

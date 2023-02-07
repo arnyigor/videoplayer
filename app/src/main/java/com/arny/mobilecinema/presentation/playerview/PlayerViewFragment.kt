@@ -244,10 +244,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 mediaItemIndex = index
                 val metadata = player?.currentMediaItem?.mediaMetadata
                 val bundle = metadata?.extras
+                val title = metadata?.title.toString()
                 val season = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
                 val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
-                viewModel.saveCurrentSerialPosition(season, episode)
-                setCurrentTitle(metadata?.title.toString())
+                viewModel.saveCurrentSerialPosition(season, episode, args.movie?.dbId)
+                setCurrentTitle(title)
                 setupPopupMenus = true
             }
         }
@@ -414,6 +415,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                         setQuality(list[menuItem.itemId].second)
                         true
                     }
+                    setQuality(list[0].second)
                 }
             }
         }
@@ -475,7 +477,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     private fun releasePlayer() {
         player?.let {
-            viewModel.saveCurrentPosition(it.currentPosition)
+            viewModel.saveCurrentPosition(it.currentPosition, args.movie?.dbId)
             it.removeListener(listener)
             it.stop()
             it.release()

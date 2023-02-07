@@ -7,9 +7,11 @@ import com.arny.mobilecinema.data.api.KtorClient
 import com.arny.mobilecinema.data.db.AppDatabase
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
+import com.arny.mobilecinema.data.repository.MoviesRepositoryImpl
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.update.UpdateRepositoryImpl
 import com.arny.mobilecinema.data.utils.MegaHandler
+import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import dagger.Binds
 import dagger.Module
@@ -57,4 +59,8 @@ interface DataModule {
     @Binds
     @Singleton
     fun bindsDataRepository(impl: UpdateRepositoryImpl): UpdateRepository
+
+    @Binds
+    @Singleton
+    fun bindsMoviesRepository(impl: MoviesRepositoryImpl): MoviesRepository
 }

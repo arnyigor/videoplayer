@@ -5,12 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,18 +19,20 @@ class PlayerViewModel @Inject constructor(
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
 
-    fun saveCurrentPosition(position: Long) {
+    fun saveCurrentPosition(position: Long, dbId: Long?) {
         viewModelScope.launch {
-            // todo save position
+            interactor.saveMoviePosition(dbId, position)
         }
     }
 
     fun setPlayData(path: String?, movie: Movie?, seasonIndex: Int, episodeIndex: Int) {
         viewModelScope.launch {
+            val data = interactor.getSaveData(movie?.dbId)
             _uiState.update { currentState ->
                 currentState.copy(
                     path = path,
                     movie = movie,
+                    position = data.position,
                     season = seasonIndex,
                     episode = episodeIndex
                 )
@@ -43,17 +40,9 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun saveCurrentSerialPosition(season: Int, episode: Int) {
+    fun saveCurrentSerialPosition(season: Int, episode: Int, dbId: Long?) {
         viewModelScope.launch {
-            // todo save
-        }
-    }
-
-    fun setCurrentSerialPosition(season: Int, episode: Int) {
-        viewModelScope.launch {
-            _uiState.update { currentState ->
-                currentState.copy(season = season, episode = episode)
-            }
+            interactor.saveSerialPosition(dbId, season, episode)
         }
     }
 }

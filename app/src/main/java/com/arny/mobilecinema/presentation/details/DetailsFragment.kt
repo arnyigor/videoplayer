@@ -2,12 +2,7 @@ package com.arny.mobilecinema.presentation.details
 
 import android.content.Context
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.widget.AdapterView
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
@@ -18,17 +13,11 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.utils.ConnectionType
+import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.FDetailsBinding
-import com.arny.mobilecinema.domain.models.Movie
-import com.arny.mobilecinema.domain.models.MovieType
-import com.arny.mobilecinema.domain.models.SerialEpisode
-import com.arny.mobilecinema.domain.models.SerialSeason
-import com.arny.mobilecinema.presentation.utils.alertDialog
-import com.arny.mobilecinema.presentation.utils.getWithDomain
-import com.arny.mobilecinema.presentation.utils.launchWhenCreated
-import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
-import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
-import com.arny.mobilecinema.presentation.utils.updateTitle
+import com.arny.mobilecinema.domain.models.*
+import com.arny.mobilecinema.presentation.utils.*
 import com.bumptech.glide.Glide
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
@@ -150,22 +139,43 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun initListeners() {
         binding.btnPlay.setOnClickListener {
             currentMovie?.let { movie ->
-                findNavController().navigate(
-                    DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                        path = null,
-                        movie = movie,
-                        seasonIndex = currentSeasonPosition,
-                        episodeIndex = currentEpisodePosition
-                    )
-                )
+                when (getConnectionType(requireContext())) {
+                    is ConnectionType.MOBILE -> {
+                        alertDialog(
+                            title = getString(R.string.attention),
+                            content = getString(R.string.mobile_netwotk_play),
+                            btnOkText = getString(android.R.string.ok),
+                            btnCancelText = getString(android.R.string.cancel),
+                            onConfirm = { navigateToPLayer(movie) }
+                        )
+                    }
+                    is ConnectionType.WIFI -> navigateToPLayer(movie)
+                    else -> {}
+                }
             }
         }
+    }
+
+    private fun navigateToPLayer(movie: Movie) {
+        findNavController().navigate(
+            DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
+                path = null,
+                movie = movie,
+                seasonIndex = currentSeasonPosition,
+                episodeIndex = currentEpisodePosition
+            )
+        )
     }
 
     private fun observeData() {
         launchWhenCreated {
             viewModel.movie.collectLatest { movie ->
                 onMovieLoaded(movie)
+            }
+        }
+        launchWhenCreated {
+            viewModel.saveData.collectLatest { saveData ->
+                onSaveDataLoaded(saveData)
             }
         }
         launchWhenCreated {
@@ -179,6 +189,14 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         currentMovie = movie
         updateSpinData(movie)
         initUI(movie)
+    }
+
+    private fun onSaveDataLoaded(saveData: SaveData) {
+        if (saveData.dbId == currentMovie?.dbId) {
+            currentSeasonPosition = saveData.season
+            currentEpisodePosition = saveData.episode
+            fillSpinners(currentMovie)
+        }
     }
 
     private fun initUI(movie: Movie) = with(binding) {
@@ -245,6 +263,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun updateSpinData(movie: Movie) = with(binding) {
         if (movie.type == MovieType.SERIAL) {
+            viewModel.loadSaveData(movie.dbId)
             fillSpinners(movie)
             spinEpisodes.isVisible = true
             spinSeasons.isVisible = true

@@ -7,7 +7,7 @@ import com.google.android.exoplayer2.trackselection.MappingTrackSelector.MappedT
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.trackselection.TrackSelectionParameters
 
-fun DefaultTrackSelector.generateLanguagesList(context: Context): ArrayList<Pair<String, TrackSelectionOverride>> {
+fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<String, TrackSelectionOverride>> {
     val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
     val renderTrack = this.currentMappedTrackInfo
     val renderCount = renderTrack?.rendererCount ?: 0
@@ -44,10 +44,10 @@ fun DefaultTrackSelector.generateLanguagesList(context: Context): ArrayList<Pair
             }
         }
     }
-    return trackOverrideList
+    return trackOverrideList.distinctBy { it.first }.sortedByDescending { it.first }
 }
 
-fun DefaultTrackSelector.generateQualityList(context: Context): ArrayList<Pair<String, TrackSelectionOverride>> {
+fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String, TrackSelectionOverride>> {
     val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
     val renderTrack = this.currentMappedTrackInfo
     val renderCount = renderTrack?.rendererCount ?: 0
@@ -86,7 +86,7 @@ fun DefaultTrackSelector.generateQualityList(context: Context): ArrayList<Pair<S
             }
         }
     }
-    return trackOverrideList
+    return trackOverrideList.distinctBy { it.first }.sortedByDescending { it.first }
 }
 
 fun isSupportedFormat(mappedTrackInfo: MappedTrackInfo?, rendererIndex: Int): Boolean =

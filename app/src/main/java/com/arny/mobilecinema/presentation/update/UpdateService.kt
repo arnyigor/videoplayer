@@ -43,11 +43,15 @@ class UpdateService : LifecycleService(), CoroutineScope {
 
     override fun onCreate() {
         super.onCreate()
-
         AndroidInjection.inject(this)
         startForeground(
             NOTICE_ID,
-            getNotice("channelId", "channelName", "Обновление")
+            getNotice(
+                channelId = "channelId",
+                channelName = "channelName",
+                title = getString(R.string.updating, 0),
+                silent = false
+            )
         )
     }
 
@@ -77,10 +81,14 @@ class UpdateService : LifecycleService(), CoroutineScope {
                         file.delete()
                         dataFile.delete()
                         repository.updateMovies(anwapMovies) { pers ->
-                            updateNotification(getString(R.string.updating, pers))
+                            updateNotification(getString(R.string.updating, pers), true)
                         }
                         repository.setLastUpdate()
                     }
+                    updateNotification(
+                        title = getString(R.string.update_finished),
+                        silent = false
+                    )
                     LocalBroadcastManager.getInstance(applicationContext)
                         .sendBroadcast(Intent().apply {
                             action = AppConstants.ACTION_UPDATE_COMPLETE
@@ -124,30 +132,39 @@ class UpdateService : LifecycleService(), CoroutineScope {
             MoviesData::class.java
         ).movies
 
-    private fun updateNotification(title: String) {
-        val mNotificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        mNotificationManager.notify(
+    private fun updateNotification(title: String, silent: Boolean) {
+        (applicationContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(
             NOTICE_ID,
-            getNotice("channelId", "channelName", title)
+            getNotice("channelId", "channelName", title, silent)
         )
     }
 
     private fun Context.getNotice(
         channelId: String,
         channelName: String,
-        title: String
+        title: String,
+        silent: Boolean
     ): Notification {
-        val contentIntent = PendingIntent.getActivity(
-            /* context = */ this,
-            /* requestCode = */ 0,
-            /* intent = */ Intent(this, MainActivity::class.java),
-            /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val contentIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.getActivity(
+                /* context = */ this,
+                /* requestCode = */ 0,
+                /* intent = */ Intent(this, MainActivity::class.java),
+                /* flags = */ PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        } else {
+            PendingIntent.getActivity(
+                /* context = */ this,
+                /* requestCode = */ 0,
+                /* intent = */ Intent(this, MainActivity::class.java),
+                /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
+            )
+        }
         return getNotificationBuilder(channelId, channelName)
             .apply {
                 setContentTitle(title)
                 setAutoCancel(false)
-                setSilent(true)
+                setSilent(silent)
                 setSmallIcon(android.R.drawable.stat_sys_download)
                 setContentIntent(contentIntent)
                 setVisibility(NotificationCompat.VISIBILITY_PUBLIC)

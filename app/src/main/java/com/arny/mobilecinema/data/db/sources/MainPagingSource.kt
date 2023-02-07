@@ -19,7 +19,7 @@ class MainPagingSource(
             } else {
                 dao.getPagedList(params.loadSize, page * params.loadSize)
             }
-            if (page != 0) delay(1000)
+//            if (page != 0) delay(1000)
             LoadResult.Page(
                 data = list,
                 prevKey = if (page == 0) null else page - 1,
