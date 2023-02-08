@@ -45,7 +45,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
+    private var title: String = ""
     private var position: Long = 0L
+    private var season: Int = 0
+    private var episode: Int = 0
     private var qualityVisible: Boolean = false
     private var langVisible: Boolean = false
     private var mediaItemIndex: Int = 0
@@ -131,13 +134,14 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
                     val movie = state.movie
-                    binding.tvTitle.text = movie?.title ?: getString(R.string.no_movie_title)
+                    val (s, e) = getSerialPosition(state.season, state.episode)
+                    setCurrentTitle(getTitle(movie?.title))
                     setMediaSources(
                         path = state.path,
                         position = getPosition(state.position),
                         movie = movie,
-                        seasonIndex = state.season,
-                        episodeIndex = state.episode
+                        seasonIndex = s,
+                        episodeIndex = e
                     )
                 }
             }
@@ -146,6 +150,25 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     private fun getPosition(statePosition: Long) =
         if (statePosition >= position) statePosition else position
+
+    private fun getSerialPosition(stateSeason: Int?, stateEpisode: Int?): Pair<Int, Int> {
+        val cSeason: Int = if (stateSeason != null && stateSeason > season)
+            stateSeason else season
+        val cEpisode: Int = if (stateEpisode != null && stateEpisode > episode)
+            stateEpisode else episode
+        return cSeason to cEpisode
+    }
+
+    private fun getTitle(movieTitle: String?): String {
+        val savedTitle = this.title
+        return when {
+            !movieTitle.isNullOrBlank() && savedTitle.isNotBlank() && savedTitle != "null" ->
+                savedTitle
+            !movieTitle.isNullOrBlank() && (savedTitle.isBlank() || savedTitle == "null") ->
+                movieTitle
+            else -> getString(R.string.no_movie_title)
+        }
+    }
 
     private suspend fun setMediaSources(
         path: String?,
@@ -170,9 +193,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             movie != null && movie.type == MovieType.SERIAL -> setSerialUrls(
                 movie = movie,
                 seasonIndex = seasonIndex,
-                episodeIndex = episodeIndex
+                episodeIndex = episodeIndex,
+                position = position
             )
-
             else -> {
                 toast(getString(R.string.path_not_found))
                 findNavController().navigateUp()
@@ -180,7 +203,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         }
     }
 
-    private suspend fun setSerialUrls(movie: Movie, seasonIndex: Int?, episodeIndex: Int?) {
+    private suspend fun setSerialUrls(
+        movie: Movie,
+        seasonIndex: Int?,
+        episodeIndex: Int?,
+        position: Long
+    ) {
         val serialSeasons = movie.seasons.sortedBy { it.id }
         val allEpisodes = serialSeasons.flatMap {
             it.episodes.sortedBy { episode ->
@@ -200,7 +228,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             binding.playerView.setShowPreviousButton(size > 0)
             player?.apply {
                 if (startEpisodeIndex > 0) {
-                    player?.seekTo(startEpisodeIndex, 0)
+                    player?.seekTo(startEpisodeIndex, position)
                 }
                 addListener(listener)
                 prepare()
@@ -254,16 +282,24 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             val index = player?.currentMediaItemIndex ?: 0
             if (index != mediaItemIndex) {
                 mediaItemIndex = index
-                val metadata = player?.currentMediaItem?.mediaMetadata
-                val bundle = metadata?.extras
-                val title = metadata?.title.toString()
-                val season = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
-                val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
-                viewModel.saveCurrentSerialPosition(season, episode, args.movie?.dbId)
-                setCurrentTitle(title)
+                player?.let {
+                    saveEpisodePosition(it)
+                }
                 setupPopupMenus = true
             }
         }
+    }
+
+    private fun saveEpisodePosition(exoPlayer: ExoPlayer) {
+        val metadata = exoPlayer.currentMediaItem?.mediaMetadata
+        this.title = metadata?.title.toString()
+        setCurrentTitle(title)
+        val bundle = metadata?.extras
+        val season = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
+        val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
+        this.season = season
+        this.episode = episode
+        viewModel.saveCurrentSerialPosition(season, episode, args.movie?.dbId)
     }
 
     private suspend fun setCinemaUrls(
@@ -314,7 +350,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             supportActionBar?.show()
             window.showSystemUI()
         }
-        player?.let { savePosition(it.currentPosition) }
+        player?.let { exoPlayer ->
+            savePosition(exoPlayer.currentPosition)
+            saveEpisodePosition(exoPlayer)
+        }
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
             releasePlayer()
         }
