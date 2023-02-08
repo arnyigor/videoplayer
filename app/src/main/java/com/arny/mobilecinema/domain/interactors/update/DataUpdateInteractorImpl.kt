@@ -27,6 +27,14 @@ class DataUpdateInteractorImpl @Inject constructor(
 ) : DataUpdateInteractor {
     private lateinit var downloadedReceiver: DownloadedReceiver
 
+    override suspend fun checkBaseUrl(): DataResult<Boolean> =
+        if (repository.checkBaseUrl())
+            DataResult.Success(true)
+        else {
+            repository.createNewBaseUrl()
+            DataResult.Success(true)
+        }
+
     override fun requestFile() {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val zipFile = File(context.filesDir, "tmp_${System.currentTimeMillis()}.zip")

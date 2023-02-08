@@ -61,10 +61,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
-
+    private val viewModel: PlayerViewModel by viewModels { vmFactory }
     @Inject
     lateinit var prefs: Prefs
-    private val viewModel: PlayerViewModel by viewModels { vmFactory }
     private val resizeModes = arrayOf(
         AspectRatioFrameLayout.RESIZE_MODE_FIT,
         AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH,

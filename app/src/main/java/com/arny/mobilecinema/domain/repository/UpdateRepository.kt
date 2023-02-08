@@ -7,7 +7,10 @@ interface UpdateRepository {
     var newUpdate: String
     var updateDownloadId: Long
     var lastUpdate: String
+    var baseUrl: String
     suspend fun downloadUpdate(): File
     fun setLastUpdate()
     fun updateMovies(movies: List<Movie>, onUpdate: (ind: Int) -> Unit)
+    suspend fun checkBaseUrl(): Boolean
+    suspend fun createNewBaseUrl()
 }

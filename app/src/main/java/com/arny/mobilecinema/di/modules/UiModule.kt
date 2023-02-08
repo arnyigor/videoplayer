@@ -10,6 +10,7 @@ import com.arny.mobilecinema.presentation.details.DetailsViewModel
 import com.arny.mobilecinema.presentation.history.HistoryViewModel
 import com.arny.mobilecinema.presentation.home.HomeViewModel
 import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
+import com.arny.mobilecinema.presentation.splash.SplashViewModel
 import dagger.Module
 import dagger.Provides
 import dagger.multibindings.IntoMap
@@ -51,4 +52,11 @@ class UiModule {
     fun providePlayerViewModel(
         interactor: MoviesInteractor,
     ): ViewModel = PlayerViewModel(interactor)
+
+    @Provides
+    @IntoMap
+    @ViewModelKey(SplashViewModel::class)
+    fun provideSplashViewModel(
+        interactor: DataUpdateInteractor,
+    ): ViewModel = SplashViewModel(interactor)
 }

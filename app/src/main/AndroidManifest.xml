@@ -9,7 +9,7 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.STORAGE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:name=".VideoApp"
@@ -22,21 +22,27 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true"
         tools:ignore="UnusedAttribute">
-
-        <service
-            android:name=".presentation.update.UpdateService"
-            android:enabled="true"
-            android:exported="true"/>
-
         <activity
-            android:name=".presentation.MainActivity"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:name=".presentation.splash.SplashActivity"
+            android:theme="@style/Theme.App.Starting"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+
+        <service
+            android:name=".presentation.update.UpdateService"
+            android:enabled="true"
+            android:exported="true" />
+
+        <activity
+            android:name=".presentation.MainActivity"
+            android:launchMode="singleInstance"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:exported="true">
         </activity>
     </application>
 

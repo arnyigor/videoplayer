@@ -6,7 +6,31 @@ import android.net.NetworkCapabilities
 import android.net.NetworkInfo
 import android.os.Build
 import android.telephony.TelephonyManager
+import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import javax.net.ssl.SSLHandshakeException
+
+fun getDomainName(url: String): String = try {
+    val uri = URI(url)
+    val scheme: String? = uri.scheme
+    val host: String? = uri.host
+    if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
+        "${scheme}://${host}"
+    } else {
+        ""
+    }
+} catch (e: Exception) {
+    ""
+}
+
+fun String.getWithDomain(location: String): String =
+    when {
+        this.startsWith("http") -> this
+        else -> "${getDomainName(location)}$this"
+    }
+
+fun urlEncode(value: String): String? = URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
 
 sealed class ConnectionType(open val speedKbps: Int) {
     object NONE : ConnectionType(0)

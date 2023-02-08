@@ -14,9 +14,12 @@ ext {
         implementation "org.jetbrains.kotlin:kotlin-reflect:$stdlib_version"
     }}
 
+    core = { version = '1.9.0'  -> Alias {
+        implementation "androidx.core:core-ktx:$version"
+    }}
 
-    core = { stdlib_version = '1.9.0'  -> Alias {
-        implementation "androidx.core:core-ktx:$stdlib_version"
+    splashscreen = { version = '1.0.0'  -> Alias {
+        implementation "androidx.core:core-splashscreen:$version"
     }}
 
     fragment = { version = '1.5.5' -> Alias {
