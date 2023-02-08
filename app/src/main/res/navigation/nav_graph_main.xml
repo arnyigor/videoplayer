@@ -13,21 +13,23 @@
         <action
             android:id="@+id/action_nav_home_to_nav_prefs"
             app:destination="@id/nav_prefs"
-            app:enterAnim="@anim/nav_default_enter_anim"
-            app:exitAnim="@anim/nav_default_exit_anim" />
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out" />
         <action
             android:id="@+id/action_nav_home_to_nav_player_view"
             app:destination="@id/nav_player_view"
-            app:enterAnim="@anim/nav_default_enter_anim"
-            app:exitAnim="@anim/nav_default_exit_anim" />
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out" />
         <action
             android:id="@+id/action_nav_home_to_nav_history"
             app:destination="@id/nav_history"
-            app:enterAnim="@anim/nav_default_enter_anim"
-            app:exitAnim="@anim/nav_default_exit_anim" />
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out" />
         <action
             android:id="@+id/action_nav_home_to_nav_details"
-            app:destination="@id/nav_details" />
+            app:destination="@id/nav_details"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out" />
     </fragment>
     <fragment
         android:id="@+id/nav_details"
@@ -39,7 +41,9 @@
             app:argType="long" />
         <action
             android:id="@+id/action_nav_details_to_nav_player_view"
-            app:destination="@id/nav_player_view" />
+            app:destination="@id/nav_player_view"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out" />
     </fragment>
     <fragment
         android:id="@+id/nav_history"
@@ -48,7 +52,9 @@
         android:label="HistoryFragment">
         <action
             android:id="@+id/action_nav_history_to_nav_details"
-            app:destination="@id/nav_details" />
+            app:destination="@id/nav_details"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out" />
     </fragment>
     <fragment
         android:id="@+id/nav_prefs"

@@ -1,12 +1,4 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
     <PreferenceCategory app:title="@string/pref_player">
-        <EditTextPreference
-            app:key="@string/pref_key_player_min_cache_sec"
-            app:defaultValue="1"
-            app:title="@string/player_min_cache_time_sec" />
-        <EditTextPreference
-            app:key="@string/pref_key_player_max_cache_sec"
-            app:defaultValue="10"
-            app:title="@string/player_max_cache_time_sec" />
     </PreferenceCategory>
 </PreferenceScreen>

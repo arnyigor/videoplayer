@@ -13,21 +13,9 @@ import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
-import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -54,14 +42,13 @@ class HomeViewModel @Inject constructor(
 
     fun downloadData() {
         viewModelScope.launch {
-            flow { emit(dataUpdateInteractor.getUpdateDate()) }
+            dataUpdateInteractor.getUpdateDate()
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
-                .catch { _error.emit(ThrowableString(it)) }
                 .collect { result ->
                     when (result) {
                         is DataResult.Error -> {
-                            _error.emit(ThrowableString(result.throwable))
+                            result.throwable.printStackTrace()
                         }
 
                         is DataResult.Success -> {

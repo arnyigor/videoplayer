@@ -135,8 +135,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                             onConfirm = { navigateToPLayer(movie) }
                         )
                     }
-                    is ConnectionType.WIFI -> navigateToPLayer(movie)
-                    else -> {}
+                    else -> {
+                        navigateToPLayer(movie)
+                    }
                 }
             }
         }

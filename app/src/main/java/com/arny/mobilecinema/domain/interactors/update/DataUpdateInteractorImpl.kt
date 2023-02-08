@@ -12,11 +12,13 @@ import android.os.Environment
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.update.UpdateService
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
@@ -27,13 +29,15 @@ class DataUpdateInteractorImpl @Inject constructor(
 ) : DataUpdateInteractor {
     private lateinit var downloadedReceiver: DownloadedReceiver
 
-    override suspend fun checkBaseUrl(): DataResult<Boolean> =
-        if (repository.checkBaseUrl())
-            DataResult.Success(true)
-        else {
-            repository.createNewBaseUrl()
-            DataResult.Success(true)
+    override suspend fun checkBaseUrl(): Flow<DataResult<Boolean>> = doAsync {
+        when {
+            repository.checkBaseUrl() -> true
+            else -> {
+                repository.createNewBaseUrl()
+                true
+            }
         }
+    }
 
     override fun requestFile() {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -55,18 +59,18 @@ class DataUpdateInteractorImpl @Inject constructor(
         }
     }
 
-    override suspend fun getUpdateDate(): DataResult<String> {
+    override suspend fun getUpdateDate(): Flow<DataResult<String>> = doAsync {
         var newUpdate = ""
         if (repository.newUpdate.isBlank()) {
             val updateFile = withContext(Dispatchers.IO) { repository.downloadUpdate() }
             newUpdate = updateFile.readText()
             updateFile.delete()
         }
-        return if (repository.lastUpdate != newUpdate && newUpdate.isNotBlank()) {
+        if (repository.lastUpdate != newUpdate && newUpdate.isNotBlank()) {
             repository.newUpdate = newUpdate
-            DataResult.Success(newUpdate)
+            newUpdate
         } else {
-            DataResult.Success("")
+            ""
         }
     }
 

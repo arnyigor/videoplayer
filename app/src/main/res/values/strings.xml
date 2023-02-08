@@ -26,8 +26,6 @@
     <string name="title_home">Главная</string>
     <string name="press_back_again_to_exit">Нажмите назад еще раз чтобы выйти</string>
     <string name="pref_main_header">Основные</string>
-    <string name="pref_key_player_min_cache_sec">PREF_PLAYER_MIN_CACHE_SEC</string>
-    <string name="pref_key_player_max_cache_sec">PREF_PLAYER_MAX_CACHE_SEC</string>
     <string name="action_settings">Настройки</string>
     <string name="play">Смотреть</string>
     <string name="need_permission_message">Для работы приложения необходимо разрешить доступ на запись</string>
@@ -61,4 +59,5 @@
     <string name="pref_player">Плеер</string>
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
     <string name="player_max_cache_time_sec">Максимальный буфер, сек</string>
+    <string name="internet_connection_error">Отсутствует интернет соединение</string>
 </resources>

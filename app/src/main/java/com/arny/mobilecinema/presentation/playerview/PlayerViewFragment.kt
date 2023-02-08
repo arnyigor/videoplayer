@@ -20,7 +20,9 @@ import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.findByGroup
+import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
 import com.arny.mobilecinema.domain.models.Movie
@@ -107,6 +109,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         binding.progressBar.isVisible = true
         observeState()
         initListener()
+        requireActivity().window.decorView.setOnSystemUiVisibilityChangeListener { visibility ->
+            if (visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0) {
+                binding.playerView.showController()
+            } else {
+                binding.playerView.hideController()
+            }
+        }
     }
 
     override fun onDestroyView() {
@@ -275,7 +284,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     private val listener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
             binding.progressBar.isVisible = false
-            toast(getFullError(error))
+            when (getConnectionType(requireContext())) {
+                ConnectionType.NONE -> {
+                    toast(getString(R.string.internet_connection_error))
+                }
+                else -> toast(getFullError(error))
+            }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -341,7 +355,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         super.onResume()
         with((requireActivity() as AppCompatActivity)) {
             supportActionBar?.hide()
-//            window.hideSystemUI()
         }
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
             preparePlayer()
@@ -352,7 +365,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         super.onPause()
         with((requireActivity() as AppCompatActivity)) {
             supportActionBar?.show()
-//            window.showSystemUI()
         }
         player?.let { exoPlayer ->
             savePosition(exoPlayer.currentPosition)
@@ -376,24 +388,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     }
 
     private fun preparePlayer() {
-        val min = prefs.get<String>(getString(R.string.pref_key_player_min_cache_sec))
-            ?.toLongOrNull() ?: MIN_BUFFER_SEC
-        val max = prefs.get<String>(getString(R.string.pref_key_player_max_cache_sec))
-            ?.toLongOrNull() ?: MAX_BUFFER_SEC
         with(binding) {
             val loadControl =
                 DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(
-                        /* minBufferMs = */
-                        secToMs(min).toInt(),
-                        /* maxBufferMs = */
-                        secToMs(max).toInt(),
-                        /* bufferForPlaybackMs = */
-                        secToMs(1).toInt(),
-                        /* bufferForPlaybackAfterRebufferMs = */
-                        secToMs(1).toInt()
-                    )
-                    .build()
+                .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
+                .build()
             trackSelector = DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory())
             trackSelector?.parameters?.buildUpon()?.setPreferredAudioLanguage("rus")
             player = ExoPlayer.Builder(requireContext())
@@ -420,23 +419,27 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             playerView.resizeMode = resizeModes[resizeIndex]
             playerView.setControllerVisibilityListener {
                 if (isVisible) {
-                    if (it == View.VISIBLE) {
-                        tvTitle.isVisible = true
-                        ivQuality.isVisible = qualityVisible
-                        ivResizes.isVisible = true
-                        ivBack.isVisible = true
-                        ivLang.isVisible = langVisible
-                        activity?.window?.showSystemUI()
-                    } else {
-                        ivResizes.isVisible = false
-                        ivQuality.isVisible = false
-                        ivBack.isVisible = false
-                        tvTitle.isVisible = false
-                        ivLang.isVisible = false
-                        activity?.window?.hideSystemUI()
-                    }
+                    changeVisible(it == View.VISIBLE)
                 }
             }
+        }
+    }
+
+    private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
+        if (visible) {
+            tvTitle.isVisible = true
+            ivQuality.isVisible = qualityVisible
+            ivResizes.isVisible = true
+            ivBack.isVisible = true
+            ivLang.isVisible = langVisible
+            activity?.window?.showSystemUI()
+        } else {
+            ivResizes.isVisible = false
+            ivQuality.isVisible = false
+            ivBack.isVisible = false
+            tvTitle.isVisible = false
+            ivLang.isVisible = false
+            activity?.window?.hideSystemUI()
         }
     }
 
