@@ -83,6 +83,10 @@ ext {
         implementation "com.google.android.exoplayer:exoplayer-ui:$version"
     }}
 
+    youtubePlayerView = { version = '1.0.4' -> Alias {
+        implementation "com.github.vkay94:DoubleTapPlayerView:$version"
+    }}
+
     cicerone = { version = '6.6' -> Alias {
         implementation "com.github.terrakok:cicerone:$version"
     }}

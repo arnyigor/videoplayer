@@ -34,6 +34,7 @@ import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.secToMs
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
+import com.github.vkay94.dtpv.youtube.YouTubeOverlay
 import com.google.android.exoplayer2.*
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
@@ -43,7 +44,6 @@ import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
@@ -114,11 +114,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         _binding = null
     }
 
-    private fun initListener() {
-        binding.ivQuality.setOnClickListener { qualityPopUp?.show() }
-        binding.ivLang.setOnClickListener { langPopUp?.show() }
-        binding.ivResizes.setOnClickListener {
-            changeResize()
+    private fun initListener() = with(binding) {
+        ivQuality.setOnClickListener { qualityPopUp?.show() }
+        ivLang.setOnClickListener { langPopUp?.show() }
+        ivResizes.setOnClickListener { changeResize() }
+        ivBack.setOnClickListener {
+            findNavController().popBackStack()
         }
     }
 
@@ -403,7 +404,18 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 .setSeekBackIncrementMs(secToMs(5))
                 .setSeekForwardIncrementMs(secToMs(5))
                 .build()
+            youtubeOverlay.performListener(object : YouTubeOverlay.PerformListener {
+                override fun onAnimationStart() {
+                    youtubeOverlay.visibility = View.VISIBLE
+                }
+
+                override fun onAnimationEnd() {
+                    youtubeOverlay.visibility = View.GONE
+                }
+            }).playerView(playerView)
+            playerView.controller(youtubeOverlay)
             player?.playWhenReady = true
+            youtubeOverlay.player(player!!)
             playerView.player = player
             playerView.resizeMode = resizeModes[resizeIndex]
             playerView.setControllerVisibilityListener {
@@ -412,11 +424,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                         tvTitle.isVisible = true
                         ivQuality.isVisible = qualityVisible
                         ivResizes.isVisible = true
+                        ivBack.isVisible = true
                         ivLang.isVisible = langVisible
                         activity?.window?.showSystemUI()
                     } else {
                         ivResizes.isVisible = false
                         ivQuality.isVisible = false
+                        ivBack.isVisible = false
                         tvTitle.isVisible = false
                         ivLang.isVisible = false
                         activity?.window?.hideSystemUI()

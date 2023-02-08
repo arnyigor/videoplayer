@@ -33,6 +33,7 @@ dependencies {
     preference()
     constraintlayout()
     exoplayer()
+    youtubePlayerView()
     tests()
     androidTests()
     timber()

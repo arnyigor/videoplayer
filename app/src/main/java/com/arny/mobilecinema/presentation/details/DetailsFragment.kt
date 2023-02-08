@@ -85,6 +85,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         initListeners()
         initTrackAdapters()
         observeData()
+        initMenu()
         viewModel.loadVideo(args.id)
     }
 
