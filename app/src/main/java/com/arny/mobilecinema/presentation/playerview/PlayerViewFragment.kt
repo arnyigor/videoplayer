@@ -341,7 +341,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         super.onResume()
         with((requireActivity() as AppCompatActivity)) {
             supportActionBar?.hide()
-            window.hideSystemUI()
+//            window.hideSystemUI()
         }
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
             preparePlayer()
@@ -352,7 +352,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         super.onPause()
         with((requireActivity() as AppCompatActivity)) {
             supportActionBar?.show()
-            window.showSystemUI()
+//            window.showSystemUI()
         }
         player?.let { exoPlayer ->
             savePosition(exoPlayer.currentPosition)
