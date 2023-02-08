@@ -14,6 +14,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.utils.ConnectionType
+import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.FDetailsBinding
 import com.arny.mobilecinema.domain.models.*
@@ -24,10 +25,6 @@ import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
-    private companion object {
-        const val KEY_SEASON = "KEY_SEASON"
-        const val KEY_EPISODE = "KEY_EPISODE"
-    }
 
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
@@ -85,22 +82,10 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        initMenu()
         initListeners()
         initTrackAdapters()
         observeData()
         viewModel.loadVideo(args.id)
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        outState.putInt(KEY_SEASON, currentSeasonPosition)
-        outState.putInt(KEY_EPISODE, currentEpisodePosition)
-    }
-
-    override fun onViewStateRestored(savedInstanceState: Bundle?) {
-        super.onViewStateRestored(savedInstanceState)
-        currentSeasonPosition = savedInstanceState?.getInt(KEY_SEASON) ?: 0
-        currentEpisodePosition = savedInstanceState?.getInt(KEY_EPISODE) ?: 0
     }
 
     private fun initMenu() {
@@ -273,7 +258,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun fillSpinners(movie: Movie?) {
         val seasons = movie?.seasons.orEmpty()
-        val seasonsList = seasons.sortedBy { it.id }.map { getSeasonTitle(it) }
+        val seasonsList = sortSeasons(seasons)
         if (seasonsList.isNotEmpty()) {
             with(binding) {
                 spinSeasons.updateSpinnerItems(seasonsChangeListener) {
@@ -283,15 +268,24 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
                 spinEpisodes.updateSpinnerItems(episodesChangeListener) {
                     val episodes = seasons.getOrNull(currentSeasonPosition)?.episodes.orEmpty()
-                    val seriesList =
-                        episodes.sortedBy { it.episode.toIntOrNull() }.map { getEpisodeTitle(it) }
                     episodesTracksAdapter?.clear()
-                    episodesTracksAdapter?.addAll(seriesList)
+                    episodesTracksAdapter?.addAll(sortEpisodes(episodes))
                     spinEpisodes.setSelection(currentEpisodePosition, false)
                 }
             }
         }
     }
+
+    private fun sortSeasons(seasons: List<SerialSeason>) =
+        seasons.sortedBy { it.id }.map { getSeasonTitle(it) }
+
+    private fun sortEpisodes(episodes: List<SerialEpisode>): List<String> =
+        episodes.asSequence()
+            .sortedBy {
+                findByGroup(it.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
+            }
+            .map { getEpisodeTitle(it) }
+            .toList()
 
     private fun getSeasonTitle(it: SerialSeason) =
         "%d %s".format(it.id, getString(R.string.spinner_season))

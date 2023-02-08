@@ -1,9 +1,5 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
-
     <PreferenceCategory app:title="@string/pref_player">
-        <CheckBoxPreference
-            app:key="@string/pref_key_cache_available"
-            app:title="@string/settings_cache_item" />
         <EditTextPreference
             app:key="@string/pref_key_player_min_cache_sec"
             app:defaultValue="1"

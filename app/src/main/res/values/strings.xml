@@ -7,7 +7,6 @@
     <string name="video_url_not_found">URL видео не найден</string>
     <string name="home_choose_source">Выбрать источник</string>
     <string name="video_link_not_found">Ссылка на видео не найдена</string>
-    <string name="settings_cache_item">Кешировать</string>
     <string name="menu_preferences">Настройки</string>
     <string name="menu_history">История</string>
     <string name="menu_get_file">Выбрать файл</string>
@@ -27,7 +26,6 @@
     <string name="title_home">Главная</string>
     <string name="press_back_again_to_exit">Нажмите назад еще раз чтобы выйти</string>
     <string name="pref_main_header">Основные</string>
-    <string name="pref_key_cache_available">PREF_SAVE_TO_STORE</string>
     <string name="pref_key_player_min_cache_sec">PREF_PLAYER_MIN_CACHE_SEC</string>
     <string name="pref_key_player_max_cache_sec">PREF_PLAYER_MAX_CACHE_SEC</string>
     <string name="action_settings">Настройки</string>

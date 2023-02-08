@@ -20,6 +20,7 @@ import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
 import com.arny.mobilecinema.domain.models.Movie
@@ -42,6 +43,7 @@ import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
@@ -208,17 +210,17 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         episodeIndex: Int?,
         position: Long
     ) {
-        val serialSeasons = movie.seasons.sortedBy { it.id }
+        val seasons = movie.seasons
+        val serialSeasons = seasons.sortedBy { it.id }
         val allEpisodes = serialSeasons.flatMap {
             it.episodes.sortedBy { episode ->
-                // fixme может возникуть ошибка
-                episode.episode.toIntOrNull()
+                findByGroup(episode.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
             }
         }
         val size = allEpisodes.size
         if (allEpisodes.all { it.dash.isNotBlank() || it.hls.isNotBlank() }) {
             val startEpisodeIndex = fillPlayerEpisodes(
-                serialSeasons = serialSeasons,
+                serialSeasons = serialSeasons.toList(),
                 seasonIndex = seasonIndex,
                 episodeIndex = episodeIndex,
                 allEpisodes = allEpisodes
@@ -246,7 +248,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     ): Int {
         var currentIndexEpisode = 0
         for ((s, season) in serialSeasons.withIndex()) {
-            val episodes = season.episodes.sortedBy { episode -> episode.episode.toIntOrNull() }
+            val episodes = season.episodes.sortedBy { episode ->
+                findByGroup(episode.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
+            }
             for ((e, episode) in episodes.withIndex()) {
                 if (seasonIndex == s && episodeIndex == e) {
                     currentIndexEpisode = allEpisodes.indexOf(episode)
