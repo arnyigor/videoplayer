@@ -1,22 +1,48 @@
 <resources>
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryVariant">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
 
-        <item name="android:textColorPrimary">@color/colorPrimary</item>
-        <item name="android:textColorSecondary">@color/colorPrimary</item>
+        <item name="android:windowBackground">@color/colorPrimaryDark</item>
         <item name="android:textColor">@color/textColorPrimary</item>
         <item name="android:textColorHint">@color/textColorSecondary</item>
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:textColorSecondary">@color/textColorSecondary</item>
 
-        <item name="android:windowBackground">@color/colorPrimary</item>
+        <item name="android:dialogTheme">@style/MyDialogStyle</item>
+        <item name="alertDialogTheme">@style/MyDialogStyle</item>
+
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <item name="android:navigationBarColor">?attr/colorPrimaryDark</item>
         <item name="android:itemTextAppearance">@style/ItemMenuTextAppearance</item>
+
+        <item name="md_background_color">@color/colorPrimaryDark</item>
+        <item name="md_color_title">@color/textColorPrimary</item>
+        <item name="md_color_content">@color/textColorPrimary</item>
+        <item name="md_color_button_text">@color/textColorSecondary</item>
+        <item name="md_corner_radius">8dp</item>
     </style>
     <style name="ItemMenuTextAppearance">
         <item name="android:textColor">@color/colorPrimaryDark</item>
+    </style>
+
+    <style name="MyDialogStyle" parent="Theme.AppCompat.DayNight.Dialog">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:background">@color/colorPrimaryDark</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:textViewStyle">@style/DialogTextViewStyle</item>
+        <item name="windowFixedWidthMajor">90%</item>
+        <item name="windowFixedWidthMinor">90%</item>
+        <item name="textColorAlertDialogListItem">@color/textColorPrimary</item>
+        <item name="colorControlNormal">@color/colorAccent</item>
+    </style>
+
+    <style name="DialogTextViewStyle" parent="android:Widget.TextView">
+        <item name="android:textColor">@color/textColorPrimary</item>
     </style>
 </resources>

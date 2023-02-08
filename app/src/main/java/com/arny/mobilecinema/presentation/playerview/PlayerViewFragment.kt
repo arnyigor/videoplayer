@@ -352,7 +352,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             trackSelector?.parameters?.buildUpon()?.setPreferredAudioLanguage("rus")
             player = ExoPlayer.Builder(requireContext())
                 .setLoadControl(loadControl)
-                .setBandwidthMeter(DefaultBandwidthMeter.Builder(requireContext()).build())
+//                .setBandwidthMeter(DefaultBandwidthMeter.Builder(requireContext()).build())
                 .setRenderersFactory(DefaultRenderersFactory(requireContext()))
                 .setTrackSelector(trackSelector!!)
                 .setSeekBackIncrementMs(secToMs(5))
