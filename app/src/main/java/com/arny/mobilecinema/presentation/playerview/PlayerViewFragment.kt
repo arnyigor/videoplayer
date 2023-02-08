@@ -39,13 +39,13 @@ import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
+    private var position: Long = 0L
     private var qualityVisible: Boolean = false
     private var langVisible: Boolean = false
     private var mediaItemIndex: Int = 0
@@ -134,7 +134,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                     binding.tvTitle.text = movie?.title ?: getString(R.string.no_movie_title)
                     setMediaSources(
                         path = state.path,
-                        position = state.position,
+                        position = getPosition(state.position),
                         movie = movie,
                         seasonIndex = state.season,
                         episodeIndex = state.episode
@@ -143,6 +143,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             }
         }
     }
+
+    private fun getPosition(statePosition: Long) =
+        if (statePosition >= position) statePosition else position
 
     private suspend fun setMediaSources(
         path: String?,
@@ -499,6 +502,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     }
 
     private fun savePosition(position: Long) {
+        this.position = position
         viewModel.saveCurrentPosition(position, args.movie?.dbId)
     }
 }

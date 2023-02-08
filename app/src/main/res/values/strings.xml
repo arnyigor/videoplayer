@@ -61,6 +61,6 @@
     <string name="attention">Внимание!</string>
     <string name="mobile_netwotk_play">Вы не подключены к WIFI\nПродолжить?</string>
     <string name="pref_player">Плеер</string>
-    <string name="player_min_cache_time_sec">Минимальное время кеширования</string>
-    <string name="player_max_cache_time_sec">Максимальное время кеширования</string>
+    <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
+    <string name="player_max_cache_time_sec">Максимальный буфер, сек</string>
 </resources>
