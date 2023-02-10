@@ -60,4 +60,18 @@
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
     <string name="player_max_cache_time_sec">Максимальный буфер, сек</string>
     <string name="internet_connection_error">Отсутствует интернет соединение</string>
+    <string name="duration_format">Длительность: %s</string>
+    <string name="updated_format">Обновлен: %s</string>
+
+    <plurals name="sezons">
+        <item quantity="one">%d сезон</item>
+        <item quantity="few">%d сезона</item>
+        <item quantity="many">%d сезонов</item>
+    </plurals>
+
+    <plurals name="episods">
+        <item quantity="one">%d эпизод</item>
+        <item quantity="few">%d эпизода</item>
+        <item quantity="other">%d эпизодов</item>
+    </plurals>
 </resources>

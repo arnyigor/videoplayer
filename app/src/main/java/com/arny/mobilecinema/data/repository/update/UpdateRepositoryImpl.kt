@@ -94,9 +94,9 @@ class UpdateRepositoryImpl @Inject constructor(
         } else {
             val dbList = moviesDao.getUpdateMovies()
             movies.forEachIndexed { index, movie ->
-                val minimal = dbList.find { it.pageUrl == movie.pageUrl }
-                if (minimal != null) {
-                    if (minimal.updated < movie.info.updated) {
+                val dbMovie = dbList.find { it.pageUrl == movie.pageUrl }
+                if (dbMovie != null) {
+                    if (dbMovie.updated < movie.info.updated) {
                         entity = entity.setData(movie)
                         moviesDao.update(entity)
                     }

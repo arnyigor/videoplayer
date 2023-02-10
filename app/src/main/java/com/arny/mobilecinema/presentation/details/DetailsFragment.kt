@@ -22,6 +22,7 @@ import com.arny.mobilecinema.presentation.utils.*
 import com.bumptech.glide.Glide
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
+import org.joda.time.DateTime
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
@@ -189,45 +190,55 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun initUI(movie: Movie) = with(binding) {
         Glide.with(requireContext())
             .load(movie.img.getWithDomain())
+            .fitCenter()
             .into(ivBanner)
         updateTitle(movie.title)
+        tvUpdated.text = getString(
+            R.string.updated_format,
+            DateTime(movie.info.updated).printTime("dd MMM YYYY HH:mm")
+        )
+        tvDuration.isVisible = movie.type == MovieType.CINEMA
+        tvDuration.text = getString(R.string.duration_format, getDuration(movie.info.durationSec))
         tvTitle.text = movie.title
         val info = movie.info
         tvDescription.text = info.description
         tvDescription.makeTextViewResizable()
         tvRating.text = StringBuilder().apply {
             if (info.ratingImdb > 0) {
-                append("%s:%.02f".format(getString(R.string.imdb), info.ratingImdb))
-                append(",")
+                append(
+                    "%s:%.02f".format(getString(R.string.imdb), info.ratingImdb).replace(",", ".")
+                )
+                append(" ")
             }
             if (info.ratingKP > 0) {
-                append("%s:%.02f".format(getString(R.string.kp), info.ratingImdb))
+                append("%s:%.02f".format(getString(R.string.kp), info.ratingImdb).replace(",", "."))
                 append(" ")
             }
             append(String.format("%d\uD83D\uDC4D %d\uD83D\uDC4E", info.likes, info.dislikes))
         }.toString()
         val seasons = movie.seasons
-        val episodes = seasons.sumOf { it.episodes.size }
+        val episodesSize = seasons.sumOf { it.episodes.size }
         tvTypeYear.text = StringBuilder().apply {
             append(info.year)
             if (movie.type == MovieType.SERIAL) {
                 append(" ")
                 append("(")
                 append(getString(R.string.serial))
-                append("%d %s".format(seasons.size, getString(R.string.seasons_count)))
                 append(" ")
-                append("%d %s".format(episodes, getString(R.string.episodes_count)))
+                append(resources.getQuantityString(R.plurals.sezons, seasons.size, seasons.size))
+                append(" ")
+                append(resources.getQuantityString(R.plurals.episods, episodesSize, episodesSize))
                 append(")")
             } else {
                 append(" ")
                 append(getString(R.string.cinema))
             }
         }.toString()
+        tvQuality.isVisible = movie.type == MovieType.CINEMA
         tvQuality.text = getString(R.string.quality_format, info.quality)
         tvGenres.text = getString(R.string.genre_format, info.genre.joinToString())
         tvDirectors.text = getString(R.string.directors_format, info.directors.joinToString())
         tvActors.text = getString(R.string.actors_format, info.actors.joinToString())
-        binding.root.invalidate()
     }
 
     private fun initTrackAdapters() {
