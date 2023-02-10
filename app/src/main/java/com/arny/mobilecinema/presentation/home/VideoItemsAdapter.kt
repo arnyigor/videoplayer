@@ -13,9 +13,9 @@ import com.arny.mobilecinema.presentation.utils.diffItemCallback
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.bumptech.glide.Glide
 
-class HomeItemsAdapter(
+class VideoItemsAdapter(
     private val onItemClick: (item: ViewMovie) -> Unit
-) : PagingDataAdapter<ViewMovie, HomeItemsAdapter.VideosViewHolder>(
+) : PagingDataAdapter<ViewMovie, VideoItemsAdapter.VideosViewHolder>(
     diffItemCallback(
         itemsTheSame = { m1, m2 -> m1.dbId == m2.dbId },
         contentsTheSame = { m1, m2 -> m1 == m2 }

@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.api.KtorClient
 import com.arny.mobilecinema.data.db.AppDatabase
+import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.data.repository.MoviesRepositoryImpl
@@ -49,6 +50,11 @@ interface DataModule {
         @Provides
         @Singleton
         fun provideMoviesDao(db: AppDatabase): MovieDao = db.movieDao()
+
+
+        @Provides
+        @Singleton
+        fun provideHistoryDao(db: AppDatabase): HistoryDao = db.historyDao()
 
         @Provides
         @Singleton

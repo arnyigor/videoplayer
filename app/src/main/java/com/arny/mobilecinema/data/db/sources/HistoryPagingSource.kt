@@ -2,22 +2,21 @@ package com.arny.mobilecinema.data.db.sources
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import com.arny.mobilecinema.data.db.daos.MovieDao
+import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.domain.models.ViewMovie
-import kotlinx.coroutines.delay
 
-class MainPagingSource(
-    private val dao: MovieDao,
+class HistoryPagingSource(
+    private val dao: HistoryDao,
     private val search: String,
 ) : PagingSource<Int, ViewMovie>() {
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ViewMovie> {
         val page = params.key ?: 0
-
+        val historyIds = dao.getHistoryIds().map { it.movie_dbid }
         return try {
             val list = if (search.isNotBlank()) {
-                dao.getPagedList(search, params.loadSize, page * params.loadSize)
+                dao.getPagedList(historyIds, search, params.loadSize, page * params.loadSize)
             } else {
-                dao.getPagedList(params.loadSize, page * params.loadSize)
+                dao.getPagedList(historyIds, params.loadSize, page * params.loadSize)
             }
             LoadResult.Page(
                 data = list,

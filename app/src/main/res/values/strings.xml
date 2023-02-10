@@ -62,6 +62,8 @@
     <string name="internet_connection_error">Отсутствует интернет соединение</string>
     <string name="duration_format">Длительность: %s</string>
     <string name="updated_format">Обновлен: %s</string>
+    <string name="movie_cache_cleared">Фильм удален из истории</string>
+    <string name="serial_cache_cleared">Сериал удален из истории</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

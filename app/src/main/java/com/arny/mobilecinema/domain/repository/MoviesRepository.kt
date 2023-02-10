@@ -9,6 +9,8 @@ interface MoviesRepository {
     fun getMovies(search: String): Pager<Int, ViewMovie>
     fun getMovie(id: Long): Movie?
     fun getSaveData(dbId: Long?): SaveData
-    fun saveMoviePosition(dbId: Long?, position: Long)
-    fun saveSerialPosition(title: Long?, season: Int, episode: Int)
+    fun saveCinemaPosition(dbId: Long?, position: Long)
+    fun saveSerialPosition(id: Long?, season: Int, episode: Int, episodePosition: Long)
+    fun getHistoryMovies(search: String): Pager<Int, ViewMovie>
+    fun clearCache(dbId: Long?): Boolean
 }

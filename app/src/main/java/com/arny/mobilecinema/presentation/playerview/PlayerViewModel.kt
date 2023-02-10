@@ -2,9 +2,12 @@ package com.arny.mobilecinema.presentation.playerview
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
+import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -13,36 +16,52 @@ class PlayerViewModel @Inject constructor(
     private val interactor: MoviesInteractor
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlayerUiState())
-    val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
+    val uiState = _uiState.asStateFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
 
-    fun saveCurrentPosition(position: Long, dbId: Long?) {
+    fun saveCurrentCinemaPosition(position: Long, dbId: Long?) {
         viewModelScope.launch {
-            interactor.saveMoviePosition(dbId, position)
-        }
-    }
-
-    fun setPlayData(path: String?, movie: Movie?, seasonIndex: Int, episodeIndex: Int) {
-        viewModelScope.launch {
-            val data = interactor.getSaveData(movie?.dbId)
-            _uiState.update { currentState ->
-                currentState.copy(
-                    path = path,
-                    movie = movie,
-                    position = data.position,
-                    season = seasonIndex,
-                    episode = episodeIndex
-                )
+            if (_uiState.value.movie?.type == MovieType.CINEMA) {
+                savePosition(dbId, position)
             }
         }
     }
 
-    fun saveCurrentSerialPosition(season: Int, episode: Int, dbId: Long?) {
+    private suspend fun savePosition(dbId: Long?, position: Long) {
+        interactor.saveCinemaPosition(dbId, position)
+    }
+
+    fun setPlayData(path: String?, movie: Movie?, seasonIndex: Int, episodeIndex: Int) {
         viewModelScope.launch {
-            interactor.saveSerialPosition(dbId, season, episode)
+            interactor.getSaveData(movie?.dbId)
+                .catch { _error.emit(ThrowableString(it)) }
+                .collect {
+                    when (it) {
+                        is DataResult.Error -> {
+                            _error.emit(ThrowableString(it.throwable))
+                        }
+                        is DataResult.Success -> {
+                            _uiState.value = _uiState.value.copy(
+                                path = path,
+                                movie = movie,
+                                position = it.result.position,
+                                season = seasonIndex,
+                                episode = episodeIndex
+                            )
+                        }
+                    }
+                }
+        }
+    }
+
+    fun saveCurrentSerialPosition(dbId: Long?, season: Int, episode: Int, episodePosition: Long) {
+        viewModelScope.launch {
+            if (_uiState.value.movie?.type == MovieType.SERIAL) {
+                interactor.saveSerialPosition(dbId, season, episode, episodePosition)
+            }
         }
     }
 }

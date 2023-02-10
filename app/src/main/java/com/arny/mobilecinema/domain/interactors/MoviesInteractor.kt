@@ -10,7 +10,15 @@ import kotlinx.coroutines.flow.Flow
 interface MoviesInteractor {
     fun getMovies(search: String = ""): Flow<PagingData<ViewMovie>>
     fun getMovie(id: Long): Flow<DataResult<Movie>>
-    fun saveMoviePosition(dbId: Long?, position: Long)
-    fun saveSerialPosition(dbId: Long?, season: Int, episode: Int)
-    fun getSaveData(dbId: Long?): SaveData
+    suspend fun saveCinemaPosition(id: Long?, position: Long)
+    suspend fun saveSerialPosition(
+        id: Long?,
+        season: Int,
+        episode: Int,
+        episodePosition: Long
+    )
+
+    fun getSaveData(dbId: Long?): Flow<DataResult<SaveData>>
+    fun getHistoryMovies(search: String): Flow<PagingData<ViewMovie>>
+    fun clearCache(dbId: Long?): Flow<DataResult<Boolean>>
 }

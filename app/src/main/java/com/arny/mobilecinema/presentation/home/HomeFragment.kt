@@ -39,7 +39,7 @@ class HomeFragment : Fragment() {
     private val viewModel: HomeViewModel by viewModels { vmFactory }
     private lateinit var binding: FHomeBinding
     private var request: Int = -1
-    private var itemsAdapter: HomeItemsAdapter? = null
+    private var itemsAdapter: VideoItemsAdapter? = null
     private val startForResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result: ActivityResult ->
@@ -135,7 +135,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun initAdapters() {
-        itemsAdapter = HomeItemsAdapter { item ->
+        itemsAdapter = VideoItemsAdapter { item ->
             findNavController().navigate(HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId))
         }
         binding.rcVideoList.apply {
@@ -205,6 +205,7 @@ class HomeFragment : Fragment() {
                         viewModel.loadMovies(query.orEmpty())
                     },
                     onMenuCollapse = {
+                        requireActivity().hideKeyboard()
                         viewModel.loadMovies()
                     },
                     onSubmitAvailable = true,

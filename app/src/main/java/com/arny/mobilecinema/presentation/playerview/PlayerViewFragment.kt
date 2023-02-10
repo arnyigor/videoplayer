@@ -58,11 +58,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     private var mediaItemIndex: Int = 0
     private val args: PlayerViewFragmentArgs by navArgs()
 
-    private companion object {
-        const val MIN_BUFFER_SEC = 5L
-        const val MAX_BUFFER_SEC = 60L
-    }
-
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
     private val viewModel: PlayerViewModel by viewModels { vmFactory }
@@ -81,9 +76,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     private var trackSelector: DefaultTrackSelector? = null
     private var resizeIndex = 0
     private var setupPopupMenus = true
-    private var _binding: FPlayerViewBinding? = null
-    private val binding
-        get() = _binding!!
+    private lateinit var binding: FPlayerViewBinding
 
     @Inject
     lateinit var playerSource: PlayerSource
@@ -99,7 +92,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         savedInstanceState: Bundle?
     ): View {
         val view = FPlayerViewBinding.inflate(inflater, container, false)
-        _binding = view
+        binding = view
         return view.root
     }
 
@@ -116,11 +109,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 binding.playerView.hideController()
             }
         }
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
     }
 
     private fun initListener() = with(binding) {
@@ -144,16 +132,18 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
-                    val movie = state.movie
-                    val (s, e) = getSerialPosition(state.season, state.episode)
-                    setCurrentTitle(getTitle(movie?.title))
-                    setMediaSources(
-                        path = state.path,
-                        position = getPosition(state.position),
-                        movie = movie,
-                        seasonIndex = s,
-                        episodeIndex = e
-                    )
+                    if (state.path != null || state.movie != null) {
+                        val movie = state.movie
+                        val (s, e) = getSerialPosition(state.season, state.episode)
+                        setCurrentTitle(getTitle(movie?.title))
+                        setMediaSources(
+                            path = state.path,
+                            position = getPosition(state.position),
+                            movie = movie,
+                            seasonIndex = s,
+                            episodeIndex = e
+                        )
+                    }
                 }
             }
         }
@@ -189,7 +179,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         episodeIndex: Int? = 0
     ) {
         when {
-            !path.isNullOrBlank() -> {
+            movie == null && !path.isNullOrBlank() -> {
                 try {
                     val mediaSource =
                         playerSource.getSource(path, getString(R.string.no_movie_title))
@@ -238,9 +228,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             binding.playerView.setShowNextButton(size > 0)
             binding.playerView.setShowPreviousButton(size > 0)
             player?.apply {
-                if (startEpisodeIndex > 0) {
-                    player?.seekTo(startEpisodeIndex, position)
-                }
+                player?.seekTo(startEpisodeIndex, position)
                 addListener(listener)
                 prepare()
             }
@@ -301,23 +289,24 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             if (index != mediaItemIndex) {
                 mediaItemIndex = index
                 player?.let {
-                    saveEpisodePosition(it)
+                    val metadata = it.currentMediaItem?.mediaMetadata
+                    this@PlayerViewFragment.title = metadata?.title.toString()
+                    setCurrentTitle(title)
                 }
                 setupPopupMenus = true
             }
         }
     }
 
-    private fun saveEpisodePosition(exoPlayer: ExoPlayer) {
+    private fun saveSerialPosition(exoPlayer: ExoPlayer) {
+        val episodePosition = exoPlayer.currentPosition
         val metadata = exoPlayer.currentMediaItem?.mediaMetadata
-        this.title = metadata?.title.toString()
-        setCurrentTitle(title)
         val bundle = metadata?.extras
         val season = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
         val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
         this.season = season
         this.episode = episode
-        viewModel.saveCurrentSerialPosition(season, episode, args.movie?.dbId)
+        viewModel.saveCurrentSerialPosition(args.movie?.dbId, season, episode, episodePosition)
     }
 
     private suspend fun setCinemaUrls(
@@ -368,7 +357,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         }
         player?.let { exoPlayer ->
             savePosition(exoPlayer.currentPosition)
-            saveEpisodePosition(exoPlayer)
+            saveSerialPosition(exoPlayer)
         }
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
             releasePlayer()
@@ -562,6 +551,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     private fun savePosition(position: Long) {
         this.position = position
-        viewModel.saveCurrentPosition(position, args.movie?.dbId)
+        viewModel.saveCurrentCinemaPosition(position, args.movie?.dbId)
     }
 }

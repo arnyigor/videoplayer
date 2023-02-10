@@ -35,6 +35,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private var currentMovie: Movie? = null
     private var currentSeasonPosition: Int = 0
     private var currentEpisodePosition: Int = 0
+    private var hasSavedData: Boolean = false
     private val args: DetailsFragmentArgs by navArgs()
 
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
@@ -93,6 +94,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun initMenu() {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onPrepareMenu(menu: Menu) {
+                menu.findItem(R.id.menu_action_clear_cache).isVisible = hasSavedData
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -113,7 +115,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                             getString(android.R.string.ok),
                             getString(android.R.string.cancel),
                             onConfirm = {
-//                                viewModel.clearCache(currentMovie)
+                                viewModel.clearCache()
                             }
                         )
                         true
@@ -158,12 +160,24 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun observeData() {
         launchWhenCreated {
             viewModel.movie.collectLatest { movie ->
-                onMovieLoaded(movie)
+                if (movie != null) {
+                    onMovieLoaded(movie)
+                }
             }
         }
         launchWhenCreated {
             viewModel.saveData.collectLatest { saveData ->
                 onSaveDataLoaded(saveData)
+            }
+        }
+        launchWhenCreated {
+            viewModel.toast.collectLatest { text ->
+                toast(text.toString(requireContext()))
+            }
+        }
+        launchWhenCreated {
+            viewModel.error.collectLatest { text ->
+                toast(text.toString(requireContext()))
             }
         }
         launchWhenCreated {
@@ -175,15 +189,24 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun onMovieLoaded(movie: Movie) {
         currentMovie = movie
+        viewModel.loadSaveData(movie.dbId)
         updateSpinData(movie)
         initUI(movie)
     }
 
     private fun onSaveDataLoaded(saveData: SaveData) {
-        if (saveData.dbId == currentMovie?.dbId) {
-            currentSeasonPosition = saveData.season
-            currentEpisodePosition = saveData.episode
-            fillSpinners(currentMovie)
+        when {
+            saveData.dbId == currentMovie?.dbId && currentMovie?.type == MovieType.SERIAL -> {
+                currentSeasonPosition = saveData.season
+                currentEpisodePosition = saveData.episode
+                fillSpinners(currentMovie)
+                hasSavedData = true
+                requireActivity().invalidateOptionsMenu()
+            }
+            saveData.dbId == currentMovie?.dbId && currentMovie?.type == MovieType.CINEMA -> {
+                hasSavedData = true
+                requireActivity().invalidateOptionsMenu()
+            }
         }
     }
 
@@ -261,7 +284,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun updateSpinData(movie: Movie) = with(binding) {
         if (movie.type == MovieType.SERIAL) {
-            viewModel.loadSaveData(movie.dbId)
             fillSpinners(movie)
             spinEpisodes.isVisible = true
             spinSeasons.isVisible = true

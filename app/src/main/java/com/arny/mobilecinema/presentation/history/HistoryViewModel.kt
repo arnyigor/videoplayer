@@ -1,27 +1,34 @@
 package com.arny.mobilecinema.presentation.history
 
 import androidx.lifecycle.ViewModel
-import com.arny.mobilecinema.data.models.DataResult
+import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
-import com.arny.mobilecinema.domain.models.Movie
-import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
+import com.arny.mobilecinema.domain.models.ViewMovie
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class,FlowPreview::class)
 class HistoryViewModel @Inject constructor(
     private val interactor: MoviesInteractor
 ) : ViewModel() {
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
-    private val _mainContent = MutableSharedFlow<DataResult<List<Movie>>>()
-    val mainContent = _mainContent.asSharedFlow()
-    private val _toast = MutableSharedFlow<IWrappedString>()
-    val toast = _toast.asSharedFlow()
+    private val actionStateFlow = MutableSharedFlow<String>()
+    var historyDataFlow: Flow<PagingData<ViewMovie>> = actionStateFlow
+        .onStart { emit("") }
+        .flatMapLatest { interactor.getHistoryMovies(search = it) }
+        .distinctUntilChanged()
+        .cachedIn(viewModelScope)
 
-    private suspend fun setError(throwable: Throwable) {
-        _mainContent.emit(DataResult.Error(throwable))
+    fun loadHistory(search: String = "") {
+        viewModelScope.launch {
+            actionStateFlow.emit(search)
+        }
     }
 }
