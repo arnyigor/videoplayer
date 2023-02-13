@@ -2,43 +2,43 @@ package com.arny.mobilecinema.presentation.utils
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Context
-import android.content.DialogInterface
 import android.graphics.drawable.Drawable
-import android.text.Html.fromHtml
 import android.text.InputType
-import android.view.LayoutInflater
 import android.view.View
 import androidx.annotation.LayoutRes
 import androidx.fragment.app.Fragment
 import com.afollestad.materialdialogs.MaterialDialog
+import com.afollestad.materialdialogs.customview.customView
+import com.afollestad.materialdialogs.customview.getCustomView
 import com.afollestad.materialdialogs.input.input
 import com.afollestad.materialdialogs.list.listItems
 import com.afollestad.materialdialogs.list.listItemsSingleChoice
 
 fun Fragment.createCustomLayoutDialog(
-    title: String? = null,
+    title: String,
     @LayoutRes layout: Int,
     cancelable: Boolean = true,
-    positivePair: Pair<Int, ((DialogInterface) -> Unit)?>? = null,
-    negativePair: Pair<Int, ((DialogInterface) -> Unit)?>? = null,
+    btnOkText: String? = null,
+    btnCancelText: String? = null,
+    onConfirm: () -> Unit = {},
+    onCancel: () -> Unit = {},
     initView: View.() -> Unit,
-): AlertDialog? {
-    val builder = AlertDialog.Builder(requireContext())
-    builder.setView(
-        LayoutInflater.from(requireContext()).inflate(layout, null, false).apply(initView)
+): MaterialDialog {
+    val dialog = materialDialog(
+        context = requireContext(),
+        title = title,
+        cancelable = cancelable,
+        btnOkText = btnOkText,
+        autoDismiss = true,
+        onConfirm = onConfirm,
+        btnCancelText = btnCancelText,
+        onCancel = onCancel,
+        content = null,
+        drawable = null
     )
-    title?.let { builder.setTitle(title) }
-    builder.setCancelable(cancelable)
-    positivePair?.let {
-        builder.setPositiveButton(getString(it.first)) { di, _ -> it.second?.invoke(di) }
-    }
-    negativePair?.let {
-        builder.setNegativeButton(getString(it.first)) { di, _ -> it.second?.invoke(di) }
-    }
-    val dialog = builder.create()
-    dialog.show()
+    dialog.show { customView(layout, scrollable = true) }
+    initView(dialog.getCustomView())
     return dialog
 }
 

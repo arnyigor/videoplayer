@@ -4,20 +4,24 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.domain.models.ViewMovie
-import kotlinx.coroutines.delay
+import timber.log.Timber
 
 class MainPagingSource(
     private val dao: MovieDao,
     private val search: String,
+    private val order: String,
 ) : PagingSource<Int, ViewMovie>() {
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ViewMovie> {
         val page = params.key ?: 0
-
         return try {
             val list = if (search.isNotBlank()) {
-                dao.getPagedList(search, params.loadSize, page * params.loadSize)
+                dao.getPagedListBySearch(search, params.loadSize, page * params.loadSize)
             } else {
-                dao.getPagedList(params.loadSize, page * params.loadSize)
+                if (order.isNotBlank()) {
+                    dao.getPagedListOrdered(order, params.loadSize, page * params.loadSize)
+                } else {
+                    dao.getPagedList(params.loadSize, page * params.loadSize)
+                }
             }
             LoadResult.Page(
                 data = list,

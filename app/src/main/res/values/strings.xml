@@ -65,6 +65,16 @@
     <string name="updated_format">Обновлен: %s</string>
     <string name="movie_cache_cleared">Фильм удален из истории</string>
     <string name="serial_cache_cleared">Сериал удален из истории</string>
+    <string name="search_order_settings">Настройки поиска и сортировки</string>
+    <string name="sort_none">Без сортировки</string>
+    <string name="sort_year_desc">По году ↓</string>
+    <string name="sort_year_asc">По году ↑</string>
+    <string name="sort_imdb_desc">По рейтингу IMDB ↓</string>
+    <string name="sort_imdb_asc">По рейтингу IMDB ↑</string>
+    <string name="sort_KP_desc">По рейтингу KP ↓</string>
+    <string name="sort_KP_asc">По рейтингу KP ↑</string>
+    <string name="sort_updated_desc">По дате обновления ↓</string>
+    <string name="sort_updated_asc">По дате обновления ↑</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

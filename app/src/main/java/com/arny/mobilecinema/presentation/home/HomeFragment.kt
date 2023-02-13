@@ -20,6 +20,7 @@ import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.FilePathUtils
+import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.*
@@ -230,18 +231,54 @@ class HomeFragment : Fragment(), OnSearchListener {
                 when (menuItem.itemId) {
                     R.id.action_search -> false
                     R.id.action_search_settings -> {
-                        // TODO: Add search settings
+                        showCustomOrderDialog()
                         false
                     }
-
                     R.id.menu_action_from_path -> {
                         openPath()
                         false
                     }
-
                     else -> true
                 }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+
+    private fun showCustomOrderDialog() {
+        val order = StringBuilder()
+        createCustomLayoutDialog(
+            title = getString(R.string.search_order_settings),
+            layout = R.layout.d_custom_order,
+            cancelable = true,
+            btnOkText = getString(android.R.string.ok),
+            btnCancelText = getString(android.R.string.cancel),
+            onConfirm = {
+                viewModel.setOrder(order.toString())
+            },
+            onCancel = {
+            },
+            initView = {
+                with(DCustomOrderBinding.bind(this)) {
+                    listOf(
+                        rbNone to "",
+                        rbUpdatedDesc to AppConstants.Order.UPDATED_DESC,
+                        rbUpdatedAsc to AppConstants.Order.UPDATED_ASC,
+                        rbYearDesc to AppConstants.Order.YEAR_DESC,
+                        rbYearAsc to AppConstants.Order.YEAR_ASC,
+                        rbImdbDesc to AppConstants.Order.IMDB_DESC,
+                        rbImdbAsc to AppConstants.Order.IMDB_ASC,
+                        rbKpDesc to AppConstants.Order.KP_DESC,
+                        rbKpAsc to AppConstants.Order.KP_ASC
+                    ).forEach { (rb, orderString) ->
+                        rb.setOnCheckedChangeListener { _, isChecked ->
+                            if (isChecked) {
+                                order.clear()
+                                order.append(orderString)
+                            }
+                        }
+                    }
+                }
+            }
+        )
     }
 
     private fun openPath() {

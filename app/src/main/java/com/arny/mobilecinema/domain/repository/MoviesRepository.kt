@@ -6,7 +6,7 @@ import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
 
 interface MoviesRepository {
-    fun getMovies(search: String): Pager<Int, ViewMovie>
+    fun getMovies(search: String, order: String): Pager<Int, ViewMovie>
     fun getMovie(id: Long): Movie?
     fun getSaveData(dbId: Long?): SaveData
     fun saveCinemaPosition(dbId: Long?, position: Long)

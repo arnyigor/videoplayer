@@ -4,6 +4,17 @@ object AppConstants {
     const val UPDATE_FILE = "update.txt"
     const val ACTION_UPDATE_COMPLETE = "ACTION_UPDATE_COMPLETE"
 
+    object Order {
+        const val UPDATED_DESC = "updatedD"
+        const val UPDATED_ASC = "updatedA"
+        const val YEAR_DESC = "yearD"
+        const val YEAR_ASC = "yearA"
+        const val IMDB_DESC = "ratingImdbD"
+        const val IMDB_ASC = "ratingImdbA"
+        const val KP_DESC = "ratingKpD"
+        const val KP_ASC = "ratingKpA"
+    }
+
     object Player {
         const val SEASON = "SEASON"
         const val EPISODE = "EPISODE"

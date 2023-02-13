@@ -19,14 +19,14 @@ class MoviesRepositoryImpl @Inject constructor(
     private val movieDao: MovieDao,
     private val historyDao: HistoryDao,
 ) : MoviesRepository {
-    override fun getMovies(search: String): Pager<Int, ViewMovie> {
+    override fun getMovies(search: String, order: String): Pager<Int, ViewMovie> {
         return Pager(
             PagingConfig(
                 pageSize = 20,
                 enablePlaceholders = false,
                 initialLoadSize = 20
             ),
-        ) { MainPagingSource(movieDao, search.trim()) }
+        ) { MainPagingSource(movieDao, search.trim(), order) }
     }
 
     override suspend fun isHistoryEmpty(): Boolean = historyDao.getHistoryIds().isEmpty()

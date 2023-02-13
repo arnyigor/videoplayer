@@ -32,13 +32,18 @@ class HomeViewModel @Inject constructor(
     val alert = _alert.asSharedFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
-    private val actionStateFlow = MutableSharedFlow<String>()
+    private val actionStateFlow = MutableSharedFlow<UiAction>()
     var moviesDataFlow: Flow<PagingData<ViewMovie>> = actionStateFlow
-        .distinctUntilChanged()
+        .filterIsInstance<UiAction.Search>()
+        .distinctUntilChanged ()
         .debounce(500)
-        .onStart { emit("") }
-        .flatMapLatest { moviesInteractor.getMovies(search = it) }
+        .onStart { emit(UiAction.Search(query = "")) }
+        .flatMapLatest { moviesInteractor.getMovies(search = it.query, it.order) }
         .cachedIn(viewModelScope)
+
+    sealed class UiAction {
+        data class Search(val query: String, val order: String = "") : UiAction()
+    }
 
     fun downloadData() {
         viewModelScope.launch {
@@ -75,7 +80,7 @@ class HomeViewModel @Inject constructor(
 
     fun loadMovies(search: String = "") {
         viewModelScope.launch {
-            actionStateFlow.emit(search)
+            actionStateFlow.emit(UiAction.Search(search))
         }
     }
 
@@ -95,6 +100,12 @@ class HomeViewModel @Inject constructor(
             when (type) {
                 AlertType.Update -> {}
             }
+        }
+    }
+
+    fun setOrder(order: String) {
+        viewModelScope.launch {
+            actionStateFlow.emit(UiAction.Search("", order))
         }
     }
 }
