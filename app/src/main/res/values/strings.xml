@@ -22,7 +22,7 @@
     <string name="menu_clear_file_cache">Очистить кеш</string>
     <string name="movie_cleared">Видео удалено из кеша</string>
     <string name="question_remove">Удалить?</string>
-    <string name="question_remove_cache_title">Хотите очистить кеш "%s" ?</string>
+    <string name="question_remove_from_history_title">Хотите удалить \"%s\" из истории просмотра?</string>
     <string name="title_home">Главная</string>
     <string name="press_back_again_to_exit">Нажмите назад еще раз чтобы выйти</string>
     <string name="pref_main_header">Основные</string>
@@ -44,6 +44,7 @@
     <string name="movie_not_found">Фильм или сериал не найден</string>
     <string name="watch_trailer">Смотреть трейлер</string>
     <string name="watch">Смотреть</string>
+    <string name="watch_hd">Смотреть HD</string>
     <string name="seasons">Сезоны</string>
     <string name="spinner_season">сезон</string>
     <string name="spinner_episode">серия</string>

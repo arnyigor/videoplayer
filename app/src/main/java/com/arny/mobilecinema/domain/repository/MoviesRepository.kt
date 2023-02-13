@@ -13,4 +13,5 @@ interface MoviesRepository {
     fun saveSerialPosition(id: Long?, season: Int, episode: Int, episodePosition: Long)
     fun getHistoryMovies(search: String): Pager<Int, ViewMovie>
     fun clearCache(dbId: Long?): Boolean
+    suspend fun isHistoryEmpty(): Boolean
 }

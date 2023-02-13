@@ -69,9 +69,13 @@ class HistoryFragment : Fragment() {
             }
         }
         launchWhenCreated {
+            viewModel.empty.collectLatest { empty ->
+                binding.tvEmptyView.isVisible =empty
+            }
+        }
+        launchWhenCreated {
             viewModel.historyDataFlow.collectLatest { movies ->
                 itemsAdapter?.submitData(movies)
-                binding.tvEmptyView.isVisible = itemsAdapter?.itemCount == 0
             }
         }
     }

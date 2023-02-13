@@ -23,6 +23,7 @@ import com.bumptech.glide.Glide
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
 import org.joda.time.DateTime
+import timber.log.Timber
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
@@ -111,7 +112,10 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     R.id.menu_action_clear_cache -> {
                         alertDialog(
                             getString(R.string.question_remove),
-                            getString(R.string.question_remove_cache_title, currentMovie?.title),
+                            getString(
+                                R.string.question_remove_from_history_title,
+                                currentMovie?.title
+                            ),
                             getString(android.R.string.ok),
                             getString(android.R.string.cancel),
                             onConfirm = {
@@ -125,8 +129,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
 
-    private fun initListeners() {
-        binding.btnPlay.setOnClickListener {
+    private fun initListeners() = with(binding) {
+        btnPlay.setOnClickListener {
             currentMovie?.let { movie ->
                 when (getConnectionType(requireContext())) {
                     is ConnectionType.MOBILE -> {
@@ -192,7 +196,26 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         viewModel.loadSaveData(movie.dbId)
         updateSpinData(movie)
         initUI(movie)
+        initBtns(movie)
     }
+
+    private fun initBtns(movie: Movie) = with(binding) {
+        if (movie.type == MovieType.CINEMA) {
+            btnPlay.isVisible = getOrdered(movie.cinemaUrlData?.cinemaUrl?.urls).isNotEmpty()
+        } else {
+            btnPlay.isVisible = true
+        }
+    }
+
+    private fun getOrdered(urls: List<String>?) =
+        urls?.filterNot { it.isBlank() }.orEmpty().sortedBy {
+            when {
+                it.endsWith(".mpd") -> 1
+                it.endsWith(".m3u8") -> 2
+                it.endsWith(".mp4") -> 3
+                else -> 0
+            }
+        }
 
     private fun onSaveDataLoaded(saveData: SaveData) {
         when {

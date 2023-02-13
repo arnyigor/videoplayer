@@ -197,7 +197,6 @@ class HomeFragment : Fragment() {
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
-                menu.clear()
                 menuInflater.inflate(R.menu.home_menu, menu)
                 setupSearchView(
                     menuItem = menu.findItem(R.id.action_search),

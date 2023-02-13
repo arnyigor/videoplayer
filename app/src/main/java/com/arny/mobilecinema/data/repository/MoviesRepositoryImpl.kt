@@ -29,6 +29,8 @@ class MoviesRepositoryImpl @Inject constructor(
         ) { MainPagingSource(movieDao, search.trim()) }
     }
 
+    override suspend fun isHistoryEmpty(): Boolean = historyDao.getHistoryIds().isEmpty()
+
     override fun getHistoryMovies(search: String): Pager<Int, ViewMovie> =
         Pager(
             PagingConfig(

@@ -20,5 +20,6 @@ interface MoviesInteractor {
 
     fun getSaveData(dbId: Long?): Flow<DataResult<SaveData>>
     fun getHistoryMovies(search: String): Flow<PagingData<ViewMovie>>
+    fun isHistoryEmpty(): Flow<DataResult<Boolean>>
     fun clearCache(dbId: Long?): Flow<DataResult<Boolean>>
 }

@@ -23,6 +23,10 @@ class MoviesInteractorImpl @Inject constructor(
     override fun getHistoryMovies(search: String): Flow<PagingData<ViewMovie>> =
         repository.getHistoryMovies(search).flow
 
+    override fun isHistoryEmpty(): Flow<DataResult<Boolean>> = doAsync {
+        repository.isHistoryEmpty()
+    }
+
     override fun getMovie(id: Long): Flow<DataResult<Movie>> = doAsync {
         repository.getMovie(id) ?: throw DataThrowable(R.string.movie_not_found)
     }

@@ -46,6 +46,7 @@ import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
@@ -313,11 +314,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         movie: Movie,
         position: Long
     ) {
-        val hdUrl = movie.cinemaUrlData?.hdUrl?.urls?.firstOrNull()
-        val cinemaUrl = movie.cinemaUrlData?.cinemaUrl?.urls?.firstOrNull()
+        val hdUrl = movie.cinemaUrlData?.hdUrl?.urls?.firstOrNull().orEmpty()
+        val cinemaUrl = movie.cinemaUrlData?.cinemaUrl?.urls?.firstOrNull().orEmpty()
         val url = when {
-            !hdUrl.isNullOrBlank() -> hdUrl
-            !cinemaUrl.isNullOrBlank() -> cinemaUrl
+            hdUrl.isNotBlank() -> hdUrl
+            cinemaUrl.isNotBlank() -> cinemaUrl
             else -> ""
         }
         url.takeIf { it.isNotBlank() }?.let {
