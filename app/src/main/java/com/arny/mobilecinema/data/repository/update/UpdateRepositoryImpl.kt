@@ -23,6 +23,7 @@ class UpdateRepositoryImpl @Inject constructor(
     private val context: Context,
     private val moviesDao: MovieDao
 ) : UpdateRepository {
+    override var checkUpdate: Boolean = false
     override var newUpdate: String = ""
     override var updateDownloadId: Long = -1L
     override var lastUpdate: String

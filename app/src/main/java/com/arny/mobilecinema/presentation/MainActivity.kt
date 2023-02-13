@@ -3,14 +3,13 @@ package com.arny.mobilecinema.presentation
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.isVisible
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import androidx.navigation.ui.setupWithNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.AMainBinding
-import com.arny.mobilecinema.presentation.utils.getImg
+import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.showSnackBar
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.android.AndroidInjection
@@ -62,6 +61,21 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val isLastFragment = navController.currentDestination?.id == R.id.nav_home
+                val currentFragment = getCurrentFragment()
+                when {
+                    currentFragment is OnSearchListener && currentFragment.isSearchComplete() -> {
+                        onBack(isLastFragment)
+                    }
+                    currentFragment is OnSearchListener && !currentFragment.isSearchComplete() -> {
+                        currentFragment.collapseSearch()
+                    }
+                    else -> {
+                        onBack(isLastFragment)
+                    }
+                }
+            }
+
+            private fun onBack(isLastFragment: Boolean) {
                 if (isLastFragment) {
                     if (backPressedTime + TIME_DELAY > System.currentTimeMillis()) {
                         finishAffinity()
@@ -73,6 +87,11 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
                     navController.navigateUp()
                 }
             }
+
+            private fun getCurrentFragment() =
+                supportFragmentManager.primaryNavigationFragment?.childFragmentManager?.fragments?.getOrNull(
+                    0
+                )
         })
     }
 

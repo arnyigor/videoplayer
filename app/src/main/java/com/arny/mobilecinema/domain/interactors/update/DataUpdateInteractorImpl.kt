@@ -61,7 +61,8 @@ class DataUpdateInteractorImpl @Inject constructor(
 
     override suspend fun getUpdateDate(): Flow<DataResult<String>> = doAsync {
         var newUpdate = ""
-        if (repository.newUpdate.isBlank()) {
+        if (!repository.checkUpdate && repository.newUpdate.isBlank()) {
+            repository.checkUpdate = true
             val updateFile = withContext(Dispatchers.IO) { repository.downloadUpdate() }
             newUpdate = updateFile.readText()
             updateFile.delete()

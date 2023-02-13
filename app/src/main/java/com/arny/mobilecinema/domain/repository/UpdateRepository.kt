@@ -4,6 +4,7 @@ import com.arny.mobilecinema.domain.models.Movie
 import java.io.File
 
 interface UpdateRepository {
+    var checkUpdate: Boolean
     var newUpdate: String
     var updateDownloadId: Long
     var lastUpdate: String

@@ -21,13 +21,14 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.databinding.FHomeBinding
+import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.*
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
-class HomeFragment : Fragment() {
+class HomeFragment : Fragment(), OnSearchListener {
     private companion object {
         const val REQUEST_LOAD: Int = 99
         const val REQUEST_OPEN_FILE: Int = 100
@@ -39,6 +40,7 @@ class HomeFragment : Fragment() {
     private val viewModel: HomeViewModel by viewModels { vmFactory }
     private lateinit var binding: FHomeBinding
     private var request: Int = -1
+    private var emptySearch = true
     private var itemsAdapter: VideoItemsAdapter? = null
     private val startForResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -191,6 +193,13 @@ class HomeFragment : Fragment() {
         }
     }
 
+    override fun isSearchComplete(): Boolean = emptySearch
+
+    override fun collapseSearch() {
+        viewModel.loadMovies()
+        emptySearch = true
+    }
+
     private fun initMenu() {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onPrepareMenu(menu: Menu) {
@@ -201,14 +210,17 @@ class HomeFragment : Fragment() {
                 setupSearchView(
                     menuItem = menu.findItem(R.id.action_search),
                     onQueryChange = { query ->
+                        emptySearch = query?.isBlank() == true
                         viewModel.loadMovies(query.orEmpty())
                     },
                     onMenuCollapse = {
                         requireActivity().hideKeyboard()
                         viewModel.loadMovies()
+                        emptySearch = true
                     },
                     onSubmitAvailable = true,
                     onQuerySubmit = { query ->
+                        emptySearch = query?.isBlank() == true
                         viewModel.loadMovies(query.orEmpty())
                     }
                 )
