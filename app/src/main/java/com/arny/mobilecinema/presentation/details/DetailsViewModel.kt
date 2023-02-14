@@ -65,10 +65,10 @@ class DetailsViewModel @Inject constructor(
         }
     }
 
-    fun clearCache() {
+    fun clearViewHistory() {
         viewModelScope.launch {
             val mMovie = _movie.value
-            interactor.clearCache(mMovie?.dbId)
+            interactor.clearViewHistory(mMovie?.dbId)
                 .catch { _error.emit(ThrowableString(it)) }
                 .collectLatest {
                     when (it) {

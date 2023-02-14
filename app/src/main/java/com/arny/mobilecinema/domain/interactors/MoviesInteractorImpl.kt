@@ -52,7 +52,21 @@ class MoviesInteractorImpl @Inject constructor(
         }
     }
 
-    override fun clearCache(dbId: Long?): Flow<DataResult<Boolean>> = doAsync {
-        repository.clearCache(dbId)
+    override fun clearViewHistory(dbId: Long?): Flow<DataResult<Boolean>> = doAsync {
+        repository.clearViewHistory(dbId)
+    }
+
+    override fun clearAllViewHistory(): Flow<DataResult<Boolean>> = doAsync {
+        repository.clearAllViewHistory()
+    }
+
+    override suspend fun saveOrder(order: String) {
+        withContext(Dispatchers.IO) {
+            repository.saveOrder(order)
+        }
+    }
+
+    override suspend fun getOrder(): String = withContext(Dispatchers.IO) {
+            repository.order
     }
 }

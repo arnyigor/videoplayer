@@ -45,10 +45,23 @@ class HistoryViewModel @Inject constructor(
         viewModelScope.launch {
             interactor.isHistoryEmpty()
                 .collectLatest { data ->
-                    println("checkEmpty:$data")
                     when (data) {
                         is DataResult.Error -> {}
                         is DataResult.Success -> _empty.value = data.result
+                    }
+                }
+        }
+    }
+
+    fun clearAllViewHistory() {
+        viewModelScope.launch {
+            interactor.clearAllViewHistory()
+                .collectLatest { data ->
+                    when (data) {
+                        is DataResult.Error -> {}
+                        is DataResult.Success -> {
+                            loadHistory()
+                        }
                     }
                 }
         }

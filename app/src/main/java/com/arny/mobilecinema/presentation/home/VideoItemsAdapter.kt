@@ -44,7 +44,8 @@ class VideoItemsAdapter(
                     .load(item.img.getWithDomain())
                     .into(ivVideoIcon)
                 val type = getType(item, context)
-                tvTypeYear.text = String.format("%d %s", item.year, type)
+                val year = if (item.year > 0) "${item.year} " else ""
+                tvTypeYear.text = String.format("%s%s", year, type)
                 tvInfo.text =
                     String.format("%d\uD83D\uDC4D %d\uD83D\uDC4E", item.likes, item.dislikes)
             }

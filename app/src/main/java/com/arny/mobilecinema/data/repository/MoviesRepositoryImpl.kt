@@ -8,6 +8,8 @@ import com.arny.mobilecinema.data.db.models.HistoryEntity
 import com.arny.mobilecinema.data.db.sources.HistoryPagingSource
 import com.arny.mobilecinema.data.db.sources.MainPagingSource
 import com.arny.mobilecinema.data.models.MovieMapper
+import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -18,7 +20,14 @@ class MoviesRepositoryImpl @Inject constructor(
     private val movieMapper: MovieMapper,
     private val movieDao: MovieDao,
     private val historyDao: HistoryDao,
+    private val prefs: Prefs
 ) : MoviesRepository {
+    override var order: String
+        get() = prefs.get<String>(PrefsConstants.ORDER).orEmpty()
+        set(value) {
+            prefs.put(PrefsConstants.ORDER, value)
+        }
+
     override fun getMovies(search: String, order: String): Pager<Int, ViewMovie> {
         return Pager(
             PagingConfig(
@@ -99,7 +108,11 @@ class MoviesRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun clearCache(dbId: Long?): Boolean {
-        return historyDao.deleteHistory(dbId) > 0
+    override fun clearViewHistory(dbId: Long?): Boolean = historyDao.deleteHistory(dbId) > 0
+
+    override fun clearAllViewHistory(): Boolean = historyDao.deleteAllHistory() > 0
+
+    override fun saveOrder(order: String) {
+        this.order = order
     }
 }

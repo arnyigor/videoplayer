@@ -8,7 +8,7 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 
 @Dao
 interface HistoryDao : BaseDao<HistoryEntity> {
-    @Query("SELECT movie_dbid FROM history")
+    @Query("SELECT movie_dbid FROM history ORDER BY dbId DESC")
     suspend fun getHistoryIds(): List<HistoryItem>
 
     @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE dbId IN(:ids) ORDER BY updated DESC LIMIT :limit OFFSET :offset")
@@ -30,4 +30,7 @@ interface HistoryDao : BaseDao<HistoryEntity> {
 
     @Query("DELETE FROM history WHERE movie_dbid =:movieDbId")
     fun deleteHistory(movieDbId: Long?): Int
+
+    @Query("DELETE FROM history")
+    fun deleteAllHistory(): Int
 }

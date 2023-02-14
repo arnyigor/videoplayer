@@ -23,7 +23,6 @@ import com.bumptech.glide.Glide
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
 import org.joda.time.DateTime
-import timber.log.Timber
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
@@ -119,7 +118,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                             getString(android.R.string.ok),
                             getString(android.R.string.cancel),
                             onConfirm = {
-                                viewModel.clearCache()
+                                viewModel.clearViewHistory()
                             }
                         )
                         true
@@ -201,7 +200,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun initBtns(movie: Movie) = with(binding) {
         if (movie.type == MovieType.CINEMA) {
-            btnPlay.isVisible = getOrdered(movie.cinemaUrlData?.cinemaUrl?.urls).isNotEmpty()
+            val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
+            val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
+            btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
         } else {
             btnPlay.isVisible = true
         }
@@ -265,9 +266,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         val seasons = movie.seasons
         val episodesSize = seasons.sumOf { it.episodes.size }
         tvTypeYear.text = StringBuilder().apply {
-            append(info.year)
-            if (movie.type == MovieType.SERIAL) {
+            if (info.year > 0) {
+                append(info.year)
                 append(" ")
+            }
+            if (movie.type == MovieType.SERIAL) {
                 append("(")
                 append(getString(R.string.serial))
                 append(" ")
@@ -276,7 +279,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 append(resources.getQuantityString(R.plurals.episods, episodesSize, episodesSize))
                 append(")")
             } else {
-                append(" ")
                 append(getString(R.string.cinema))
             }
         }.toString()

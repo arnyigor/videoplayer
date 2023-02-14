@@ -41,6 +41,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private val viewModel: HomeViewModel by viewModels { vmFactory }
     private lateinit var binding: FHomeBinding
     private var request: Int = -1
+    private var currentOrder: String = ""
     private var emptySearch = true
     private var itemsAdapter: VideoItemsAdapter? = null
     private val startForResult = registerForActivityResult(
@@ -175,6 +176,11 @@ class HomeFragment : Fragment(), OnSearchListener {
             }
         }
         launchWhenCreated {
+            viewModel.order.collectLatest { order ->
+                currentOrder = order
+            }
+        }
+        launchWhenCreated {
             viewModel.alert.collectLatest { alert ->
                 alertDialog(
                     title = alert.title.toString(requireContext()).orEmpty(),
@@ -252,13 +258,12 @@ class HomeFragment : Fragment(), OnSearchListener {
             btnOkText = getString(android.R.string.ok),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                viewModel.setOrder(order.toString())
-            },
-            onCancel = {
+                currentOrder = order.toString()
+                viewModel.setOrder(currentOrder)
             },
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
-                    listOf(
+                    val radioBtn = listOf(
                         rbNone to "",
                         rbUpdatedDesc to AppConstants.Order.UPDATED_DESC,
                         rbUpdatedAsc to AppConstants.Order.UPDATED_ASC,
@@ -268,7 +273,23 @@ class HomeFragment : Fragment(), OnSearchListener {
                         rbImdbAsc to AppConstants.Order.IMDB_ASC,
                         rbKpDesc to AppConstants.Order.KP_DESC,
                         rbKpAsc to AppConstants.Order.KP_ASC
-                    ).forEach { (rb, orderString) ->
+                    )
+                    currentOrder.takeIf { it.isNotBlank() }?.let {
+                        when (it) {
+                            AppConstants.Order.UPDATED_DESC -> rbUpdatedDesc.isChecked = true
+                            AppConstants.Order.UPDATED_ASC -> rbUpdatedAsc.isChecked = true
+                            AppConstants.Order.YEAR_DESC -> rbYearDesc.isChecked = true
+                            AppConstants.Order.YEAR_ASC -> rbYearAsc.isChecked = true
+                            AppConstants.Order.IMDB_DESC -> rbImdbDesc.isChecked = true
+                            AppConstants.Order.IMDB_ASC -> rbImdbAsc.isChecked = true
+                            AppConstants.Order.KP_DESC -> rbKpDesc.isChecked = true
+                            AppConstants.Order.KP_ASC -> rbKpAsc.isChecked = true
+                            else -> rbNone.isChecked = true
+                        }
+                    }?: kotlin.run {
+                        rbNone.isChecked = true
+                    }
+                    radioBtn.forEach { (rb, orderString) ->
                         rb.setOnCheckedChangeListener { _, isChecked ->
                             if (isChecked) {
                                 order.clear()

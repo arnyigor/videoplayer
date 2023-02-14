@@ -19,7 +19,7 @@
     <string name="directors_format">Режисеры:%s</string>
     <string name="video_quality">Качество</string>
     <string name="f_history_title">История просмотров</string>
-    <string name="menu_clear_file_cache">Очистить кеш</string>
+    <string name="menu_clear_file_view_history">Очистить историю просмотра</string>
     <string name="movie_cleared">Видео удалено из кеша</string>
     <string name="question_remove">Удалить?</string>
     <string name="question_remove_from_history_title">Хотите удалить \"%s\" из истории просмотра?</string>
@@ -34,7 +34,7 @@
     <string name="downloading_update">Загружаем обновление фильмов</string>
     <string name="wating">Подождите…</string>
     <string name="update_started">Обновление началось</string>
-    <string name="search_prefs">Настройки поиска</string>
+    <string name="search_prefs">Настройки сортировки</string>
     <string name="cinema">Фильм</string>
     <string name="serial">Сериал</string>
     <string name="imdb">IMDB</string>
@@ -65,7 +65,7 @@
     <string name="updated_format">Обновлен: %s</string>
     <string name="movie_cache_cleared">Фильм удален из истории</string>
     <string name="serial_cache_cleared">Сериал удален из истории</string>
-    <string name="search_order_settings">Настройки поиска и сортировки</string>
+    <string name="search_order_settings">Настройки сортировки</string>
     <string name="sort_none">Без сортировки</string>
     <string name="sort_year_desc">По году ↓</string>
     <string name="sort_year_asc">По году ↑</string>
@@ -75,6 +75,7 @@
     <string name="sort_KP_asc">По рейтингу KP ↑</string>
     <string name="sort_updated_desc">По дате обновления ↓</string>
     <string name="sort_updated_asc">По дате обновления ↑</string>
+    <string name="question_remove_all_history">Удалить всю историю просмотра?</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>
