@@ -30,6 +30,7 @@ import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.util.Util
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.lang.Exception
 import java.util.concurrent.Executors
 import javax.inject.Inject
 
@@ -93,6 +94,16 @@ class PlayerSource @Inject constructor(
         ensureDownloadManagerInitialized(context)
         val builder = DownloadRequest.Builder(videoUrl, Uri.parse(videoUrl)).build()
         downloadManager?.addDownload(builder)
+        downloadManager?.addListener(object : DownloadManager.Listener {
+            override fun onDownloadChanged(
+                downloadManager: DownloadManager,
+                download: Download,
+                finalException: Exception?
+            ) {
+                println("download:${download.getState()}")
+                progressListener(download.percentDownloaded, download.state)
+            }
+        })
         downloadManager?.resumeDownloads()
         updateProgress(progressListener)
     }
@@ -124,8 +135,14 @@ class PlayerSource @Inject constructor(
             }
             download = downloads[uri]
         }
-        val state = if (download != null) {
-            when (download.state) {
+        val state = download.getState()
+        println("state:$state,downloaded:${download?.percentDownloaded}")
+        download != null && download.state != Download.STATE_FAILED
+    }
+
+    private fun Download?.getState(): String {
+        return if (this != null) {
+            when (this.state) {
                 Download.STATE_QUEUED -> "STATE_QUEUED"
                 Download.STATE_STOPPED -> "STATE_STOPPED"
                 Download.STATE_DOWNLOADING -> "STATE_DOWNLOADING"
@@ -138,8 +155,6 @@ class PlayerSource @Inject constructor(
         } else {
             "null"
         }
-        println("state:$state,downloaded:${download?.percentDownloaded}")
-        download != null && download.state != Download.STATE_FAILED
     }
 
     suspend fun clearDownloaded(url: String) = withContext(Dispatchers.IO) {

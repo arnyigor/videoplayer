@@ -38,6 +38,9 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             updateNotification(getString(R.string.download_cinema_format, percent), true)
             when (state) {
                 Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {}
+                Download.STATE_COMPLETED ->{
+                    stop()
+                }
                 else -> stop()
             }
         }
@@ -50,7 +53,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             getNotice(
                 channelId = "channelId",
                 channelName = "channelName",
-                title = getString(R.string.updating, 0),
+                title = getString(R.string.download_cinema_format, 0.0f),
                 silent = false
             )
         )
