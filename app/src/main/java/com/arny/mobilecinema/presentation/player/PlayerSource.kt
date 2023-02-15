@@ -30,8 +30,8 @@ import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.util.Util
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.lang.Exception
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 class PlayerSource @Inject constructor(
@@ -89,11 +89,12 @@ class PlayerSource @Inject constructor(
 
     fun cacheVideo(
         videoUrl: String,
-        progressListener: (percent: Float, state: Int) -> Unit
+        progressListener: (percent: Float, state: Int, remain: String) -> Unit
     ) {
         ensureDownloadManagerInitialized(context)
         val builder = DownloadRequest.Builder(videoUrl, Uri.parse(videoUrl)).build()
         downloadManager?.addDownload(builder)
+        val start = System.currentTimeMillis()
         downloadManager?.addListener(object : DownloadManager.Listener {
             override fun onDownloadChanged(
                 downloadManager: DownloadManager,
@@ -101,21 +102,64 @@ class PlayerSource @Inject constructor(
                 finalException: Exception?
             ) {
                 println("download:${download.getState()}")
-                progressListener(download.percentDownloaded, download.state)
+                val remain = getRemain(start, download.percentDownloaded.toLong(), 100L)
+                progressListener(download.percentDownloaded, download.state, remain)
             }
         })
         downloadManager?.resumeDownloads()
-        updateProgress(progressListener)
+        updateProgress(progressListener, start)
     }
 
-    private fun updateProgress(progressListener: (percent: Float, state: Int) -> Unit) {
+    private fun getRemain(start: Long, current: Long, size: Long): String {
+        val duration = System.currentTimeMillis() - start
+        val remain = duration * (size - current)
+        return getDurationBreakdown(remain)
+    }
+
+    private fun getDurationBreakdown(ms: Long): String {
+        var millis = ms
+        val days: Long = TimeUnit.MILLISECONDS.toDays(millis)
+        millis -= TimeUnit.DAYS.toMillis(days)
+        val hours: Long = TimeUnit.MILLISECONDS.toHours(millis)
+        millis -= TimeUnit.HOURS.toMillis(hours)
+        val minutes: Long = TimeUnit.MILLISECONDS.toMinutes(millis)
+        millis -= TimeUnit.MINUTES.toMillis(minutes)
+        val seconds: Long = TimeUnit.MILLISECONDS.toSeconds(millis)
+        millis -= TimeUnit.SECONDS.toMillis(seconds)
+        val mls: Long = TimeUnit.MILLISECONDS.toMillis(millis)
+        return StringBuilder(64).apply {
+            if (days != 0L) {
+                append(days)
+                append("д.")
+            }
+            if (hours != 0L) {
+                append(hours)
+                append("ч.")
+            }
+            if (minutes != 0L) {
+                append(minutes)
+                append("мин.")
+            }
+            append(seconds)
+            append(",")
+            append(mls)
+            append("сек.")
+        }.toString()
+    }
+
+    private fun updateProgress(
+        progressListener: (percent: Float, state: Int, remain: String) -> Unit,
+        start: Long
+    ) {
         handler.postDelayed({
             val currentDownloads = downloadManager?.currentDownloads
             if (currentDownloads?.isNotEmpty() == true) {
                 val download = currentDownloads.first()
-                progressListener(download.percentDownloaded, download.state)
+                val percentDownloaded = download.percentDownloaded
+                val remain = getRemain(start, percentDownloaded.toLong(), 100L)
+                progressListener(percentDownloaded, download.state, remain)
             }
-            updateProgress(progressListener)
+            updateProgress(progressListener, start)
         }, 1000)
     }
 

@@ -204,6 +204,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 ) {
                     val url = currentMovie?.getCinemaUrl()
                     putString(AppConstants.SERVICE_PARAM_CACHE_URL, url)
+                    putString(AppConstants.SERVICE_PARAM_CACHE_TITLE, currentMovie?.title)
                 }
             }
         )

@@ -81,7 +81,7 @@
     <string name="notification_channel_id">notification_channel_cache</string>
     <string name="notification_title">Загрузка фильма</string>
     <string name="cache">Сохранить фильм</string>
-    <string name="download_cinema_format">Загрузка фильма %.01f%%</string>
+    <string name="download_cinema_format">Загрузка фильма \"%s\" %.01f%% осталось %s</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

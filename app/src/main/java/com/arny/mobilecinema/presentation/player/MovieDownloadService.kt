@@ -30,15 +30,19 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     lateinit var playerSource: PlayerSource
     private var startId: Int = -1
     private var currentUrl: String = ""
+    private var currentTitle: String = ""
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
-    private val progressListener: (percent: Float, state: Int) -> Unit =
-        { percent, state ->
-            updateNotification(getString(R.string.download_cinema_format, percent), true)
+    private val progressListener: (percent: Float, state: Int, remain: String) -> Unit =
+        { percent, state, remain ->
+            updateNotification(
+                getString(R.string.download_cinema_format, currentTitle, percent, remain),
+                true
+            )
             when (state) {
                 Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {}
-                Download.STATE_COMPLETED ->{
+                Download.STATE_COMPLETED -> {
                     stop()
                 }
                 else -> stop()
@@ -53,14 +57,13 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             getNotice(
                 channelId = "channelId",
                 channelName = "channelName",
-                title = getString(R.string.download_cinema_format, 0.0f),
+                title = getString(R.string.download_cinema_format, currentTitle, 0.0f, "-"),
                 silent = false
             )
         )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        this.startId = startId
         when (intent?.action) {
             AppConstants.ACTION_CACHE_MOVIE -> {
                 download(intent)
@@ -78,6 +81,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     private fun download(intent: Intent?) {
         val extras = intent?.extras
         currentUrl = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_URL).orEmpty()
+        currentTitle = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_TITLE).orEmpty()
         preCacheVideo(currentUrl)
     }
 
@@ -97,9 +101,9 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     private fun stop() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf(startId)
+            stopSelf()
         } else {
-            stopSelf(startId)
+            stopSelf()
         }
     }
 
