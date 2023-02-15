@@ -42,16 +42,13 @@ ext {
         implementation "androidx.drawerlayout:drawerlayout:$version"
     }}
 
-    moxy = { moxyVersion = '2.2.2' -> Alias {
-        implementation "com.github.moxy-community:moxy:$moxyVersion"
-        implementation "com.github.moxy-community:moxy-androidx:$moxyVersion"
-        implementation "com.github.moxy-community:moxy-ktx:$moxyVersion"
-        kapt "com.github.moxy-community:moxy-compiler:$moxyVersion"
-    }}
-
     lifecycle = { version = '2.3.1' -> Alias {
         implementation "androidx.lifecycle:lifecycle-extensions:2.2.0"
         implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$version"
+    }}
+
+    workmanager = { version = '2.8.0' -> Alias {
+        implementation "androidx.work:work-runtime-ktx:$version"
     }}
 
     navigation = { version = '2.5.3' -> Alias {
@@ -79,6 +76,9 @@ ext {
         implementation "com.google.android.exoplayer:exoplayer-dash:$version"
         implementation "com.google.android.exoplayer:exoplayer-hls:$version"
         implementation "com.google.android.exoplayer:exoplayer-smoothstreaming:$version"
+        implementation "com.google.android.exoplayer:exoplayer-rtsp:$version"
+        implementation "com.google.android.exoplayer:extension-cronet:$version"
+        implementation "com.google.android.exoplayer:extension-ima:$version"
         implementation "com.google.android.exoplayer:exoplayer-datasource:$version"
         implementation "com.google.android.exoplayer:exoplayer-ui:$version"
     }}

@@ -7,16 +7,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.doAsync
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.update.UpdateService
+import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -30,8 +31,9 @@ class DataUpdateInteractorImpl @Inject constructor(
     private lateinit var downloadedReceiver: DownloadedReceiver
 
     override suspend fun checkBaseUrl(): Flow<DataResult<Boolean>> = doAsync {
+        val checkBaseUrl = repository.checkBaseUrl()
         when {
-            repository.checkBaseUrl() -> true
+            checkBaseUrl -> true
             else -> {
                 repository.createNewBaseUrl()
                 true
@@ -85,13 +87,11 @@ class DataUpdateInteractorImpl @Inject constructor(
     }
 
     private fun update(file: File) {
-        val intent = Intent(context, UpdateService::class.java).apply {
-            putExtra("file", file.path)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(intent)
-        } else {
-            context.startService(intent)
+        context.sendServiceMessage(
+            Intent(context.applicationContext, UpdateService::class.java),
+            AppConstants.ACTION_UPDATE
+        ) {
+            putString(AppConstants.SERVICE_PARAM_FILE, file.path)
         }
     }
 

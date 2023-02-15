@@ -56,7 +56,9 @@
     <string name="less">меньше</string>
     <string name="update_finished">Обновление завершено</string>
     <string name="attention">Внимание!</string>
+    <string name="cache_attention">Вы хотите загрузить фильм?</string>
     <string name="mobile_netwotk_play">Вы не подключены к WIFI\nПродолжить?</string>
+    <string name="cache_description">Загрузку нельзя приостановить.При отмене загруженные данные будут удалены\nПродолжить?</string>
     <string name="pref_player">Плеер</string>
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
     <string name="player_max_cache_time_sec">Максимальный буфер, сек</string>
@@ -76,6 +78,10 @@
     <string name="sort_updated_desc">По дате обновления ↓</string>
     <string name="sort_updated_asc">По дате обновления ↑</string>
     <string name="question_remove_all_history">Удалить всю историю просмотра?</string>
+    <string name="notification_channel_id">notification_channel_cache</string>
+    <string name="notification_title">Загрузка фильма</string>
+    <string name="cache">Сохранить фильм</string>
+    <string name="download_cinema_format">Загрузка фильма %.01f%%</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

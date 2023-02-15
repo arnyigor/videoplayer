@@ -14,6 +14,7 @@ android {
 dependencies {
     kotlin()
     core()
+    workmanager()
     splashscreen()
     coordinator()
     coroutines()

@@ -49,8 +49,10 @@ class MoviesRepositoryImpl @Inject constructor(
             ),
         ) { HistoryPagingSource(historyDao, search) }
 
-    override fun getMovie(id: Long): Movie? =
-        movieDao.getMovie(id)?.let { movieMapper.transform(it) }
+    override fun getMovie(id: Long): Movie? {
+        val movie = movieDao.getMovie(id)?.let { movieMapper.transform(it) }
+        return movie
+    }
 
     override fun getSaveData(dbId: Long?): SaveData {
         val history = historyDao.getHistory(dbId)

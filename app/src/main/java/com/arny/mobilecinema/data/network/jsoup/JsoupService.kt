@@ -7,18 +7,22 @@ import org.jsoup.nodes.Document
 class JsoupService private constructor() {
     companion object {
         fun getInstance() = JsoupService()
-        private const val UA =
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
     }
 
     fun loadPage(
         url: String,
         requestHeaders: Map<String, String> = emptyMap(),
         logLevel: LogLevel = LogLevel.NONE,
-        timeout: Int = 10000
-    ): Document = JsoupLoggerConnection.connect(url, logLevel).apply {
-        userAgent(UA)
+        timeout: Int = 10000,
+        resetCookie: Boolean = false
+    ): Document = JsoupLoggerConnection.connect(url, logLevel, resetCookie).apply {
+        userAgent(JsoupServiceHelper.UA)
         headers(requestHeaders)
+        val cookie = JsoupServiceHelper.cookie
+        println("")
+        if (resetCookie && cookie.isNotEmpty()) {
+            cookies(cookie)
+        }
         timeout(timeout)
         followRedirects(true)
         ignoreContentType(true)

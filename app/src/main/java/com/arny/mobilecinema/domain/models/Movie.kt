@@ -15,4 +15,5 @@ data class Movie constructor(
     val info: MovieInfo = MovieInfo(),
     val seasons: List<SerialSeason> = emptyList(),
     val cinemaUrlData: CinemaUrlData? = null,
+    val cached: Boolean = false
 ):Parcelable

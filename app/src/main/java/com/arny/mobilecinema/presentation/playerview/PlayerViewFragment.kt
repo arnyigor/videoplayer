@@ -32,6 +32,7 @@ import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
+import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.secToMs
 import com.arny.mobilecinema.presentation.utils.showSystemUI
@@ -46,7 +47,6 @@ import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
@@ -314,16 +314,15 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         movie: Movie,
         position: Long
     ) {
-        val hdUrl = movie.cinemaUrlData?.hdUrl?.urls?.firstOrNull().orEmpty()
-        val cinemaUrl = movie.cinemaUrlData?.cinemaUrl?.urls?.firstOrNull().orEmpty()
-        val url = when {
-            hdUrl.isNotBlank() -> hdUrl
-            cinemaUrl.isNotBlank() -> cinemaUrl
-            else -> ""
-        }
+        val url = movie.getCinemaUrl()
         url.takeIf { it.isNotBlank() }?.let {
             try {
-                setPlayerSource(position, playerSource.getSource(it, movie.title))
+                setPlayerSource(
+                    position, playerSource.getSource(
+                        url = it,
+                        title = movie.title
+                    )
+                )
             } catch (e: Exception) {
                 e.printStackTrace()
                 toast(e.message)

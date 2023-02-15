@@ -11,11 +11,12 @@ enum class LogLevel {
 
 class JsoupLoggerConnection private constructor(
     private val logLevel: LogLevel,
+    private val resetCookie: Boolean,
 ) : HttpConnection() {
 
     companion object {
-        fun connect(url: String, logLevel: LogLevel = LogLevel.NONE): Connection {
-            val connection: Connection = JsoupLoggerConnection(logLevel)
+        fun connect(url: String, logLevel: LogLevel = LogLevel.NONE, resetCookie: Boolean): Connection {
+            val connection: Connection = JsoupLoggerConnection(logLevel, resetCookie)
             connection.url(url)
             return connection
         }
@@ -69,6 +70,11 @@ class JsoupLoggerConnection private constructor(
         println("== RESPONSE ==")
         log += logBase(response)
 
+        if (resetCookie) {
+            for (cookie in response.cookies()) {
+                JsoupServiceHelper.cookie[cookie.key] = cookie.value
+            }
+        }
         line = "[code] ${response.statusCode()}"
         log += "$line\n"
         println(line)

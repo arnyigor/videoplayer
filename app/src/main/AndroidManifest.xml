@@ -24,8 +24,8 @@
         tools:ignore="UnusedAttribute">
         <activity
             android:name=".presentation.splash.SplashActivity"
-            android:theme="@style/Theme.App.Starting"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.App.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -33,17 +33,20 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".presentation.MainActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+            android:exported="true"
+            android:launchMode="singleInstance" />
+
         <service
             android:name=".presentation.update.UpdateService"
             android:enabled="true"
-            android:exported="true" />
+            android:exported="false" />
 
-        <activity
-            android:name=".presentation.MainActivity"
-            android:launchMode="singleInstance"
-            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
-            android:exported="true">
-        </activity>
+        <service
+            android:name=".presentation.player.MovieDownloadService"
+            android:enabled="true"
+            android:exported="false" />
     </application>
-
 </manifest>

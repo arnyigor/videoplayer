@@ -1,4 +1,4 @@
-package com.arny.mobilecinema.presentation.update
+package com.arny.mobilecinema.presentation.player
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -11,35 +11,36 @@ import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
-import androidx.lifecycle.lifecycleScope
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
-import com.arny.mobilecinema.data.utils.isFileExists
-import com.arny.mobilecinema.data.utils.unzip
-import com.arny.mobilecinema.domain.models.Movie
-import com.arny.mobilecinema.domain.models.MoviesData
-import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
-import com.google.gson.GsonBuilder
+import com.google.android.exoplayer2.offline.Download
+import com.google.android.exoplayer2.upstream.*
 import dagger.android.AndroidInjection
 import kotlinx.coroutines.*
-import java.io.File
-import java.io.FileReader
 import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
 
-class UpdateService : LifecycleService(), CoroutineScope {
+class MovieDownloadService : LifecycleService(), CoroutineScope {
     private companion object {
-        const val NOTICE_ID = 1001
+        const val NOTICE_ID = 1002
     }
 
     @Inject
-    lateinit var repository: UpdateRepository
-
+    lateinit var playerSource: PlayerSource
+    private var startId: Int = -1
+    private var currentUrl: String = ""
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
+    private val progressListener: (percent: Float, state: Int) -> Unit =
+        { percent, state ->
+            updateNotification(getString(R.string.download_cinema_format, percent), true)
+            when (state) {
+                Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {}
+                else -> stop()
+            }
+        }
 
     override fun onCreate() {
         super.onCreate()
@@ -56,83 +57,48 @@ class UpdateService : LifecycleService(), CoroutineScope {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        lifecycleScope.launch(coroutineContext) {
-            try {
-                update(intent)
-            } catch (e: Exception) {
-                // TODO: Отобразить ошибку и записать
-                e.printStackTrace()
+        this.startId = startId
+        when (intent?.action) {
+            AppConstants.ACTION_CACHE_MOVIE -> {
+                download(intent)
+            }
+            AppConstants.ACTION_CACHE_MOVIE_CANCEL -> {
+                cancelDownload()
+            }
+            else -> {
                 stop()
             }
         }
         return super.onStartCommand(intent, flags, startId)
     }
 
+    private fun download(intent: Intent?) {
+        val extras = intent?.extras
+        currentUrl = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_URL).orEmpty()
+        preCacheVideo(currentUrl)
+    }
 
-    private suspend fun update(intent: Intent?) {
-        withContext(Dispatchers.IO) {
-            val filePath = intent?.getStringExtra(AppConstants.SERVICE_PARAM_FILE)
-            if (filePath != null && intent.action == AppConstants.ACTION_UPDATE) {
-                val file = File(filePath)
-                val dataFile = unzipData(file, context = applicationContext)
-                if (dataFile != null) {
-                    val anwapMovies = readData(dataFile)
-                    if (anwapMovies.isNotEmpty()) {
-                        file.delete()
-                        dataFile.delete()
-                        repository.updateMovies(anwapMovies) { pers ->
-                            updateNotification(getString(R.string.updating, pers), true)
-                        }
-                        repository.setLastUpdate()
-                    }
-                    updateNotification(
-                        title = getString(R.string.update_finished),
-                        silent = false
-                    )
-                    LocalBroadcastManager.getInstance(applicationContext)
-                        .sendBroadcast(Intent().apply {
-                            action = AppConstants.ACTION_UPDATE_COMPLETE
-                        })
-                    stop()
-                }
-            } else {
-                stop()
-            }
+    private fun cancelDownload() {
+        playerSource.cancelDownload(currentUrl)
+        stop()
+    }
+
+    private fun preCacheVideo(url: String) {
+        if (url.isNotBlank()) {
+            playerSource.cacheVideo(url, progressListener)
+        } else {
+            stop()
         }
     }
 
     private fun stop() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            stopSelf(startId)
         } else {
-            stopSelf()
+            stopSelf(startId)
         }
     }
-
-    private fun unzipData(zipFile: File, context: Context): File? {
-        val path = context.filesDir.path
-        zipFile.unzip(path)
-        var dataFile: File? = null
-        val files = File(path).listFiles()
-        files?.forEach { file ->
-            if (file.name == "data.json") {
-                dataFile = file
-            }
-        }
-        if (dataFile != null && dataFile!!.isFileExists() && dataFile!!.length() > 0) {
-            zipFile.delete()
-        }
-        return dataFile
-    }
-
-    private fun readData(file: File): List<Movie> = GsonBuilder()
-        .setLenient()
-        .create()
-        .fromJson(
-            FileReader(file),
-            MoviesData::class.java
-        ).movies
 
     private fun updateNotification(title: String, silent: Boolean) {
         (applicationContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(
@@ -147,6 +113,15 @@ class UpdateService : LifecycleService(), CoroutineScope {
         title: String,
         silent: Boolean
     ): Notification {
+        val pendingIntent: PendingIntent = PendingIntent.getService(
+            /* context = */ this,
+            /* requestCode = */ 0,
+            /* intent = */ Intent(this, MovieDownloadService::class.java).apply {
+                action = AppConstants.ACTION_CACHE_MOVIE_CANCEL
+            },
+            /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
+        )
+//        val pendingIntent = PendingIntent.getBroadcast(this, 0, intentStopTrip, 0)
         val contentIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PendingIntent.getActivity(
                 /* context = */ this,
@@ -169,6 +144,11 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 setSilent(silent)
                 setSmallIcon(android.R.drawable.stat_sys_download)
                 setContentIntent(contentIntent)
+                addAction(
+                    R.drawable.ic_stop_circle,
+                    getString(android.R.string.cancel),
+                    pendingIntent
+                )
                 setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             }.build()
     }

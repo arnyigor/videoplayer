@@ -19,7 +19,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.FilePathUtils
+import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
@@ -124,7 +126,14 @@ class HomeFragment : Fragment(), OnSearchListener {
     }
 
     private fun downloadData() {
-        viewModel.downloadData()
+        when (getConnectionType(requireContext())) {
+            ConnectionType.NONE -> {
+                toast(getString(R.string.internet_connection_error))
+            }
+            else -> {
+                viewModel.downloadData()
+            }
+        }
     }
 
     override fun onResume() {

@@ -3,12 +3,8 @@ package com.arny.mobilecinema.presentation.utils
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.SearchManager
-import android.content.BroadcastReceiver
-import android.content.Context
+import android.content.*
 import android.content.Context.POWER_SERVICE
-import android.content.Intent
-import android.content.IntentFilter
-import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.database.Cursor
@@ -28,11 +24,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
-import android.widget.ImageView
-import android.widget.SearchView
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
 import androidx.activity.result.ActivityResultLauncher
 import androidx.annotation.ColorInt
 import androidx.annotation.ColorRes
@@ -381,28 +373,28 @@ fun ImageView.setImgFromDrawable(
 
 fun isOreoPlus() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
 
-fun Activity.sendServiceMessage(cls: Class<Any>, action: String, extras: Bundle.() -> Unit = {}) {
-    Intent(applicationContext, cls).apply {
-        this.action = action
-        this.putExtras(Bundle().apply(extras))
-        if (isOreoPlus()) {
-            startForegroundService(this)
-        } else {
-            startService(this)
-        }
-    }
+fun Activity.sendServiceMessage(
+    intent: Intent,
+    action: String,
+    extras: Bundle.() -> Unit = {},
+) {
+    sendServiceMessage(intent, action, extras)
 }
 
-fun Fragment.sendServiceMessage(cls: Class<Any>, action: String, extras: Bundle.() -> Unit = {}) {
-    requireContext().sendServiceMessage(cls, action, extras)
-}
-
-fun Context.sendServiceMessage(
-    cls: Class<Any>,
+fun Fragment.sendServiceMessage(
+    intent: Intent,
     action: String,
     extras: Bundle.() -> Unit = {}
 ) {
-    Intent(this.applicationContext, cls).apply {
+    requireContext().sendServiceMessage(intent, action, extras)
+}
+
+fun Context.sendServiceMessage(
+    intent: Intent,
+    action: String,
+    extras: Bundle.() -> Unit = {}
+) {
+    intent.apply {
         this.action = action
         this.putExtras(Bundle().apply(extras))
         if (isOreoPlus()) {

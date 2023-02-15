@@ -1,11 +1,22 @@
 package com.arny.mobilecinema.presentation.player
 
 import android.content.Context
+import com.arny.mobilecinema.domain.models.Movie
 import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector.MappedTrackInfo
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.trackselection.TrackSelectionParameters
+
+fun Movie.getCinemaUrl(): String {
+    val hdUrl = cinemaUrlData?.hdUrl?.urls?.firstOrNull().orEmpty()
+    val cinemaUrl = cinemaUrlData?.cinemaUrl?.urls?.firstOrNull().orEmpty()
+    return when {
+        hdUrl.isNotBlank() -> hdUrl
+        cinemaUrl.isNotBlank() -> cinemaUrl
+        else -> ""
+    }
+}
 
 fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<String, TrackSelectionOverride>> {
     val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()

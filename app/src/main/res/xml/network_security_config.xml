@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">10jan.filmy.zetflix-hd1080.online/</domain>
+        <domain includeSubdomains="true">m.anwap.tube/</domain>
     </domain-config>
     <base-config cleartextTrafficPermitted="true">
         <trust-anchors>

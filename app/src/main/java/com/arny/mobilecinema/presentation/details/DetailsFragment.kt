@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.presentation.details
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.*
 import android.widget.AdapterView
@@ -10,26 +11,34 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.FDetailsBinding
 import com.arny.mobilecinema.domain.models.*
+import com.arny.mobilecinema.presentation.player.MovieDownloadService
+import com.arny.mobilecinema.presentation.player.PlayerSource
+import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.utils.*
 import com.bumptech.glide.Glide
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.joda.time.DateTime
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
-
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
     private val viewModel: DetailsViewModel by viewModels { vmFactory }
+
+    @Inject
+    lateinit var playerSource: PlayerSource
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var currentMovie: Movie? = null
@@ -37,7 +46,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private var currentEpisodePosition: Int = 0
     private var hasSavedData: Boolean = false
     private val args: DetailsFragmentArgs by navArgs()
-
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
             parent: AdapterView<*>?,
@@ -118,6 +126,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                             getString(android.R.string.ok),
                             getString(android.R.string.cancel),
                             onConfirm = {
+                                lifecycleScope.launch {
+                                    currentMovie?.let {
+                                        if (it.type == MovieType.CINEMA) {
+                                            playerSource.clearDownloaded(it.getCinemaUrl())
+                                        }
+                                    }
+                                }
                                 viewModel.clearViewHistory()
                             }
                         )
@@ -147,6 +162,51 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
             }
         }
+        btnCache.setOnClickListener {
+            onBtnCacheClick()
+        }
+    }
+
+    private fun onBtnCacheClick() {
+        when (getConnectionType(requireContext())) {
+            is ConnectionType.WIFI -> {
+                showDialogCache()
+            }
+            is ConnectionType.MOBILE -> {
+                alertDialog(
+                    title = getString(R.string.attention),
+                    content = getString(R.string.mobile_netwotk_play),
+                    btnOkText = getString(android.R.string.ok),
+                    btnCancelText = getString(android.R.string.cancel),
+                    onConfirm = {
+                        showDialogCache()
+                    }
+                )
+            }
+            ConnectionType.NONE -> {
+                toast(getString(R.string.internet_connection_error))
+            }
+            else -> {
+            }
+        }
+    }
+
+    private fun showDialogCache(){
+        alertDialog(
+            title = getString(R.string.cache_attention),
+            content = getString(R.string.cache_description),
+            btnOkText = getString(android.R.string.ok),
+            btnCancelText = getString(android.R.string.cancel),
+            onConfirm = {
+                sendServiceMessage(
+                    Intent(requireContext(), MovieDownloadService::class.java),
+                    AppConstants.ACTION_CACHE_MOVIE,
+                ) {
+                    val url = currentMovie?.getCinemaUrl()
+                    putString(AppConstants.SERVICE_PARAM_CACHE_URL, url)
+                }
+            }
+        )
     }
 
     private fun navigateToPLayer(movie: Movie) {
@@ -190,33 +250,26 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
-    private fun onMovieLoaded(movie: Movie) {
+    private suspend fun onMovieLoaded(movie: Movie) {
         currentMovie = movie
         viewModel.loadSaveData(movie.dbId)
         updateSpinData(movie)
         initUI(movie)
-        initBtns(movie)
+        initButtons(movie)
     }
 
-    private fun initBtns(movie: Movie) = with(binding) {
+    private suspend fun initButtons(movie: Movie) = with(binding) {
         if (movie.type == MovieType.CINEMA) {
             val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
             btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
+            val cinemaUrl = movie.getCinemaUrl()
+            btnCache.isVisible = !playerSource.isDownloaded(cinemaUrl)
         } else {
+            btnCache.isVisible = false
             btnPlay.isVisible = true
         }
     }
-
-    private fun getOrdered(urls: List<String>?) =
-        urls?.filterNot { it.isBlank() }.orEmpty().sortedBy {
-            when {
-                it.endsWith(".mpd") -> 1
-                it.endsWith(".m3u8") -> 2
-                it.endsWith(".mp4") -> 3
-                else -> 0
-            }
-        }
 
     private fun onSaveDataLoaded(saveData: SaveData) {
         when {

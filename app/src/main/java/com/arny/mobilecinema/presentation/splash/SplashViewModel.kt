@@ -12,7 +12,11 @@ class SplashViewModel(interactor: DataUpdateInteractor) : ViewModel() {
 
     init {
         viewModelScope.launch {
+            _ready.value = true
             interactor.checkBaseUrl()
+                .catch {
+                    _ready.value = true
+                }
                 .collectLatest {
                     _ready.value = true
                 }
