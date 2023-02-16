@@ -25,6 +25,7 @@ import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
+import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.*
@@ -49,6 +50,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private lateinit var binding: FHomeBinding
     private var request: Int = -1
     private var currentOrder: String = ""
+    private var currentSearch: String = ""
     private var emptySearch = true
     private var itemsAdapter: VideoItemsAdapter? = null
     private val startForResult = registerForActivityResult(
@@ -175,7 +177,6 @@ class HomeFragment : Fragment(), OnSearchListener {
                     is ThrowableString -> {
                         toastError(error.throwable)
                     }
-
                     else -> toast(error.toString(requireContext()))
                 }
             }
@@ -251,8 +252,12 @@ class HomeFragment : Fragment(), OnSearchListener {
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
                 when (menuItem.itemId) {
                     R.id.action_search -> false
-                    R.id.action_search_settings -> {
+                    R.id.action_order_settings -> {
                         showCustomOrderDialog()
+                        false
+                    }
+                    R.id.action_search_settings -> {
+                        showCustomSearchDialog()
                         false
                     }
                     R.id.menu_action_from_path -> {
@@ -285,9 +290,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                         rbYearDesc to AppConstants.Order.YEAR_DESC,
                         rbYearAsc to AppConstants.Order.YEAR_ASC,
                         rbImdbDesc to AppConstants.Order.IMDB_DESC,
-                        rbImdbAsc to AppConstants.Order.IMDB_ASC,
                         rbKpDesc to AppConstants.Order.KP_DESC,
-                        rbKpAsc to AppConstants.Order.KP_ASC
                     )
                     currentOrder.takeIf { it.isNotBlank() }?.let {
                         when (it) {
@@ -296,9 +299,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                             AppConstants.Order.YEAR_DESC -> rbYearDesc.isChecked = true
                             AppConstants.Order.YEAR_ASC -> rbYearAsc.isChecked = true
                             AppConstants.Order.IMDB_DESC -> rbImdbDesc.isChecked = true
-                            AppConstants.Order.IMDB_ASC -> rbImdbAsc.isChecked = true
                             AppConstants.Order.KP_DESC -> rbKpDesc.isChecked = true
-                            AppConstants.Order.KP_ASC -> rbKpAsc.isChecked = true
                             else -> rbNone.isChecked = true
                         }
                     }?: kotlin.run {
@@ -309,6 +310,49 @@ class HomeFragment : Fragment(), OnSearchListener {
                             if (isChecked) {
                                 order.clear()
                                 order.append(orderString)
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    private fun showCustomSearchDialog() {
+        val search = StringBuilder()
+        createCustomLayoutDialog(
+            title = getString(R.string.search_settings_title),
+            layout = R.layout.d_custom_search,
+            cancelable = true,
+            btnOkText = getString(android.R.string.ok),
+            btnCancelText = getString(android.R.string.cancel),
+            onConfirm = {
+                currentSearch = search.toString()
+            },
+            initView = {
+                with(DCustomSearchBinding.bind(this)) {
+                    val radioBtn = listOf(
+                        rbTitle to AppConstants.Search.TITLE,
+                        rbDirectors to AppConstants.Search.DIRECTORS,
+                        rbActors to AppConstants.Search.ACTORS,
+                        rbGenres to AppConstants.Search.GENRES,
+                    )
+                    currentSearch.takeIf { it.isNotBlank() }?.let {
+                        when (it) {
+                            AppConstants.Search.TITLE -> rbTitle.isChecked = true
+                            AppConstants.Search.DIRECTORS -> rbDirectors.isChecked = true
+                            AppConstants.Search.ACTORS -> rbActors.isChecked = true
+                            AppConstants.Search.GENRES -> rbGenres.isChecked = true
+                            else -> rbTitle.isChecked = true
+                        }
+                    }?: kotlin.run {
+                        rbTitle.isChecked = true
+                    }
+                    radioBtn.forEach { (rb, orderString) ->
+                        rb.setOnCheckedChangeListener { _, isChecked ->
+                            if (isChecked) {
+                                search.clear()
+                                search.append(orderString)
                             }
                         }
                     }

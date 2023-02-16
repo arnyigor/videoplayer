@@ -89,7 +89,7 @@ class PlayerSource @Inject constructor(
 
     fun cacheVideo(
         videoUrl: String,
-        progressListener: (percent: Float, state: Int, remain: String) -> Unit
+        progressListener: (percent: Float, state: Int) -> Unit
     ) {
         ensureDownloadManagerInitialized(context)
         val builder = DownloadRequest.Builder(videoUrl, Uri.parse(videoUrl)).build()
@@ -101,9 +101,7 @@ class PlayerSource @Inject constructor(
                 download: Download,
                 finalException: Exception?
             ) {
-                println("download:${download.getState()}")
-                val remain = getRemain(start, download.percentDownloaded.toLong(), 100L)
-                progressListener(download.percentDownloaded, download.state, remain)
+                progressListener(download.percentDownloaded, download.state)
             }
         })
         downloadManager?.resumeDownloads()
@@ -148,16 +146,14 @@ class PlayerSource @Inject constructor(
     }
 
     private fun updateProgress(
-        progressListener: (percent: Float, state: Int, remain: String) -> Unit,
+        progressListener: (percent: Float, state: Int) -> Unit,
         start: Long
     ) {
         handler.postDelayed({
             val currentDownloads = downloadManager?.currentDownloads
             if (currentDownloads?.isNotEmpty() == true) {
                 val download = currentDownloads.first()
-                val percentDownloaded = download.percentDownloaded
-                val remain = getRemain(start, percentDownloaded.toLong(), 100L)
-                progressListener(percentDownloaded, download.state, remain)
+                progressListener(download.percentDownloaded, download.state)
             }
             updateProgress(progressListener, start)
         }, 1000)

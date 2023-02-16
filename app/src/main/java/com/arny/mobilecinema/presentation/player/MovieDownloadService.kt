@@ -28,16 +28,15 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     @Inject
     lateinit var playerSource: PlayerSource
-    private var startId: Int = -1
     private var currentUrl: String = ""
     private var currentTitle: String = ""
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
-    private val progressListener: (percent: Float, state: Int, remain: String) -> Unit =
-        { percent, state, remain ->
+    private val progressListener: (percent: Float, state: Int) -> Unit =
+        { percent, state ->
             updateNotification(
-                getString(R.string.download_cinema_format, currentTitle, percent, remain),
+                getString(R.string.download_cinema_format, currentTitle, percent),
                 true
             )
             when (state) {
@@ -57,7 +56,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             getNotice(
                 channelId = "channelId",
                 channelName = "channelName",
-                title = getString(R.string.download_cinema_format, currentTitle, 0.0f, "-"),
+                title = getString(R.string.download_cinema_format, currentTitle, 0.0f),
                 silent = false
             )
         )

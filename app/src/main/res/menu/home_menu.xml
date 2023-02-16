@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <item
         android:id="@+id/action_search"
@@ -10,9 +11,12 @@
         app:showAsAction="collapseActionView|ifRoom" />
     <item
         android:id="@+id/action_search_settings"
-        android:title="@string/search_prefs"
+        android:title="@string/search_settings"
         app:showAsAction="never" />
-
+    <item
+        android:id="@+id/action_order_settings"
+        android:title="@string/search_order_settings"
+        app:showAsAction="never" />
     <item
         android:id="@+id/menu_action_from_path"
         android:title="@string/menu_from_path"

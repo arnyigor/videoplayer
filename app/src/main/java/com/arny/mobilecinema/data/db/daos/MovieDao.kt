@@ -14,9 +14,7 @@ interface MovieDao : BaseDao<MovieEntity> {
     @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies " +
             "ORDER BY  " +
             "CASE WHEN :order = 'ratingKpD' THEN ratingKp END DESC, " +
-            "CASE WHEN :order = 'ratingKpA' THEN ratingKp END ASC, " +
             "CASE WHEN :order = 'ratingImdbD' THEN ratingImdb END DESC, " +
-            "CASE WHEN :order = 'ratingImdbA' THEN ratingImdb END ASC, " +
             "CASE WHEN :order = 'updatedD' THEN updated END DESC, " +
             "CASE WHEN :order = 'updatedA' THEN updated END ASC, " +
             "CASE WHEN :order = 'yearD' THEN year END DESC, " +

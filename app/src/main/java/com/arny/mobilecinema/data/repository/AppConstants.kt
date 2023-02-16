@@ -17,9 +17,13 @@ object AppConstants {
         const val YEAR_DESC = "yearD"
         const val YEAR_ASC = "yearA"
         const val IMDB_DESC = "ratingImdbD"
-        const val IMDB_ASC = "ratingImdbA"
         const val KP_DESC = "ratingKpD"
-        const val KP_ASC = "ratingKpA"
+    }
+    object Search {
+        const val TITLE = "title"
+        const val DIRECTORS = "directors"
+        const val ACTORS = "actors"
+        const val GENRES = "genres"
     }
 
     object Player {

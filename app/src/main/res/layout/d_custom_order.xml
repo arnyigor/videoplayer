@@ -53,24 +53,10 @@
             android:text="@string/sort_imdb_desc" />
 
         <RadioButton
-            android:id="@+id/rbImdbAsc"
-            style="@style/DetailsSubTitleStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/sort_imdb_asc" />
-
-        <RadioButton
             android:id="@+id/rbKpDesc"
             style="@style/DetailsSubTitleStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/sort_KP_desc" />
-
-        <RadioButton
-            android:id="@+id/rbKpAsc"
-            style="@style/DetailsSubTitleStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/sort_KP_asc" />
     </RadioGroup>
 </LinearLayout>
