@@ -16,6 +16,8 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getConnectionType
@@ -39,6 +41,10 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     @Inject
     lateinit var playerSource: PlayerSource
+    private var cinemaDownloaded: Boolean = false
+
+    @Inject
+    lateinit var prefs: Prefs
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var currentMovie: Movie? = null
@@ -146,15 +152,25 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun initListeners() = with(binding) {
         btnPlay.setOnClickListener {
             currentMovie?.let { movie ->
-                when (getConnectionType(requireContext())) {
-                    is ConnectionType.MOBILE -> {
+                val connectionType = getConnectionType(requireContext())
+                when {
+                    movie.type == MovieType.CINEMA && cinemaDownloaded -> {
+                        navigateToPLayer(movie)
+                    }
+                    connectionType is ConnectionType.WIFI -> {
+                        navigateToPLayer(movie)
+                    }
+                    connectionType is ConnectionType.MOBILE -> {
                         alertDialog(
                             title = getString(R.string.attention),
-                            content = getString(R.string.mobile_netwotk_play),
+                            content = getString(R.string.mobile_network_play),
                             btnOkText = getString(android.R.string.ok),
                             btnCancelText = getString(android.R.string.cancel),
                             onConfirm = { navigateToPLayer(movie) }
                         )
+                    }
+                    connectionType is ConnectionType.NONE -> {
+                        toast(getString(R.string.internet_connection_error))
                     }
                     else -> {
                         navigateToPLayer(movie)
@@ -175,7 +191,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             is ConnectionType.MOBILE -> {
                 alertDialog(
                     title = getString(R.string.attention),
-                    content = getString(R.string.mobile_netwotk_play),
+                    content = getString(R.string.mobile_network_play),
                     btnOkText = getString(android.R.string.ok),
                     btnCancelText = getString(android.R.string.cancel),
                     onConfirm = {
@@ -265,7 +281,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
             btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
             val cinemaUrl = movie.getCinemaUrl()
-            btnCache.isVisible = !playerSource.isDownloaded(cinemaUrl)
+            cinemaDownloaded = playerSource.isDownloaded(cinemaUrl)
+            btnCache.isVisible = !cinemaDownloaded
         } else {
             btnCache.isVisible = false
             btnPlay.isVisible = true
@@ -289,8 +306,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun initUI(movie: Movie) = with(binding) {
+        val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
         Glide.with(requireContext())
-            .load(movie.img.getWithDomain())
+            .load(movie.img.getWithDomain(baseUrl))
             .fitCenter()
             .into(ivBanner)
         updateTitle(movie.title)

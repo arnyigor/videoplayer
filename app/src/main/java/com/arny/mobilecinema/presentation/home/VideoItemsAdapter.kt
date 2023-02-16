@@ -14,6 +14,7 @@ import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.bumptech.glide.Glide
 
 class VideoItemsAdapter(
+    private val baseUrl:String,
     private val onItemClick: (item: ViewMovie) -> Unit
 ) : PagingDataAdapter<ViewMovie, VideoItemsAdapter.VideosViewHolder>(
     diffItemCallback(
@@ -41,7 +42,7 @@ class VideoItemsAdapter(
                 }
                 tvVideoTitle.text = item.title
                 Glide.with(ivVideoIcon)
-                    .load(item.img.getWithDomain())
+                    .load(item.img.getWithDomain(baseUrl))
                     .into(ivVideoIcon)
                 val type = getType(item, context)
                 val year = if (item.year > 0) "${item.year} " else ""

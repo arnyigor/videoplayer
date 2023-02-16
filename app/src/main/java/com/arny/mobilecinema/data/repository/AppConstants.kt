@@ -2,6 +2,7 @@ package com.arny.mobilecinema.data.repository
 
 object AppConstants {
     const val UPDATE_FILE = "update.txt"
+    const val BASE_URL_FILE = "link.txt"
     const val ACTION_UPDATE = "ACTION_UPDATE"
     const val ACTION_UPDATE_COMPLETE = "ACTION_UPDATE_COMPLETE"
     const val ACTION_CACHE_MOVIE = "ACTION_CACHE_MOVIE"

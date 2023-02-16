@@ -1,11 +1,13 @@
 package com.arny.mobilecinema.presentation.utils
 
-import com.arny.mobilecinema.BuildConfig
-
-fun String.getWithDomain(): String {
+fun String.getWithDomain(baseUrl: String): String {
     var url = this
     if (!url.startsWith("http")) {
-        url = BuildConfig.base_link + url
+        url = if (baseUrl.endsWith("/")) {
+            "$baseUrl$url"
+        } else {
+            "$baseUrl/$url"
+        }
     }
     return url
 }

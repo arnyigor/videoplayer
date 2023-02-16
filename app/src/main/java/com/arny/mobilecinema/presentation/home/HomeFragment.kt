@@ -19,6 +19,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.data.utils.getConnectionType
@@ -40,6 +42,9 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
+
+    @Inject
+    lateinit var prefs: Prefs
     private val viewModel: HomeViewModel by viewModels { vmFactory }
     private lateinit var binding: FHomeBinding
     private var request: Int = -1
@@ -148,7 +153,8 @@ class HomeFragment : Fragment(), OnSearchListener {
     }
 
     private fun initAdapters() {
-        itemsAdapter = VideoItemsAdapter { item ->
+        val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
+        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
             findNavController().navigate(HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId))
         }
         binding.rcVideoList.apply {

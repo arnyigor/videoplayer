@@ -18,9 +18,7 @@ import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.update.UpdateService
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 
@@ -31,20 +29,17 @@ class DataUpdateInteractorImpl @Inject constructor(
     private lateinit var downloadedReceiver: DownloadedReceiver
 
     override suspend fun checkBaseUrl(): Flow<DataResult<Boolean>> = doAsync {
-        val checkBaseUrl = repository.checkBaseUrl()
-        when {
-            checkBaseUrl -> true
-            else -> {
-                repository.createNewBaseUrl()
-                true
-            }
-        }
+        val linkFile = repository.downloadFile(BuildConfig.BASE_LINK, AppConstants.BASE_URL_FILE)
+        val baseLink = linkFile.readText()
+        linkFile.delete()
+        repository.baseUrl = baseLink
+        true
     }
 
     override fun requestFile() {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val zipFile = File(context.filesDir, "tmp_${System.currentTimeMillis()}.zip")
-        val downloadUrl: String = BuildConfig.data_link
+        val downloadUrl: String = BuildConfig.DATA_LINK
         val request = DownloadManager.Request(Uri.parse(downloadUrl))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setTitle(zipFile.name)
@@ -65,7 +60,10 @@ class DataUpdateInteractorImpl @Inject constructor(
         var newUpdate = ""
         if (!repository.checkUpdate && repository.newUpdate.isBlank()) {
             repository.checkUpdate = true
-            val updateFile = withContext(Dispatchers.IO) { repository.downloadUpdate() }
+            val updateFile = repository.downloadFile(
+                BuildConfig.UPDATE_LINK,
+                AppConstants.UPDATE_FILE
+            )
             newUpdate = updateFile.readText()
             updateFile.delete()
         }

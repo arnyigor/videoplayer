@@ -12,15 +12,12 @@ import javax.inject.Inject
 class ApiService @Inject constructor(
     private val httpClient: HttpClient
 ) {
-    suspend fun checkUrl(url: String): Boolean = httpClient.get(url).status == HttpStatusCode.OK
-
     @OptIn(InternalAPI::class)
     suspend fun downloadFile(file: File, url: String) {
         httpClient.prepareGet(url) {
             method = HttpMethod.Get
         }.execute { httpResponse ->
             httpResponse.content.copyAndClose(file.writeChannel())
-            println("A file saved to ${file.path} and has ${file.length()} bytes")
         }
     }
 }

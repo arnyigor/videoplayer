@@ -11,6 +11,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.databinding.FHistoryBinding
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.utils.alertDialog
@@ -25,6 +27,9 @@ class HistoryFragment : Fragment() {
 
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
+
+    @Inject
+    lateinit var prefs: Prefs
     private val viewModel: HistoryViewModel by viewModels { vmFactory }
     private var itemsAdapter: VideoItemsAdapter? = null
     private var hasSavedData: Boolean = false
@@ -91,7 +96,8 @@ class HistoryFragment : Fragment() {
     }
 
     private fun initAdapters() {
-        itemsAdapter = VideoItemsAdapter { item ->
+        val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
+        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
             findNavController().navigate(HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId))
         }
         binding.rvHistoryList.apply {

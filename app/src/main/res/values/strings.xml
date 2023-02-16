@@ -57,7 +57,7 @@
     <string name="update_finished">Обновление завершено</string>
     <string name="attention">Внимание!</string>
     <string name="cache_attention">Вы хотите загрузить фильм?</string>
-    <string name="mobile_netwotk_play">Вы не подключены к WIFI\nПродолжить?</string>
+    <string name="mobile_network_play">Вы не подключены к WIFI\nПродолжить?</string>
     <string name="cache_description">Загрузку нельзя приостановить.При отмене загруженные данные будут удалены\nПродолжить?</string>
     <string name="pref_player">Плеер</string>
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
