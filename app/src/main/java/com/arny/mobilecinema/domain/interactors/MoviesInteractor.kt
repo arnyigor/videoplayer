@@ -8,7 +8,7 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 import kotlinx.coroutines.flow.Flow
 
 interface MoviesInteractor {
-    fun getMovies(search: String = "", order: String): Flow<PagingData<ViewMovie>>
+    fun getMovies(search: String = "", order: String, searchType: String): Flow<PagingData<ViewMovie>>
     fun getMovie(id: Long): Flow<DataResult<Movie>>
     suspend fun saveCinemaPosition(id: Long?, position: Long)
     suspend fun saveSerialPosition(

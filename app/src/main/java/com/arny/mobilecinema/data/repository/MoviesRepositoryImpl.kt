@@ -28,15 +28,17 @@ class MoviesRepositoryImpl @Inject constructor(
             prefs.put(PrefsConstants.ORDER, value)
         }
 
-    override fun getMovies(search: String, order: String): Pager<Int, ViewMovie> {
-        return Pager(
-            PagingConfig(
-                pageSize = 20,
-                enablePlaceholders = false,
-                initialLoadSize = 20
-            ),
-        ) { MainPagingSource(movieDao, search.trim(), order) }
-    }
+    override fun getMovies(
+        search: String,
+        order: String,
+        searchType: String
+    ): Pager<Int, ViewMovie> = Pager(
+        PagingConfig(
+            pageSize = 20,
+            enablePlaceholders = false,
+            initialLoadSize = 20
+        ),
+    ) { MainPagingSource(movieDao, search.trim(), order, searchType) }
 
     override suspend fun isHistoryEmpty(): Boolean = historyDao.getHistoryIds().isEmpty()
 

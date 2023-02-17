@@ -17,8 +17,11 @@ import javax.inject.Inject
 class MoviesInteractorImpl @Inject constructor(
     private val repository: MoviesRepository,
 ) : MoviesInteractor {
-    override fun getMovies(search: String, order: String): Flow<PagingData<ViewMovie>> =
-        repository.getMovies(search, order).flow
+    override fun getMovies(
+        search: String,
+        order: String,
+        searchType: String
+    ): Flow<PagingData<ViewMovie>> = repository.getMovies(search, order, searchType).flow
 
     override fun getHistoryMovies(search: String): Flow<PagingData<ViewMovie>> =
         repository.getHistoryMovies(search).flow

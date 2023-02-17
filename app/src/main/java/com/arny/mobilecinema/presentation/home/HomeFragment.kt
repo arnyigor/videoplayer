@@ -50,7 +50,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private lateinit var binding: FHomeBinding
     private var request: Int = -1
     private var currentOrder: String = ""
-    private var currentSearch: String = ""
+    private var searchType: String = ""
     private var emptySearch = true
     private var itemsAdapter: VideoItemsAdapter? = null
     private val startForResult = registerForActivityResult(
@@ -237,9 +237,10 @@ class HomeFragment : Fragment(), OnSearchListener {
                         viewModel.loadMovies(query.orEmpty())
                     },
                     onMenuCollapse = {
-                        requireActivity().hideKeyboard()
                         viewModel.loadMovies()
                         emptySearch = true
+                        requireActivity().hideKeyboard()
+                        requireActivity().invalidateOptionsMenu()
                     },
                     onSubmitAvailable = true,
                     onQuerySubmit = { query ->
@@ -327,22 +328,23 @@ class HomeFragment : Fragment(), OnSearchListener {
             btnOkText = getString(android.R.string.ok),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                currentSearch = search.toString()
+                searchType = search.toString()
+                viewModel.setSearchType(searchType)
             },
             initView = {
                 with(DCustomSearchBinding.bind(this)) {
                     val radioBtn = listOf(
-                        rbTitle to AppConstants.Search.TITLE,
-                        rbDirectors to AppConstants.Search.DIRECTORS,
-                        rbActors to AppConstants.Search.ACTORS,
-                        rbGenres to AppConstants.Search.GENRES,
+                        rbTitle to AppConstants.SearchType.TITLE,
+                        rbDirectors to AppConstants.SearchType.DIRECTORS,
+                        rbActors to AppConstants.SearchType.ACTORS,
+                        rbGenres to AppConstants.SearchType.GENRES,
                     )
-                    currentSearch.takeIf { it.isNotBlank() }?.let {
+                    searchType.takeIf { it.isNotBlank() }?.let {
                         when (it) {
-                            AppConstants.Search.TITLE -> rbTitle.isChecked = true
-                            AppConstants.Search.DIRECTORS -> rbDirectors.isChecked = true
-                            AppConstants.Search.ACTORS -> rbActors.isChecked = true
-                            AppConstants.Search.GENRES -> rbGenres.isChecked = true
+                            AppConstants.SearchType.TITLE -> rbTitle.isChecked = true
+                            AppConstants.SearchType.DIRECTORS -> rbDirectors.isChecked = true
+                            AppConstants.SearchType.ACTORS -> rbActors.isChecked = true
+                            AppConstants.SearchType.GENRES -> rbGenres.isChecked = true
                             else -> rbTitle.isChecked = true
                         }
                     }?: kotlin.run {

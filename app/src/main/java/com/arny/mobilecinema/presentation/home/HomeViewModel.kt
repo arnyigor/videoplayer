@@ -34,6 +34,7 @@ class HomeViewModel @Inject constructor(
     val loading = _loading.asStateFlow()
     private val _order = MutableStateFlow("")
     val order = _order.asStateFlow()
+    private var search = UiAction.Search()
     private val actionStateFlow = MutableSharedFlow<UiAction>()
     var moviesDataFlow: Flow<PagingData<ViewMovie>> = actionStateFlow
         .filterIsInstance<UiAction.Search>()
@@ -44,11 +45,22 @@ class HomeViewModel @Inject constructor(
             _order.value = savedOrder
             emit(UiAction.Search(order = savedOrder))
         }
-        .flatMapLatest { moviesInteractor.getMovies(search = it.query, it.order) }
+        .flatMapLatest { search ->
+            this.search = search
+            moviesInteractor.getMovies(
+                search = search.query,
+                order = search.order,
+                searchType = search.searchType
+            )
+        }
         .cachedIn(viewModelScope)
 
     sealed class UiAction {
-        data class Search(val query: String = "", val order: String = "") : UiAction()
+        data class Search(
+            val query: String = "",
+            val order: String = "",
+            val searchType: String = ""
+        ) : UiAction()
     }
 
     fun downloadData() {
@@ -86,7 +98,12 @@ class HomeViewModel @Inject constructor(
 
     fun loadMovies(search: String = "") {
         viewModelScope.launch {
-            actionStateFlow.emit(UiAction.Search(query = search, order = _order.value))
+            actionStateFlow.emit(
+                this@HomeViewModel.search.copy(
+                    query = search,
+                    order = _order.value
+                )
+            )
         }
     }
 
@@ -112,7 +129,21 @@ class HomeViewModel @Inject constructor(
     fun setOrder(order: String) {
         viewModelScope.launch {
             moviesInteractor.saveOrder(order)
-            actionStateFlow.emit(UiAction.Search(order = order))
+            actionStateFlow.emit(
+                search.copy(
+                    order = order
+                )
+            )
+        }
+    }
+
+    fun setSearchType(searchType: String) {
+        viewModelScope.launch {
+            actionStateFlow.emit(
+                search.copy(
+                    searchType = searchType
+                )
+            )
         }
     }
 }

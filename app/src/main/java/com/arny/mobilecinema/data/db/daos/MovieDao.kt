@@ -22,9 +22,41 @@ interface MovieDao : BaseDao<MovieEntity> {
             "LIMIT :limit OFFSET :offset")
     suspend fun getPagedListOrdered(order: String, limit: Int, offset: Int): List<ViewMovie>
 
-    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE title LIKE '%' || :search || '%' ORDER BY dbId ASC LIMIT :limit OFFSET :offset")
+    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE CASE " +
+            "WHEN :searchType = 'title' THEN title LIKE '%' || :search || '%' " +
+            "WHEN :searchType = 'directors' THEN directors LIKE '%' || :search || '%' " +
+            "WHEN :searchType = 'actors' THEN actors LIKE '%' || :search || '%' " +
+            "WHEN :searchType = 'genres' THEN genre LIKE '%' || :search || '%' " +
+            "ELSE title LIKE '%' || :search || '%' " +
+            "END " +
+            "ORDER BY dbId ASC " +
+            "LIMIT :limit OFFSET :offset")
     suspend fun getPagedListBySearch(
         search: String,
+        searchType: String,
+        limit: Int,
+        offset: Int
+    ): List<ViewMovie>
+
+    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE CASE " +
+            "WHEN :searchType = 'title' THEN title LIKE '%' || :search || '%' " +
+            "WHEN :searchType = 'directors' THEN directors LIKE '%' || :search || '%' " +
+            "WHEN :searchType = 'actors' THEN actors LIKE '%' || :search || '%' " +
+            "WHEN :searchType = 'genres' THEN genre LIKE '%' || :search || '%' " +
+            "ELSE title LIKE '%' || :search || '%' " +
+            "END " +
+            "ORDER BY  " +
+            "CASE WHEN :order = 'ratingKpD' THEN ratingKp END DESC, " +
+            "CASE WHEN :order = 'ratingImdbD' THEN ratingImdb END DESC, " +
+            "CASE WHEN :order = 'updatedD' THEN updated END DESC, " +
+            "CASE WHEN :order = 'updatedA' THEN updated END ASC, " +
+            "CASE WHEN :order = 'yearD' THEN year END DESC, " +
+            "CASE WHEN :order = 'yearA' THEN year END ASC " +
+            "LIMIT :limit OFFSET :offset")
+    suspend fun getPagedListBySearch(
+        search: String,
+        searchType: String,
+        order: String,
         limit: Int,
         offset: Int
     ): List<ViewMovie>
