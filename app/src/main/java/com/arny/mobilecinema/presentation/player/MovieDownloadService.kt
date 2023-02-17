@@ -30,15 +30,18 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     lateinit var playerSource: PlayerSource
     private var currentUrl: String = ""
     private var currentTitle: String = ""
+    private var noticeStopped = false
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
     private val progressListener: (percent: Float, state: Int) -> Unit =
         { percent, state ->
-            updateNotification(
-                getString(R.string.download_cinema_format, currentTitle, percent),
-                true
-            )
+            if (!noticeStopped) {
+                updateNotification(
+                    getString(R.string.download_cinema_format, currentTitle, percent),
+                    true
+                )
+            }
             when (state) {
                 Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {}
                 Download.STATE_COMPLETED -> {
@@ -64,21 +67,16 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            AppConstants.ACTION_CACHE_MOVIE -> {
-                download(intent)
-            }
-            AppConstants.ACTION_CACHE_MOVIE_CANCEL -> {
-                cancelDownload()
-            }
-            else -> {
-                stop()
-            }
+            AppConstants.ACTION_CACHE_MOVIE -> download(intent)
+            AppConstants.ACTION_CACHE_MOVIE_CANCEL -> cancelDownload()
+            else -> stop()
         }
         return super.onStartCommand(intent, flags, startId)
     }
 
     private fun download(intent: Intent?) {
         val extras = intent?.extras
+        noticeStopped = false
         currentUrl = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_URL).orEmpty()
         currentTitle = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_TITLE).orEmpty()
         preCacheVideo(currentUrl)
@@ -86,6 +84,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     private fun cancelDownload() {
         playerSource.cancelDownload(currentUrl)
+        noticeStopped = true
         stop()
     }
 
