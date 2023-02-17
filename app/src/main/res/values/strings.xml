@@ -22,7 +22,7 @@
     <string name="menu_clear_file_view_history">Очистить историю просмотра</string>
     <string name="movie_cleared">Видео удалено из кеша</string>
     <string name="question_remove">Удалить?</string>
-    <string name="question_remove_from_history_title">Хотите удалить \"%s\" из истории просмотра?</string>
+    <string name="question_remove_from_history_title">Хотите удалить \"%s\" из истории просмотра и очистить кеш?</string>
     <string name="title_home">Главная</string>
     <string name="press_back_again_to_exit">Нажмите назад еще раз чтобы выйти</string>
     <string name="pref_main_header">Основные</string>

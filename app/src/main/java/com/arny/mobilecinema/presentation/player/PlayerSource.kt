@@ -14,12 +14,14 @@ import com.google.android.exoplayer2.MediaMetadata
 import com.google.android.exoplayer2.database.StandaloneDatabaseProvider
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
 import com.google.android.exoplayer2.offline.Download
+import com.google.android.exoplayer2.offline.DownloadHelper
 import com.google.android.exoplayer2.offline.DownloadManager
 import com.google.android.exoplayer2.offline.DownloadRequest
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource
+import com.google.android.exoplayer2.source.hls.HlsManifest
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultDataSource
@@ -30,9 +32,12 @@ import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.util.Util
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 class PlayerSource @Inject constructor(
     private val context: Context,
@@ -159,25 +164,43 @@ class PlayerSource @Inject constructor(
         }, 1000)
     }
 
-    suspend fun isDownloaded(url: String): Boolean = withContext(Dispatchers.IO) {
-        ensureDownloadManagerInitialized(context)
-        var download: Download? = null
-        val mediaItem = getMediaItem(url)
-        val uri = mediaItem.localConfiguration?.uri
-        if (uri != null) {
-            val downloads: HashMap<Uri, Download> = hashMapOf()
-            downloadManager?.downloadIndex?.getDownloads()?.use { loadedDownloads ->
-                while (loadedDownloads.moveToNext()) {
-                    val value = loadedDownloads.download
-                    val key = value.request.uri
-                    downloads[key] = value
-                }
+    suspend fun isDownloaded(url: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            val factory = dataSourceFactory()
+            val cache = factory.cache
+            val keys = cache?.keys.orEmpty().toList()
+            val segments = getSegments(url)
+            val allCached: Boolean = if (segments.isNotEmpty()) {
+                segments.all { it in keys }
+            } else {
+                keys.contains(url)
             }
-            download = downloads[uri]
+            allCached
         }
-        val state = download.getState()
-        println("state:$state,downloaded:${download?.percentDownloaded}")
-        download != null && download.state != Download.STATE_FAILED
+    }
+
+    private suspend fun getSegments(url: String): List<String> {
+        return suspendCoroutine { continuation ->
+            val mediaItem = getMediaItem(url)
+            val helper = DownloadHelper.forMediaItem(context, mediaItem, null, dataSourceFactory())
+            helper.prepare(
+                object : DownloadHelper.Callback {
+                    override fun onPrepared(helper: DownloadHelper) {
+                        val segments = when (val manifest = helper.manifest) {
+                            is HlsManifest -> {
+                                manifest.mediaPlaylist.segments.map { it.url }
+                            }
+                            else -> emptyList()
+                        }
+                        continuation.resumeWith(Result.success(segments))
+                    }
+
+                    override fun onPrepareError(helper: DownloadHelper, e: IOException) {
+                        e.printStackTrace()
+                        continuation.resumeWithException(e)
+                    }
+                })
+        }
     }
 
     private fun Download?.getState(): String {
@@ -200,7 +223,10 @@ class PlayerSource @Inject constructor(
     suspend fun clearDownloaded(url: String) = withContext(Dispatchers.IO) {
         ensureDownloadManagerInitialized(context)
         downloadManager?.removeDownload(url)
-        VideoCache.getInstance(context).getDownloadCache().removeResource(url)
+        val cache = VideoCache.getInstance(context).getDownloadCache()
+        val segments = getSegments(url)
+        segments.forEach { cache.removeResource(it) }
+        cache.removeResource(url)
     }
 
     /**
