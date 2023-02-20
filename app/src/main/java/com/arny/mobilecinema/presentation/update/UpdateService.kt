@@ -83,7 +83,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
                         repository.updateMovies(anwapMovies) { pers ->
                             updateNotification(getString(R.string.updating, pers), true)
                         }
-                        repository.setLastUpdate()
+//                        repository.setLastUpdate()
                     }
                     updateNotification(
                         title = getString(R.string.update_finished),

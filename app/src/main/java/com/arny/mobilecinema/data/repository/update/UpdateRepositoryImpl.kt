@@ -10,6 +10,7 @@ import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
+import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
 
@@ -61,14 +62,19 @@ class UpdateRepositoryImpl @Inject constructor(
             val dbList = moviesDao.getUpdateMovies()
             movies.forEachIndexed { index, movie ->
                 val dbMovie = dbList.find { it.pageUrl == movie.pageUrl }
-                if (dbMovie != null) {
-                    if (dbMovie.updated < movie.info.updated) {
+                when {
+                    dbMovie != null && dbMovie.title != movie.title -> {
                         entity = entity.setData(movie)
                         moviesDao.update(entity)
                     }
-                } else {
-                    entity = entity.setData(movie)
-                    moviesDao.insert(entity)
+                    dbMovie != null && dbMovie.updated < movie.info.updated -> {
+                        entity = entity.setData(movie)
+                        moviesDao.update(entity)
+                    }
+                    dbMovie == null -> {
+                        entity = entity.setData(movie)
+                        moviesDao.insert(entity)
+                    }
                 }
                 if (index % 1000 == 0) {
                     onUpdate(getPersent(index, size))

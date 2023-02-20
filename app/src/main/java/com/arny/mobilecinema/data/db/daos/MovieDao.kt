@@ -71,7 +71,7 @@ interface MovieDao : BaseDao<MovieEntity> {
     @Query("SELECT COUNT(dbId) FROM movies")
     fun getCount(): Int
 
-    @Query("SELECT dbId, pageUrl, updated FROM movies")
+    @Query("SELECT dbId, pageUrl, title, updated FROM movies")
     fun getUpdateMovies(): List<MovieUpdate>
 
     @Query("SELECT * FROM movies WHERE dbId = :id")
