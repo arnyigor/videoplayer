@@ -287,12 +287,14 @@ class HomeFragment : Fragment(), OnSearchListener {
                     val radioBtn = listOf(
                         rbNone to AppConstants.Order.NONE,
                         rbTitle to AppConstants.Order.TITLE,
+                        rbRatings to AppConstants.Order.RATINGS,
                         rbYearDesc to AppConstants.Order.YEAR_DESC,
                         rbYearAsc to AppConstants.Order.YEAR_ASC,
                     )
                     currentOrder.takeIf { it.isNotBlank() }?.let {
                         when (it) {
                             AppConstants.Order.TITLE -> rbTitle.isChecked = true
+                            AppConstants.Order.RATINGS -> rbRatings.isChecked = true
                             AppConstants.Order.YEAR_DESC -> rbYearDesc.isChecked = true
                             AppConstants.Order.YEAR_ASC -> rbYearAsc.isChecked = true
                             else -> rbNone.isChecked = true

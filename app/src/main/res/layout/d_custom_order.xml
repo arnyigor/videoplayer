@@ -15,7 +15,7 @@
             style="@style/DetailsSubTitleStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/sort_none" />
+            android:text="@string/sort_updated" />
 
         <RadioButton
             android:id="@+id/rbTitle"
@@ -23,6 +23,13 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/sort_title" />
+
+        <RadioButton
+            android:id="@+id/rbRatings"
+            style="@style/DetailsSubTitleStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sort_ratings" />
 
         <RadioButton
             android:id="@+id/rbYearDesc"

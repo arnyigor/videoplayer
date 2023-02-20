@@ -13,6 +13,7 @@ object AppConstants {
 
     object Order {
         const val NONE = "order_none"
+        const val RATINGS = "order_ratings"
         const val TITLE = "order_title"
         const val YEAR_DESC = "order_yearD"
         const val YEAR_ASC = "order_yearA"

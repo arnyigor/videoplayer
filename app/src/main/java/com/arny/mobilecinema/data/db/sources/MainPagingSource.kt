@@ -56,22 +56,26 @@ class MainPagingSource(
                 }
                 order.isNotBlank() -> {
                     when (order) {
-                        AppConstants.Order.TITLE -> dao.getPagedListRatingTitle(
+                        AppConstants.Order.TITLE -> dao.getPagedListOrderTitle(
                             limit = params.loadSize,
                             offset = page * params.loadSize
                         )
-                        AppConstants.Order.YEAR_DESC -> dao.getPagedListRatingYearD(
+                        AppConstants.Order.RATINGS -> dao.getPagedListOrderRatings(
                             limit = params.loadSize,
                             offset = page * params.loadSize
                         )
-                        AppConstants.Order.YEAR_ASC -> dao.getPagedListRatingYearA(
+                        AppConstants.Order.YEAR_DESC -> dao.getPagedListOrderYearD(
                             limit = params.loadSize,
                             offset = page * params.loadSize
                         )
-                        else -> dao.getPagedList(params.loadSize, page * params.loadSize)
+                        AppConstants.Order.YEAR_ASC -> dao.getPagedListOrderYearA(
+                            limit = params.loadSize,
+                            offset = page * params.loadSize
+                        )
+                        else -> dao.getPagedListOrderUpdated(params.loadSize, page * params.loadSize)
                     }
                 }
-                else -> dao.getPagedList(params.loadSize, page * params.loadSize)
+                else -> dao.getPagedListOrderUpdated(params.loadSize, page * params.loadSize)
             }
             LoadResult.Page(
                 data = list,

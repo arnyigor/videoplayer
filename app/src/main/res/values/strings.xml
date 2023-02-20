@@ -69,9 +69,10 @@
     <string name="search_settings">Настройки поиска</string>
     <string name="search_settings_title">Где искать?</string>
     <string name="search_order_settings">Настройки сортировки</string>
-    <string name="sort_none">Без сортировки</string>
+    <string name="sort_updated">По дате обновления</string>
     <string name="sort_year_desc">По году убывание</string>
     <string name="sort_title">По названию</string>
+    <string name="sort_ratings">По рейтингам IMDB и KP</string>
     <string name="sort_year_asc">По году возрастание</string>
     <string name="question_remove_all_history">Удалить всю историю просмотра?</string>
     <string name="notification_channel_id">notification_channel_cache</string>
