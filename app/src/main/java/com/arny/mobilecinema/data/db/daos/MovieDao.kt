@@ -12,31 +12,31 @@ interface MovieDao : BaseDao<MovieEntity> {
     suspend fun getPagedList(limit: Int, offset: Int): List<ViewMovie>
 
     @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies " +
-            "ORDER BY  " +
-            "CASE WHEN :order = 'ratingKpD' THEN ratingKp END DESC, " +
-            "CASE WHEN :order = 'ratingImdbD' THEN ratingImdb END DESC, " +
-            "CASE WHEN :order = 'updatedD' THEN updated END DESC, " +
-            "CASE WHEN :order = 'updatedA' THEN updated END ASC, " +
-            "CASE WHEN :order = 'yearD' THEN year END DESC, " +
-            "CASE WHEN :order = 'yearA' THEN year END ASC " +
+            "ORDER BY title ASC, ratingImdb DESC, ratingKp DESC, likes DESC " +
             "LIMIT :limit OFFSET :offset")
-    suspend fun getPagedListOrdered(order: String, limit: Int, offset: Int): List<ViewMovie>
+    suspend fun getPagedListRatingTitle(limit: Int, offset: Int): List<ViewMovie>
 
-    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE CASE " +
-            "WHEN :searchType = 'title' THEN title LIKE '%' || :search || '%' " +
-            "WHEN :searchType = 'directors' THEN directors LIKE '%' || :search || '%' " +
-            "WHEN :searchType = 'actors' THEN actors LIKE '%' || :search || '%' " +
-            "WHEN :searchType = 'genres' THEN genre LIKE '%' || :search || '%' " +
-            "ELSE title LIKE '%' || :search || '%' " +
-            "END " +
-            "ORDER BY dbId ASC " +
+    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies " +
+            "ORDER BY year DESC, ratingImdb DESC, ratingKp DESC, likes DESC " +
             "LIMIT :limit OFFSET :offset")
-    suspend fun getPagedListBySearch(
-        search: String,
-        searchType: String,
-        limit: Int,
-        offset: Int
-    ): List<ViewMovie>
+    suspend fun getPagedListRatingYearD(limit: Int, offset: Int): List<ViewMovie>
+
+    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies " +
+            "ORDER BY year ASC, ratingImdb DESC, ratingKp DESC, likes DESC " +
+            "LIMIT :limit OFFSET :offset")
+    suspend fun getPagedListRatingYearA(limit: Int, offset: Int): List<ViewMovie>
+
+    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE title LIKE '%' || :search || '%' ORDER BY dbId ASC LIMIT :limit OFFSET :offset")
+    suspend fun getPagedListBySearchTitle(search: String, limit: Int, offset: Int): List<ViewMovie>
+
+    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE directors LIKE '%' || :search || '%' ORDER BY dbId ASC LIMIT :limit OFFSET :offset")
+    suspend fun getPagedListBySearchDirectors(search: String, limit: Int, offset: Int): List<ViewMovie>
+
+    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE actors LIKE '%' || :search || '%' ORDER BY dbId ASC LIMIT :limit OFFSET :offset")
+    suspend fun getPagedListBySearchActors(search: String, limit: Int, offset: Int): List<ViewMovie>
+
+    @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE genre LIKE '%' || :search || '%' ORDER BY dbId ASC LIMIT :limit OFFSET :offset")
+    suspend fun getPagedListBySearchGenres(search: String, limit: Int, offset: Int): List<ViewMovie>
 
     @Query("SELECT dbId, title, type, img, year, likes, dislikes FROM movies WHERE CASE " +
             "WHEN :searchType = 'title' THEN title LIKE '%' || :search || '%' " +

@@ -18,18 +18,11 @@
             android:text="@string/sort_none" />
 
         <RadioButton
-            android:id="@+id/rbUpdatedDesc"
+            android:id="@+id/rbTitle"
             style="@style/DetailsSubTitleStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/sort_updated_desc" />
-
-        <RadioButton
-            android:id="@+id/rbUpdatedAsc"
-            style="@style/DetailsSubTitleStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/sort_updated_asc" />
+            android:text="@string/sort_title" />
 
         <RadioButton
             android:id="@+id/rbYearDesc"
@@ -45,18 +38,5 @@
             android:layout_height="wrap_content"
             android:text="@string/sort_year_asc" />
 
-        <RadioButton
-            android:id="@+id/rbImdbDesc"
-            style="@style/DetailsSubTitleStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/sort_imdb_desc" />
-
-        <RadioButton
-            android:id="@+id/rbKpDesc"
-            style="@style/DetailsSubTitleStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/sort_KP_desc" />
     </RadioGroup>
 </LinearLayout>

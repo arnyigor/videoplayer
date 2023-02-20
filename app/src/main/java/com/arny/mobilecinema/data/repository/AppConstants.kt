@@ -12,12 +12,10 @@ object AppConstants {
     const val SERVICE_PARAM_FILE = "SERVICE_PARAM_FILE"
 
     object Order {
-        const val UPDATED_DESC = "updatedD"
-        const val UPDATED_ASC = "updatedA"
-        const val YEAR_DESC = "yearD"
-        const val YEAR_ASC = "yearA"
-        const val IMDB_DESC = "ratingImdbD"
-        const val KP_DESC = "ratingKpD"
+        const val NONE = "order_none"
+        const val TITLE = "order_title"
+        const val YEAR_DESC = "order_yearD"
+        const val YEAR_ASC = "order_yearA"
     }
     object SearchType {
         const val TITLE = "title"

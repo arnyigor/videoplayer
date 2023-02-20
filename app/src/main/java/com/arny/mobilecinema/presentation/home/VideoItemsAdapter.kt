@@ -43,6 +43,7 @@ class VideoItemsAdapter(
                 tvVideoTitle.text = item.title
                 Glide.with(ivVideoIcon)
                     .load(item.img.getWithDomain(baseUrl))
+                    .placeholder(R.drawable.play_circle_outline)
                     .into(ivVideoIcon)
                 val type = getType(item, context)
                 val year = if (item.year > 0) "${item.year} " else ""

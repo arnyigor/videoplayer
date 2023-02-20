@@ -285,22 +285,16 @@ class HomeFragment : Fragment(), OnSearchListener {
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
                     val radioBtn = listOf(
-                        rbNone to "",
-                        rbUpdatedDesc to AppConstants.Order.UPDATED_DESC,
-                        rbUpdatedAsc to AppConstants.Order.UPDATED_ASC,
+                        rbNone to AppConstants.Order.NONE,
+                        rbTitle to AppConstants.Order.TITLE,
                         rbYearDesc to AppConstants.Order.YEAR_DESC,
                         rbYearAsc to AppConstants.Order.YEAR_ASC,
-                        rbImdbDesc to AppConstants.Order.IMDB_DESC,
-                        rbKpDesc to AppConstants.Order.KP_DESC,
                     )
                     currentOrder.takeIf { it.isNotBlank() }?.let {
                         when (it) {
-                            AppConstants.Order.UPDATED_DESC -> rbUpdatedDesc.isChecked = true
-                            AppConstants.Order.UPDATED_ASC -> rbUpdatedAsc.isChecked = true
+                            AppConstants.Order.TITLE -> rbTitle.isChecked = true
                             AppConstants.Order.YEAR_DESC -> rbYearDesc.isChecked = true
                             AppConstants.Order.YEAR_ASC -> rbYearAsc.isChecked = true
-                            AppConstants.Order.IMDB_DESC -> rbImdbDesc.isChecked = true
-                            AppConstants.Order.KP_DESC -> rbKpDesc.isChecked = true
                             else -> rbNone.isChecked = true
                         }
                     }?: kotlin.run {

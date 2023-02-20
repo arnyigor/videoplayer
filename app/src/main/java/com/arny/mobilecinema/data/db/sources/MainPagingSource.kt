@@ -3,6 +3,7 @@ package com.arny.mobilecinema.data.db.sources
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.arny.mobilecinema.data.db.daos.MovieDao
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.ViewMovie
 
 class MainPagingSource(
@@ -25,19 +26,52 @@ class MainPagingSource(
                     )
                 }
                 search.isNotBlank() -> {
-                    dao.getPagedListBySearch(
-                        search = search,
-                        searchType = searchType,
-                        limit = params.loadSize,
-                        offset = page * params.loadSize
-                    )
+                    when (searchType) {
+                        AppConstants.SearchType.TITLE -> dao.getPagedListBySearchTitle(
+                            search = search,
+                            limit = params.loadSize,
+                            offset = page * params.loadSize
+                        )
+                        AppConstants.SearchType.DIRECTORS -> dao.getPagedListBySearchDirectors(
+                            search = search,
+                            limit = params.loadSize,
+                            offset = page * params.loadSize
+                        )
+                        AppConstants.SearchType.ACTORS -> dao.getPagedListBySearchActors(
+                            search = search,
+                            limit = params.loadSize,
+                            offset = page * params.loadSize
+                        )
+                        AppConstants.SearchType.GENRES -> dao.getPagedListBySearchGenres(
+                            search = search,
+                            limit = params.loadSize,
+                            offset = page * params.loadSize
+                        )
+                        else -> dao.getPagedListBySearchTitle(
+                            search = search,
+                            limit = params.loadSize,
+                            offset = page * params.loadSize
+                        )
+                    }
                 }
                 order.isNotBlank() -> {
-                    dao.getPagedListOrdered(order, params.loadSize, page * params.loadSize)
+                    when (order) {
+                        AppConstants.Order.TITLE -> dao.getPagedListRatingTitle(
+                            limit = params.loadSize,
+                            offset = page * params.loadSize
+                        )
+                        AppConstants.Order.YEAR_DESC -> dao.getPagedListRatingYearD(
+                            limit = params.loadSize,
+                            offset = page * params.loadSize
+                        )
+                        AppConstants.Order.YEAR_ASC -> dao.getPagedListRatingYearA(
+                            limit = params.loadSize,
+                            offset = page * params.loadSize
+                        )
+                        else -> dao.getPagedList(params.loadSize, page * params.loadSize)
+                    }
                 }
-                else -> {
-                    dao.getPagedList(params.loadSize, page * params.loadSize)
-                }
+                else -> dao.getPagedList(params.loadSize, page * params.loadSize)
             }
             LoadResult.Page(
                 data = list,
