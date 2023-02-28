@@ -3,8 +3,9 @@ package com.arny.mobilecinema.data.network.jsoup
 import com.arny.mobilecinema.data.utils.getDomainName
 import org.jsoup.helper.Validate
 import org.jsoup.nodes.Document
+import javax.inject.Inject
 
-class JsoupService private constructor() {
+class JsoupService @Inject constructor() {
     companion object {
         fun getInstance() = JsoupService()
     }

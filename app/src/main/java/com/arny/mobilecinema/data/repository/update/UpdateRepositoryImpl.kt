@@ -1,21 +1,23 @@
 package com.arny.mobilecinema.data.repository.update
 
 import android.content.Context
+import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.models.setData
+import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
-import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
 
 class UpdateRepositoryImpl @Inject constructor(
     private val apiService: ApiService,
+    private val jsoup: JsoupService,
     private val prefs: Prefs,
     private val context: Context,
     private val moviesDao: MovieDao
@@ -55,7 +57,7 @@ class UpdateRepositoryImpl @Inject constructor(
                 entity = entity.setData(movie)
                 moviesDao.insert(entity)
                 if (ind % 1000 == 0) {
-                    onUpdate(getPersent(ind, size))
+                    onUpdate(getPercent(ind, size))
                 }
             }
         } else {
@@ -77,12 +79,28 @@ class UpdateRepositoryImpl @Inject constructor(
                     }
                 }
                 if (index % 1000 == 0) {
-                    onUpdate(getPersent(index, size))
+                    onUpdate(getPercent(index, size))
                 }
             }
         }
     }
 
-    private fun getPersent(ind: Int, size: Int) =
+    override suspend fun checkBaseUrl(): Boolean = try {
+        val baseLink = BuildConfig.BASE_LINK
+        val page = jsoup.loadPage(baseLink)
+        var link = page.select("ul.tl li")
+            .select("a:contains(Фильмы)")
+            .attr("href")
+        if (link.endsWith("/")) {
+            link = link.dropLast(1)
+        }
+        this.baseUrl = link
+        true
+    } catch (e: Exception) {
+        e.printStackTrace()
+        false
+    }
+
+    private fun getPercent(ind: Int, size: Int) =
         ((ind.toDouble() / size.toDouble()) * 100).toInt()
 }

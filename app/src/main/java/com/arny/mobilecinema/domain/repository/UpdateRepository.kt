@@ -12,4 +12,5 @@ interface UpdateRepository {
     suspend fun downloadFile(url: String, name: String): File
     fun setLastUpdate()
     fun updateMovies(movies: List<Movie>, onUpdate: (ind: Int) -> Unit)
+    suspend fun checkBaseUrl(): Boolean
 }

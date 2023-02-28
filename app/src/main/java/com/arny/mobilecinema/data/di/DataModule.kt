@@ -8,7 +8,7 @@ import com.arny.mobilecinema.data.db.AppDatabase
 import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
-//import com.arny.mobilecinema.data.player.MovieDownloadHelper
+import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.MoviesRepositoryImpl
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.update.UpdateRepositoryImpl
@@ -39,6 +39,10 @@ interface DataModule {
         @Provides
         @Singleton
         fun provideApiService(ktor: KtorClient): ApiService = ApiService(ktor.client)
+
+        @Provides
+        @Singleton
+        fun provideJsoupService(): JsoupService = JsoupService.getInstance()
 
         @Provides
         @Singleton

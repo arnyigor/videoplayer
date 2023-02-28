@@ -29,11 +29,7 @@ class DataUpdateInteractorImpl @Inject constructor(
     private lateinit var downloadedReceiver: DownloadedReceiver
 
     override suspend fun checkBaseUrl(): Flow<DataResult<Boolean>> = doAsync {
-        val linkFile = repository.downloadFile(BuildConfig.BASE_LINK, AppConstants.BASE_URL_FILE)
-        val baseLink = linkFile.readText()
-        linkFile.delete()
-        repository.baseUrl = baseLink
-        true
+        repository.checkBaseUrl()
     }
 
     override fun requestFile() {
