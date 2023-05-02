@@ -29,6 +29,13 @@ class DetailsViewModel @Inject constructor(
     private val _toast = MutableSharedFlow<IWrappedString>()
     val toast = _toast.asSharedFlow()
 
+    fun reloadVideo(){
+        val id = _movie.value?.dbId
+        if (id != null) {
+            loadVideo(id)
+        }
+    }
+
     fun loadVideo(id: Long) {
         viewModelScope.launch {
             interactor.getMovie(id)

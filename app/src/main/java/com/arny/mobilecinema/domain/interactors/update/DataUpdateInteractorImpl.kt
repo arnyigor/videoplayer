@@ -14,7 +14,6 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.FilePathUtils
-import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.update.UpdateService
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
@@ -52,7 +51,16 @@ class DataUpdateInteractorImpl @Inject constructor(
         }
     }
 
-    override suspend fun getUpdateDate(): Flow<DataResult<String>> = doAsync {
+    override fun resetUpdate() {
+        repository.newUpdate = ""
+        repository.checkUpdate = false
+    }
+
+    override suspend fun getUpdateDate(force: Boolean): Flow<DataResult<String>> = doAsync {
+        if (force) {
+            repository.newUpdate = ""
+            repository.checkUpdate = false
+        }
         var newUpdate = ""
         if (!repository.checkUpdate && repository.newUpdate.isBlank()) {
             repository.checkUpdate = true
@@ -100,9 +108,7 @@ class DataUpdateInteractorImpl @Inject constructor(
                     val uri = downloadManager?.getUriForDownloadedFile(id)
                     if (uri != null && context != null) {
                         FilePathUtils.getPath(uri, context)?.let {
-                            val file = File(it)
-                            println("получен file:$file, с размером ${formatFileSize(file.length())}")
-                            update(file)
+                            update(File(it))
                         }
                     }
                 }

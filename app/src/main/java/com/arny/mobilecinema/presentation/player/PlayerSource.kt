@@ -34,7 +34,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
@@ -87,14 +86,14 @@ class PlayerSource @Inject constructor(
                 /* upstreamFactory = */
                 DefaultDataSource.Factory(context, DefaultHttpDataSource.Factory()),
                 /* executor = */
-                Executors.newSingleThreadExecutor()
+                Executors.newScheduledThreadPool(3)
             )
         }
     }
 
     fun cacheVideo(
         videoUrl: String,
-        progressListener: (percent: Float, state: Int) -> Unit
+        progressListener: (percent: Float, bytes: Long, startTime: Long, updateTime: Long, state: Int) -> Unit
     ) {
         ensureDownloadManagerInitialized(context)
         val builder = DownloadRequest.Builder(videoUrl, Uri.parse(videoUrl)).build()
@@ -106,59 +105,34 @@ class PlayerSource @Inject constructor(
                 download: Download,
                 finalException: Exception?
             ) {
-                progressListener(download.percentDownloaded, download.state)
+                progressListener(
+                    download.percentDownloaded,
+                    download.bytesDownloaded,
+                    download.startTimeMs,
+                    download.updateTimeMs,
+                    download.state
+                )
             }
         })
         downloadManager?.resumeDownloads()
         updateProgress(progressListener, start)
     }
 
-    private fun getRemain(start: Long, current: Long, size: Long): String {
-        val duration = System.currentTimeMillis() - start
-        val remain = duration * (size - current)
-        return getDurationBreakdown(remain)
-    }
-
-    private fun getDurationBreakdown(ms: Long): String {
-        var millis = ms
-        val days: Long = TimeUnit.MILLISECONDS.toDays(millis)
-        millis -= TimeUnit.DAYS.toMillis(days)
-        val hours: Long = TimeUnit.MILLISECONDS.toHours(millis)
-        millis -= TimeUnit.HOURS.toMillis(hours)
-        val minutes: Long = TimeUnit.MILLISECONDS.toMinutes(millis)
-        millis -= TimeUnit.MINUTES.toMillis(minutes)
-        val seconds: Long = TimeUnit.MILLISECONDS.toSeconds(millis)
-        millis -= TimeUnit.SECONDS.toMillis(seconds)
-        val mls: Long = TimeUnit.MILLISECONDS.toMillis(millis)
-        return StringBuilder(64).apply {
-            if (days != 0L) {
-                append(days)
-                append("д.")
-            }
-            if (hours != 0L) {
-                append(hours)
-                append("ч.")
-            }
-            if (minutes != 0L) {
-                append(minutes)
-                append("мин.")
-            }
-            append(seconds)
-            append(",")
-            append(mls)
-            append("сек.")
-        }.toString()
-    }
-
     private fun updateProgress(
-        progressListener: (percent: Float, state: Int) -> Unit,
+        progressListener: (percent: Float, bytes: Long, startTime: Long, updateTime: Long, state: Int) -> Unit,
         start: Long
     ) {
         handler.postDelayed({
             val currentDownloads = downloadManager?.currentDownloads
             if (currentDownloads?.isNotEmpty() == true) {
                 val download = currentDownloads.first()
-                progressListener(download.percentDownloaded, download.state)
+                progressListener(
+                    download.percentDownloaded,
+                    download.bytesDownloaded,
+                    download.startTimeMs,
+                    download.updateTimeMs,
+                    download.state
+                )
             }
             updateProgress(progressListener, start)
         }, 1000)
@@ -236,6 +210,7 @@ class PlayerSource @Inject constructor(
     fun cancelDownload(url: String) {
         handler.removeCallbacksAndMessages(null)
         ensureDownloadManagerInitialized(context)
+        downloadManager?.setStopReason(url, Download.STOP_REASON_NONE)
         downloadManager?.removeDownload(url)
     }
 

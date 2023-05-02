@@ -34,9 +34,9 @@ fun urlEncode(value: String): String? = URLEncoder.encode(value, StandardCharset
 
 sealed class ConnectionType(open val speedKbps: Int) {
     object NONE : ConnectionType(0)
-    data class MOBILE(val speed: Int) : ConnectionType(speed)
-    data class WIFI(val speed: Int) : ConnectionType(speed)
-    data class VPN(val speed: Int) : ConnectionType(speed)
+    data class MOBILE(override val speedKbps: Int) : ConnectionType(speedKbps)
+    data class WIFI(override val speedKbps: Int) : ConnectionType(speedKbps)
+    data class VPN(override val speedKbps: Int) : ConnectionType(speedKbps)
 }
 
 fun getConnectionType(context: Context): ConnectionType {

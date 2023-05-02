@@ -21,4 +21,9 @@
         android:id="@+id/menu_action_from_path"
         android:title="@string/menu_from_path"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/menu_action_check_update"
+        app:showAsAction="ifRoom"
+        android:icon="@android:drawable/stat_sys_download"
+        android:title="@string/menu_check_update" />
 </menu>

@@ -26,6 +26,8 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
+    private val _empty = MutableStateFlow(false)
+    val empty = _empty.asStateFlow()
     private val _toast = MutableSharedFlow<IWrappedString>()
     val toast = _toast.asSharedFlow()
     private val _alert = MutableSharedFlow<Alert>()
@@ -53,19 +55,27 @@ class HomeViewModel @Inject constructor(
                 searchType = search.searchType
             )
         }
+        .onEach {
+            _loading.value = false
+            checkEmpty()
+        }
         .cachedIn(viewModelScope)
 
-    sealed class UiAction {
-        data class Search(
-            val query: String = "",
-            val order: String = "",
-            val searchType: String = ""
-        ) : UiAction()
+    private fun checkEmpty() {
+        viewModelScope.launch {
+            moviesInteractor.isMoviesEmpty()
+                .collectLatest { data ->
+                    when (data) {
+                        is DataResult.Error -> {}
+                        is DataResult.Success -> _empty.value = data.result
+                    }
+                }
+        }
     }
 
-    fun downloadData() {
+    fun downloadData(force: Boolean) {
         viewModelScope.launch {
-            dataUpdateInteractor.getUpdateDate()
+            dataUpdateInteractor.getUpdateDate(force)
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
                 .collect { result ->
@@ -121,7 +131,9 @@ class HomeViewModel @Inject constructor(
     fun onCancelAlert(type: AlertType) {
         viewModelScope.launch {
             when (type) {
-                AlertType.Update -> {}
+                AlertType.Update -> {
+                    dataUpdateInteractor.resetUpdate()
+                }
             }
         }
     }

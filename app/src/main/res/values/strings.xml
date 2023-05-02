@@ -78,11 +78,14 @@
     <string name="notification_channel_id">notification_channel_cache</string>
     <string name="notification_title">Загрузка фильма</string>
     <string name="cache">Сохранить фильм</string>
-    <string name="download_cinema_format">Загрузка фильма \"%s\" %.01f%%</string>
+    <string name="download_cinema_title_format">Загрузка \"%s\" - %.02f%%,%s</string>
+    <string name="download_cinema_text_format">Осталось ~ %s</string>
     <string name="search_by_title">В названии</string>
     <string name="search_by_directors">В режисёрах</string>
     <string name="search_by_actors">В актёрах</string>
     <string name="search_by_genres">В жанрах</string>
+    <string name="menu_check_update">Обновить видео данные</string>
+    <string name="check_new_video_data">Проверить новые фильмы и сериалы?</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

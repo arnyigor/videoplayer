@@ -16,41 +16,163 @@ class MainPagingSource(
         val page = params.key ?: 0
         return try {
             val list = when {
-                search.isNotBlank() && order.isNotBlank() -> {
-                    dao.getPagedListBySearch(
-                        search = search,
-                        searchType = searchType,
-                        order = order,
-                        limit = params.loadSize,
-                        offset = page * params.loadSize
-                    )
-                }
                 search.isNotBlank() -> {
                     when (searchType) {
-                        AppConstants.SearchType.TITLE -> dao.getPagedListBySearchTitle(
-                            search = search,
-                            limit = params.loadSize,
-                            offset = page * params.loadSize
-                        )
-                        AppConstants.SearchType.DIRECTORS -> dao.getPagedListBySearchDirectors(
-                            search = search,
-                            limit = params.loadSize,
-                            offset = page * params.loadSize
-                        )
-                        AppConstants.SearchType.ACTORS -> dao.getPagedListBySearchActors(
-                            search = search,
-                            limit = params.loadSize,
-                            offset = page * params.loadSize
-                        )
-                        AppConstants.SearchType.GENRES -> dao.getPagedListBySearchGenres(
-                            search = search,
-                            limit = params.loadSize,
-                            offset = page * params.loadSize
-                        )
-                        else -> dao.getPagedListBySearchTitle(
-                            search = search,
-                            limit = params.loadSize,
-                            offset = page * params.loadSize
+                        AppConstants.SearchType.TITLE -> when (order) {
+                            AppConstants.Order.TITLE -> dao.getPagedListBySearchTitleOrderTitle(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.RATINGS -> dao.getPagedListBySearchTitleOrderRating(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.NONE -> dao.getPagedListBySearchTitleOrderUpdated(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.YEAR_DESC -> dao.getPagedListBySearchTitleOrderYearD(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.YEAR_ASC -> dao.getPagedListBySearchTitleOrderYearA(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            else -> dao.getPagedListBySearchTitleOrderUpdated(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+                        }
+
+                        AppConstants.SearchType.DIRECTORS -> when (order) {
+                            AppConstants.Order.TITLE -> dao.getPagedListBySearchDirectorsOrderTitle(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.RATINGS -> dao.getPagedListBySearchDirectorsOrderRating(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.NONE -> dao.getPagedListBySearchDirectorsOrderUpdated(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.YEAR_DESC -> dao.getPagedListBySearchDirectorsOrderYearD(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.YEAR_ASC -> dao.getPagedListBySearchDirectorsOrderYearA(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            else -> dao.getPagedListBySearchDirectorsOrderUpdated(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+                        }
+
+                        AppConstants.SearchType.ACTORS -> when (order) {
+                            AppConstants.Order.TITLE -> dao.getPagedListBySearchActorsOrderTitle(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.RATINGS -> dao.getPagedListBySearchActorsOrderRating(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.NONE -> dao.getPagedListBySearchActorsOrderUpdated(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.YEAR_DESC -> dao.getPagedListBySearchActorsOrderYearD(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.YEAR_ASC -> dao.getPagedListBySearchActorsOrderYearA(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            else -> dao.getPagedListBySearchActorsOrderUpdated(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+                        }
+
+                        AppConstants.SearchType.GENRES -> when (order) {
+                            AppConstants.Order.TITLE -> dao.getPagedListBySearchGenresOrderTitle(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.RATINGS -> dao.getPagedListBySearchGenresOrderRating(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.NONE -> dao.getPagedListBySearchGenresOrderUpdated(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.YEAR_DESC -> dao.getPagedListBySearchGenresOrderYearD(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            AppConstants.Order.YEAR_ASC -> dao.getPagedListBySearchGenresOrderYearA(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+
+                            else -> dao.getPagedListBySearchGenresOrderUpdated(
+                                search = search,
+                                limit = params.loadSize,
+                                offset = page * params.loadSize
+                            )
+                        }
+
+                        else -> dao.getPagedListOrderUpdated(
+                            params.loadSize,
+                            page * params.loadSize
                         )
                     }
                 }

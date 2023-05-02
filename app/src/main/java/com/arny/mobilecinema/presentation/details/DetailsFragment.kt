@@ -1,9 +1,15 @@
 package com.arny.mobilecinema.presentation.details
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.*
+import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
 import android.widget.AdapterView
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
@@ -22,11 +28,26 @@ import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.FDetailsBinding
-import com.arny.mobilecinema.domain.models.*
+import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.SaveData
+import com.arny.mobilecinema.domain.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.MovieDownloadService
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
-import com.arny.mobilecinema.presentation.utils.*
+import com.arny.mobilecinema.presentation.utils.alertDialog
+import com.arny.mobilecinema.presentation.utils.getDuration
+import com.arny.mobilecinema.presentation.utils.getWithDomain
+import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
+import com.arny.mobilecinema.presentation.utils.printTime
+import com.arny.mobilecinema.presentation.utils.registerReceiver
+import com.arny.mobilecinema.presentation.utils.sendServiceMessage
+import com.arny.mobilecinema.presentation.utils.toast
+import com.arny.mobilecinema.presentation.utils.unregisterReceiver
+import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
+import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
@@ -81,6 +102,20 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
     private lateinit var binding: FDetailsBinding
+    private val downloadReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            checkCache()
+        }
+    }
+
+    private fun checkCache() {
+        lifecycleScope.launch {
+            val movie = currentMovie
+            if (movie != null) {
+                initButtons(movie)
+            }
+        }
+    }
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
@@ -103,6 +138,16 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         observeData()
         initMenu()
         viewModel.loadVideo(args.id)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        registerReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterReceiver(downloadReceiver)
     }
 
     private fun initMenu() {
@@ -132,14 +177,15 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                             getString(android.R.string.ok),
                             getString(android.R.string.cancel),
                             onConfirm = {
+                                viewModel.clearViewHistory()
                                 lifecycleScope.launch {
                                     currentMovie?.let {
                                         if (it.type == MovieType.CINEMA) {
                                             playerSource.clearDownloaded(it.getCinemaUrl())
                                         }
                                     }
+                                    checkCache()
                                 }
-                                viewModel.clearViewHistory()
                             }
                         )
                         true

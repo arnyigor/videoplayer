@@ -17,4 +17,5 @@ interface MoviesRepository {
     suspend fun isHistoryEmpty(): Boolean
     fun saveOrder(order: String)
     fun clearAllViewHistory():Boolean
+    suspend fun isMoviesEmpty(): Boolean
 }

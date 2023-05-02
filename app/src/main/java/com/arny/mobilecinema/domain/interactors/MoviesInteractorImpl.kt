@@ -5,6 +5,7 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.doAsync
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -21,13 +22,20 @@ class MoviesInteractorImpl @Inject constructor(
         search: String,
         order: String,
         searchType: String
-    ): Flow<PagingData<ViewMovie>> = repository.getMovies(search, order, searchType).flow
+    ): Flow<PagingData<ViewMovie>> {
+        val type = searchType.ifBlank { AppConstants.SearchType.TITLE }
+        return repository.getMovies(search, order, type).flow
+    }
 
     override fun getHistoryMovies(search: String): Flow<PagingData<ViewMovie>> =
         repository.getHistoryMovies(search).flow
 
     override fun isHistoryEmpty(): Flow<DataResult<Boolean>> = doAsync {
         repository.isHistoryEmpty()
+    }
+
+    override fun isMoviesEmpty(): Flow<DataResult<Boolean>> = doAsync {
+        repository.isMoviesEmpty()
     }
 
     override fun getMovie(id: Long): Flow<DataResult<Movie>> = doAsync {

@@ -52,6 +52,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private var currentOrder: String = ""
     private var searchType: String = ""
     private var emptySearch = true
+    private var hasData = false
     private var itemsAdapter: VideoItemsAdapter? = null
     private val startForResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -132,13 +133,13 @@ class HomeFragment : Fragment(), OnSearchListener {
         )
     }
 
-    private fun downloadData() {
+    private fun downloadData(force: Boolean = false) {
         when (getConnectionType(requireContext())) {
             ConnectionType.NONE -> {
                 toast(getString(R.string.internet_connection_error))
             }
             else -> {
-                viewModel.downloadData()
+                viewModel.downloadData(force)
             }
         }
     }
@@ -169,6 +170,13 @@ class HomeFragment : Fragment(), OnSearchListener {
         launchWhenCreated {
             viewModel.loading.collectLatest { loading ->
                 binding.pbLoading.isVisible = loading
+            }
+        }
+        launchWhenCreated {
+            viewModel.empty.collectLatest { empty ->
+                hasData = !empty
+                requireActivity().invalidateOptionsMenu()
+                binding.tvEmptyView.isVisible = empty
             }
         }
         launchWhenCreated {
@@ -226,6 +234,9 @@ class HomeFragment : Fragment(), OnSearchListener {
     private fun initMenu() {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onPrepareMenu(menu: Menu) {
+                menu.findItem(R.id.action_search).isVisible = hasData
+                menu.findItem(R.id.action_search_settings).isVisible = hasData
+                menu.findItem(R.id.action_order_settings).isVisible = hasData
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -252,22 +263,36 @@ class HomeFragment : Fragment(), OnSearchListener {
 
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
                 when (menuItem.itemId) {
-                    R.id.action_search -> false
+                    R.id.action_search -> true
                     R.id.action_order_settings -> {
                         showCustomOrderDialog()
-                        false
+                        true
                     }
                     R.id.action_search_settings -> {
                         showCustomSearchDialog()
-                        false
+                        true
+                    }
+                    R.id.menu_action_check_update -> {
+                        showVideoUpdateDialog()
+                        true
                     }
                     R.id.menu_action_from_path -> {
                         openPath()
-                        false
+                        true
                     }
-                    else -> true
+                    else -> false
                 }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+    }
+
+    private fun showVideoUpdateDialog() {
+        alertDialog(
+            title = getString(R.string.check_new_video_data),
+            btnCancelText = getString(android.R.string.cancel),
+            onConfirm = {
+                downloadData(force = true)
+            }
+        )
     }
 
     private fun showCustomOrderDialog() {

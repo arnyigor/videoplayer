@@ -421,11 +421,11 @@ fun Fragment.launchWhenCreated(block: suspend CoroutineScope.() -> Unit) {
     viewLifecycleOwner.lifecycleScope.launchWhenCreated { block.invoke(this) }
 }
 
-fun Fragment.sendBroadcast(action: String, extras: Bundle.() -> Unit = {}) {
+fun Context.sendLocalBroadcast(action: String, extras: Bundle.() -> Unit = {}) {
     val intent = Intent(action).apply {
         this.putExtras(Bundle().apply(extras))
     }
-    LocalBroadcastManager.getInstance(requireContext().applicationContext).sendBroadcast(intent)
+    LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
 }
 
 fun Fragment.registerReceiver(action: String, receiver: BroadcastReceiver) {

@@ -13,7 +13,10 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.presentation.MainActivity
+import com.arny.mobilecinema.presentation.utils.DownloadHelper
+import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
 import com.google.android.exoplayer2.offline.Download
 import com.google.android.exoplayer2.upstream.*
 import dagger.android.AndroidInjection
@@ -34,17 +37,38 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
-    private val progressListener: (percent: Float, state: Int) -> Unit =
-        { percent, state ->
+    private val downloadHelper = DownloadHelper()
+    private val progressListener: (percent: Float, bytes: Long, startTime: Long, updateTime: Long, state: Int) -> Unit =
+        { percent, bytes, _, _, state ->
             if (!noticeStopped) {
+                var title = currentTitle
+                val maxTitleSize = 15
+                if (currentTitle.length > maxTitleSize) {
+                    title = currentTitle.substring(0, maxTitleSize) + "..."
+                }
                 updateNotification(
-                    getString(R.string.download_cinema_format, currentTitle, percent),
-                    true
+                    title = getString(
+                        R.string.download_cinema_title_format,
+                        title,
+                        percent,
+                        formatFileSize(bytes, 2)
+                    ),
+                    text = getString(
+                        R.string.download_cinema_text_format,
+                        downloadHelper.getRemainTime(
+                            percent = percent.toDouble(),
+                        ),
+                    ),
+                    silent = true
                 )
             }
             when (state) {
                 Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {}
                 Download.STATE_COMPLETED -> {
+                    this.sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE) {
+                        putString(AppConstants.SERVICE_PARAM_CACHE_URL, currentUrl)
+                        putString(AppConstants.SERVICE_PARAM_CACHE_TITLE, currentTitle)
+                    }
                     stop()
                 }
                 else -> stop()
@@ -59,7 +83,8 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             getNotice(
                 channelId = "channelId",
                 channelName = "channelName",
-                title = getString(R.string.download_cinema_format, currentTitle, 0.0f),
+                title = getString(R.string.download_cinema_title_format, currentTitle, 0.0f, ""),
+                text = getString(R.string.download_cinema_text_format, ""),
                 silent = false
             )
         )
@@ -76,6 +101,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     private fun download(intent: Intent?) {
         val extras = intent?.extras
+        downloadHelper.reset()
         noticeStopped = false
         currentUrl = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_URL).orEmpty()
         currentTitle = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_TITLE).orEmpty()
@@ -105,10 +131,10 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         }
     }
 
-    private fun updateNotification(title: String, silent: Boolean) {
+    private fun updateNotification(title: String, text: String, silent: Boolean) {
         (applicationContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(
             NOTICE_ID,
-            getNotice("channelId", "channelName", title, silent)
+            getNotice("channelId", "channelName", title, text, silent)
         )
     }
 
@@ -116,6 +142,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         channelId: String,
         channelName: String,
         title: String,
+        text: String,
         silent: Boolean
     ): Notification {
         val pendingIntent: PendingIntent = PendingIntent.getService(
@@ -145,6 +172,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         return getNotificationBuilder(channelId, channelName)
             .apply {
                 setContentTitle(title)
+                setContentText(text)
                 setAutoCancel(false)
                 setSilent(silent)
                 setSmallIcon(android.R.drawable.stat_sys_download)
