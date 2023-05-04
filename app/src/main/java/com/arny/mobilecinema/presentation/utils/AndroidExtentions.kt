@@ -321,7 +321,9 @@ fun Fragment.requestPermission(
     }
 }
 
-fun Context.getImg(@DrawableRes res: Int): Drawable? = ContextCompat.getDrawable(this, res)
+fun ImageView.setDrawableCompat(@DrawableRes res: Int) = this.setImageDrawable(this.context.getImgCompat(res))
+
+fun Context.getImgCompat(@DrawableRes res: Int): Drawable? = ContextCompat.getDrawable(this, res)
 
 fun ImageView.setImgFromUrl(
     url: String,
@@ -419,6 +421,10 @@ fun Context.unbind(connection: ServiceConnection) {
 
 fun Fragment.launchWhenCreated(block: suspend CoroutineScope.() -> Unit) {
     viewLifecycleOwner.lifecycleScope.launchWhenCreated { block.invoke(this) }
+}
+
+fun Fragment.launchWhenStarted(block: suspend CoroutineScope.() -> Unit) {
+    viewLifecycleOwner.lifecycleScope.launchWhenStarted { block.invoke(this) }
 }
 
 fun Context.sendLocalBroadcast(action: String, extras: Bundle.() -> Unit = {}) {

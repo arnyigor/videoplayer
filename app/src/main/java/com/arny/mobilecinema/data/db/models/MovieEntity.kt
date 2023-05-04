@@ -40,4 +40,5 @@ data class MovieEntity(
     @ColumnInfo(name = "cinemaUrlsPoster") var cinemaUrlsPoster: String = "",
     @ColumnInfo(name = "trailerUrls") var trailerUrls: String = "",
     @ColumnInfo(name = "trailerUrlsPoster") var trailerUrlsPoster: String = "",
+    @ColumnInfo(name = "addedToHistory") var addedToHistory: Long = 0L,
 )

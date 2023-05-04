@@ -11,10 +11,7 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
@@ -34,11 +31,18 @@ import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
+import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.secToMs
+import com.arny.mobilecinema.presentation.utils.setDrawableCompat
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.github.vkay94.dtpv.youtube.YouTubeOverlay
-import com.google.android.exoplayer2.*
+import com.google.android.exoplayer2.DefaultLoadControl
+import com.google.android.exoplayer2.DefaultRenderersFactory
+import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.PlaybackException
+import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
@@ -46,10 +50,11 @@ import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
+    private var uiLocked: Boolean = false
+    private var uiLockToggled: Boolean = false
     private var title: String = ""
     private var position: Long = 0L
     private var season: Int = 0
@@ -104,7 +109,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         observeState()
         initListener()
         requireActivity().window.decorView.setOnSystemUiVisibilityChangeListener { visibility ->
-            if (visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0) {
+            if (visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0 && !uiLocked) {
                 binding.playerView.showController()
             } else {
                 binding.playerView.hideController()
@@ -119,6 +124,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         ivBack.setOnClickListener {
             findNavController().popBackStack()
         }
+        ivLock.setOnClickListener {
+            viewModel.toggleLock()
+        }
     }
 
     private fun changeResize() {
@@ -130,22 +138,32 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
     }
 
     private fun observeState() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    if (state.path != null || state.movie != null) {
-                        val movie = state.movie
-                        val (s, e) = getSerialPosition(state.season, state.episode)
-                        setCurrentTitle(getTitle(movie?.title))
-                        setMediaSources(
-                            path = state.path,
-                            position = getPosition(state.position),
-                            movie = movie,
-                            seasonIndex = s,
-                            episodeIndex = e
-                        )
-                    }
+        launchWhenCreated {
+            viewModel.uiState.collect { state ->
+                if (state.path != null || state.movie != null) {
+                    val movie = state.movie
+                    val (s, e) = getSerialPosition(state.season, state.episode)
+                    setCurrentTitle(getTitle(movie?.title))
+                    setMediaSources(
+                        path = state.path,
+                        position = getPosition(state.position),
+                        movie = movie,
+                        seasonIndex = s,
+                        episodeIndex = e
+                    )
                 }
+            }
+        }
+        launchWhenCreated {
+            viewModel.uiLock.collect { lock ->
+                this@PlayerViewFragment.uiLocked = lock
+                binding.ivLock.setDrawableCompat(
+                    if (lock) {
+                        R.drawable.ic_lock
+                    } else {
+                        R.drawable.ic_unlock
+                    }
+                )
             }
         }
     }
@@ -406,29 +424,41 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             youtubeOverlay.player(player!!)
             playerView.player = player
             playerView.resizeMode = resizeModes[resizeIndex]
+            var controllerVisible: Boolean
             playerView.setControllerVisibilityListener {
                 if (isVisible) {
-                    changeVisible(it == View.VISIBLE)
+                    controllerVisible = it == View.VISIBLE
+                    changeVisible(controllerVisible)
                 }
             }
         }
     }
 
     private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
-        if (visible) {
-            tvTitle.isVisible = true
-            ivQuality.isVisible = qualityVisible
-            ivResizes.isVisible = true
-            ivBack.isVisible = true
-            ivLang.isVisible = langVisible
-            activity?.window?.showSystemUI()
-        } else {
-            ivResizes.isVisible = false
-            ivQuality.isVisible = false
-            ivBack.isVisible = false
-            tvTitle.isVisible = false
-            ivLang.isVisible = false
-            activity?.window?.hideSystemUI()
+        when {
+            visible && uiLocked -> {
+                ivLock.isVisible = true
+            }
+
+            visible && !uiLocked -> {
+                tvTitle.isVisible = true
+                ivQuality.isVisible = qualityVisible
+                ivResizes.isVisible = true
+                ivBack.isVisible = true
+                ivLock.isVisible = true
+                ivLang.isVisible = langVisible
+                activity?.window?.showSystemUI()
+            }
+
+            else -> {
+                ivLock.isVisible = false
+                ivResizes.isVisible = false
+                ivQuality.isVisible = false
+                ivBack.isVisible = false
+                tvTitle.isVisible = false
+                ivLang.isVisible = false
+                activity?.window?.hideSystemUI()
+            }
         }
     }
 

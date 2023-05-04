@@ -212,7 +212,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                     btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
                     btnCancelText = alert.btnCancel?.toString(requireContext()),
                     cancelable = alert.cancelable,
-                    icon = alert.icon?.let { requireContext().getImg(it) },
+                    icon = alert.icon?.let { requireContext().getImgCompat(it) },
                     onConfirm = {
                         viewModel.onConfirmAlert(alert.type)
                     },

@@ -2,6 +2,8 @@ package com.arny.mobilecinema.data.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.api.KtorClient
 import com.arny.mobilecinema.data.db.AppDatabase
@@ -50,7 +52,13 @@ interface DataModule {
             context.applicationContext,
             AppDatabase::class.java,
             AppDatabase.DBNAME
-        ).build()
+        )
+            .addCallback(object : RoomDatabase.Callback() {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    super.onCreate(db)
+                    db.execSQL("PRAGMA encoding='UTF-8';")
+                }
+            }).build()
 
         @Provides
         @Singleton

@@ -15,6 +15,8 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     private val interactor: MoviesInteractor
 ) : ViewModel() {
+    private val _uiLock = MutableStateFlow(false)
+    val uiLock = _uiLock.asStateFlow()
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState = _uiState.asStateFlow()
     private val _loading = MutableStateFlow(false)
@@ -63,5 +65,9 @@ class PlayerViewModel @Inject constructor(
                 interactor.saveSerialPosition(dbId, season, episode, episodePosition)
             }
         }
+    }
+
+    fun toggleLock() {
+        _uiLock.value = !_uiLock.value
     }
 }
