@@ -450,7 +450,7 @@ fun Fragment.setupSearchView(
     onSubmitAvailable: Boolean = false,
     onQuerySubmit: (text: String?) -> Unit = {},
     onMenuCollapse: () -> Unit = {}
-) {
+): SearchView {
     val searchView = menuItem.actionView as SearchView
     searchView.isIconifiedByDefault = true
     searchView.isFocusable = true
@@ -484,6 +484,7 @@ fun Fragment.setupSearchView(
             }
         })
     }
+    return searchView
 }
 
 fun Fragment.toastMessage(string: IWrappedString?) {

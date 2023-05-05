@@ -49,6 +49,7 @@ import com.arny.mobilecinema.presentation.utils.unregisterReceiver
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
+import com.google.android.material.chip.Chip
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -403,8 +404,23 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         tvQuality.isVisible = movie.type == MovieType.CINEMA
         tvQuality.text = getString(R.string.quality_format, info.quality)
         tvGenres.text = getString(R.string.genre_format, info.genre.joinToString())
-        tvDirectors.text = getString(R.string.directors_format, info.directors.joinToString())
         tvActors.text = getString(R.string.actors_format, info.actors.joinToString())
+        initDirectors(info.directors)
+    }
+
+    private fun FDetailsBinding.initDirectors(directors: List<String>) {
+        for (director in directors) {
+            val chip = Chip(requireContext())
+            chip.text = director
+            chip.isClickable = true
+            chip.isCheckable = false
+            chip.setOnClickListener {
+                findNavController().navigate(
+                    DetailsFragmentDirections.actionNavDetailsToNavHome(director)
+                )
+            }
+            chgrDirectors.addView(chip)
+        }
     }
 
     private fun initTrackAdapters() {

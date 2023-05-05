@@ -27,7 +27,7 @@
         <item name="android:textColor">@color/textColorSecondary</item>
     </style>
 
-    <style name="PlayButton">
+    <style name="PlayButton" parent="@style/Widget.MaterialComponents.Button">
         <item name="android:padding">8dp</item>
         <item name="android:textSize">20sp</item>
         <item name="android:background">@drawable/btn_background</item>

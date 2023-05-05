@@ -1,6 +1,6 @@
 <resources>
     <!-- Base application theme. -->
-    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
@@ -15,7 +15,7 @@
         <item name="android:dialogTheme">@style/MyDialogStyle</item>
         <item name="alertDialogTheme">@style/MyDialogStyle</item>
 
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <item name="android:statusBarColor">?attr/colorPrimarySurface</item>
         <item name="android:navigationBarColor">?attr/colorPrimaryDark</item>
         <item name="android:itemTextAppearance">@style/ItemMenuTextAppearance</item>
         <item name="popupMenuStyle">@style/popupMenuStyle</item>
@@ -31,11 +31,11 @@
         <item name="android:itemBackground">@android:color/white</item>
     </style>
 
-    <style name="popupMenuStyle" parent="Widget.AppCompat.PopupMenu">
+    <style name="popupMenuStyle" parent="Widget.MaterialComponents.PopupMenu">
         <item name="android:popupBackground">@android:color/white</item>
     </style>
 
-    <style name="MyDialogStyle" parent="Theme.AppCompat.DayNight.Dialog">
+    <style name="MyDialogStyle" parent="Theme.MaterialComponents.DayNight.Dialog">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>

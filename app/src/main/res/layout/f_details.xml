@@ -123,11 +123,19 @@
                 android:id="@+id/tvDirectors"
                 style="@style/DetailsSubTitleStyle"
                 android:layout_width="0dp"
+                android:text="@string/directors"
                 android:layout_height="wrap_content"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tvGenres"
-                tools:text="Люк Бессон" />
+                app:layout_constraintTop_toBottomOf="@+id/tvGenres" />
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chgrDirectors"
+                android:layout_width="0dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tvDirectors"
+                android:layout_height="wrap_content"/>
 
             <TextView
                 android:id="@+id/tvActors"
@@ -136,7 +144,7 @@
                 android:layout_height="wrap_content"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tvDirectors"
+                app:layout_constraintTop_toBottomOf="@+id/chgrDirectors"
                 tools:text="Жан поль кто-то там" />
 
             <TextView
@@ -187,6 +195,7 @@
             <Button
                 android:id="@+id/btnCache"
                 style="@style/PlayButton"
+                app:backgroundTint="@null"
                 android:layout_width="match_parent"
                 android:layout_marginVertical="8dp"
                 android:layout_height="wrap_content"
@@ -198,6 +207,7 @@
             <Button
                 android:id="@+id/btnPlay"
                 style="@style/PlayButton"
+                app:backgroundTint="@null"
                 android:layout_width="match_parent"
                 android:layout_marginVertical="8dp"
                 android:layout_height="wrap_content"

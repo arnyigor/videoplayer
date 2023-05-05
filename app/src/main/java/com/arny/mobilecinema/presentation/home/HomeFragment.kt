@@ -7,7 +7,13 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.view.*
+import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
+import android.widget.SearchView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.MenuProvider
@@ -28,8 +34,22 @@ import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
-import com.arny.mobilecinema.presentation.utils.*
+import com.arny.mobilecinema.presentation.utils.alertDialog
+import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
+import com.arny.mobilecinema.presentation.utils.getImgCompat
+import com.arny.mobilecinema.presentation.utils.hideKeyboard
+import com.arny.mobilecinema.presentation.utils.inputDialog
+import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.openAppSettings
+import com.arny.mobilecinema.presentation.utils.registerReceiver
+import com.arny.mobilecinema.presentation.utils.requestPermission
+import com.arny.mobilecinema.presentation.utils.setupSearchView
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
+import com.arny.mobilecinema.presentation.utils.toast
+import com.arny.mobilecinema.presentation.utils.toastError
+import com.arny.mobilecinema.presentation.utils.unlockOrientation
+import com.arny.mobilecinema.presentation.utils.unregisterReceiver
+import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
@@ -40,6 +60,9 @@ class HomeFragment : Fragment(), OnSearchListener {
         const val REQUEST_OPEN_FILE: Int = 100
         const val REQUEST_OPEN_FOLDER: Int = 101
     }
+
+    private var searchMenuItem: MenuItem? = null
+    private var searchView: SearchView? = null
 
     @Inject
     lateinit var vmFactory: ViewModelProvider.Factory
@@ -53,6 +76,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private var searchType: String = ""
     private var emptySearch = true
     private var hasData = false
+    private var onQueryChangeSubmit = true
     private var itemsAdapter: VideoItemsAdapter? = null
     private val startForResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -113,6 +137,19 @@ class HomeFragment : Fragment(), OnSearchListener {
         initAdapters()
         observeData()
         requestPermission()
+    }
+
+    private fun getIntentParams() {
+        val director = arguments?.getString("director")
+        if (!director.isNullOrBlank()) {
+            searchType = AppConstants.SearchType.DIRECTORS
+            viewModel.setSearchType(searchType, false)
+            onQueryChangeSubmit = false
+            searchMenuItem?.expandActionView()
+            searchView?.setQuery(director, false)
+            viewModel.loadMovies(director, delay = true)
+            arguments?.clear()
+        }
     }
 
     private fun requestPermission() {
@@ -235,17 +272,19 @@ class HomeFragment : Fragment(), OnSearchListener {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onPrepareMenu(menu: Menu) {
                 menu.findItem(R.id.action_search).isVisible = hasData
-                menu.findItem(R.id.action_search_settings).isVisible = hasData
+                menu.findItem(R.id.action_search_settings).isVisible = hasData && !emptySearch
                 menu.findItem(R.id.action_order_settings).isVisible = hasData
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
                 menuInflater.inflate(R.menu.home_menu, menu)
-                setupSearchView(
-                    menuItem = menu.findItem(R.id.action_search),
+                searchMenuItem = menu.findItem(R.id.action_search)
+                searchView = setupSearchView(
+                    menuItem = searchMenuItem!!,
                     onQueryChange = { query ->
                         emptySearch = query?.isBlank() == true
-                        viewModel.loadMovies(query.orEmpty())
+                        viewModel.loadMovies(query.orEmpty(), onQueryChangeSubmit)
+                        onQueryChangeSubmit = true
                     },
                     onMenuCollapse = {
                         viewModel.loadMovies()
@@ -259,6 +298,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                         viewModel.loadMovies(query.orEmpty())
                     }
                 )
+                getIntentParams()
             }
 
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
@@ -386,7 +426,7 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     private fun openPath() {
         inputDialog(
-            title = "Введите путь",
+            title = getString(R.string.enter_url),
             prefill = "",
             btnOkText = getString(android.R.string.ok),
             dialogListener = { result ->

@@ -15,7 +15,20 @@ import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -37,6 +50,8 @@ class HomeViewModel @Inject constructor(
     private val _order = MutableStateFlow("")
     val order = _order.asStateFlow()
     private var search = UiAction.Search()
+    private var query = ""
+    private var searchType = ""
     private val actionStateFlow = MutableSharedFlow<UiAction>()
     var moviesDataFlow: Flow<PagingData<ViewMovie>> = actionStateFlow
         .filterIsInstance<UiAction.Search>()
@@ -45,7 +60,12 @@ class HomeViewModel @Inject constructor(
         .onStart {
             val savedOrder = moviesInteractor.getOrder()
             _order.value = savedOrder
-            emit(UiAction.Search(order = savedOrder))
+            emit(
+                UiAction.Search(
+                    order = savedOrder,
+                    searchType = searchType
+                )
+            )
         }
         .flatMapLatest { search ->
             this.search = search
@@ -106,14 +126,21 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadMovies(search: String = "") {
+    fun loadMovies(query: String = "", submit: Boolean = true, delay: Boolean = false) {
         viewModelScope.launch {
-            actionStateFlow.emit(
-                this@HomeViewModel.search.copy(
-                    query = search,
-                    order = _order.value
+            this@HomeViewModel.query = query
+            if (submit) {
+                if (delay) {
+                    delay(350)
+                }
+                actionStateFlow.emit(
+                    UiAction.Search(
+                        searchType = searchType,
+                        query = query,
+                        order = _order.value
+                    )
                 )
-            )
+            }
         }
     }
 
@@ -142,20 +169,27 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             moviesInteractor.saveOrder(order)
             actionStateFlow.emit(
-                search.copy(
+                UiAction.Search(
+                    searchType = searchType,
+                    query = search.query,
                     order = order
                 )
             )
         }
     }
 
-    fun setSearchType(searchType: String) {
+    fun setSearchType(type: String, submit: Boolean = true) {
         viewModelScope.launch {
-            actionStateFlow.emit(
-                search.copy(
-                    searchType = searchType
+            searchType = type
+            if (submit) {
+                actionStateFlow.emit(
+                    UiAction.Search(
+                        searchType = searchType,
+                        query = search.query,
+                        order = _order.value
+                    )
                 )
-            )
+            }
         }
     }
 }
