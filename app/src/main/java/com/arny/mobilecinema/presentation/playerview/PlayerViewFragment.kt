@@ -1,6 +1,8 @@
 package com.arny.mobilecinema.presentation.playerview
 
 import android.content.Context
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -30,10 +32,11 @@ import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
+import com.arny.mobilecinema.presentation.player.getTrailerUrl
+import com.arny.mobilecinema.presentation.utils.getOrientation
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.secToMs
-import com.arny.mobilecinema.presentation.utils.setDrawableCompat
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.github.vkay94.dtpv.youtube.YouTubeOverlay
@@ -53,8 +56,6 @@ import dagger.android.support.AndroidSupportInjection
 import javax.inject.Inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view) {
-    private var uiLocked: Boolean = false
-    private var uiLockToggled: Boolean = false
     private var title: String = ""
     private var position: Long = 0L
     private var season: Int = 0
@@ -104,17 +105,32 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel.setPlayData(args.path, args.movie, args.seasonIndex, args.episodeIndex)
+        viewModel.setPlayData(
+            path = args.path,
+            movie = args.movie,
+            seasonIndex = args.seasonIndex,
+            episodeIndex = args.episodeIndex,
+            trailer = args.isTrailer
+        )
         binding.progressBar.isVisible = true
         observeState()
         initListener()
         requireActivity().window.decorView.setOnSystemUiVisibilityChangeListener { visibility ->
-            if (visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0 && !uiLocked) {
+            if (visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0) {
                 binding.playerView.showController()
             } else {
                 binding.playerView.hideController()
             }
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        setScreenRotIconVisible(newConfig.orientation)
+    }
+
+    private fun setScreenRotIconVisible(orientation: Int) {
+        binding.ivScreenRotation.isVisible = orientation == Configuration.ORIENTATION_PORTRAIT
     }
 
     private fun initListener() = with(binding) {
@@ -124,8 +140,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         ivBack.setOnClickListener {
             findNavController().popBackStack()
         }
-        ivLock.setOnClickListener {
-            viewModel.toggleLock()
+        ivScreenRotation.setOnClickListener {
+            requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         }
     }
 
@@ -142,28 +158,17 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             viewModel.uiState.collect { state ->
                 if (state.path != null || state.movie != null) {
                     val movie = state.movie
-                    val (s, e) = getSerialPosition(state.season, state.episode)
+                    val (season, episode) = getSerialPosition(state.season, state.episode)
                     setCurrentTitle(getTitle(movie?.title))
                     setMediaSources(
                         path = state.path,
                         position = getPosition(state.position),
                         movie = movie,
-                        seasonIndex = s,
-                        episodeIndex = e
+                        seasonIndex = season,
+                        episodeIndex = episode,
+                        isTrailer = state.isTrailer
                     )
                 }
-            }
-        }
-        launchWhenCreated {
-            viewModel.uiLock.collect { lock ->
-                this@PlayerViewFragment.uiLocked = lock
-                binding.ivLock.setDrawableCompat(
-                    if (lock) {
-                        R.drawable.ic_lock
-                    } else {
-                        R.drawable.ic_unlock
-                    }
-                )
             }
         }
     }
@@ -195,20 +200,23 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         position: Long,
         movie: Movie?,
         seasonIndex: Int? = 0,
-        episodeIndex: Int? = 0
+        episodeIndex: Int? = 0,
+        isTrailer: Boolean = false
     ) {
         when {
             movie == null && !path.isNullOrBlank() -> {
                 try {
-                    val mediaSource =
-                        playerSource.getSource(path, getString(R.string.no_movie_title))
-                    setPlayerSource(position, mediaSource)
+                    setPlayerSource(
+                        position = position,
+                        source = playerSource.getSource(path, getString(R.string.no_movie_title)),
+                    )
                 } catch (e: Exception) {
                     e.printStackTrace()
                     toast(e.message)
                 }
             }
 
+            movie != null && isTrailer -> setTrailerUrl(movie)
             movie != null && movie.type == MovieType.CINEMA -> setCinemaUrls(movie, position)
             movie != null && movie.type == MovieType.SERIAL -> setSerialUrls(
                 movie = movie,
@@ -216,6 +224,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 episodeIndex = episodeIndex,
                 position = position
             )
+
             else -> {
                 toast(getString(R.string.path_not_found))
                 findNavController().navigateUp()
@@ -333,11 +342,31 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         position: Long
     ) {
         val url = movie.getCinemaUrl()
-        url.takeIf { it.isNotBlank() }?.let {
+        url.takeIf { it.isNotBlank() }?.let { cinemaUrl ->
             try {
                 setPlayerSource(
                     position, playerSource.getSource(
-                        url = it,
+                        url = cinemaUrl,
+                        title = movie.title
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                toast(e.message)
+            }
+        } ?: kotlin.run {
+            toast(getString(R.string.path_not_found))
+            findNavController().navigateUp()
+        }
+    }
+
+    private suspend fun setTrailerUrl(movie: Movie) {
+        movie.getTrailerUrl().takeIf { it.isNotBlank() }?.let { url ->
+            try {
+                setPlayerSource(
+                    position = 0,
+                    source = playerSource.getSource(
+                        url = url,
                         title = movie.title
                     )
                 )
@@ -387,6 +416,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
         if (Util.SDK_INT >= Build.VERSION_CODES.N) {
             releasePlayer()
         }
+        requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
     override fun onDestroy() {
@@ -410,6 +440,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 .setSeekBackIncrementMs(secToMs(5))
                 .setSeekForwardIncrementMs(secToMs(5))
                 .build()
+                .apply {
+                    playWhenReady = true
+                }
             youtubeOverlay.performListener(object : YouTubeOverlay.PerformListener {
                 override fun onAnimationStart() {
                     youtubeOverlay.visibility = View.VISIBLE
@@ -420,45 +453,35 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                 }
             }).playerView(playerView)
             playerView.controller(youtubeOverlay)
-            player?.playWhenReady = true
             youtubeOverlay.player(player!!)
             playerView.player = player
             playerView.resizeMode = resizeModes[resizeIndex]
-            var controllerVisible: Boolean
-            playerView.setControllerVisibilityListener {
+            playerView.setControllerVisibilityListener { visibility ->
                 if (isVisible) {
-                    controllerVisible = it == View.VISIBLE
-                    changeVisible(controllerVisible)
+                    changeVisible(visibility == View.VISIBLE)
                 }
             }
         }
     }
 
     private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
-        when {
-            visible && uiLocked -> {
-                ivLock.isVisible = true
-            }
-
-            visible && !uiLocked -> {
-                tvTitle.isVisible = true
-                ivQuality.isVisible = qualityVisible
-                ivResizes.isVisible = true
-                ivBack.isVisible = true
-                ivLock.isVisible = true
-                ivLang.isVisible = langVisible
-                activity?.window?.showSystemUI()
-            }
-
-            else -> {
-                ivLock.isVisible = false
-                ivResizes.isVisible = false
-                ivQuality.isVisible = false
-                ivBack.isVisible = false
-                tvTitle.isVisible = false
-                ivLang.isVisible = false
-                activity?.window?.hideSystemUI()
-            }
+        if (visible) {
+            tvTitle.isVisible = true
+            ivQuality.isVisible = qualityVisible
+            ivResizes.isVisible = true
+            ivScreenRotation.isVisible = true
+            ivBack.isVisible = true
+            ivLang.isVisible = langVisible
+            activity?.window?.showSystemUI()
+            setScreenRotIconVisible(getOrientation())
+        } else {
+            ivResizes.isVisible = false
+            ivScreenRotation.isVisible = false
+            ivQuality.isVisible = false
+            ivBack.isVisible = false
+            tvTitle.isVisible = false
+            ivLang.isVisible = false
+            activity?.window?.hideSystemUI()
         }
     }
 

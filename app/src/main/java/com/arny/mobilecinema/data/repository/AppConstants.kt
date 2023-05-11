@@ -12,6 +12,12 @@ object AppConstants {
     const val SERVICE_PARAM_CACHE_TITLE = "SERVICE_PARAM_CACHE_TITLE"
     const val SERVICE_PARAM_FILE = "SERVICE_PARAM_FILE"
 
+    object PARAMS {
+        const val DIRECTOR = "director"
+        const val ACTOR = "actor"
+        const val GENRE = "genre"
+    }
+
     object Order {
         const val NONE = "order_none"
         const val RATINGS = "order_ratings"
@@ -19,6 +25,7 @@ object AppConstants {
         const val YEAR_DESC = "order_yearD"
         const val YEAR_ASC = "order_yearA"
     }
+
     object SearchType {
         const val TITLE = "title"
         const val DIRECTORS = "directors"

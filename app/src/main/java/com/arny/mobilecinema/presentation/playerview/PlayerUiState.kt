@@ -8,4 +8,5 @@ data class PlayerUiState(
     val movie: Movie? = null,
     val season: Int? = null,
     val episode: Int? = null,
+    val isTrailer: Boolean = false,
 )

@@ -140,17 +140,37 @@ class HomeFragment : Fragment(), OnSearchListener {
     }
 
     private fun getIntentParams() {
-        val director = arguments?.getString("director")
-        if (!director.isNullOrBlank()) {
-            searchType = AppConstants.SearchType.DIRECTORS
-            viewModel.setSearchType(searchType, false)
-            onQueryChangeSubmit = false
-            searchMenuItem?.expandActionView()
-            searchView?.setQuery(director, false)
-            viewModel.loadMovies(director, delay = true)
-            arguments?.clear()
+        if (arguments?.isEmpty == false) {
+            var query = ""
+            val director = getIntentString(AppConstants.PARAMS.DIRECTOR)
+            val actor = getIntentString(AppConstants.PARAMS.ACTOR)
+            val genre = getIntentString(AppConstants.PARAMS.GENRE)
+            when {
+                !director.isNullOrBlank() -> {
+                    query = director
+                    searchType = AppConstants.SearchType.DIRECTORS
+                }
+                !actor.isNullOrBlank() -> {
+                    query = actor
+                    searchType = AppConstants.SearchType.ACTORS
+                }
+                !genre.isNullOrBlank() -> {
+                    query = genre
+                    searchType = AppConstants.SearchType.GENRES
+                }
+            }
+            if (query.isNotBlank() && searchType.isNotBlank()) {
+                viewModel.setSearchType(searchType, false)
+                onQueryChangeSubmit = false
+                searchMenuItem?.expandActionView()
+                searchView?.setQuery(query, false)
+                viewModel.loadMovies(query, delay = true)
+                arguments?.clear()
+            }
         }
     }
+
+    private fun getIntentString(param: String) = arguments?.getString(param)
 
     private fun requestPermission() {
         request = REQUEST_LOAD

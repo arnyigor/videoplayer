@@ -16,7 +16,7 @@ fun MovieEntity.setData(data: Movie): MovieEntity {
     durationSec = data.info.durationSec
     age = data.info.age
     countries = data.info.countries.joinToString(",")
-    genre = data.info.genre.joinToString(",")
+    genre = data.info.genres.joinToString(",")
     likes = data.info.likes
     dislikes = data.info.dislikes
     ratingImdb = data.info.ratingImdb

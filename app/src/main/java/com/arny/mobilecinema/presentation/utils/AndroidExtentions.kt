@@ -444,6 +444,8 @@ fun Fragment.unregisterReceiver(receiver: BroadcastReceiver) {
         .unregisterReceiver(receiver)
 }
 
+fun Fragment.getOrientation() = requireActivity().resources.configuration.orientation
+
 fun Fragment.setupSearchView(
     menuItem: MenuItem,
     onQueryChange: (text: String?) -> Unit = {},

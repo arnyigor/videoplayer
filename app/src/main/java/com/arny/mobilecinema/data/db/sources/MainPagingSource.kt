@@ -52,7 +52,7 @@ class MainPagingSource(
                     AppConstants.SearchType.TITLE -> " title LIKE '%' || ? || '%'"
                     AppConstants.SearchType.DIRECTORS -> " directors LIKE '%' || ? || '%'"
                     AppConstants.SearchType.ACTORS -> " actors LIKE '%' || ? || '%'"
-                    AppConstants.SearchType.GENRES -> " genres LIKE '%' || ? || '%'"
+                    AppConstants.SearchType.GENRES -> " genre LIKE '%' || ? || '%'"
                     else -> ""
                 }
             )
@@ -76,6 +76,8 @@ class MainPagingSource(
         args.add(offset)
         sb.append(";")
         val query = sb.toString()
+//        println("queryString:$query")
+//        println("args:$args")
         return SimpleSQLiteQuery(query, args.toTypedArray())
     }
 

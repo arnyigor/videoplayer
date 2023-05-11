@@ -58,7 +58,7 @@ fun readMovie(obj: JsonObject): Movie {
             durationSec = iObj["durationSec"].asInt,
             age = iObj["age"].asInt,
             countries = iObj["countries"].asString.orEmpty().split(","),
-            genre = iObj["genre"].asString.orEmpty().split(","),
+            genres = iObj["genre"].asString.orEmpty().split(","),
             likes = iObj["likes"].asInt,
             dislikes = iObj["dislikes"].asInt,
             ratingImdb = iObj["ratingImdb"].asDouble,

@@ -15,8 +15,6 @@ import javax.inject.Inject
 class PlayerViewModel @Inject constructor(
     private val interactor: MoviesInteractor
 ) : ViewModel() {
-    private val _uiLock = MutableStateFlow(false)
-    val uiLock = _uiLock.asStateFlow()
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState = _uiState.asStateFlow()
     private val _loading = MutableStateFlow(false)
@@ -26,7 +24,8 @@ class PlayerViewModel @Inject constructor(
 
     fun saveCurrentCinemaPosition(position: Long, dbId: Long?) {
         viewModelScope.launch {
-            if (_uiState.value.movie?.type == MovieType.CINEMA) {
+            val playerUiState = _uiState.value
+            if (playerUiState.movie?.type == MovieType.CINEMA && !playerUiState.isTrailer) {
                 savePosition(dbId, position)
             }
         }
@@ -36,7 +35,13 @@ class PlayerViewModel @Inject constructor(
         interactor.saveCinemaPosition(dbId, position)
     }
 
-    fun setPlayData(path: String?, movie: Movie?, seasonIndex: Int, episodeIndex: Int) {
+    fun setPlayData(
+        path: String?,
+        movie: Movie?,
+        seasonIndex: Int,
+        episodeIndex: Int,
+        trailer: Boolean
+    ) {
         viewModelScope.launch {
             interactor.getSaveData(movie?.dbId)
                 .catch { _error.emit(ThrowableString(it)) }
@@ -51,7 +56,8 @@ class PlayerViewModel @Inject constructor(
                                 movie = movie,
                                 position = it.result.position,
                                 season = seasonIndex,
-                                episode = episodeIndex
+                                episode = episodeIndex,
+                                isTrailer = trailer
                             )
                         }
                     }
@@ -65,9 +71,5 @@ class PlayerViewModel @Inject constructor(
                 interactor.saveSerialPosition(dbId, season, episode, episodePosition)
             }
         }
-    }
-
-    fun toggleLock() {
-        _uiLock.value = !_uiLock.value
     }
 }

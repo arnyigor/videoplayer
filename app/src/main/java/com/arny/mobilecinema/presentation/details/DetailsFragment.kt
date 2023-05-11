@@ -155,6 +155,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onPrepareMenu(menu: Menu) {
                 menu.findItem(R.id.menu_action_clear_cache).isVisible = hasSavedData
+                menu.findItem(R.id.menu_action_cache_movie).isVisible = !cinemaDownloaded
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -165,6 +166,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 when (menuItem.itemId) {
                     android.R.id.home -> {
                         findNavController().popBackStack()
+                        true
+                    }
+
+                    R.id.menu_action_cache_movie -> {
+                        onCache()
                         true
                     }
 
@@ -198,39 +204,47 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun initListeners() = with(binding) {
         btnPlay.setOnClickListener {
-            currentMovie?.let { movie ->
-                val connectionType = getConnectionType(requireContext())
-                when {
-                    movie.type == MovieType.CINEMA && cinemaDownloaded -> {
-                        navigateToPLayer(movie)
-                    }
-                    connectionType is ConnectionType.WIFI -> {
-                        navigateToPLayer(movie)
-                    }
-                    connectionType is ConnectionType.MOBILE -> {
-                        alertDialog(
-                            title = getString(R.string.attention),
-                            content = getString(R.string.mobile_network_play),
-                            btnOkText = getString(android.R.string.ok),
-                            btnCancelText = getString(android.R.string.cancel),
-                            onConfirm = { navigateToPLayer(movie) }
-                        )
-                    }
-                    connectionType is ConnectionType.NONE -> {
-                        toast(getString(R.string.internet_connection_error))
-                    }
-                    else -> {
-                        navigateToPLayer(movie)
-                    }
-                }
-            }
+            playMovie(false)
         }
-        btnCache.setOnClickListener {
-            onBtnCacheClick()
+        btnTrailer.setOnClickListener {
+            playMovie(true)
         }
     }
 
-    private fun onBtnCacheClick() {
+    private fun playMovie(isTrailer: Boolean) {
+        currentMovie?.let { movie ->
+            val connectionType = getConnectionType(requireContext())
+            when {
+                movie.type == MovieType.CINEMA && cinemaDownloaded -> {
+                    navigateToPLayer(movie, isTrailer)
+                }
+
+                connectionType is ConnectionType.WIFI -> {
+                    navigateToPLayer(movie, isTrailer)
+                }
+
+                connectionType is ConnectionType.MOBILE -> {
+                    alertDialog(
+                        title = getString(R.string.attention),
+                        content = getString(R.string.mobile_network_play),
+                        btnOkText = getString(android.R.string.ok),
+                        btnCancelText = getString(android.R.string.cancel),
+                        onConfirm = { navigateToPLayer(movie, isTrailer) }
+                    )
+                }
+
+                connectionType is ConnectionType.NONE -> {
+                    toast(getString(R.string.internet_connection_error))
+                }
+
+                else -> {
+                    navigateToPLayer(movie, isTrailer)
+                }
+            }
+        }
+    }
+
+    private fun onCache() {
         when (getConnectionType(requireContext())) {
             is ConnectionType.WIFI -> {
                 showDialogCache()
@@ -273,13 +287,14 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         )
     }
 
-    private fun navigateToPLayer(movie: Movie) {
+    private fun navigateToPLayer(movie: Movie, isTrailer: Boolean) {
         findNavController().navigate(
             DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
                 path = null,
                 movie = movie,
                 seasonIndex = currentSeasonPosition,
-                episodeIndex = currentEpisodePosition
+                episodeIndex = currentEpisodePosition,
+                isTrailer = isTrailer
             )
         )
     }
@@ -323,15 +338,17 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private suspend fun initButtons(movie: Movie) = with(binding) {
+        btnTrailer.isVisible = movie.cinemaUrlData?.trailerUrl?.urls.orEmpty().isNotEmpty()
         if (movie.type == MovieType.CINEMA) {
             val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
             btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
             val cinemaUrl = movie.getCinemaUrl()
             cinemaDownloaded = playerSource.isDownloaded(cinemaUrl)
-            btnCache.isVisible = !cinemaDownloaded
+            requireActivity().invalidateOptionsMenu()
         } else {
-            btnCache.isVisible = false
+            cinemaDownloaded = true
+            requireActivity().invalidateOptionsMenu()
             btnPlay.isVisible = true
         }
     }
@@ -403,9 +420,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }.toString()
         tvQuality.isVisible = movie.type == MovieType.CINEMA
         tvQuality.text = getString(R.string.quality_format, info.quality)
-        tvGenres.text = getString(R.string.genre_format, info.genre.joinToString())
-        tvActors.text = getString(R.string.actors_format, info.actors.joinToString())
+        initGenres(info.genres)
         initDirectors(info.directors)
+        initActors(info.actors)
     }
 
     private fun FDetailsBinding.initDirectors(directors: List<String>) {
@@ -416,10 +433,41 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             chip.isCheckable = false
             chip.setOnClickListener {
                 findNavController().navigate(
-                    DetailsFragmentDirections.actionNavDetailsToNavHome(director)
+                    DetailsFragmentDirections.actionNavDetailsToNavHome(director = director)
                 )
             }
             chgrDirectors.addView(chip)
+        }
+    }
+
+    private fun FDetailsBinding.initGenres(genres: List<String>) {
+        val genresMap = genres.flatMap { it.split(" ") }.filter { it.isNotBlank() }
+        for (genre in genresMap) {
+            val chip = Chip(requireContext())
+            chip.text = genre
+            chip.isClickable = true
+            chip.isCheckable = false
+            chip.setOnClickListener {
+                findNavController().navigate(
+                    DetailsFragmentDirections.actionNavDetailsToNavHome(genre = genre)
+                )
+            }
+            chgrGenres.addView(chip)
+        }
+    }
+
+    private fun FDetailsBinding.initActors(actors: List<String>) {
+        for (actor in actors) {
+            val chip = Chip(requireContext())
+            chip.text = actor
+            chip.isClickable = true
+            chip.isCheckable = false
+            chip.setOnClickListener {
+                findNavController().navigate(
+                    DetailsFragmentDirections.actionNavDetailsToNavHome(actor = actor)
+                )
+            }
+            chgrActors.addView(chip)
         }
     }
 

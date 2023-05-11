@@ -87,6 +87,8 @@
     <string name="menu_check_update">Обновить видео данные</string>
     <string name="check_new_video_data">Проверить новые фильмы и сериалы?</string>
     <string name="enter_url">Введите путь</string>
+    <string name="genre">Жанр</string>
+    <string name="actors">Актёры:</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>
