@@ -122,6 +122,7 @@
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/chgrGenres"
                 android:layout_width="0dp"
+                app:chipSpacingVertical="4dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tvGenres"
@@ -140,6 +141,7 @@
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/chgrDirectors"
                 android:layout_width="0dp"
+                app:chipSpacingVertical="4dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tvDirectors"
@@ -158,6 +160,7 @@
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/chgrActors"
                 android:layout_width="0dp"
+                app:chipSpacingVertical="4dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tvActors"
@@ -194,8 +197,17 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/spinSeasons"
-                tools:listitem="@layout/i_track_select_text"
-                tools:visibility="visible" />
+                tools:listitem="@layout/i_track_select_text" />
+
+            <TextView
+                android:id="@+id/tvDescriptionLabel"
+                style="@style/DetailsSubTitleStyle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/spinEpisodes"
+                android:text="@string/movie_description" />
 
             <TextView
                 android:id="@+id/tvDescription"
@@ -205,7 +217,7 @@
                 android:layout_height="wrap_content"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/spinEpisodes"
+                app:layout_constraintTop_toBottomOf="@+id/tvDescriptionLabel"
                 tools:text="@tools:sample/lorem/random" />
 
             <Button

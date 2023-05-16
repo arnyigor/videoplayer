@@ -18,6 +18,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.DisplayMetrics
+import android.util.TypedValue
 import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.MotionEvent
@@ -496,3 +497,8 @@ fun Fragment.toastMessage(string: IWrappedString?) {
 }
 
 fun isOlder(version: Int): Boolean = Build.VERSION.SDK_INT >= version
+
+fun Context.getDP(value: Int) = TypedValue.applyDimension(
+    TypedValue.COMPLEX_UNIT_DIP, value.toFloat(),
+    resources.displayMetrics
+)

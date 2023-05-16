@@ -89,6 +89,7 @@
     <string name="enter_url">Введите путь</string>
     <string name="genre">Жанр</string>
     <string name="actors">Актёры:</string>
+    <string name="movie_description">Описание:</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

@@ -356,7 +356,6 @@ class HomeFragment : Fragment(), OnSearchListener {
     }
 
     private fun showCustomOrderDialog() {
-        val order = StringBuilder()
         createCustomLayoutDialog(
             title = getString(R.string.search_order_settings),
             layout = R.layout.d_custom_order,
@@ -364,7 +363,6 @@ class HomeFragment : Fragment(), OnSearchListener {
             btnOkText = getString(android.R.string.ok),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                currentOrder = order.toString()
                 viewModel.setOrder(currentOrder)
             },
             initView = {
@@ -390,8 +388,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                     radioBtn.forEach { (rb, orderString) ->
                         rb.setOnCheckedChangeListener { _, isChecked ->
                             if (isChecked) {
-                                order.clear()
-                                order.append(orderString)
+                                currentOrder = orderString
                             }
                         }
                     }

@@ -37,6 +37,7 @@ import com.arny.mobilecinema.presentation.player.MovieDownloadService
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.utils.alertDialog
+import com.arny.mobilecinema.presentation.utils.getDP
 import com.arny.mobilecinema.presentation.utils.getDuration
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
@@ -338,7 +339,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private suspend fun initButtons(movie: Movie) = with(binding) {
-        btnTrailer.isVisible = movie.cinemaUrlData?.trailerUrl?.urls.orEmpty().isNotEmpty()
+        btnTrailer.isVisible = movie.cinemaUrlData?.trailerUrl?.urls?.filter { it.isNotBlank() }.orEmpty().isNotEmpty()
         if (movie.type == MovieType.CINEMA) {
             val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
@@ -459,9 +460,12 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun FDetailsBinding.initActors(actors: List<String>) {
         for (actor in actors) {
             val chip = Chip(requireContext())
+            val paddingDp = requireContext().getDP(10)
+            chip.setPadding(paddingDp.toInt(), 0, paddingDp.toInt(), 0)
             chip.text = actor
             chip.isClickable = true
             chip.isCheckable = false
+            chip.setEnsureMinTouchTargetSize(false)
             chip.setOnClickListener {
                 findNavController().navigate(
                     DetailsFragmentDirections.actionNavDetailsToNavHome(actor = actor)
