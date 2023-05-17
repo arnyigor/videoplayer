@@ -398,7 +398,6 @@ class HomeFragment : Fragment(), OnSearchListener {
     }
 
     private fun showCustomSearchDialog() {
-        val search = StringBuilder()
         createCustomLayoutDialog(
             title = getString(R.string.search_settings_title),
             layout = R.layout.d_custom_search,
@@ -406,7 +405,6 @@ class HomeFragment : Fragment(), OnSearchListener {
             btnOkText = getString(android.R.string.ok),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                searchType = search.toString()
                 viewModel.setSearchType(searchType)
             },
             initView = {
@@ -431,8 +429,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                     radioBtn.forEach { (rb, orderString) ->
                         rb.setOnCheckedChangeListener { _, isChecked ->
                             if (isChecked) {
-                                search.clear()
-                                search.append(orderString)
+                                searchType = orderString
                             }
                         }
                     }
