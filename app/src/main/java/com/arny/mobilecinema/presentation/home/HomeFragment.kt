@@ -75,7 +75,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private var currentOrder: String = ""
     private var searchType: String = ""
     private var emptySearch = true
-    private var hasData = false
+    private var hasQuery = false
     private var onQueryChangeSubmit = true
     private var itemsAdapter: VideoItemsAdapter? = null
     private val startForResult = registerForActivityResult(
@@ -109,7 +109,6 @@ class HomeFragment : Fragment(), OnSearchListener {
                 }
             }
         }
-
     private val updateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             viewModel.loadMovies()
@@ -231,7 +230,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
         launchWhenCreated {
             viewModel.empty.collectLatest { empty ->
-                hasData = !empty
+                hasQuery = !empty
                 requireActivity().invalidateOptionsMenu()
                 binding.tvEmptyView.isVisible = empty
             }
@@ -291,9 +290,9 @@ class HomeFragment : Fragment(), OnSearchListener {
     private fun initMenu() {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onPrepareMenu(menu: Menu) {
-                menu.findItem(R.id.action_search).isVisible = hasData
-                menu.findItem(R.id.action_search_settings).isVisible = hasData && !emptySearch
-                menu.findItem(R.id.action_order_settings).isVisible = hasData
+                menu.findItem(R.id.action_search).isVisible = hasQuery
+                menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
+                menu.findItem(R.id.action_order_settings).isVisible = hasQuery
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {

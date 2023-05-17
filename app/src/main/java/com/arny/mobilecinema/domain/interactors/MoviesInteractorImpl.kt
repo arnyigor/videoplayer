@@ -27,8 +27,10 @@ class MoviesInteractorImpl @Inject constructor(
         return repository.getMovies(search, order, type).flow
     }
 
-    override fun getHistoryMovies(search: String): Flow<PagingData<ViewMovie>> =
-        repository.getHistoryMovies(search).flow
+    override fun getHistoryMovies(search: String, order: String, searchType: String): Flow<PagingData<ViewMovie>> {
+        val type = searchType.ifBlank { AppConstants.SearchType.TITLE }
+        return repository.getHistoryMovies(search, order, type).flow
+    }
 
     override fun isHistoryEmpty(): Flow<DataResult<Boolean>> = doAsync {
         repository.isHistoryEmpty()

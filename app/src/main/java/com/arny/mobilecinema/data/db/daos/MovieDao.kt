@@ -10,8 +10,6 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 
 @Dao
 interface MovieDao : BaseDao<MovieEntity> {
-    @RawQuery
-    suspend fun getMovies(query: SupportSQLiteQuery): List<ViewMovie>
 
     @Query("SELECT COUNT(dbId) FROM movies")
     fun getCount(): Int

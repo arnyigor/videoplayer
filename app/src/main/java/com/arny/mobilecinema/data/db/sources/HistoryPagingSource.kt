@@ -8,20 +8,25 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 class HistoryPagingSource(
     private val dao: HistoryDao,
     private val search: String,
+    private val order: String,
+    private val searchType: String,
 ) : PagingSource<Int, ViewMovie>() {
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ViewMovie> {
         val page = params.key ?: 0
-        val historyIds = dao.getHistoryIds().map { it.movie_dbid }
+        val sqlResult = dao.getMovies(
+            getHistorySQL(
+                search = search,
+                order = order,
+                searchType = searchType,
+                limit = params.loadSize,
+                offset = page * params.loadSize
+            )
+        )
         return try {
-            val list = if (search.isNotBlank()) {
-                dao.getPagedList(historyIds, search, params.loadSize, page * params.loadSize)
-            } else {
-                dao.getPagedList(historyIds, params.loadSize, page * params.loadSize)
-            }
             LoadResult.Page(
-                data = list,
+                data = sqlResult,
                 prevKey = if (page == 0) null else page - 1,
-                nextKey = if (list.isEmpty()) null else page + 1
+                nextKey = if (sqlResult.isEmpty()) null else page + 1
             )
         } catch (e: Exception) {
             LoadResult.Error(e)

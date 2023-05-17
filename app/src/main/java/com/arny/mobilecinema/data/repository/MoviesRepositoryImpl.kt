@@ -44,14 +44,18 @@ class MoviesRepositoryImpl @Inject constructor(
 
     override suspend fun isMoviesEmpty(): Boolean = movieDao.getCount()==0
 
-    override fun getHistoryMovies(search: String): Pager<Int, ViewMovie> =
+    override fun getHistoryMovies(
+        search: String,
+        order: String,
+        searchType: String
+    ): Pager<Int, ViewMovie> =
         Pager(
             PagingConfig(
                 pageSize = 20,
                 enablePlaceholders = false,
                 initialLoadSize = 20
             ),
-        ) { HistoryPagingSource(historyDao, search) }
+        ) { HistoryPagingSource(historyDao, search, order, searchType) }
 
     override fun getMovie(id: Long): Movie? =
         movieDao.getMovie(id)?.let { movieMapper.transform(it) }

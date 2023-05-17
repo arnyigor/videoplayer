@@ -7,9 +7,21 @@ import androidx.paging.cachedIn
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
+import com.arny.mobilecinema.presentation.home.UiAction
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -21,23 +33,86 @@ class HistoryViewModel @Inject constructor(
     val loading = _loading.asStateFlow()
     private val _empty = MutableStateFlow(false)
     val empty = _empty.asStateFlow()
-    private val actionStateFlow = MutableSharedFlow<String>()
+    private val _order = MutableStateFlow("")
+    val order = _order.asStateFlow()
+    private var search = UiAction.Search()
+    private var started = false
+    private var query = ""
+    private var searchType = ""
+    private val actionStateFlow = MutableSharedFlow<UiAction>()
     var historyDataFlow: Flow<PagingData<ViewMovie>> = actionStateFlow
-        .onStart {
-            _loading.value = true
-            emit("")
-        }
-        .flatMapLatest { interactor.getHistoryMovies(search = it) }
+        .filterIsInstance<UiAction.Search>()
         .distinctUntilChanged()
+        .debounce(350)
+        .onStart {
+            started = true
+            val savedOrder = interactor.getOrder()
+            _order.value = savedOrder
+            emit(
+                UiAction.Search(
+                    order = savedOrder,
+                    searchType = searchType
+                )
+            )
+        }
+        .flatMapLatest { search ->
+            this.search = search
+            interactor.getHistoryMovies(
+                search = search.query,
+                order = search.order,
+                searchType = search.searchType
+            )
+        }
         .onEach {
             _loading.value = false
             checkEmpty()
         }
         .cachedIn(viewModelScope)
 
-    fun loadHistory(search: String = "") {
+    fun loadHistory(query: String = "", submit: Boolean = true, delay: Boolean = false) {
         viewModelScope.launch {
-            actionStateFlow.emit(search)
+            this@HistoryViewModel.query = query
+            if (submit) {
+                if (delay) {
+                    delay(350)
+                }
+                actionStateFlow.emit(
+                    UiAction.Search(
+                        searchType = searchType,
+                        query = query,
+                        order = _order.value
+                    )
+                )
+            }
+        }
+    }
+
+
+    fun setOrder(order: String) {
+        viewModelScope.launch {
+            interactor.saveOrder(order)
+            actionStateFlow.emit(
+                UiAction.Search(
+                    searchType = searchType,
+                    query = search.query,
+                    order = order
+                )
+            )
+        }
+    }
+
+    fun setSearchType(type: String, submit: Boolean = true) {
+        viewModelScope.launch {
+            searchType = type
+            if (submit) {
+                actionStateFlow.emit(
+                    UiAction.Search(
+                        searchType = searchType,
+                        query = search.query,
+                        order = _order.value
+                    )
+                )
+            }
         }
     }
 
@@ -64,6 +139,13 @@ class HistoryViewModel @Inject constructor(
                         }
                     }
                 }
+        }
+    }
+
+    fun reloadHistory() {
+        if (started) {
+            loadHistory("newsearch")
+            loadHistory()
         }
     }
 }
