@@ -8,7 +8,11 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -25,8 +29,16 @@ class PlayerViewModel @Inject constructor(
     fun saveCurrentCinemaPosition(position: Long, dbId: Long?) {
         viewModelScope.launch {
             val playerUiState = _uiState.value
-            if (playerUiState.movie?.type == MovieType.CINEMA && !playerUiState.isTrailer) {
-                savePosition(dbId, position)
+            when {
+                playerUiState.movie?.type == MovieType.CINEMA && !playerUiState.isTrailer -> {
+                    savePosition(dbId, position)
+                }
+
+                playerUiState.movie?.type == MovieType.CINEMA && playerUiState.isTrailer -> {
+                    _uiState.value = _uiState.value.copy(
+                        isTrailer = false
+                    )
+                }
             }
         }
     }

@@ -105,13 +105,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel.setPlayData(
-            path = args.path,
-            movie = args.movie,
-            seasonIndex = args.seasonIndex,
-            episodeIndex = args.episodeIndex,
-            trailer = args.isTrailer
-        )
         binding.progressBar.isVisible = true
         observeState()
         initListener()
@@ -461,6 +454,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
                     changeVisible(visibility == View.VISIBLE)
                 }
             }
+            viewModel.setPlayData(
+                path = args.path,
+                movie = args.movie,
+                seasonIndex = args.seasonIndex,
+                episodeIndex = args.episodeIndex,
+                trailer = args.isTrailer
+            )
         }
     }
 
