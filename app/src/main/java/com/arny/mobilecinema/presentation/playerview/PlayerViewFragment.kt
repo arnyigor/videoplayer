@@ -1,13 +1,16 @@
 package com.arny.mobilecinema.presentation.playerview
 
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isVisible
@@ -28,6 +31,7 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
+import com.arny.mobilecinema.presentation.listeners.OnPictureInPictureListener
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
@@ -35,6 +39,7 @@ import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.player.getTrailerUrl
 import com.arny.mobilecinema.presentation.utils.getOrientation
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
+import com.arny.mobilecinema.presentation.utils.isPiPAvailable
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.secToMs
 import com.arny.mobilecinema.presentation.utils.showSystemUI
@@ -55,7 +60,7 @@ import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import javax.inject.Inject
 
-class PlayerViewFragment : Fragment(R.layout.f_player_view) {
+class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
     private var title: String = ""
     private var position: Long = 0L
     private var season: Int = 0
@@ -463,6 +468,40 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view) {
             )
         }
     }
+
+    private fun pipMode() {
+        if (requireContext().isPiPAvailable()) {
+            val builder = PictureInPictureParams.Builder().apply {
+                setAutoEnabled(this)
+            }
+            requireActivity().enterPictureInPictureMode(builder.build())
+        }
+    }
+
+    override fun onPiPMode(isInPipMode: Boolean) {
+        // Change visible elements
+    }
+
+    private fun setAutoEnabled(params: PictureInPictureParams.Builder): PictureInPictureParams.Builder {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            params.setAutoEnterEnabled(true)
+        }
+        return params
+    }
+
+    override fun enterPiPMode() {
+        pipMode()
+    }
+
+    override fun isPiPAvailable(): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+            && requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+        ) {
+            pipMode()
+            true
+        } else {
+            false
+        }
 
     private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
         if (visible) {

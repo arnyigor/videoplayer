@@ -502,3 +502,7 @@ fun Context.getDP(value: Int) = TypedValue.applyDimension(
     TypedValue.COMPLEX_UNIT_DIP, value.toFloat(),
     resources.displayMetrics
 )
+
+fun Context.isPiPAvailable() =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+            && packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)

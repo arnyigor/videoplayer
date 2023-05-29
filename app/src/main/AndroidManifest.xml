@@ -35,6 +35,7 @@
 
         <activity
             android:name=".presentation.MainActivity"
+            android:supportsPictureInPicture="true"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
             android:exported="true"
             android:launchMode="singleInstance" />

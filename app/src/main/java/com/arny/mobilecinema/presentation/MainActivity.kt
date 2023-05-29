@@ -1,7 +1,10 @@
 package com.arny.mobilecinema.presentation
 
+import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.OnBackPressedCallback
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.navigation.NavController
@@ -9,6 +12,7 @@ import androidx.navigation.findNavController
 import androidx.navigation.ui.setupWithNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.AMainBinding
+import com.arny.mobilecinema.presentation.listeners.OnPictureInPictureListener
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.showSnackBar
 import com.google.android.material.bottomnavigation.BottomNavigationView
@@ -57,6 +61,41 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         supportActionBar?.setDisplayHomeAsUpEnabled(show)
     }
 
+    private fun getCurrentFragment() =
+        supportFragmentManager.primaryNavigationFragment?.childFragmentManager?.fragments?.getOrNull(
+            0
+        )
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        val currentFragment = getCurrentFragment()
+        if (currentFragment is OnPictureInPictureListener) {
+            if (currentFragment.isPiPAvailable()) {
+                currentFragment.enterPiPMode()
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        val currentFragment = getCurrentFragment()
+        if (currentFragment is OnPictureInPictureListener) {
+            currentFragment.onPiPMode(isInPictureInPictureMode)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        @RequiresApi(Build.VERSION_CODES.O)
+        if (isInPictureInPictureMode) {
+            finishAndRemoveTask()
+        }
+    }
+
     private fun initOnBackPress(navController: NavController) {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -66,6 +105,7 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
                     currentFragment is OnSearchListener && currentFragment.isSearchComplete() -> {
                         onBack(isLastFragment)
                     }
+
                     currentFragment is OnSearchListener && !currentFragment.isSearchComplete() -> {
                         currentFragment.collapseSearch()
                     }
@@ -87,11 +127,6 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
                     navController.navigateUp()
                 }
             }
-
-            private fun getCurrentFragment() =
-                supportFragmentManager.primaryNavigationFragment?.childFragmentManager?.fragments?.getOrNull(
-                    0
-                )
         })
     }
 

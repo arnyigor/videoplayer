@@ -81,6 +81,7 @@ ext {
         implementation "com.google.android.exoplayer:extension-ima:$version"
         implementation "com.google.android.exoplayer:exoplayer-datasource:$version"
         implementation "com.google.android.exoplayer:exoplayer-ui:$version"
+        implementation "com.google.android.exoplayer:extension-mediasession:$version"
     }}
 
     youtubePlayerView = { version = '1.0.4' -> Alias {
