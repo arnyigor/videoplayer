@@ -27,18 +27,24 @@ class MoviesRepositoryImpl @Inject constructor(
         set(value) {
             prefs.put(PrefsConstants.ORDER, value)
         }
+    override var prefHistoryOnCache: Boolean
+        get() = prefs.get<Boolean>(PrefsConstants.PREF_KEY_ADD_HISTORY_ON_CACHE) ?: false
+        set(value) {
+            prefs.put(PrefsConstants.PREF_KEY_ADD_HISTORY_ON_CACHE, value)
+        }
 
     override fun getMovies(
         search: String,
         order: String,
-        searchType: String
+        searchType: String,
+        searchAddTypes: List<String>
     ): Pager<Int, ViewMovie> = Pager(
         PagingConfig(
             pageSize = 20,
             enablePlaceholders = false,
             initialLoadSize = 20
         ),
-    ) { MainPagingSource(movieDao, search.trim(), order, searchType) }
+    ) { MainPagingSource(movieDao, search.trim(), order, searchType, searchAddTypes) }
 
     override suspend fun isHistoryEmpty(): Boolean = historyDao.getHistoryIds().isEmpty()
 

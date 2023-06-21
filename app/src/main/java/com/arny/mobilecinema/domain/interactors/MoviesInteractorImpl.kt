@@ -21,13 +21,29 @@ class MoviesInteractorImpl @Inject constructor(
     override fun getMovies(
         search: String,
         order: String,
-        searchType: String
+        searchType: String,
+        searchAddTypes: List<String>
     ): Flow<PagingData<ViewMovie>> {
         val type = searchType.ifBlank { AppConstants.SearchType.TITLE }
-        return repository.getMovies(search, order, type).flow
+        return repository.getMovies(search, order, type, searchAddTypes).flow
     }
 
-    override fun getHistoryMovies(search: String, order: String, searchType: String): Flow<PagingData<ViewMovie>> {
+    override fun addToHistory(dbId: Long?): Flow<DataResult<Boolean>> = doAsync {
+        var result = false
+        if (repository.prefHistoryOnCache) {
+            val data = repository.getSaveData(dbId)
+            val position = data.position
+            result = position == 0L
+            repository.saveCinemaPosition(dbId, position)
+        }
+        result
+    }
+
+    override fun getHistoryMovies(
+        search: String,
+        order: String,
+        searchType: String
+    ): Flow<PagingData<ViewMovie>> {
         val type = searchType.ifBlank { AppConstants.SearchType.TITLE }
         return repository.getHistoryMovies(search, order, type).flow
     }

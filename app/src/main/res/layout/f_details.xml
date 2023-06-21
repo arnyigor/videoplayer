@@ -30,7 +30,8 @@
                 android:scaleType="fitCenter"
                 app:layout_collapseMode="parallax"
                 app:layout_scrollFlags="scroll|enterAlways|enterAlwaysCollapsed"
-                tools:src="@tools:sample/backgrounds/scenic" />
+                tools:src="@tools:sample/backgrounds/scenic"
+                android:contentDescription="@null" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -70,13 +71,24 @@
             android:padding="8dp">
 
             <TextView
+                android:id="@+id/tvSaveData"
+                style="@style/DetailsSubTitleStyle"
+                android:layout_width="0dp"
+                android:visibility="gone"
+                android:layout_height="wrap_content"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                tools:text="Сохранён:100%, занимает: 500мб" />
+
+            <TextView
                 android:id="@+id/tvUpdated"
                 style="@style/DetailsSubTitleStyle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tvSaveData"
                 tools:text="Обновлен: 10.02.2023" />
 
             <TextView

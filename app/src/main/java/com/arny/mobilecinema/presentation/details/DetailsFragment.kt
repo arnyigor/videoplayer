@@ -51,6 +51,7 @@ import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
 import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -64,16 +65,16 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     @Inject
     lateinit var playerSource: PlayerSource
-    private var cinemaDownloaded: Boolean = false
-
     @Inject
     lateinit var prefs: Prefs
+
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var currentMovie: Movie? = null
     private var currentSeasonPosition: Int = 0
     private var currentEpisodePosition: Int = 0
     private var hasSavedData: Boolean = false
+    private var cinemaDownloaded: Boolean = true
     private val args: DetailsFragmentArgs by navArgs()
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
@@ -269,23 +270,28 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
-    private fun showDialogCache(){
+    private fun showDialogCache() {
         alertDialog(
             title = getString(R.string.cache_attention),
             content = getString(R.string.cache_description),
             btnOkText = getString(android.R.string.ok),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                sendServiceMessage(
-                    Intent(requireContext(), MovieDownloadService::class.java),
-                    AppConstants.ACTION_CACHE_MOVIE,
-                ) {
-                    val url = currentMovie?.getCinemaUrl()
-                    putString(AppConstants.SERVICE_PARAM_CACHE_URL, url)
-                    putString(AppConstants.SERVICE_PARAM_CACHE_TITLE, currentMovie?.title)
-                }
+                viewModel.addToHistory()
+                requestCacheMovie()
             }
         )
+    }
+
+    private fun requestCacheMovie() {
+        sendServiceMessage(
+            Intent(requireContext(), MovieDownloadService::class.java),
+            AppConstants.ACTION_CACHE_MOVIE,
+        ) {
+            val url = currentMovie?.getCinemaUrl()
+            putString(AppConstants.SERVICE_PARAM_CACHE_URL, url)
+            putString(AppConstants.SERVICE_PARAM_CACHE_TITLE, currentMovie?.title)
+        }
     }
 
     private fun navigateToPLayer(movie: Movie, isTrailer: Boolean) {
@@ -328,6 +334,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 binding.progressBar.isVisible = loading
             }
         }
+        launchWhenCreated {
+            viewModel.addToHistory.collectLatest { cache ->
+                if (cache) {
+                    toast(getString(R.string.added_to_history))
+                }
+            }
+        }
     }
 
     private suspend fun onMovieLoaded(movie: Movie) {
@@ -339,13 +352,24 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private suspend fun initButtons(movie: Movie) = with(binding) {
-        btnTrailer.isVisible = movie.cinemaUrlData?.trailerUrl?.urls?.filter { it.isNotBlank() }.orEmpty().isNotEmpty()
+        btnTrailer.isVisible =
+            movie.cinemaUrlData?.trailerUrl?.urls?.filter { it.isNotBlank() }.orEmpty().isNotEmpty()
         if (movie.type == MovieType.CINEMA) {
             val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
             btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
             val cinemaUrl = movie.getCinemaUrl()
             cinemaDownloaded = playerSource.isDownloaded(cinemaUrl)
+            if (cinemaDownloaded) {
+                val downloadedSize = playerSource.getDownloadedSize(cinemaUrl)
+                binding.tvSaveData.isVisible = true
+                binding.tvSaveData.text = getString(
+                    R.string.cinema_save_data,
+                    downloadedSize
+                )
+            } else {
+                binding.tvSaveData.isVisible = false
+            }
             requireActivity().invalidateOptionsMenu()
         } else {
             cinemaDownloaded = true
@@ -418,6 +442,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             } else {
                 append(getString(R.string.cinema))
             }
+            append(" ${movie.info.countries.joinToString()}")
         }.toString()
         tvQuality.isVisible = movie.type == MovieType.CINEMA
         tvQuality.text = getString(R.string.quality_format, info.quality)
@@ -428,7 +453,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun FDetailsBinding.initDirectors(directors: List<String>) {
         for (director in directors) {
-            val chip = Chip(requireContext())
+            val chip = getCustomChip(chgrDirectors)
             chip.text = director
             chip.isClickable = true
             chip.isCheckable = false
@@ -443,8 +468,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun FDetailsBinding.initGenres(genres: List<String>) {
         val genresMap = genres.flatMap { it.split(" ") }.filter { it.isNotBlank() }
+        binding.tvGenres.isVisible = genresMap.isNotEmpty()
         for (genre in genresMap) {
-            val chip = Chip(requireContext())
+            val chip = getCustomChip(chgrGenres)
             chip.text = genre
             chip.isClickable = true
             chip.isCheckable = false
@@ -457,9 +483,12 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
+    private fun getCustomChip(chipGroup: ChipGroup): Chip =
+        layoutInflater.inflate(R.layout.i_custom_chip, chipGroup, false) as Chip
+
     private fun FDetailsBinding.initActors(actors: List<String>) {
         for (actor in actors) {
-            val chip = Chip(requireContext())
+            val chip = getCustomChip(chgrActors)
             val paddingDp = requireContext().getDP(10)
             chip.setPadding(paddingDp.toInt(), 0, paddingDp.toInt(), 0)
             chip.text = actor

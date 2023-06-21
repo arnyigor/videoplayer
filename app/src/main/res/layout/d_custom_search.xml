@@ -37,5 +37,21 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/search_by_genres" />
+
+        <CheckBox
+            android:id="@+id/chbCinemas"
+            style="@style/DetailsSubTitleStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/in_films" />
+
+        <CheckBox
+            android:id="@+id/chbSerials"
+            style="@style/DetailsSubTitleStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/in_serials" />
     </RadioGroup>
 </LinearLayout>

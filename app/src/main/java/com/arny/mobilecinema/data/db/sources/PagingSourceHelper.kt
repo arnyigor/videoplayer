@@ -2,13 +2,15 @@ package com.arny.mobilecinema.data.db.sources
 
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.domain.models.MovieType
 
 fun getMoviesSQL(
     search: String,
     order: String,
     searchType: String,
+    movieTypes: List<MovieType>,
     limit: Int,
-    offset: Int
+    offset: Int,
 ): SimpleSQLiteQuery {
     val sb = StringBuilder()
     val args = mutableListOf<Any?>()
@@ -25,16 +27,20 @@ fun getMoviesSQL(
             }
         )
         args.add(search)
+        if (movieTypes.isNotEmpty()) {
+            sb.append(" AND")
+            sb.append(" type IN (${movieTypes.joinToString { "'${it.value}'" }})")
+        }
     }
     if (order.isNotBlank()) {
         sb.append(" ORDER BY")
         sb.append(
             when (order) {
-                AppConstants.Order.NONE -> " updated DESC, ratingImdb DESC, ratingKp DESC, likes DESC"
+                AppConstants.Order.NONE -> " updated DESC, likes DESC, ratingImdb DESC, ratingKp DESC"
                 AppConstants.Order.RATINGS -> " ratingImdb DESC, ratingKp DESC, likes DESC"
-                AppConstants.Order.TITLE -> " title ASC, ratingImdb DESC, ratingKp DESC, likes DESC"
-                AppConstants.Order.YEAR_DESC -> " year DESC, ratingImdb DESC, ratingKp DESC, likes DESC"
-                AppConstants.Order.YEAR_ASC -> " year ASC, ratingImdb DESC, ratingKp DESC, likes DESC"
+                AppConstants.Order.TITLE -> " title ASC, likes DESC, ratingImdb DESC, ratingKp DESC"
+                AppConstants.Order.YEAR_DESC -> " year DESC, likes DESC, ratingImdb DESC, ratingKp DESC"
+                AppConstants.Order.YEAR_ASC -> " year ASC, likes DESC, ratingImdb DESC, ratingKp DESC"
                 else -> ""
             }
         )
@@ -44,8 +50,8 @@ fun getMoviesSQL(
     args.add(offset)
     sb.append(";")
     val query = sb.toString()
-//        println("queryString:$query")
-//        println("args:$args")
+    println("queryString:$query")
+    println("args:$args")
     return SimpleSQLiteQuery(query, args.toTypedArray())
 }
 

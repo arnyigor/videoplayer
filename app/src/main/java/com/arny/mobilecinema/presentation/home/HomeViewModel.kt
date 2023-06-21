@@ -6,6 +6,7 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -52,6 +53,10 @@ class HomeViewModel @Inject constructor(
     private var search = UiAction.Search()
     private var query = ""
     private var searchType = ""
+    private var searchAddTypes = listOf(
+        AppConstants.SearchType.CINEMA,
+        AppConstants.SearchType.SERIAL,
+    )
     private val actionStateFlow = MutableSharedFlow<UiAction>()
     var moviesDataFlow: Flow<PagingData<ViewMovie>> = actionStateFlow
         .filterIsInstance<UiAction.Search>()
@@ -63,7 +68,8 @@ class HomeViewModel @Inject constructor(
             emit(
                 UiAction.Search(
                     order = savedOrder,
-                    searchType = searchType
+                    searchType = searchType,
+                    searchAddTypes = searchAddTypes
                 )
             )
         }
@@ -72,7 +78,8 @@ class HomeViewModel @Inject constructor(
             moviesInteractor.getMovies(
                 search = search.query,
                 order = search.order,
-                searchType = search.searchType
+                searchType = search.searchType,
+                searchAddTypes = search.searchAddTypes
             )
         }
         .onEach {
@@ -133,11 +140,13 @@ class HomeViewModel @Inject constructor(
                 if (delay) {
                     delay(350)
                 }
+                actionStateFlow.emit(UiAction.Search())
                 actionStateFlow.emit(
                     UiAction.Search(
                         searchType = searchType,
                         query = query,
-                        order = _order.value
+                        order = _order.value,
+                        searchAddTypes = query.takeIf { it.isNotBlank() }?.let { searchAddTypes } ?:emptyList()
                     )
                 )
             }
@@ -172,21 +181,25 @@ class HomeViewModel @Inject constructor(
                 UiAction.Search(
                     searchType = searchType,
                     query = search.query,
-                    order = order
+                    order = order,
+                    searchAddTypes = searchAddTypes
                 )
             )
         }
     }
 
-    fun setSearchType(type: String, submit: Boolean = true) {
+    fun setSearchType(type: String, submit: Boolean = true, addTypes: List<String>) {
         viewModelScope.launch {
             searchType = type
+            searchAddTypes = addTypes
             if (submit) {
+                actionStateFlow.emit(UiAction.Search())
                 actionStateFlow.emit(
                     UiAction.Search(
                         searchType = searchType,
                         query = search.query,
-                        order = _order.value
+                        order = _order.value,
+                        searchAddTypes = searchAddTypes
                     )
                 )
             }

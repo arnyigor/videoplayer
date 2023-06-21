@@ -74,6 +74,10 @@ class HomeFragment : Fragment(), OnSearchListener {
     private var request: Int = -1
     private var currentOrder: String = ""
     private var searchType: String = ""
+    private var searchAddTypes: MutableList<String> = mutableListOf(
+        AppConstants.SearchType.CINEMA,
+        AppConstants.SearchType.SERIAL
+    )
     private var emptySearch = true
     private var hasQuery = false
     private var onQueryChangeSubmit = true
@@ -159,7 +163,11 @@ class HomeFragment : Fragment(), OnSearchListener {
                 }
             }
             if (query.isNotBlank() && searchType.isNotBlank()) {
-                viewModel.setSearchType(searchType, false)
+                viewModel.setSearchType(
+                    type = searchType,
+                    submit = false,
+                    addTypes = searchAddTypes
+                )
                 onQueryChangeSubmit = false
                 searchMenuItem?.expandActionView()
                 searchView?.setQuery(query, false)
@@ -404,37 +412,92 @@ class HomeFragment : Fragment(), OnSearchListener {
             btnOkText = getString(android.R.string.ok),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                viewModel.setSearchType(searchType)
+                viewModel.setSearchType(
+                    type = searchType,
+                    addTypes = searchAddTypes
+                )
             },
             initView = {
                 with(DCustomSearchBinding.bind(this)) {
-                    val radioBtn = listOf(
-                        rbTitle to AppConstants.SearchType.TITLE,
-                        rbDirectors to AppConstants.SearchType.DIRECTORS,
-                        rbActors to AppConstants.SearchType.ACTORS,
-                        rbGenres to AppConstants.SearchType.GENRES,
-                    )
-                    searchType.takeIf { it.isNotBlank() }?.let {
-                        when (it) {
-                            AppConstants.SearchType.TITLE -> rbTitle.isChecked = true
-                            AppConstants.SearchType.DIRECTORS -> rbDirectors.isChecked = true
-                            AppConstants.SearchType.ACTORS -> rbActors.isChecked = true
-                            AppConstants.SearchType.GENRES -> rbGenres.isChecked = true
-                            else -> rbTitle.isChecked = true
-                        }
-                    }?: kotlin.run {
-                        rbTitle.isChecked = true
-                    }
-                    radioBtn.forEach { (rb, orderString) ->
-                        rb.setOnCheckedChangeListener { _, isChecked ->
-                            if (isChecked) {
-                                searchType = orderString
-                            }
-                        }
-                    }
+                    checkSearchAddTypes()
+                    setAddSearchType()
+                    checkSearchType()
+                    setSearchBtnsChangeListeners()
                 }
             }
         )
+    }
+
+    private fun DCustomSearchBinding.checkSearchAddTypes() {
+        chbCinemas.isChecked = false
+        chbSerials.isChecked = false
+        searchAddTypes.forEach {
+            when (it) {
+                AppConstants.SearchType.CINEMA -> chbCinemas.isChecked = true
+                AppConstants.SearchType.SERIAL -> chbSerials.isChecked = true
+                else -> {}
+            }
+        }
+    }
+
+    private fun DCustomSearchBinding.setAddSearchType() {
+        getAddChBoxTypes().forEach { (chBox, type) ->
+            chBox.setOnCheckedChangeListener { _, isChecked ->
+                updateSearchAddType(isChecked, type)
+            }
+        }
+    }
+
+    private fun DCustomSearchBinding.getAddChBoxTypes() = listOf(
+        chbCinemas to AppConstants.SearchType.CINEMA,
+        chbSerials to AppConstants.SearchType.SERIAL,
+    )
+
+    private fun DCustomSearchBinding.updateSearchAddType(check: Boolean, type: String) {
+        getAddChBoxTypes().map { it.second }.forEach { chbType ->
+            if (chbType == type) {
+                searchAddTypes = if (check) {
+                    searchAddTypes.apply {
+                        add(type)
+                        distinct()
+                    }
+                } else {
+                    searchAddTypes.apply {
+                        remove(type)
+                        distinct()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun DCustomSearchBinding.setSearchBtnsChangeListeners() {
+        listOf(
+            rbTitle to AppConstants.SearchType.TITLE,
+            rbDirectors to AppConstants.SearchType.DIRECTORS,
+            rbActors to AppConstants.SearchType.ACTORS,
+            rbGenres to AppConstants.SearchType.GENRES,
+        ).forEach { (rb, orderString) ->
+            rb.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
+                    searchType = orderString
+                }
+            }
+        }
+    }
+
+    private fun DCustomSearchBinding.checkSearchType() {
+        searchType.takeIf { it.isNotBlank() }?.let {
+            when (it) {
+                AppConstants.SearchType.TITLE -> rbTitle.isChecked = true
+                AppConstants.SearchType.DIRECTORS -> rbDirectors.isChecked = true
+                AppConstants.SearchType.ACTORS -> rbActors.isChecked = true
+                AppConstants.SearchType.GENRES -> rbGenres.isChecked = true
+                else -> rbTitle.isChecked = true
+            }
+        } ?: kotlin.run {
+            rbTitle.isChecked = true
+        }
     }
 
     private fun openPath() {

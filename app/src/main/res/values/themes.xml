@@ -35,6 +35,10 @@
         <item name="android:popupBackground">@android:color/white</item>
     </style>
 
+    <style name="itemTextStyle.AppTheme" parent="@android:style/TextAppearance.Widget.IconMenu.Item">
+        <item name="android:textColor">@color/colorPrimaryDark</item>
+    </style>
+
     <style name="MyDialogStyle" parent="Theme.MaterialComponents.DayNight.Dialog">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>

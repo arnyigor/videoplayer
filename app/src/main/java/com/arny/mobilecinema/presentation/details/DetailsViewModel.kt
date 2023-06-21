@@ -28,13 +28,8 @@ class DetailsViewModel @Inject constructor(
     val saveData = _saveData.asSharedFlow()
     private val _toast = MutableSharedFlow<IWrappedString>()
     val toast = _toast.asSharedFlow()
-
-    fun reloadVideo(){
-        val id = _movie.value?.dbId
-        if (id != null) {
-            loadVideo(id)
-        }
-    }
+    private val _addToHistory = MutableSharedFlow<Boolean>()
+    val addToHistory = _addToHistory.asSharedFlow()
 
     fun loadVideo(id: Long) {
         viewModelScope.launch {
@@ -95,6 +90,24 @@ class DetailsViewModel @Inject constructor(
                                     else -> {}
                                 }
                             }
+                        }
+                    }
+                }
+        }
+    }
+
+    fun addToHistory() {
+        viewModelScope.launch {
+            val mMovie = _movie.value
+            interactor.addToHistory(mMovie?.dbId)
+                .catch { _error.emit(ThrowableString(it)) }
+                .collectLatest {
+                    when (it) {
+                        is DataResult.Error -> {
+                            _error.emit(ThrowableString(it.throwable))
+                        }
+                        is DataResult.Success -> {
+                            _addToHistory.emit(it.result)
                         }
                     }
                 }

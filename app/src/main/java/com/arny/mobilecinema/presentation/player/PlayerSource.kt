@@ -8,6 +8,7 @@ import androidx.core.os.bundleOf
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.data.player.VideoCache
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.utils.formatFileSize
 import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.MediaMetadata
@@ -138,32 +139,57 @@ class PlayerSource @Inject constructor(
         }, 1000)
     }
 
-    suspend fun isDownloaded(url: String): Boolean {
-        return withContext(Dispatchers.IO) {
-            val factory = dataSourceFactory()
-            val cache = factory.cache
-            val keys = cache?.keys.orEmpty().toList()
-            val segments = getSegments(url)
-            val allCached: Boolean = if (segments.isNotEmpty()) {
-                segments.all { it in keys }
-            } else {
-                keys.contains(url)
-            }
-            allCached
+    suspend fun isDownloaded(url: String): Boolean = withContext(Dispatchers.IO) {
+        val factory = dataSourceFactory()
+        val cache = factory.cache
+        val keys = cache?.keys.orEmpty().toList()
+        val segments = getSegments(url)
+        val allCached: Boolean = if (segments.isNotEmpty()) {
+            segments.all { it in keys }
+        } else {
+            keys.contains(url)
         }
+        allCached
     }
 
-    private suspend fun getSegments(url: String): List<String> {
-        return suspendCoroutine { continuation ->
-            val mediaItem = getMediaItem(url)
-            val helper = DownloadHelper.forMediaItem(context, mediaItem, null, dataSourceFactory())
-            helper.prepare(
+    suspend fun getDownloadedSize(url: String): String = withContext(Dispatchers.IO) {
+        val cache = dataSourceFactory().cache
+        var size = 0L
+        cache?.let {
+            val keys = cache.keys.toList()
+            val segments = getSegments(url)
+            val filteredKeys = if (segments.isNotEmpty()) {
+                keys.filter { it in segments }
+            } else {
+                if (keys.contains(url)) {
+                    keys
+                } else {
+                    emptyList()
+                }
+            }
+            size = filteredKeys.flatMap { key ->
+                cache.getCachedSpans(key).map { span -> span.length }
+            }.sum()
+        }
+        formatFileSize(size, 1)
+    }
+
+    private suspend fun getSegments(url: String): List<String> = suspendCoroutine { continuation ->
+        val mediaItem = getMediaItem(url)
+        DownloadHelper.forMediaItem(
+            /* context = */ context,
+            /* mediaItem = */ mediaItem,
+            /* renderersFactory = */ null,
+            /* dataSourceFactory = */ dataSourceFactory()
+        )
+            .prepare(
                 object : DownloadHelper.Callback {
                     override fun onPrepared(helper: DownloadHelper) {
                         val segments = when (val manifest = helper.manifest) {
                             is HlsManifest -> {
                                 manifest.mediaPlaylist.segments.map { it.url }
                             }
+
                             else -> emptyList()
                         }
                         continuation.resumeWith(Result.success(segments))
@@ -174,7 +200,6 @@ class PlayerSource @Inject constructor(
                         continuation.resumeWithException(e)
                     }
                 })
-        }
     }
 
     private fun Download?.getState(): String {

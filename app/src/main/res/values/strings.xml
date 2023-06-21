@@ -59,6 +59,7 @@
     <string name="mobile_network_play">Вы не подключены к WIFI\nПродолжить?</string>
     <string name="cache_description">Загрузку нельзя приостановить.При отмене загруженные данные будут удалены\nПродолжить?</string>
     <string name="pref_player">Плеер</string>
+    <string name="pref_common">Общее</string>
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
     <string name="player_max_cache_time_sec">Максимальный буфер, сек</string>
     <string name="internet_connection_error">Отсутствует интернет соединение</string>
@@ -90,6 +91,13 @@
     <string name="genre">Жанр</string>
     <string name="actors">Актёры:</string>
     <string name="movie_description">Описание:</string>
+    <string name="pref_key_add_to_history_on_cache">pref_key_add_to_history_on_cache</string>
+    <string name="pref_title_add_to_history_on_cache">Добавлять в историю</string>
+    <string name="pref_summary_add_to_history_on_cache">Добавлять в историю при загрузке из деталей</string>
+    <string name="added_to_history">Добавлен в историю просмотра</string>
+    <string name="in_films">В фильмах</string>
+    <string name="in_serials">В сериалах</string>
+    <string name="cinema_save_data">Сохранён:100%%, занимает: %s</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

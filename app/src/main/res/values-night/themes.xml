@@ -32,7 +32,8 @@
     </style>
 
     <style name="popupMenuStyle" parent="Widget.MaterialComponents.PopupMenu">
-        <item name="android:popupBackground">@android:color/white</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:popupBackground">@color/colorPrimary</item>
     </style>
 
     <style name="MyDialogStyle" parent="Theme.MaterialComponents.DayNight.Dialog">
@@ -46,6 +47,11 @@
         <item name="windowFixedWidthMinor">90%</item>
         <item name="textColorAlertDialogListItem">@color/textColorPrimary</item>
         <item name="colorControlNormal">@color/colorAccent</item>
+    </style>
+
+    <style name="CustomChipChoice" parent="@style/Widget.MaterialComponents.Chip.Choice">
+        <item name="chipBackgroundColor">@color/colorSecondary</item>
+        <item name="android:textColor">@color/textColorPrimary</item>
     </style>
 
     <style name="DialogTextViewStyle" parent="android:Widget.TextView">

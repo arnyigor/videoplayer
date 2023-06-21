@@ -3,6 +3,8 @@ package com.arny.mobilecinema.data.db.sources
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.arny.mobilecinema.data.db.daos.MovieDao
+import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.ViewMovie
 
 class MainPagingSource(
@@ -10,6 +12,7 @@ class MainPagingSource(
     private val search: String,
     private val order: String,
     private val searchType: String,
+    private val searchAddTypes: List<String>,
 ) : PagingSource<Int, ViewMovie>() {
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ViewMovie> {
         val page = params.key ?: 0
@@ -19,8 +22,9 @@ class MainPagingSource(
                     search = search,
                     order = order,
                     searchType = searchType,
+                    movieTypes = getMovieTypes(),
                     limit = params.loadSize,
-                    offset = page * params.loadSize
+                    offset = page * params.loadSize,
                 )
             )
             LoadResult.Page(
@@ -30,6 +34,14 @@ class MainPagingSource(
             )
         } catch (e: Exception) {
             LoadResult.Error(e)
+        }
+    }
+
+    private fun getMovieTypes() = searchAddTypes.map {
+        when (it) {
+            AppConstants.SearchType.CINEMA -> MovieType.CINEMA
+            AppConstants.SearchType.SERIAL -> MovieType.SERIAL
+            else -> MovieType.NO_TYPE
         }
     }
 
