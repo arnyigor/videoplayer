@@ -58,6 +58,7 @@ class HomeViewModel @Inject constructor(
         AppConstants.SearchType.SERIAL,
     )
     private val actionStateFlow = MutableSharedFlow<UiAction>()
+    val updateText = dataUpdateInteractor.updateTextFlow
     var moviesDataFlow: Flow<PagingData<ViewMovie>> = actionStateFlow
         .filterIsInstance<UiAction.Search>()
         .distinctUntilChanged()

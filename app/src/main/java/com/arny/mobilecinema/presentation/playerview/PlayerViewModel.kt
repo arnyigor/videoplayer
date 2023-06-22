@@ -6,6 +6,7 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,7 +18,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class PlayerViewModel @Inject constructor(
-    private val interactor: MoviesInteractor
+    private val interactor: MoviesInteractor,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState = _uiState.asStateFlow()
@@ -47,6 +48,38 @@ class PlayerViewModel @Inject constructor(
         interactor.saveCinemaPosition(dbId, position)
     }
 
+    private fun fixDashLinks(movie: Movie?): Movie? {
+        var result = movie
+        if (movie?.type == MovieType.SERIAL) {
+            result = movie.copy(
+                seasons = movie.seasons.map { season ->
+                    season.copy(
+                        episodes = season.episodes.map { episode ->
+                            episode.copy(dash = getDashLink(episode))
+                        }
+                    )
+                }
+            )
+        }
+        return result
+    }
+
+    private fun getDashLink(episode: SerialEpisode): String {
+        var dashLink = episode.dash
+        if (!dashLink.startsWith("http")) {
+            dashLink = interactor.getBaseUrl() + "/" + dashLink
+        }
+        return when {
+            dashLink.contains("load/mp4") && !dashLink.endsWith(".mp4") ->
+                "$dashLink.mp4"
+
+            !dashLink.contains("load/mp4") && !dashLink.endsWith(".mpd") ->
+                "$dashLink.mpd"
+
+            else -> dashLink
+        }
+    }
+
     fun setPlayData(
         path: String?,
         movie: Movie?,
@@ -62,6 +95,7 @@ class PlayerViewModel @Inject constructor(
                         is DataResult.Error -> {
                             _error.emit(ThrowableString(it.throwable))
                         }
+
                         is DataResult.Success -> {
                             _uiState.value = _uiState.value.copy(
                                 path = path,

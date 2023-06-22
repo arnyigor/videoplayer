@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.isVisible
@@ -68,6 +67,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var qualityVisible: Boolean = false
     private var langVisible: Boolean = false
     private var mediaItemIndex: Int = 0
+    private var movie: Movie? = null
     private val args: PlayerViewFragmentArgs by navArgs()
 
     @Inject
@@ -155,7 +155,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         launchWhenCreated {
             viewModel.uiState.collect { state ->
                 if (state.path != null || state.movie != null) {
-                    val movie = state.movie
+                    movie = state.movie
                     val (season, episode) = getSerialPosition(state.season, state.episode)
                     setCurrentTitle(getTitle(movie?.title))
                     setMediaSources(

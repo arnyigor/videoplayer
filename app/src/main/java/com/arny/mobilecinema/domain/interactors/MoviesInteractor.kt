@@ -33,4 +33,5 @@ interface MoviesInteractor {
     suspend fun getOrder(): String
     fun clearAllViewHistory(): Flow<DataResult<Boolean>>
     fun isMoviesEmpty(): Flow<DataResult<Boolean>>
+    fun getBaseUrl(): String
 }

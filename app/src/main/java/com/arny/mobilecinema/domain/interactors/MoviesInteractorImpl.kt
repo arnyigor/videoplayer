@@ -10,6 +10,7 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
+import com.arny.mobilecinema.domain.repository.UpdateRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -17,6 +18,7 @@ import javax.inject.Inject
 
 class MoviesInteractorImpl @Inject constructor(
     private val repository: MoviesRepository,
+    private val updateRepository: UpdateRepository
 ) : MoviesInteractor {
     override fun getMovies(
         search: String,
@@ -27,6 +29,8 @@ class MoviesInteractorImpl @Inject constructor(
         val type = searchType.ifBlank { AppConstants.SearchType.TITLE }
         return repository.getMovies(search, order, type, searchAddTypes).flow
     }
+
+    override fun getBaseUrl(): String = updateRepository.baseUrl
 
     override fun addToHistory(dbId: Long?): Flow<DataResult<Boolean>> = doAsync {
         var result = false

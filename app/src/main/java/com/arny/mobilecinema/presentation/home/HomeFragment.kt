@@ -103,19 +103,25 @@ class HomeFragment : Fragment(), OnSearchListener {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
                 when (request) {
-                    REQUEST_OPEN_FILE -> {
-                        requestFile()
-                    }
-
-                    REQUEST_LOAD -> {
-                        downloadData()
-                    }
+                    REQUEST_OPEN_FILE -> requestFile()
+                    REQUEST_LOAD -> downloadData()
                 }
             }
         }
     private val updateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            viewModel.loadMovies()
+            if (intent != null) {
+                when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
+                    AppConstants.ACTION_UPDATE_STATUS_STARTED -> {
+                        binding.tvEmptyView.setText(R.string.update_started)
+                    }
+
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE -> {
+                        toast(getString(R.string.update_finished))
+                        viewModel.loadMovies()
+                    }
+                }
+            }
         }
     }
 
@@ -211,7 +217,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     override fun onResume() {
         super.onResume()
         requireActivity().unlockOrientation()
-        registerReceiver(AppConstants.ACTION_UPDATE_COMPLETE, updateReceiver)
+        registerReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
     }
 
     override fun onPause() {
@@ -266,6 +272,13 @@ class HomeFragment : Fragment(), OnSearchListener {
         launchWhenCreated {
             viewModel.order.collectLatest { order ->
                 currentOrder = order
+            }
+        }
+        launchWhenCreated {
+            viewModel.updateText.collectLatest { updateText ->
+                if (updateText != null) {
+                    binding.tvEmptyView.text = updateText.toString(requireContext())
+                }
             }
         }
         launchWhenCreated {

@@ -5,6 +5,7 @@ import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.db.models.MovieEntity
+import com.arny.mobilecinema.data.db.models.MovieUpdate
 import com.arny.mobilecinema.data.models.setData
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.prefs.Prefs
@@ -65,15 +66,17 @@ class UpdateRepositoryImpl @Inject constructor(
             movies.forEachIndexed { index, movie ->
                 val dbMovie = dbList.find { it.pageUrl == movie.pageUrl }
                 when {
-                    dbMovie != null && dbMovie.title != movie.title -> {
+                    isTitleChanged(dbMovie, movie) -> {
                         entity = entity.setData(movie)
                         moviesDao.update(entity)
                     }
-                    dbMovie != null && dbMovie.updated < movie.info.updated -> {
+
+                    isUpdateTimeChanged(dbMovie, movie) -> {
                         entity = entity.setData(movie)
                         moviesDao.update(entity)
                     }
-                    dbMovie == null -> {
+
+                    dbMovie == null || dbMovie.updated == 0L -> {
                         entity = entity.setData(movie)
                         moviesDao.insert(entity)
                     }
@@ -84,6 +87,16 @@ class UpdateRepositoryImpl @Inject constructor(
             }
         }
     }
+
+    private fun isUpdateTimeChanged(
+        dbMovie: MovieUpdate?,
+        movie: Movie
+    ) = dbMovie != null && dbMovie.updated > 0 && dbMovie.updated < movie.info.updated
+
+    private fun isTitleChanged(
+        dbMovie: MovieUpdate?,
+        movie: Movie
+    ) = dbMovie != null && dbMovie.title != movie.title
 
     override suspend fun checkBaseUrl(): Boolean = try {
         val baseLink = BuildConfig.BASE_LINK

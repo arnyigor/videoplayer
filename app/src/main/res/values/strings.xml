@@ -98,6 +98,7 @@
     <string name="in_films">В фильмах</string>
     <string name="in_serials">В сериалах</string>
     <string name="cinema_save_data">Сохранён:100%%, занимает: %s</string>
+    <string name="downloading_database">Загрузка базы фильмов...</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

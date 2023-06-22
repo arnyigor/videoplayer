@@ -73,6 +73,14 @@ class UpdateService : LifecycleService(), CoroutineScope {
         withContext(Dispatchers.IO) {
             val filePath = intent?.getStringExtra(AppConstants.SERVICE_PARAM_FILE)
             if (filePath != null && intent.action == AppConstants.ACTION_UPDATE) {
+                LocalBroadcastManager.getInstance(applicationContext)
+                    .sendBroadcast(Intent().apply {
+                        action = AppConstants.ACTION_UPDATE_STATUS
+                        putExtra(
+                            AppConstants.ACTION_UPDATE_STATUS,
+                            AppConstants.ACTION_UPDATE_STATUS_STARTED
+                        )
+                    })
                 val file = File(filePath)
                 val dataFile = unzipData(file, context = applicationContext)
                 if (dataFile != null) {
@@ -91,7 +99,11 @@ class UpdateService : LifecycleService(), CoroutineScope {
                     )
                     LocalBroadcastManager.getInstance(applicationContext)
                         .sendBroadcast(Intent().apply {
-                            action = AppConstants.ACTION_UPDATE_COMPLETE
+                            action = AppConstants.ACTION_UPDATE_STATUS
+                            putExtra(
+                                AppConstants.ACTION_UPDATE_STATUS,
+                                AppConstants.ACTION_UPDATE_STATUS_COMPLETE
+                            )
                         })
                     stop()
                 }
