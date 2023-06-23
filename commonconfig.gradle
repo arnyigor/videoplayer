@@ -17,9 +17,9 @@ android {
     }
     compileSdkVersion versions.compileSdkVersion
     buildToolsVersion versions.buildToolsVersion
-    def vMajor = 0
+    def vMajor = 1
     def vMinor = 0
-    def vBuild = 2
+    def vBuild = 0
     defaultConfig {
         minSdkVersion versions.minSdkVersion
         targetSdkVersion versions.targetSdkVersion
