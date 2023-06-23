@@ -11,6 +11,7 @@ import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
+import com.arny.mobilecinema.presentation.player.PlayerSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -18,8 +19,12 @@ import javax.inject.Inject
 
 class MoviesInteractorImpl @Inject constructor(
     private val repository: MoviesRepository,
-    private val updateRepository: UpdateRepository
+    private val updateRepository: UpdateRepository,
+    private val playerSource: PlayerSource,
 ) : MoviesInteractor {
+
+    override fun isPipModeEnable(): Boolean = repository.prefPipMode
+
     override fun getMovies(
         search: String,
         order: String,
@@ -90,6 +95,7 @@ class MoviesInteractorImpl @Inject constructor(
     }
 
     override fun clearAllViewHistory(): Flow<DataResult<Boolean>> = doAsync {
+        playerSource.clearAllDownloaded()
         repository.clearAllViewHistory()
     }
 

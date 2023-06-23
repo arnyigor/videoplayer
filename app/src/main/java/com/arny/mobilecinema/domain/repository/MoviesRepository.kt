@@ -8,6 +8,7 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 interface MoviesRepository {
     var order: String
     var prefHistoryOnCache: Boolean
+    var prefPipMode: Boolean
     fun getMovies(
         search: String,
         order: String,

@@ -65,16 +65,17 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     @Inject
     lateinit var playerSource: PlayerSource
+
     @Inject
     lateinit var prefs: Prefs
-
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var currentMovie: Movie? = null
     private var currentSeasonPosition: Int = 0
     private var currentEpisodePosition: Int = 0
     private var hasSavedData: Boolean = false
-    private var cinemaDownloaded: Boolean = true
+    private var downloadAll: Boolean = false
+    private var canDownload: Boolean = false
     private val args: DetailsFragmentArgs by navArgs()
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
@@ -157,7 +158,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onPrepareMenu(menu: Menu) {
                 menu.findItem(R.id.menu_action_clear_cache).isVisible = hasSavedData
-                menu.findItem(R.id.menu_action_cache_movie).isVisible = !cinemaDownloaded
+                menu.findItem(R.id.menu_action_cache_movie).isVisible = canDownload
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -217,7 +218,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         currentMovie?.let { movie ->
             val connectionType = getConnectionType(requireContext())
             when {
-                movie.type == MovieType.CINEMA && cinemaDownloaded -> {
+                movie.type == MovieType.CINEMA && downloadAll -> {
                     navigateToPLayer(movie, isTrailer)
                 }
 
@@ -358,23 +359,29 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
             btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
-            val cinemaUrl = movie.getCinemaUrl()
-            cinemaDownloaded = playerSource.isDownloaded(cinemaUrl)
-            if (cinemaDownloaded) {
-                val downloadedSize = playerSource.getDownloadedSize(cinemaUrl)
-                binding.tvSaveData.isVisible = true
-                binding.tvSaveData.text = getString(
-                    R.string.cinema_save_data,
-                    downloadedSize
-                )
-            } else {
-                binding.tvSaveData.isVisible = false
-            }
+            updateDownloadedData(movie.getCinemaUrl())
             requireActivity().invalidateOptionsMenu()
         } else {
-            cinemaDownloaded = true
+            canDownload = false // TODO Продумать как грузить серии от сериалов
             requireActivity().invalidateOptionsMenu()
             btnPlay.isVisible = true
+        }
+    }
+
+    private suspend fun updateDownloadedData(cinemaUrl: String) {
+        // TODO Диалог завершения текущей загрузки и старт новой
+        val isCanDownload = playerSource.isCanDownload(cinemaUrl)
+        val downloadedPercent = playerSource.getDownloadedPercent(cinemaUrl)
+        val downloadedSize = playerSource.getDownloadedSize(cinemaUrl)
+        downloadAll = downloadedPercent == 100
+        canDownload = isCanDownload && !downloadAll
+        if (downloadedPercent > 0) {
+            binding.tvSaveData.isVisible = true
+            binding.tvSaveData.text = getString(
+                R.string.cinema_save_data,
+                downloadedPercent,
+                downloadedSize
+            )
         }
     }
 
@@ -452,7 +459,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun FDetailsBinding.initDirectors(directors: List<String>) {
-        for (director in directors) {
+        for (director in directors.filter { it.isNotBlank() }) {
             val chip = getCustomChip(chgrDirectors)
             chip.text = director
             chip.isClickable = true
@@ -471,7 +478,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         binding.tvGenres.isVisible = genresMap.isNotEmpty()
         for (genre in genresMap) {
             val chip = getCustomChip(chgrGenres)
-            chip.text = genre
             chip.isClickable = true
             chip.isCheckable = false
             chip.setOnClickListener {
@@ -487,7 +493,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         layoutInflater.inflate(R.layout.i_custom_chip, chipGroup, false) as Chip
 
     private fun FDetailsBinding.initActors(actors: List<String>) {
-        for (actor in actors) {
+        for (actor in actors.filter { it.isNotBlank() }) {
             val chip = getCustomChip(chgrActors)
             val paddingDp = requireContext().getDP(10)
             chip.setPadding(paddingDp.toInt(), 0, paddingDp.toInt(), 0)

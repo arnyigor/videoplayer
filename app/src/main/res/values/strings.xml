@@ -25,6 +25,7 @@
     <string name="question_remove_from_history_title">Хотите удалить \"%s\" из истории просмотра и очистить кеш?</string>
     <string name="title_home">Главная</string>
     <string name="press_back_again_to_exit">Нажмите назад еще раз чтобы выйти</string>
+    <string name="exit">Выход</string>
     <string name="pref_main_header">Основные</string>
     <string name="action_settings">Настройки</string>
     <string name="play">Смотреть</string>
@@ -57,7 +58,7 @@
     <string name="attention">Внимание!</string>
     <string name="cache_attention">Вы хотите загрузить фильм?</string>
     <string name="mobile_network_play">Вы не подключены к WIFI\nПродолжить?</string>
-    <string name="cache_description">Загрузку нельзя приостановить.При отмене загруженные данные будут удалены\nПродолжить?</string>
+    <string name="cache_description">При отмене загруженные данные будут удалены\nПродолжить?</string>
     <string name="pref_player">Плеер</string>
     <string name="pref_common">Общее</string>
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
@@ -75,7 +76,7 @@
     <string name="sort_title">По названию</string>
     <string name="sort_ratings">По рейтингам IMDB и KP</string>
     <string name="sort_year_asc">По году возрастание</string>
-    <string name="question_remove_all_history">Удалить всю историю просмотра?</string>
+    <string name="question_remove_all_history">Удалить всю историю просмотра и весь кеш?</string>
     <string name="notification_channel_id">notification_channel_cache</string>
     <string name="notification_title">Загрузка фильма</string>
     <string name="cache">Сохранить фильм</string>
@@ -91,14 +92,20 @@
     <string name="genre">Жанр</string>
     <string name="actors">Актёры:</string>
     <string name="movie_description">Описание:</string>
-    <string name="pref_key_add_to_history_on_cache">pref_key_add_to_history_on_cache</string>
-    <string name="pref_title_add_to_history_on_cache">Добавлять в историю</string>
-    <string name="pref_summary_add_to_history_on_cache">Добавлять в историю при загрузке из деталей</string>
     <string name="added_to_history">Добавлен в историю просмотра</string>
     <string name="in_films">В фильмах</string>
     <string name="in_serials">В сериалах</string>
-    <string name="cinema_save_data">Сохранён:100%%, занимает: %s</string>
-    <string name="downloading_database">Загрузка базы фильмов...</string>
+    <string name="cinema_save_data">Сохранён:%d%%, занимает: %s</string>
+    <string name="downloading_database">Загрузка базы фильмов…</string>
+    <!--Prefs-->
+    <string name="pref_key_add_to_history_on_cache">pref_key_add_to_history_on_cache</string>
+    <string name="pref_title_add_to_history_on_cache">Добавлять в историю</string>
+    <string name="pref_summary_add_to_history_on_cache">Добавлять в историю при загрузке из деталей</string>
+    <string name="pref_key_pip_mode">pref_key_pip_mode</string>
+    <string name="pref_title_pip_mode">PIP Режим</string>
+    <string name="pref_summary_pip_mode">Включить режим картинка в картинке по кнопке HOME</string>
+    <string name="pause_download">Приостановить</string>
+    <string name="resume_download">Продолжить</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

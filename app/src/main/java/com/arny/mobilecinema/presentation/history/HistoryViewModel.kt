@@ -135,6 +135,7 @@ class HistoryViewModel @Inject constructor(
                     when (data) {
                         is DataResult.Error -> {}
                         is DataResult.Success -> {
+                            loadHistory("newsearch")
                             loadHistory()
                         }
                     }

@@ -32,6 +32,7 @@ import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.util.Util
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.concurrent.Executors
@@ -50,6 +51,32 @@ class PlayerSource @Inject constructor(
 
     private val handler = Handler(Looper.getMainLooper())
     private var downloadManager: DownloadManager? = null
+    private var onUpdate: ((Float, Long, Long, Long, Int) -> Unit?)? = null
+    private val downloadListener = object : DownloadManager.Listener {
+        override fun onDownloadChanged(
+            downloadManager: DownloadManager,
+            download: Download,
+            finalException: Exception?
+        ) {
+            onUpdate?.invoke(
+                download.percentDownloaded,
+                download.bytesDownloaded,
+                download.startTimeMs,
+                download.updateTimeMs,
+                download.state
+            )
+        }
+    }
+
+    fun setListener(progressListener: (percent: Float, bytes: Long, startTime: Long, updateTime: Long, state: Int) -> Unit) {
+        onUpdate = progressListener
+        downloadManager?.addListener(downloadListener)
+    }
+
+    fun removeListener() {
+        onUpdate = null
+        downloadManager?.removeListener(downloadListener)
+    }
 
     suspend fun getSource(
         url: String?,
@@ -92,64 +119,99 @@ class PlayerSource @Inject constructor(
         }
     }
 
-    fun cacheVideo(
-        videoUrl: String,
-        progressListener: (percent: Float, bytes: Long, startTime: Long, updateTime: Long, state: Int) -> Unit
-    ) {
+    fun cacheVideo(videoUrl: String) {
         ensureDownloadManagerInitialized(context)
-        val builder = DownloadRequest.Builder(videoUrl, Uri.parse(videoUrl)).build()
-        downloadManager?.addDownload(builder)
-        val start = System.currentTimeMillis()
-        downloadManager?.addListener(object : DownloadManager.Listener {
-            override fun onDownloadChanged(
-                downloadManager: DownloadManager,
-                download: Download,
-                finalException: Exception?
-            ) {
-                progressListener(
-                    download.percentDownloaded,
-                    download.bytesDownloaded,
-                    download.startTimeMs,
-                    download.updateTimeMs,
-                    download.state
-                )
-            }
-        })
+        downloadManager?.addDownload(DownloadRequest.Builder(videoUrl, Uri.parse(videoUrl)).build())
         downloadManager?.resumeDownloads()
-        updateProgress(progressListener, start)
+        updateProgress()
     }
 
-    private fun updateProgress(
-        progressListener: (percent: Float, bytes: Long, startTime: Long, updateTime: Long, state: Int) -> Unit,
-        start: Long
-    ) {
+    private fun updateProgress() {
         handler.postDelayed({
-            val currentDownloads = downloadManager?.currentDownloads
-            if (currentDownloads?.isNotEmpty() == true) {
-                val download = currentDownloads.first()
-                progressListener(
-                    download.percentDownloaded,
-                    download.bytesDownloaded,
-                    download.startTimeMs,
-                    download.updateTimeMs,
-                    download.state
-                )
-            }
-            updateProgress(progressListener, start)
+            updateCurrentDownloads()
+            updateProgress()
         }, 1000)
     }
 
-    suspend fun isDownloaded(url: String): Boolean = withContext(Dispatchers.IO) {
+    private fun updateCurrentDownloads() {
+        val currentDownloads = downloadManager?.currentDownloads
+        if (currentDownloads?.isNotEmpty() == true) {
+            val download = currentDownloads.first()
+            onUpdate?.invoke(
+                download.percentDownloaded,
+                download.bytesDownloaded,
+                download.startTimeMs,
+                download.updateTimeMs,
+                download.state
+            )
+        }
+    }
+
+    suspend fun clearDownloaded(url: String) = withContext(Dispatchers.IO) {
+        ensureDownloadManagerInitialized(context)
+        downloadManager?.removeDownload(url)
+        val cache = VideoCache.getInstance(context).getDownloadCache()
+        val segments = getSegments(url)
+        segments.forEach { cache.removeResource(it) }
+        cache.removeResource(url)
+    }
+
+    suspend fun clearAllDownloaded() = withContext(Dispatchers.IO) {
+        ensureDownloadManagerInitialized(context)
+        downloadManager?.currentDownloads?.forEach {
+            downloadManager?.removeDownload(it.request.id)
+        }
+        val cache = VideoCache.getInstance(context).getDownloadCache()
+        val keys = cache.keys
+        keys.forEach { cache.removeResource(it) }
+    }
+
+    fun cancelDownload(url: String) {
+        handler.removeCallbacksAndMessages(null)
+        ensureDownloadManagerInitialized(context)
+        downloadManager?.setStopReason(url, Download.STOP_REASON_NONE)
+        downloadManager?.currentDownloads?.forEach {
+            downloadManager?.removeDownload(it.request.id)
+        }
+    }
+
+    fun pauseDownload() {
+        handler.removeCallbacksAndMessages(null)
+        ensureDownloadManagerInitialized(context)
+        downloadManager?.pauseDownloads()
+        handler.post { updateCurrentDownloads() }
+    }
+
+    fun resumeDownloads() {
+        handler.removeCallbacksAndMessages(null)
+        ensureDownloadManagerInitialized(context)
+        downloadManager?.resumeDownloads()
+        updateProgress()
+    }
+
+    // TODO Добавить множественную загрузку?
+    suspend fun isCanDownload(cinemaUrl: String): Boolean = withContext(Dispatchers.IO) {
+        ensureDownloadManagerInitialized(context)
+        var initialized = downloadManager?.isInitialized == true
+        if (!initialized) {
+            delay(1000) // wait init
+        }
+        downloadManager?.let { dManager ->
+            initialized = dManager.isInitialized == true
+            val downloads = dManager.currentDownloads
+            initialized && (downloads.isEmpty() || downloads.find { it.request.id == cinemaUrl } != null)
+        } ?: false
+    }
+
+    suspend fun getDownloadedPercent(url: String): Int = withContext(Dispatchers.IO) {
         val factory = dataSourceFactory()
         val cache = factory.cache
         val keys = cache?.keys.orEmpty().toList()
         val segments = getSegments(url)
-        val allCached: Boolean = if (segments.isNotEmpty()) {
-            segments.all { it in keys }
-        } else {
-            keys.contains(url)
-        }
-        allCached
+        val cachedSegments = keys.filter { it in segments }
+        val cached = cachedSegments.size.toDouble()
+        val total = segments.size.toDouble()
+        ((cached / total) * 100).toInt()
     }
 
     suspend fun getDownloadedSize(url: String): String = withContext(Dispatchers.IO) {
@@ -217,26 +279,6 @@ class PlayerSource @Inject constructor(
         } else {
             "null"
         }
-    }
-
-    suspend fun clearDownloaded(url: String) = withContext(Dispatchers.IO) {
-        ensureDownloadManagerInitialized(context)
-        downloadManager?.removeDownload(url)
-        val cache = VideoCache.getInstance(context).getDownloadCache()
-        val segments = getSegments(url)
-        segments.forEach { cache.removeResource(it) }
-        cache.removeResource(url)
-    }
-
-    /**
-     * Отмена загрузки, удаление всего что загрузили
-     * Просто остановить загрузку нельзя
-     */
-    fun cancelDownload(url: String) {
-        handler.removeCallbacksAndMessages(null)
-        ensureDownloadManagerInitialized(context)
-        downloadManager?.setStopReason(url, Download.STOP_REASON_NONE)
-        downloadManager?.removeDownload(url)
     }
 
     private fun getMediaItem(

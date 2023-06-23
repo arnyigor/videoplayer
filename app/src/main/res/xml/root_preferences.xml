@@ -7,4 +7,12 @@
             android:summary="@string/pref_summary_add_to_history_on_cache"
             android:title="@string/pref_title_add_to_history_on_cache"/>
     </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/pref_player">
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="@string/pref_key_pip_mode"
+            android:summary="@string/pref_summary_pip_mode"
+            android:title="@string/pref_title_pip_mode"/>
+    </PreferenceCategory>
 </PreferenceScreen>

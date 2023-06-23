@@ -8,10 +8,6 @@ import dagger.android.ContributesAndroidInjector
 @Module
 interface PlayerFragmentModule {
     @FragmentScope
-    @ContributesAndroidInjector(
-        modules = [
-            PlayerFragmentDependencies::class
-        ]
-    )
+    @ContributesAndroidInjector
     fun contributeFragmentInjector(): PlayerViewFragment
 }

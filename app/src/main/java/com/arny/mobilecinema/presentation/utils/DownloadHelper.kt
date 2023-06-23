@@ -10,16 +10,16 @@ class DownloadHelper {
     }
 
     fun getRemainTime(percent: Double): String {
+        val dayInMs = TimeUnit.DAYS.toMillis(1)
         val elapsedTime = System.currentTimeMillis() - startTime
-
         val averageTime: Long = (elapsedTime.toDouble() / percent).toLong()
         val timeEstimated: Long = (averageTime * 100.0).toLong()
         var timeRemaining = timeEstimated - elapsedTime
-
-        val allTimeForDownloading: Long = (elapsedTime * percent).toLong()
-        var remainingTime = allTimeForDownloading - elapsedTime
         if (timeRemaining <= 0) {
             timeRemaining = 0
+        }
+        if (timeRemaining >= dayInMs) {
+            timeRemaining = dayInMs
         }
         return getDurationBreakdown(timeRemaining)
     }

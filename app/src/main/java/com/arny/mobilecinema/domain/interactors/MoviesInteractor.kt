@@ -15,6 +15,8 @@ interface MoviesInteractor {
         searchAddTypes: List<String>
     ): Flow<PagingData<ViewMovie>>
 
+    fun isPipModeEnable(): Boolean
+
     fun getMovie(id: Long): Flow<DataResult<Movie>>
     suspend fun saveCinemaPosition(id: Long?, position: Long)
     suspend fun saveSerialPosition(

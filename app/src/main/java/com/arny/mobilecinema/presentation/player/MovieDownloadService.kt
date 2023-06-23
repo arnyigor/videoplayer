@@ -27,12 +27,15 @@ import kotlin.coroutines.CoroutineContext
 class MovieDownloadService : LifecycleService(), CoroutineScope {
     private companion object {
         const val NOTICE_ID = 1002
+        const val ACTION_PAUSE = AppConstants.ACTION_CACHE_MOVIE_PAUSE
+        const val ACTION_RESUME = AppConstants.ACTION_CACHE_MOVIE_RESUME
     }
 
     @Inject
     lateinit var playerSource: PlayerSource
     private var currentUrl: String = ""
     private var currentTitle: String = ""
+    private var nextPauseResumeAction: String = ""
     private var noticeStopped = false
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
@@ -63,7 +66,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                 )
             }
             when (state) {
-                Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {}
+                Download.STATE_QUEUED, Download.STATE_DOWNLOADING, Download.STATE_STOPPED -> {}
                 Download.STATE_COMPLETED -> {
                     this.sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE) {
                         putString(AppConstants.SERVICE_PARAM_CACHE_URL, currentUrl)
@@ -88,18 +91,28 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                 silent = false
             )
         )
+        playerSource.setListener(progressListener)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        playerSource.removeListener()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             AppConstants.ACTION_CACHE_MOVIE -> download(intent)
             AppConstants.ACTION_CACHE_MOVIE_CANCEL -> cancelDownload()
+            AppConstants.ACTION_CACHE_MOVIE_EXIT -> exitDownload()
+            AppConstants.ACTION_CACHE_MOVIE_PAUSE -> pauseDownload()
+            AppConstants.ACTION_CACHE_MOVIE_RESUME -> resumeDownload()
             else -> stop()
         }
         return super.onStartCommand(intent, flags, startId)
     }
 
     private fun download(intent: Intent?) {
+        nextPauseResumeAction = ACTION_PAUSE
         val extras = intent?.extras
         downloadHelper.reset()
         noticeStopped = false
@@ -109,14 +122,30 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     }
 
     private fun cancelDownload() {
+        nextPauseResumeAction = ACTION_RESUME
         playerSource.cancelDownload(currentUrl)
         noticeStopped = true
         stop()
     }
 
+    private fun exitDownload() {
+        noticeStopped = true
+        stop()
+    }
+
+    private fun pauseDownload() {
+        nextPauseResumeAction = ACTION_RESUME
+        playerSource.pauseDownload()
+    }
+
+    private fun resumeDownload() {
+        nextPauseResumeAction = ACTION_PAUSE
+        playerSource.resumeDownloads()
+    }
+
     private fun preCacheVideo(url: String) {
         if (url.isNotBlank()) {
-            playerSource.cacheVideo(url, progressListener)
+            playerSource.cacheVideo(url)
         } else {
             stop()
         }
@@ -145,15 +174,24 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         text: String,
         silent: Boolean
     ): Notification {
-        val pendingIntent: PendingIntent = PendingIntent.getService(
+        val isNextPause = nextPauseResumeAction == ACTION_PAUSE
+        val stopIntent: PendingIntent = PendingIntent.getService(
             /* context = */ this,
             /* requestCode = */ 0,
             /* intent = */ Intent(this, MovieDownloadService::class.java).apply {
-                action = AppConstants.ACTION_CACHE_MOVIE_CANCEL
+                action =
+                    if (!isNextPause) AppConstants.ACTION_CACHE_MOVIE_EXIT else AppConstants.ACTION_CACHE_MOVIE_CANCEL
             },
             /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
         )
-//        val pendingIntent = PendingIntent.getBroadcast(this, 0, intentStopTrip, 0)
+        val pauseResumeIntent: PendingIntent = PendingIntent.getService(
+            /* context = */ this,
+            /* requestCode = */ 0,
+            /* intent = */ Intent(this, MovieDownloadService::class.java).apply {
+                action = nextPauseResumeAction
+            },
+            /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
+        )
         val contentIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PendingIntent.getActivity(
                 /* context = */ this,
@@ -173,18 +211,52 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             .apply {
                 setContentTitle(title)
                 setContentText(text)
-                setAutoCancel(false)
+                setOngoing(!isNextPause)
+                setAutoCancel(!isNextPause)
                 setSilent(silent)
-                setSmallIcon(android.R.drawable.stat_sys_download)
+                setSmallIcon(
+                    if (isNextPause) {
+                        android.R.drawable.stat_sys_download
+                    } else {
+                        android.R.drawable.ic_media_pause
+                    }
+                )
                 setContentIntent(contentIntent)
                 addAction(
                     R.drawable.ic_stop_circle,
-                    getString(android.R.string.cancel),
-                    pendingIntent
+                    getString(
+                        if (isNextPause) {
+                            android.R.string.cancel
+                        } else {
+                            R.string.exit
+                        }
+                    ),
+                    stopIntent
+                )
+                addAction(
+                    getPauseResumeIcon(nextPauseResumeAction),
+                    getPauseResumeBtnTitle(nextPauseResumeAction),
+                    pauseResumeIntent
                 )
                 setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             }.build()
     }
+
+    private fun getPauseResumeBtnTitle(action: String): String =
+        getString(
+            when (action) {
+                ACTION_PAUSE -> R.string.pause_download
+                ACTION_RESUME -> R.string.resume_download
+                else -> R.string.pause_download
+            }
+        )
+
+    private fun getPauseResumeIcon(action: String): Int =
+        when (action) {
+            ACTION_PAUSE -> R.drawable.ic_pause_circle_outline
+            ACTION_RESUME -> R.drawable.ic_play_circle_outline_gray
+            else -> R.drawable.ic_pause_circle_outline
+        }
 
     private fun Context.getNotificationBuilder(
         channelId: String,

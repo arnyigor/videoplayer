@@ -169,6 +169,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 }
             }
         }
+        launchWhenCreated {
+            viewModel.pipMode.collect { isPipMode ->
+                if (isPipMode) {
+                    requestPipMode()
+                }
+            }
+        }
     }
 
     private fun getPosition(statePosition: Long) =
@@ -387,6 +394,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     override fun onResume() {
         super.onResume()
+        viewModel.updatePipModeEnable()
         with((requireActivity() as AppCompatActivity)) {
             supportActionBar?.hide()
         }
@@ -470,11 +478,14 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun pipMode() {
+        viewModel.requestPipMode()
+    }
+
+    private fun requestPipMode() {
         if (requireContext().isPiPAvailable()) {
-            val builder = PictureInPictureParams.Builder().apply {
-                setAutoEnabled(this)
-            }
-            requireActivity().enterPictureInPictureMode(builder.build())
+            PictureInPictureParams.Builder()
+                .apply { setAutoEnabled(this) }
+                .also { requireActivity().enterPictureInPictureMode(it.build()) }
         }
     }
 
