@@ -57,4 +57,61 @@
 -keep class * extends androidx.fragment.app.Fragment{}
 
 #Custom app files
-#-keep class com.arny.core.AirportRequestType
+-dontwarn com.arny.mobilecinema.domain.**
+-keep class com.arny.mobilecinema.domain.** { *; }
+
+#protobuf
+-dontwarn com.google.protobuf.**
+-keep class com.google.protobuf.** { *; }
+
+#slf4j
+-dontwarn org.slf4j.**
+-keep class org.slf4j.** { *; }
+
+#Retrofit
+-dontwarn retrofit.**
+-keep class retrofit.** { *; }
+-keepattributes Signature
+-keepattributes Exceptions
+
+#OkHttp3
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class okhttp3.** { *; }
+-keep interface okhttp3.** { *; }
+-dontwarn okhttp3.**
+-dontnote okhttp3.**
+
+#gson
+-keep class sun.misc.Unsafe { *; }
+-keep class com.google.gson.stream.** { *; }
+
+# Okio
+-dontwarn java.nio.file.*
+-dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
+
+#Coroutins
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.** { *; }
+
+#Joda
+# All the resources are retrieved via reflection, so we need to make sure we keep them
+-keep class net.danlew.android.joda.R$raw { *; }
+
+# These aren't necessary if including joda-convert, but
+# most people aren't, so it's helpful to include it.
+-dontwarn org.joda.convert.FromString
+-dontwarn org.joda.convert.ToString
+
+# Joda classes use the writeObject special method for Serializable, so
+# if it's stripped, we'll run into NotSerializableExceptions.
+# https://www.guardsquare.com/en/products/proguard/manual/examples#serializable
+-keepnames class org.joda.** implements java.io.Serializable
+-keepclassmembers class org.joda.** implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    !static !transient <fields>;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
