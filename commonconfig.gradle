@@ -2,7 +2,7 @@ ext {
     versions = [
             minSdkVersion            : 21,
             compileSdkVersion        : 33,
-            targetSdkVersion         : 30,
+            targetSdkVersion         : 31,
             buildToolsVersion        : "30.0.3"
     ]
 }
