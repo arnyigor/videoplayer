@@ -85,7 +85,7 @@ class MegaHandler @Inject constructor() {
     )
     fun download(path: String, fileId: String?, linkPart2: String?) {
         id = Random().nextInt(Int.MAX_VALUE)
-        println("Download started")
+//        println("Download started")
         val fileKey = MegaCrypt.base64UrlDecodeByte(linkPart2)
         val intKey = MegaCrypt.aByteToAInt(fileKey)
         val json = JSONObject()

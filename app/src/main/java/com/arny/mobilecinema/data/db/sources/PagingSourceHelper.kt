@@ -50,8 +50,8 @@ fun getMoviesSQL(
     args.add(offset)
     sb.append(";")
     val query = sb.toString()
-    println("queryString:$query")
-    println("args:$args")
+//    println("queryString:$query")
+//    println("args:$args")
     return SimpleSQLiteQuery(query, args.toTypedArray())
 }
 
