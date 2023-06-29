@@ -39,8 +39,7 @@ class DataUpdateInteractorImpl @Inject constructor(
     override suspend fun requestFile() {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val zipFile = File(context.filesDir, "tmp_${System.currentTimeMillis()}.zip")
-        val downloadUrl: String = BuildConfig.DATA_LINK
-        val request = DownloadManager.Request(Uri.parse(downloadUrl))
+        val request = DownloadManager.Request(Uri.parse(BuildConfig.DATA_LINK))
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setTitle(zipFile.name)
             .setDescription(context.getString(R.string.downloading_update))

@@ -16,7 +16,7 @@ import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
 import javax.inject.Inject
 
-class SplashActivity : AppCompatActivity(), HasAndroidInjector {
+class StartActivity : AppCompatActivity(), HasAndroidInjector {
     @Inject
     lateinit var dispatchingAndroidInjector: DispatchingAndroidInjector<Any>
 
@@ -36,7 +36,7 @@ class SplashActivity : AppCompatActivity(), HasAndroidInjector {
                     return if (viewModel.ready.value) {
                         // The content is ready; start drawing.
                         content.viewTreeObserver.removeOnPreDrawListener(this)
-                        startActivity(Intent(this@SplashActivity, MainActivity::class.java))
+                        startActivity(Intent(this@StartActivity, MainActivity::class.java))
                         overridePendingTransition(R.anim.fade_in, R.anim.fade_out)
                         finish()
                         true

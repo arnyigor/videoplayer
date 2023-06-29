@@ -109,13 +109,19 @@
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>
+        <item quantity="two">%d сезона</item>
         <item quantity="few">%d сезона</item>
         <item quantity="many">%d сезонов</item>
+        <item quantity="zero">%d сезонов</item>
+        <item quantity="other">%d сезона</item>
     </plurals>
 
     <plurals name="episods">
         <item quantity="one">%d эпизод</item>
-        <item quantity="few">%d эпизода</item>
-        <item quantity="other">%d эпизодов</item>
+        <item quantity="two">%d эпизода</item>
+        <item quantity="few">%d эпизодов</item>
+        <item quantity="many">%d эпизодов</item>
+        <item quantity="zero">%d эпизодов</item>
+        <item quantity="other">%d эпизода</item>
     </plurals>
 </resources>

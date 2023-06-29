@@ -175,6 +175,11 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         silent: Boolean
     ): Notification {
         val isNextPause = nextPauseResumeAction == ACTION_PAUSE
+        val pendingFlags: Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
         val stopIntent: PendingIntent = PendingIntent.getService(
             /* context = */ this,
             /* requestCode = */ 0,
@@ -182,7 +187,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                 action =
                     if (!isNextPause) AppConstants.ACTION_CACHE_MOVIE_EXIT else AppConstants.ACTION_CACHE_MOVIE_CANCEL
             },
-            /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
+            /* flags = */ pendingFlags
         )
         val pauseResumeIntent: PendingIntent = PendingIntent.getService(
             /* context = */ this,
@@ -190,21 +195,21 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             /* intent = */ Intent(this, MovieDownloadService::class.java).apply {
                 action = nextPauseResumeAction
             },
-            /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
+            /* flags = */ pendingFlags
         )
         val contentIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             PendingIntent.getActivity(
                 /* context = */ this,
                 /* requestCode = */ 0,
                 /* intent = */ Intent(this, MainActivity::class.java),
-                /* flags = */ PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                /* flags = */ pendingFlags
             )
         } else {
             PendingIntent.getActivity(
                 /* context = */ this,
                 /* requestCode = */ 0,
                 /* intent = */ Intent(this, MainActivity::class.java),
-                /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
+                /* flags = */ pendingFlags
             )
         }
         return getNotificationBuilder(channelId, channelName)

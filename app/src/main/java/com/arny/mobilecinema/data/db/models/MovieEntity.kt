@@ -41,4 +41,36 @@ data class MovieEntity(
     @ColumnInfo(name = "trailerUrls") var trailerUrls: String = "",
     @ColumnInfo(name = "trailerUrlsPoster") var trailerUrlsPoster: String = "",
     @ColumnInfo(name = "addedToHistory") var addedToHistory: Long = 0L,
-)
+) {
+    fun clear() {
+        movieId = 0
+        title = ""
+        origTitle = ""
+        type = MovieType.NO_TYPE.value
+        pageUrl = ""
+        img = ""
+        year = 0
+        quality = ""
+        translate = ""
+        durationSec = 0
+        age = 0
+        countries = ""
+        genre = ""
+        likes = 0
+        dislikes = 0
+        ratingImdb = 0.0
+        ratingKp = 0.0
+        directors = ""
+        actors = ""
+        description = ""
+        updated = 0L
+        seasons = ""
+        hdUrls = ""
+        hdUrlsPoster = ""
+        cinemaUrls = ""
+        cinemaUrlsPoster = ""
+        trailerUrls = ""
+        trailerUrlsPoster = ""
+        addedToHistory = 0L
+    }
+}

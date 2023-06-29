@@ -14,7 +14,6 @@ import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.MoviesRepositoryImpl
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.update.UpdateRepositoryImpl
-import com.arny.mobilecinema.data.utils.MegaHandler
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import dagger.Binds
@@ -29,10 +28,6 @@ interface DataModule {
         @Provides
         @Singleton
         fun providePreferences(context: Context): Prefs = Prefs.getInstance(context)
-
-        @Provides
-        @Singleton
-        fun provideMegaHandler(): MegaHandler = MegaHandler()
 
         @Provides
         @Singleton

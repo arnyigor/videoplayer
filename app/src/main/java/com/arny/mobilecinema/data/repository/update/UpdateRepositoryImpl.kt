@@ -64,15 +64,28 @@ class UpdateRepositoryImpl @Inject constructor(
         } else {
             val dbList = moviesDao.getUpdateMovies()
             movies.forEachIndexed { index, movie ->
-                val dbMovie = dbList.find { it.pageUrl == movie.pageUrl }
+                val dbMovies = dbList.filter { it.pageUrl == movie.pageUrl }
+                val notCorrectDbMovies =
+                    dbMovies.filter { it.pageUrl == movie.pageUrl && it.title != movie.title }
+                notCorrectDbMovies.forEach { ncm ->
+                    entity.clear()
+                    movies.find { serverMovie -> ncm.title == serverMovie.title }
+                        ?.let { correctMovieByName ->
+                            entity = entity.setData(correctMovieByName).copy(dbId = ncm.dbId)
+                            moviesDao.update(entity)
+                        }
+                }
+                val dbMovie =
+                    dbMovies.find { it.pageUrl == movie.pageUrl && it.title == movie.title }
+                entity.clear()
                 when {
                     isTitleChanged(dbMovie, movie) -> {
-                        entity = entity.setData(movie)
+                        entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
                         moviesDao.update(entity)
                     }
 
                     isUpdateTimeChanged(dbMovie, movie) -> {
-                        entity = entity.setData(movie)
+                        entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
                         moviesDao.update(entity)
                     }
 

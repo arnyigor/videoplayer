@@ -6,7 +6,7 @@ import com.arny.mobilecinema.presentation.di.DetailsFragmentModule
 import com.arny.mobilecinema.presentation.di.HistoryFragmentModule
 import com.arny.mobilecinema.presentation.di.HomeFragmentModule
 import com.arny.mobilecinema.presentation.di.PlayerFragmentModule
-import com.arny.mobilecinema.presentation.splash.SplashActivity
+import com.arny.mobilecinema.presentation.splash.StartActivity
 import dagger.Module
 import dagger.android.ContributesAndroidInjector
 
@@ -25,5 +25,5 @@ abstract class ActivitiesModule {
 
     @ActivityScope
     @ContributesAndroidInjector
-    abstract fun bindSplashActivity(): SplashActivity
+    abstract fun bindSplashActivity(): StartActivity
 }

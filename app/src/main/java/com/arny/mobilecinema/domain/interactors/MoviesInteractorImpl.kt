@@ -106,6 +106,10 @@ class MoviesInteractorImpl @Inject constructor(
     }
 
     override suspend fun getOrder(): String = withContext(Dispatchers.IO) {
-            repository.order
+        var order = repository.order
+        if (order.isBlank()) {
+            order = AppConstants.Order.NONE
+        }
+        order
     }
 }
