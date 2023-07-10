@@ -47,8 +47,8 @@ class UpdateService : LifecycleService(), CoroutineScope {
         startForeground(
             NOTICE_ID,
             getNotice(
-                channelId = "channelId",
-                channelName = "channelName",
+                channelId = "updating_channel_name",
+                channelName = getString(R.string.updating_channel_name),
                 title = getString(R.string.updating, 0),
                 silent = false
             )
@@ -159,31 +159,27 @@ class UpdateService : LifecycleService(), CoroutineScope {
         title: String,
         silent: Boolean
     ): Notification {
-        val contentIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PendingIntent.getActivity(
-                /* context = */ this,
-                /* requestCode = */ 0,
-                /* intent = */ Intent(this, MainActivity::class.java),
-                /* flags = */ PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            )
-        } else {
-            PendingIntent.getActivity(
-                /* context = */ this,
-                /* requestCode = */ 0,
-                /* intent = */ Intent(this, MainActivity::class.java),
-                /* flags = */ PendingIntent.FLAG_UPDATE_CURRENT
-            )
-        }
+        val contentIntent =  PendingIntent.getActivity(
+            /* context = */ this,
+            /* requestCode = */ 0,
+            /* intent = */ Intent(this, MainActivity::class.java),
+            /* flags = */  getFlag()
+        )
         return getNotificationBuilder(channelId, channelName)
             .apply {
                 setContentTitle(title)
                 setAutoCancel(false)
                 setSilent(silent)
+                priority = NotificationCompat.PRIORITY_DEFAULT
                 setSmallIcon(android.R.drawable.stat_sys_download)
                 setContentIntent(contentIntent)
                 setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             }.build()
     }
+
+    private fun getFlag(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    } else PendingIntent.FLAG_UPDATE_CURRENT
 
     private fun Context.getNotificationBuilder(
         channelId: String,
@@ -193,7 +189,6 @@ class UpdateService : LifecycleService(), CoroutineScope {
             NotificationCompat.Builder(
                 /* context = */ this,
                 /* channelId = */ createNotificationChannel(
-                    context = this,
                     channelId = channelId,
                     channelName = channelName
                 )
@@ -204,15 +199,19 @@ class UpdateService : LifecycleService(), CoroutineScope {
 
     @RequiresApi(Build.VERSION_CODES.O)
     fun createNotificationChannel(
-        context: Context,
         channelId: String,
         channelName: String
     ): String {
-        val chan = NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH)
-        chan.lightColor = Color.BLUE
-        chan.lockscreenVisibility = NotificationCompat.VISIBILITY_PRIVATE
-        val service = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        service?.createNotificationChannel(chan)
+        val channel =
+            NotificationChannel(channelId, channelName, NotificationManager.IMPORTANCE_HIGH).apply {
+                description = getString(R.string.app_name)
+                lightColor = Color.BLUE
+                lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
+            }
+        // Register the channel with the system
+        val notificationManager: NotificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
         return channelId
     }
 }

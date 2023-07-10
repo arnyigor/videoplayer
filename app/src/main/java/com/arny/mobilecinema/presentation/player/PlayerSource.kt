@@ -8,7 +8,8 @@ import androidx.core.os.bundleOf
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.data.player.VideoCache
 import com.arny.mobilecinema.data.repository.AppConstants
-import com.arny.mobilecinema.data.utils.formatFileSize
+import com.arny.mobilecinema.data.utils.getDomainName
+import com.arny.mobilecinema.domain.models.DownloadManagerData
 import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.MediaMetadata
@@ -28,6 +29,7 @@ import com.google.android.exoplayer2.upstream.DataSource
 import com.google.android.exoplayer2.upstream.DefaultDataSource
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
 import com.google.android.exoplayer2.upstream.FileDataSource
+import com.google.android.exoplayer2.upstream.cache.Cache
 import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.util.Util
@@ -49,26 +51,36 @@ class PlayerSource @Inject constructor(
         const val YOUTUBE_MAX_QUALITY_TAG = 22
     }
 
+    private var cacheFactory: CacheDataSource.Factory? = null
     private val handler = Handler(Looper.getMainLooper())
     private var downloadManager: DownloadManager? = null
-    private var onUpdate: ((Float, Long, Long, Long, Int) -> Unit?)? = null
+    private var onUpdate: ((Float, Long, Long, Long, Int, Int) -> Unit?)? = null
     private val downloadListener = object : DownloadManager.Listener {
         override fun onDownloadChanged(
             downloadManager: DownloadManager,
             download: Download,
             finalException: Exception?
         ) {
+            val size = downloadManager.currentDownloads.size
             onUpdate?.invoke(
                 download.percentDownloaded,
                 download.bytesDownloaded,
                 download.startTimeMs,
                 download.updateTimeMs,
-                download.state
+                download.state,
+                size
             )
         }
     }
 
-    fun setListener(progressListener: (percent: Float, bytes: Long, startTime: Long, updateTime: Long, state: Int) -> Unit) {
+    fun setListener(progressListener: (
+        percent: Float,
+        bytes: Long,
+        startTime: Long,
+        updateTime: Long,
+        state: Int,
+        size: Int
+    ) -> Unit) {
         onUpdate = progressListener
         downloadManager?.addListener(downloadListener)
     }
@@ -119,11 +131,18 @@ class PlayerSource @Inject constructor(
         }
     }
 
-    fun cacheVideo(videoUrl: String) {
+    fun cacheVideo(videoUrl: String, currentTitle: String) {
         ensureDownloadManagerInitialized(context)
-        downloadManager?.addDownload(DownloadRequest.Builder(videoUrl, Uri.parse(videoUrl)).build())
-        downloadManager?.resumeDownloads()
-        updateProgress()
+        val build = DownloadRequest.Builder(videoUrl, Uri.parse(videoUrl))
+            .setData(currentTitle.toByteArray(Charsets.UTF_8))
+            .build()
+        handler.postDelayed({
+            if (downloadManager?.isInitialized == true) {
+                downloadManager?.addDownload(build)
+                downloadManager?.resumeDownloads()
+                updateProgress()
+            }
+        }, 1000)
     }
 
     private fun updateProgress() {
@@ -142,7 +161,8 @@ class PlayerSource @Inject constructor(
                 download.bytesDownloaded,
                 download.startTimeMs,
                 download.updateTimeMs,
-                download.state
+                download.state,
+                currentDownloads.size
             )
         }
     }
@@ -151,8 +171,8 @@ class PlayerSource @Inject constructor(
         ensureDownloadManagerInitialized(context)
         downloadManager?.removeDownload(url)
         val cache = VideoCache.getInstance(context).getDownloadCache()
-        val segments = getSegments(url)
-        segments.forEach { cache.removeResource(it) }
+        val segmentsData = getSegmentsData(url, dataSourceFactory())
+        segmentsData.segments.forEach { cache.removeResource(it) }
         cache.removeResource(url)
     }
 
@@ -189,96 +209,136 @@ class PlayerSource @Inject constructor(
         updateProgress()
     }
 
-    // TODO Добавить множественную загрузку?
-    suspend fun isCanDownload(cinemaUrl: String): Boolean = withContext(Dispatchers.IO) {
-        ensureDownloadManagerInitialized(context)
-        var initialized = downloadManager?.isInitialized == true
-        if (!initialized) {
-            delay(1000) // wait init
+    suspend fun getCurrentDownloadData(cinemaUrl: String): DownloadManagerData {
+        return withContext(Dispatchers.IO) {
+            ensureDownloadManagerInitialized(context)
+            var initialized = downloadManager?.isInitialized == true
+            if (!initialized) {
+                delay(1000) // wait init
+            }
+            var isEquals = false
+            var title = ""
+            var downloadsEmpty = false
+            var downloadPercent = 0.0f
+            var downloadBytes = 0L
+            val factory = dataSourceFactory()
+            val cache = factory.cache
+            val segmentsData = getSegmentsData(cinemaUrl, factory)
+            val list = cache?.let { getCachedKeys(it, cinemaUrl, segmentsData) }.orEmpty()
+            downloadManager?.let { dManager ->
+                initialized = dManager.isInitialized == true
+                val downloads = dManager.currentDownloads
+                downloadsEmpty = downloads.isEmpty()
+                if (!downloadsEmpty) {
+                    // TODO обработать множество загрузок
+                    val download = downloads.find { it.request.id == cinemaUrl }
+                    title = download?.request?.data?.toString(Charsets.UTF_8).orEmpty()
+                    downloadPercent = getDownloadedPercent(segmentsData, list)
+                    downloadBytes = getDownloadedSize(cache, list)
+                } else {
+                    downloadPercent = getDownloadedPercent(segmentsData, list)
+                    downloadBytes = getDownloadedSize(cache, list)
+                }
+                isEquals = initialized && downloads.find { it.request.id == cinemaUrl } != null
+            }
+            DownloadManagerData(
+                isInitValid = initialized,
+                downloadsEmpty = downloadsEmpty,
+                isEqualsLinks = isEquals,
+                movieTitle = title,
+                downloadPercent = downloadPercent,
+                downloadBytes = downloadBytes
+            )
         }
-        downloadManager?.let { dManager ->
-            initialized = dManager.isInitialized == true
-            val downloads = dManager.currentDownloads
-            initialized && (downloads.isEmpty() || downloads.find { it.request.id == cinemaUrl } != null)
-        } ?: false
     }
 
-    suspend fun getDownloadedPercent(url: String): Int = withContext(Dispatchers.IO) {
-        val factory = dataSourceFactory()
-        val cache = factory.cache
-        val keys = cache?.keys.orEmpty().toList()
-        val segments = getSegments(url)
-        val cachedSegments = keys.filter { it in segments }
-        val cached = cachedSegments.size.toDouble()
-        val total = segments.size.toDouble()
-        ((cached / total) * 100).toInt()
+    private fun getDownloadedPercent(
+        segmentsData: SegmentsData,
+        list: List<String>
+    ): Float {
+        val cached = list.size.toFloat()
+        val total = segmentsData.segments.size.toFloat()
+        var percent = ((cached / total) * 100)
+        if (percent > 100.0) {
+            percent = 100.0f
+        }
+        return percent
     }
 
-    suspend fun getDownloadedSize(url: String): String = withContext(Dispatchers.IO) {
-        val cache = dataSourceFactory().cache
+    private fun getDownloadedSize(
+        cache: Cache?,
+        list: List<String>
+    ): Long {
         var size = 0L
         cache?.let {
-            val keys = cache.keys.toList()
-            val segments = getSegments(url)
-            val filteredKeys = if (segments.isNotEmpty()) {
-                keys.filter { it in segments }
-            } else {
-                if (keys.contains(url)) {
-                    keys
-                } else {
-                    emptyList()
-                }
-            }
-            size = filteredKeys.flatMap { key ->
+            size = list.flatMap { key ->
                 cache.getCachedSpans(key).map { span -> span.length }
             }.sum()
         }
-        formatFileSize(size, 1)
+        return size
     }
 
-    private suspend fun getSegments(url: String): List<String> = suspendCoroutine { continuation ->
-        val mediaItem = getMediaItem(url)
-        DownloadHelper.forMediaItem(
-            /* context = */ context,
-            /* mediaItem = */ mediaItem,
-            /* renderersFactory = */ null,
-            /* dataSourceFactory = */ dataSourceFactory()
-        )
-            .prepare(
-                object : DownloadHelper.Callback {
-                    override fun onPrepared(helper: DownloadHelper) {
-                        val segments = when (val manifest = helper.manifest) {
-                            is HlsManifest -> {
-                                manifest.mediaPlaylist.segments.map { it.url }
-                            }
-
-                            else -> emptyList()
-                        }
-                        continuation.resumeWith(Result.success(segments))
-                    }
-
-                    override fun onPrepareError(helper: DownloadHelper, e: IOException) {
-                        e.printStackTrace()
-                        continuation.resumeWithException(e)
-                    }
-                })
-    }
-
-    private fun Download?.getState(): String {
-        return if (this != null) {
-            when (this.state) {
-                Download.STATE_QUEUED -> "STATE_QUEUED"
-                Download.STATE_STOPPED -> "STATE_STOPPED"
-                Download.STATE_DOWNLOADING -> "STATE_DOWNLOADING"
-                Download.STATE_COMPLETED -> "STATE_COMPLETED"
-                Download.STATE_FAILED -> "STATE_FAILED"
-                Download.STATE_REMOVING -> "STATE_REMOVING"
-                Download.STATE_RESTARTING -> "STATE_RESTARTING"
-                else -> "UNKNOWN"
+    private fun getCachedKeys(
+        cache: Cache,
+        url: String,
+        segmentsData: SegmentsData
+    ): List<String> {
+        val cacheKeys = cache.keys.toList()
+        val segments = segmentsData.segments
+        return if (segments.isNotEmpty()) {
+            if (!segments.all { it.startsWith("http") }) {
+                val urls = cacheKeys.filter { it in segmentsData.baseUrls }
+                    .map { getDomainName(it) }
+                    .distinct()
+                val filter = cacheKeys.filter { urls.any { u -> it.contains(u, true) } }
+                    .filter { !it.contains("/index") }
+                    .filter { segments.any { s -> it.contains(s, true) } }
+                filter
+            } else {
+                cacheKeys.filter { it in segmentsData.segments }
             }
         } else {
-            "null"
+            if (cacheKeys.contains(element = url)) {
+                cacheKeys.filter { it.contains(other = url) }
+            } else {
+                emptyList()
+            }
         }
+    }
+
+    private suspend fun getSegmentsData(
+        url: String,
+        factory: CacheDataSource.Factory
+    ): SegmentsData =
+        suspendCoroutine { continuation ->
+            val mediaItem = getMediaItem(url)
+            DownloadHelper.forMediaItem(
+                /* context = */ context,
+                /* mediaItem = */ mediaItem,
+                /* renderersFactory = */ null,
+                /* dataSourceFactory = */ factory
+            )
+                .prepare(
+                    object : DownloadHelper.Callback {
+                        override fun onPrepared(helper: DownloadHelper) {
+                            val segments = when (val manifest = helper.manifest) {
+                                is HlsManifest -> getSegmentData(manifest)
+                                else -> SegmentsData()
+                            }
+                            continuation.resumeWith(Result.success(segments))
+                        }
+
+                        override fun onPrepareError(helper: DownloadHelper, e: IOException) {
+                            e.printStackTrace()
+                            continuation.resumeWithException(e)
+                        }
+                    })
+        }
+
+    private fun getSegmentData(manifest: HlsManifest): SegmentsData {
+        val playlist = manifest.mediaPlaylist
+        val segments = playlist.segments.map { it.url }
+        return SegmentsData(listOf(playlist.baseUri), segments)
     }
 
     private fun getMediaItem(
@@ -341,10 +401,17 @@ class PlayerSource @Inject constructor(
     }
 
     private fun dataSourceFactory(): CacheDataSource.Factory {
+        if (cacheFactory == null) {
+            initCacheFactory()
+        }
+        return cacheFactory!!
+    }
+
+    private fun initCacheFactory() {
         val cache = VideoCache.getInstance(context).getDownloadCache()
         val cacheSink = CacheDataSink.Factory().setCache(cache)
         val upstreamFactory = DefaultDataSource.Factory(context, DefaultHttpDataSource.Factory())
-        return CacheDataSource.Factory()
+        cacheFactory = CacheDataSource.Factory()
             .setCache(cache)
             .setCacheWriteDataSinkFactory(cacheSink)
             .setCacheReadDataSourceFactory(FileDataSource.Factory())

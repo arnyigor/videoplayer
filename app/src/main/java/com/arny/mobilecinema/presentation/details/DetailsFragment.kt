@@ -26,9 +26,11 @@ import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.findByGroup
+import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.FDetailsBinding
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.SerialEpisode
@@ -36,6 +38,8 @@ import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.MovieDownloadService
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
+import com.arny.mobilecinema.presentation.uimodels.Alert
+import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.getDP
 import com.arny.mobilecinema.presentation.utils.getDuration
@@ -111,6 +115,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             checkCache()
         }
     }
+    private val downloadUpdateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val percent = intent?.getFloatExtra(AppConstants.SERVICE_PARAM_PERCENT, 0.0f)
+            val bytes = intent?.getLongExtra(AppConstants.SERVICE_PARAM_BYTES, 0L)
+            viewModel.updateDownloadedData(percent, bytes)
+        }
+    }
 
     private fun checkCache() {
         lifecycleScope.launch {
@@ -120,6 +131,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             }
         }
     }
+
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
@@ -147,11 +159,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     override fun onResume() {
         super.onResume()
         registerReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
+        registerReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
     }
 
     override fun onPause() {
         super.onPause()
         unregisterReceiver(downloadReceiver)
+        unregisterReceiver(downloadUpdateReceiver)
     }
 
     private fun initMenu() {
@@ -266,32 +280,26 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             ConnectionType.NONE -> {
                 toast(getString(R.string.internet_connection_error))
             }
+
             else -> {
             }
         }
     }
 
     private fun showDialogCache() {
-        alertDialog(
-            title = getString(R.string.cache_attention),
-            content = getString(R.string.cache_description),
-            btnOkText = getString(android.R.string.ok),
-            btnCancelText = getString(android.R.string.cancel),
-            onConfirm = {
-                viewModel.addToHistory()
-                requestCacheMovie()
-            }
-        )
+        viewModel.showCacheDialog()
     }
 
-    private fun requestCacheMovie() {
+    private fun requestCacheMovie(
+        resetDownloads: Boolean = false
+    ) {
         sendServiceMessage(
             Intent(requireContext(), MovieDownloadService::class.java),
             AppConstants.ACTION_CACHE_MOVIE,
         ) {
-            val url = currentMovie?.getCinemaUrl()
-            putString(AppConstants.SERVICE_PARAM_CACHE_URL, url)
+            putString(AppConstants.SERVICE_PARAM_CACHE_URL, currentMovie?.getCinemaUrl())
             putString(AppConstants.SERVICE_PARAM_CACHE_TITLE, currentMovie?.title)
+            putBoolean(AppConstants.SERVICE_PARAM_RESET_CURRENT_DOWNLOADS, resetDownloads)
         }
     }
 
@@ -342,9 +350,120 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
             }
         }
+        launchWhenCreated {
+            viewModel.downloadedData.collectLatest { data ->
+                updateDownloadedData(data)
+            }
+        }
+        launchWhenCreated {
+            viewModel.alert.collectLatest { alert -> showAlert(alert) }
+        }
+        launchWhenCreated { viewModel.downloadAll.collectLatest { downloadAll = it } }
+        launchWhenCreated {
+            viewModel.hasSavedData.collectLatest {
+                hasSavedData = it
+                requireActivity().invalidateOptionsMenu()
+            }
+        }
+        launchWhenCreated {
+            viewModel.downloadInit.collectLatest { init ->
+                if (init) {
+                    canDownload = true
+                    requireActivity().invalidateOptionsMenu()
+                }
+            }
+        }
     }
 
-    private suspend fun onMovieLoaded(movie: Movie) {
+    private fun showAlert(alert: Alert?) {
+        when (val type = alert?.type) {
+            is AlertType.Download -> {
+                when {
+                    type.complete -> {
+                        alertDialog(
+                            title = alert.title.toString(requireContext()).orEmpty(),
+                            btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
+                        )
+                    }
+
+                    type.empty -> {
+                        // Новая
+                        alertDialog(
+                            title = alert.title.toString(requireContext()).orEmpty(),
+                            content = alert.content?.toString(requireContext()).orEmpty(),
+                            btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
+                            btnCancelText = alert.btnCancel?.toString(requireContext()).orEmpty(),
+                            onConfirm = {
+                                viewModel.addToHistory()
+                                requestCacheMovie()
+                            }
+                        )
+                    }
+
+                    type.equalsLinks && type.equalsTitle -> {
+                        // Продолжить загрузку текущего
+                        alertDialog(
+                            title = alert.title.toString(requireContext()).orEmpty(),
+                            content = alert.content?.toString(requireContext()).orEmpty(),
+                            btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
+                            btnCancelText = alert.btnCancel?.toString(requireContext()).orEmpty(),
+                            onConfirm = {
+                                viewModel.addToHistory()
+                                requestCacheMovie()
+                            }
+                        )
+                    }
+
+                    !type.equalsLinks && type.equalsTitle -> {
+                        // Текущий фильм,но ссылки разные(возможно сериал,но нужно будет привязаться к эпизодам)
+                        alertDialog(
+                            title = alert.title.toString(requireContext()).orEmpty(),
+                            content = alert.content?.toString(requireContext()).orEmpty(),
+                            btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
+                            btnCancelText = alert.btnCancel?.toString(requireContext()).orEmpty(),
+                            onConfirm = {
+                                viewModel.addToHistory()
+                                requestCacheMovie(
+                                    resetDownloads = true
+                                )
+                            }
+                        )
+                    }
+
+                    !type.equalsLinks && !type.equalsTitle -> {
+                        // Новая загрузка
+                        alertDialog(
+                            title = alert.title.toString(requireContext()).orEmpty(),
+                            content = alert.content?.toString(requireContext()).orEmpty(),
+                            btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
+                            btnCancelText = alert.btnCancel?.toString(requireContext()).orEmpty(),
+                            onConfirm = {
+                                viewModel.addToHistory()
+                                requestCacheMovie(
+                                    resetDownloads = true
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+
+            else -> {}
+        }
+    }
+
+    private fun updateDownloadedData(data: MovieDownloadedData?) {
+        binding.tvSaveData.isVisible = data != null
+        if (data != null) {
+            binding.tvSaveData.text = getString(
+                R.string.cinema_save_data,
+                String.format("%.1f", data.downloadedPercent),
+                formatFileSize(data.downloadedSize, 1)
+            )
+        }
+    }
+
+    private fun onMovieLoaded(movie: Movie) {
         currentMovie = movie
         viewModel.loadSaveData(movie.dbId)
         updateSpinData(movie)
@@ -352,36 +471,18 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         initButtons(movie)
     }
 
-    private suspend fun initButtons(movie: Movie) = with(binding) {
+    private fun initButtons(movie: Movie) = with(binding) {
         btnTrailer.isVisible =
             movie.cinemaUrlData?.trailerUrl?.urls?.filter { it.isNotBlank() }.orEmpty().isNotEmpty()
         if (movie.type == MovieType.CINEMA) {
             val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
             btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
-            updateDownloadedData(movie.getCinemaUrl())
-            requireActivity().invalidateOptionsMenu()
+            viewModel.updateDownloadedData()
         } else {
             canDownload = false // TODO Продумать как грузить серии от сериалов
             requireActivity().invalidateOptionsMenu()
             btnPlay.isVisible = true
-        }
-    }
-
-    private suspend fun updateDownloadedData(cinemaUrl: String) {
-        // TODO Диалог завершения текущей загрузки и старт новой
-        val isCanDownload = playerSource.isCanDownload(cinemaUrl)
-        val downloadedPercent = playerSource.getDownloadedPercent(cinemaUrl)
-        val downloadedSize = playerSource.getDownloadedSize(cinemaUrl)
-        downloadAll = downloadedPercent == 100
-        canDownload = isCanDownload && !downloadAll
-        if (downloadedPercent > 0) {
-            binding.tvSaveData.isVisible = true
-            binding.tvSaveData.text = getString(
-                R.string.cinema_save_data,
-                downloadedPercent,
-                downloadedSize
-            )
         }
     }
 
@@ -391,12 +492,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 currentSeasonPosition = saveData.season
                 currentEpisodePosition = saveData.episode
                 fillSpinners(currentMovie)
-                hasSavedData = true
-                requireActivity().invalidateOptionsMenu()
             }
             saveData.dbId == currentMovie?.dbId && currentMovie?.type == MovieType.CINEMA -> {
-                hasSavedData = true
-                requireActivity().invalidateOptionsMenu()
             }
         }
     }

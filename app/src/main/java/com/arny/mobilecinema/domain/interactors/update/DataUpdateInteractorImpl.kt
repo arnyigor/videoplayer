@@ -39,11 +39,14 @@ class DataUpdateInteractorImpl @Inject constructor(
     override suspend fun requestFile() {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val zipFile = File(context.filesDir, "tmp_${System.currentTimeMillis()}.zip")
-        val request = DownloadManager.Request(Uri.parse(BuildConfig.DATA_LINK))
+        val description = DownloadManager.Request(Uri.parse(BuildConfig.DATA_LINK))
+            .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setTitle(zipFile.name)
-            .setDescription(context.getString(R.string.downloading_update))
+            .setAllowedOverMetered(true)
+            .setAllowedOverRoaming(false)
             .setDescription(context.getString(R.string.wating))
+        val request = description
             .setDestinationInExternalFilesDir(
                 /* context = */ context,
                 /* dirType = */ Environment.DIRECTORY_DOWNLOADS,

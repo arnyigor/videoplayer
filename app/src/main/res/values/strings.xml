@@ -30,6 +30,7 @@
     <string name="action_settings">Настройки</string>
     <string name="play">Смотреть</string>
     <string name="need_permission_message">Для работы приложения необходимо разрешить доступ на запись</string>
+    <string name="need_notice_permission_message">Для работы приложения необходимо разрешить показ уведомлений</string>
     <string name="new_films_update">Доступно новое обновление фильмов</string>
     <string name="question_update_format">Вы хотите загрузить новые фильмы от %s?</string>
     <string name="downloading_update">Загружаем обновление фильмов</string>
@@ -39,6 +40,7 @@
     <string name="serial">Сериал</string>
     <string name="imdb">IMDB</string>
     <string name="kp">KP</string>
+    <string name="updating_channel_name">Обновление</string>
     <string name="updating">Обновление фильмов и сериалов %d%%</string>
     <string name="no_movie_title">Нет названия</string>
     <string name="movie_not_found">Фильм или сериал не найден</string>
@@ -56,7 +58,12 @@
     <string name="less">меньше</string>
     <string name="update_finished">Обновление завершено</string>
     <string name="attention">Внимание!</string>
+    <string name="cache_complete">Фильм полностью загружен</string>
     <string name="cache_attention">Вы хотите загрузить фильм?</string>
+    <string name="cache_attention_new">Вы хотите загрузить фильм и отменить предыдущую загрузку "%s"?</string>
+    <string name="cache_attention_continue">Вы хотите продолжить загрузку?</string>
+    <string name="cache_attention_links_title">Вы хотите продолжить загрузку фильма "%s"?</string>
+    <string name="cache_attention_links_not_equals">Вы хотите загрузить фильм "%s" с другой ссылкой?</string>
     <string name="mobile_network_play">Вы не подключены к WIFI\nПродолжить?</string>
     <string name="cache_description">При отмене загруженные данные будут удалены\nПродолжить?</string>
     <string name="pref_player">Плеер</string>
@@ -80,7 +87,7 @@
     <string name="notification_channel_id">notification_channel_cache</string>
     <string name="notification_title">Загрузка фильма</string>
     <string name="cache">Сохранить фильм</string>
-    <string name="download_cinema_title_format">Загрузка \"%s\" - %.02f%%,%s</string>
+    <string name="download_cinema_title_format">Загрузка \"%s\" - %.01f%%,%s</string>
     <string name="download_cinema_text_format">Осталось ~ %s</string>
     <string name="search_by_title">В названии</string>
     <string name="search_by_directors">В режисёрах</string>
@@ -95,7 +102,7 @@
     <string name="added_to_history">Добавлен в историю просмотра</string>
     <string name="in_films">В фильмах</string>
     <string name="in_serials">В сериалах</string>
-    <string name="cinema_save_data">Сохранён:%d%%, занимает: %s</string>
+    <string name="cinema_save_data">Сохранён:%s%%, занимает: %s</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
     <!--Prefs-->
     <string name="pref_key_add_to_history_on_cache">pref_key_add_to_history_on_cache</string>

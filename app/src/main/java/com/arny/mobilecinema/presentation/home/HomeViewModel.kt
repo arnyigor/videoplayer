@@ -161,6 +161,7 @@ class HomeViewModel @Inject constructor(
                     _toast.emit(ResourceString(R.string.update_started))
                     dataUpdateInteractor.requestFile()
                 }
+                else -> {}
             }
         }
     }
@@ -171,6 +172,8 @@ class HomeViewModel @Inject constructor(
                 AlertType.Update -> {
                     dataUpdateInteractor.resetUpdate()
                 }
+
+                else -> {}
             }
         }
     }

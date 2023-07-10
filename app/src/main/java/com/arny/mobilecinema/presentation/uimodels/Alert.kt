@@ -4,6 +4,12 @@ import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 
 sealed class AlertType {
     object Update : AlertType()
+    data class Download(
+        val complete: Boolean = false,
+        val empty: Boolean = false,
+        val equalsLinks: Boolean = false,
+        val equalsTitle: Boolean = false
+    ) : AlertType()
 }
 
 data class Alert(

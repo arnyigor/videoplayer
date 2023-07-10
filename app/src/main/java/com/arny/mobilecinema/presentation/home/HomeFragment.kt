@@ -2,11 +2,14 @@ package com.arny.mobilecinema.presentation.home
 
 import android.Manifest
 import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
@@ -16,6 +19,9 @@ import android.view.ViewGroup
 import android.widget.SearchView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -102,12 +108,21 @@ class HomeFragment : Fragment(), OnSearchListener {
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                when (request) {
-                    REQUEST_OPEN_FILE -> requestFile()
-                    REQUEST_LOAD -> downloadData()
+                request()
+            } else {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    request()
                 }
             }
         }
+
+    private fun request() {
+        when (request) {
+            REQUEST_OPEN_FILE -> requestFile()
+            REQUEST_LOAD -> downloadData()
+        }
+    }
+
     private val updateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent != null) {
@@ -145,7 +160,6 @@ class HomeFragment : Fragment(), OnSearchListener {
         initMenu()
         initAdapters()
         observeData()
-        requestPermission()
     }
 
     private fun getIntentParams() {
@@ -185,6 +199,44 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     private fun getIntentString(param: String) = arguments?.getString(param)
 
+    private fun NotificationManagerCompat.areNotificationsFullyEnabled(): Boolean {
+        if (!areNotificationsEnabled()) return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            for (notificationChannel in notificationChannels) {
+                if (!notificationChannel.isFullyEnabled(this)) return false
+            }
+        }
+        return true
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    fun NotificationChannel.isFullyEnabled(notificationManager: NotificationManagerCompat): Boolean {
+        if (importance == NotificationManager.IMPORTANCE_NONE) return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (notificationManager.getNotificationChannelGroup(group)?.isBlocked == true) return false
+        }
+        return true
+    }
+
+    private fun requestPermissions(){
+        if (requestNotice()) {
+            requestPermission()
+        }
+    }
+
+    private fun requestNotice(): Boolean {
+        val enabled =
+            NotificationManagerCompat.from(requireContext()).areNotificationsFullyEnabled()
+        if (!enabled) {
+            alertDialog(
+                title = getString(R.string.need_notice_permission_message),
+                btnOkText = getString(android.R.string.ok),
+                onConfirm = { openAppSettings() }
+            )
+        }
+        return enabled
+    }
+
     private fun requestPermission() {
         request = REQUEST_LOAD
         requestPermission(
@@ -218,6 +270,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         super.onResume()
         requireActivity().unlockOrientation()
         registerReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
+        requestPermissions()
     }
 
     override fun onPause() {
