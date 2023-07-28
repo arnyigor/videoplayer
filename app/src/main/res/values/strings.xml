@@ -65,6 +65,7 @@
     <string name="cache_attention_links_title">Вы хотите продолжить загрузку фильма "%s"?</string>
     <string name="cache_attention_links_not_equals">Вы хотите загрузить фильм "%s" с другой ссылкой?</string>
     <string name="mobile_network_play">Вы не подключены к WIFI\nПродолжить?</string>
+    <string name="mobile_network_poor_play">Плохое интернет соединение\nПродолжить?</string>
     <string name="cache_description">При отмене загруженные данные будут удалены\nПродолжить?</string>
     <string name="pref_player">Плеер</string>
     <string name="pref_common">Общее</string>
@@ -93,7 +94,7 @@
     <string name="search_by_directors">В режисёрах</string>
     <string name="search_by_actors">В актёрах</string>
     <string name="search_by_genres">В жанрах</string>
-    <string name="menu_check_update">Обновить видео данные</string>
+    <string name="menu_check_update">Проверить новые фильмы</string>
     <string name="check_new_video_data">Проверить новые фильмы и сериалы?</string>
     <string name="enter_url">Введите путь</string>
     <string name="genre">Жанр</string>
@@ -104,6 +105,8 @@
     <string name="in_serials">В сериалах</string>
     <string name="cinema_save_data">Сохранён:%s%%, занимает: %s</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
+    <string name="search_extended_title">Расширенный поиск</string>
+    <string name="search_extended_ok">Поиск</string>
     <!--Prefs-->
     <string name="pref_key_add_to_history_on_cache">pref_key_add_to_history_on_cache</string>
     <string name="pref_title_add_to_history_on_cache">Добавлять в историю</string>
@@ -113,6 +116,7 @@
     <string name="pref_summary_pip_mode">Включить режим картинка в картинке по кнопке HOME</string>
     <string name="pause_download">Приостановить</string>
     <string name="resume_download">Продолжить</string>
+    <string name="volume_zero">0</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

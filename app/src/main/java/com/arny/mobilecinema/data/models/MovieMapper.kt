@@ -27,7 +27,7 @@ class MovieMapper @Inject constructor() : Mapper<MovieEntity, Movie> {
                 durationSec = data.durationSec,
                 age = data.age,
                 countries = data.countries.split(","),
-                genres = data.genre.split(","),
+                genre = data.genre.split(","),
                 likes = data.likes,
                 dislikes = data.dislikes,
                 ratingImdb = data.ratingImdb,

@@ -3,7 +3,7 @@ ext {
             minSdkVersion            : 21,
             compileSdkVersion        : 33,
             targetSdkVersion         : 33,
-            buildToolsVersion        : "30.0.3"
+            buildToolsVersion        : "31.0.1"
     ]
 }
 dependencies {

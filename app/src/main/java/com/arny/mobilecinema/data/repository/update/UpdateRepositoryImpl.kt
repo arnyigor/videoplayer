@@ -89,6 +89,11 @@ class UpdateRepositoryImpl @Inject constructor(
                         moviesDao.update(entity)
                     }
 
+                    isGenreChanged(dbMovie, movie) -> {
+                        entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
+                        moviesDao.update(entity)
+                    }
+
                     dbMovie == null || dbMovie.updated == 0L -> {
                         entity = entity.setData(movie)
                         moviesDao.insert(entity)
@@ -101,19 +106,21 @@ class UpdateRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun isUpdateTimeChanged(
-        dbMovie: MovieUpdate?,
-        movie: Movie
-    ) = dbMovie != null && dbMovie.updated > 0 && dbMovie.updated < movie.info.updated
+    private fun isUpdateTimeChanged(dbMovie: MovieUpdate?, movie: Movie) =
+        dbMovie != null && dbMovie.updated > 0 && dbMovie.updated < movie.info.updated
 
-    private fun isTitleChanged(
-        dbMovie: MovieUpdate?,
-        movie: Movie
-    ) = dbMovie != null && dbMovie.title != movie.title
+    private fun isTitleChanged(dbMovie: MovieUpdate?, movie: Movie) =
+        dbMovie != null && dbMovie.title != movie.title
+
+    private fun isGenreChanged(dbMovie: MovieUpdate?, movie: Movie) =
+        dbMovie != null && dbMovie.genre != movie.info.genre.joinToString(",")
 
     override suspend fun checkBaseUrl(): Boolean = try {
         val baseLink = BuildConfig.BASE_LINK
-        val page = jsoup.loadPage(baseLink)
+        val page = jsoup.loadPage(
+            url = baseLink,
+            timeout = 3000
+        )
         var link = page.select("ul.tl li")
             .select("a:contains(Фильмы)")
             .attr("href")

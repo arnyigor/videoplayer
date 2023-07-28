@@ -5,4 +5,5 @@ data class MovieUpdate(
     val pageUrl: String = "",
     val title: String = "",
     val updated: Long = 0,
+    val genre: String = "",
 )

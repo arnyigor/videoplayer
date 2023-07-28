@@ -375,7 +375,9 @@ class PlayerSource @Inject constructor(
     private fun getHlsMedialSource(
         factory: DataSource.Factory,
         item: MediaItem
-    ) = HlsMediaSource.Factory(factory).createMediaSource(item)
+    ) = HlsMediaSource.Factory(factory)
+        .setAllowChunklessPreparation(true)
+        .createMediaSource(item)
 
     private fun getDashMediaSource(
         factory: DataSource.Factory,

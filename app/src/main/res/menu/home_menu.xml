@@ -14,16 +14,21 @@
         android:title="@string/search_settings"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_extended_search_settings"
+        android:title="@string/search_extended_title"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_order_settings"
         android:title="@string/search_order_settings"
-        app:showAsAction="never" />
+        android:icon="@android:drawable/ic_menu_sort_by_size"
+        app:showAsAction="ifRoom" />
     <item
         android:id="@+id/menu_action_from_path"
         android:title="@string/menu_from_path"
         app:showAsAction="never" />
     <item
         android:id="@+id/menu_action_check_update"
-        app:showAsAction="ifRoom"
+        app:showAsAction="never"
         android:icon="@android:drawable/stat_sys_download"
         android:title="@string/menu_check_update" />
 </menu>

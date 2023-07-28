@@ -72,6 +72,11 @@ fun ImageView.setTint(@ColorRes id: Int) {
     )
 }
 
+fun TextView.setTextColorRes(@ColorRes color: Int){
+    setTextColor(this.context.getDrawableColor(color))
+}
+
+
 fun Int.toPx(context: Context): Int =
     (this * (context.resources.displayMetrics.xdpi / DisplayMetrics.DENSITY_DEFAULT)).roundToInt()
 

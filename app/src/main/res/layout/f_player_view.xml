@@ -27,7 +27,7 @@
 
     <com.github.vkay94.dtpv.youtube.YouTubeOverlay
         android:id="@+id/youtube_overlay"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="match_parent"
         android:visibility="invisible"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -38,7 +38,7 @@
 
     <TextView
         android:id="@+id/tvTitle"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:gravity="top|center_horizontal"
         android:padding="8dp"
@@ -47,6 +47,15 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         tools:text="Название" />
+
+    <com.google.android.exoplayer2.ui.SubtitleView
+        android:id="@+id/sbtvSubtitles"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <ImageView
         android:id="@+id/ivQuality"
@@ -83,14 +92,60 @@
         app:srcCompat="@drawable/ic_language" />
 
     <ImageView
+        android:id="@+id/ivSubt"
+        android:layout_width="35dp"
+        android:layout_height="35dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:visibility="gone"
+        app:srcCompat="@drawable/ic_subtitles"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/ivLang"
+        tools:visibility="visible" />
+
+    <ImageView
         android:id="@+id/ivScreenRotation"
         android:layout_width="35dp"
         android:layout_height="35dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="16dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ivLang"
+        app:layout_constraintTop_toBottomOf="@+id/ivSubt"
         app:srcCompat="@drawable/ic_screen_rotation" />
+
+    <TextView
+        android:id="@+id/tvBrightness"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@color/colorOverlay"
+        android:drawablePadding="@dimen/margin_small"
+        android:paddingHorizontal="@dimen/margin"
+        android:paddingVertical="@dimen/margin_small"
+        android:text="@string/volume_zero"
+        android:visibility="gone"
+        tools:visibility="visible"
+        app:drawableStartCompat="@drawable/ic_brightness"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tvVolume"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@color/colorOverlay"
+        android:drawablePadding="@dimen/margin_small"
+        android:paddingHorizontal="@dimen/margin"
+        android:paddingVertical="@dimen/margin_small"
+        android:text="@string/volume_zero"
+        android:visibility="gone"
+        tools:visibility="visible"
+        app:drawableStartCompat="@drawable/ic_volume"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <ProgressBar
         android:id="@+id/progressBar"

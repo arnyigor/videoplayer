@@ -3,6 +3,7 @@ package com.arny.mobilecinema.presentation.player
 import android.content.Context
 import com.arny.mobilecinema.domain.models.Movie
 import com.google.android.exoplayer2.C
+import com.google.android.exoplayer2.text.SubtitleDecoderFactory
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector.MappedTrackInfo
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
@@ -27,10 +28,10 @@ fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<Stri
     val renderCount = renderTrack?.rendererCount ?: 0
     for (rendererIndex in 0 until renderCount) {
         if (isSupportedFormat(renderTrack, rendererIndex)) {
-            val trackGroupType = renderTrack?.getRendererType(rendererIndex)
+            val renderType = renderTrack?.getRendererType(rendererIndex)
             val trackGroups = renderTrack?.getTrackGroups(rendererIndex)
             val trackGroupsCount = trackGroups?.length!!
-            if (trackGroupType == C.TRACK_TYPE_AUDIO) {
+            if (renderType == C.TRACK_TYPE_AUDIO) {
                 for (groupIndex in 0 until trackGroupsCount) {
                     val trackCount = trackGroups[groupIndex].length
                     for (trackIndex in 0 until trackCount) {
@@ -81,9 +82,9 @@ fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String
                         ) == C.FORMAT_HANDLED
                         if (isTrackSupported) {
                             val track = trackGroups[groupIndex]
-                            val trackName =
-                                "${track.getFormat(trackIndex).width} x ${track.getFormat(trackIndex).height}"
-                            if (track.getFormat(trackIndex).selectionFlags == C.SELECTION_FLAG_AUTOSELECT) {
+                            val format = track.getFormat(trackIndex)
+                            val trackName = "${format.width} x ${format.height}"
+                            if (format.selectionFlags == C.SELECTION_FLAG_AUTOSELECT) {
                                 trackName.plus(" (Default)")
                             }
                             val builder = TrackSelectionParameters.Builder(context)
@@ -93,6 +94,53 @@ fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String
                             }
                             if (trackName.isNotBlank()) {
                                 trackOverrideList.add(Pair(trackName, override))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return trackOverrideList.distinctBy { it.first }.sortedByDescending { it.first }
+}
+
+fun DefaultTrackSelector.generateSubTitlesList(context: Context): List<Pair<String, TrackSelectionOverride>> {
+    val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
+    val renderTrack = this.currentMappedTrackInfo
+    val renderCount = renderTrack?.rendererCount ?: 0
+    for (rendererIndex in 0 until renderCount) {
+        if (isSupportedFormat(renderTrack, rendererIndex)) {
+            val renderType = renderTrack?.getRendererType(rendererIndex)
+            val trackGroups = renderTrack?.getTrackGroups(rendererIndex)
+            val trackGroupsCount = trackGroups?.length!!
+            if (renderType == C.TRACK_TYPE_TEXT) {
+                for (groupIndex in 0 until trackGroupsCount) {
+                    val trackCount = trackGroups[groupIndex].length
+                    for (trackIndex in 0 until trackCount) {
+                        val isTrackSupported = renderTrack.getTrackSupport(
+                            rendererIndex,
+                            groupIndex,
+                            trackIndex
+                        ) == C.FORMAT_HANDLED
+                        if (isTrackSupported) {
+                            val track = trackGroups[groupIndex]
+                            val format = track.getFormat(trackIndex)
+                            val subtitleDecoderFactory = SubtitleDecoderFactory.DEFAULT
+                            val supportsFormat = subtitleDecoderFactory.supportsFormat(format)
+                            var trackName = format.language
+                            if (supportsFormat) {
+                                if (trackName.isNullOrBlank()) {
+                                    trackName = "Субтитры ${trackIndex + 1}"
+                                }
+                                val builder = TrackSelectionParameters.Builder(context)
+                                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                                val override =
+                                    TrackSelectionOverride(track, listOf(trackIndex)).apply {
+                                        setParameters(builder.build())
+                                    }
+                                if (trackName.isNotBlank()) {
+                                    trackOverrideList.add(Pair(trackName, override))
+                                }
                             }
                         }
                     }

@@ -11,7 +11,7 @@ data class MovieInfo(
     val durationSec: Int = 0,
     val age: Int = -1,
     val countries: List<String> = emptyList(),
-    val genres: List<String> = emptyList(),
+    val genre: List<String> = emptyList(),
     val likes: Int = 0,
     val dislikes: Int = 0,
     val ratingImdb: Double = -1.0,

@@ -1,9 +1,12 @@
 package com.arny.mobilecinema.presentation.utils
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.database.ContentObserver
+import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -14,6 +17,38 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import com.arny.mobilecinema.data.models.DataThrowable
+
+fun Fragment.registerContentResolver(observer: ContentObserver) {
+    requireContext().contentResolver.registerContentObserver(
+        /* uri = */ android.provider.Settings.System.CONTENT_URI,
+        /* notifyForDescendants = */ true,
+        /* observer = */ observer
+    )
+}
+
+fun Fragment.unregisterContentResolver(observer: ContentObserver) {
+    requireContext().contentResolver.unregisterContentObserver(observer)
+}
+
+fun Fragment.initAudioManager(
+    manager: AudioManager?,
+    focusChangeListener: AudioManager.OnAudioFocusChangeListener
+): AudioManager {
+    val am = manager ?: requireActivity().getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    am.requestAudioFocus(
+        focusChangeListener,
+        AudioManager.STREAM_MUSIC,
+        AudioManager.AUDIOFOCUS_GAIN
+    )
+    return am
+}
+
+fun Fragment.setScreenBrightness(value: Int) {
+    val window = requireActivity().window
+    val lp = window.attributes
+    lp.screenBrightness = (1.0f / 30) * value
+    window.attributes = lp
+}
 
 fun Window.hideSystemBar() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

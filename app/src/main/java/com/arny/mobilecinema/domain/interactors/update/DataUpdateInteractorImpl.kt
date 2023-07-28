@@ -39,7 +39,8 @@ class DataUpdateInteractorImpl @Inject constructor(
     override suspend fun requestFile() {
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val zipFile = File(context.filesDir, "tmp_${System.currentTimeMillis()}.zip")
-        val description = DownloadManager.Request(Uri.parse(BuildConfig.DATA_LINK))
+        val dataLink = if (BuildConfig.DEBUG) BuildConfig.DATA_DEBUG_LINK else BuildConfig.DATA_LINK
+        val description = DownloadManager.Request(Uri.parse(dataLink))
             .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setTitle(zipFile.name)
@@ -73,7 +74,7 @@ class DataUpdateInteractorImpl @Inject constructor(
         if (!repository.checkUpdate && repository.newUpdate.isBlank()) {
             repository.checkUpdate = true
             val updateFile = repository.downloadFile(
-                BuildConfig.UPDATE_LINK,
+                if (BuildConfig.DEBUG) BuildConfig.UPDATE_DEBUG_LINK else BuildConfig.UPDATE_LINK,
                 AppConstants.UPDATE_FILE
             )
             newUpdate = updateFile.readText()

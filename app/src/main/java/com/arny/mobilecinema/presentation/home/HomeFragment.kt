@@ -9,7 +9,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
@@ -20,11 +19,11 @@ import android.widget.SearchView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
-import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.setFragmentResultListener
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
@@ -58,6 +57,7 @@ import com.arny.mobilecinema.presentation.utils.unregisterReceiver
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
+import timber.log.Timber
 import javax.inject.Inject
 
 class HomeFragment : Fragment(), OnSearchListener {
@@ -160,6 +160,14 @@ class HomeFragment : Fragment(), OnSearchListener {
         initMenu()
         initAdapters()
         observeData()
+        observeResult()
+    }
+
+    private fun observeResult() {
+        setFragmentResultListener(AppConstants.FRAGMENTS.RESULTS) { _, bundle ->
+            val type = bundle.getString(AppConstants.SearchType.TYPE)
+            Timber.d("AppConstants.SearchType.TYPE:$type")
+        }
     }
 
     private fun getIntentParams() {
@@ -373,7 +381,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                 menuInflater.inflate(R.menu.home_menu, menu)
                 searchMenuItem = menu.findItem(R.id.action_search)
                 searchView = setupSearchView(
-                    menuItem = searchMenuItem!!,
+                    menuItem = requireNotNull(searchMenuItem),
                     onQueryChange = { query ->
                         emptySearch = query?.isBlank() == true
                         viewModel.loadMovies(query.orEmpty(), onQueryChangeSubmit)
@@ -401,18 +409,29 @@ class HomeFragment : Fragment(), OnSearchListener {
                         showCustomOrderDialog()
                         true
                     }
+
                     R.id.action_search_settings -> {
                         showCustomSearchDialog()
                         true
                     }
+
+                    R.id.action_extended_search_settings -> {
+                        findNavController().navigate(
+                            HomeFragmentDirections.actionNavHomeToExtendedSearchFragment()
+                        )
+                        true
+                    }
+
                     R.id.menu_action_check_update -> {
                         showVideoUpdateDialog()
                         true
                     }
+
                     R.id.menu_action_from_path -> {
                         openPath()
                         true
                     }
+
                     else -> false
                 }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)

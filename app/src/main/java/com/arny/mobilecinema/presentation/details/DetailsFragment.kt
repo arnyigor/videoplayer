@@ -251,7 +251,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
 
                 connectionType is ConnectionType.NONE -> {
-                    toast(getString(R.string.internet_connection_error))
+                    alertDialog(
+                        title = getString(R.string.attention),
+                        content = getString(R.string.mobile_network_poor_play),
+                        btnOkText = getString(android.R.string.ok),
+                        btnCancelText = getString(android.R.string.cancel),
+                        onConfirm = { navigateToPLayer(movie, isTrailer) }
+                    )
                 }
 
                 else -> {
@@ -550,7 +556,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }.toString()
         tvQuality.isVisible = movie.type == MovieType.CINEMA
         tvQuality.text = getString(R.string.quality_format, info.quality)
-        initGenres(info.genres)
+        initGenres(info.genre)
         initDirectors(info.directors)
         initActors(info.actors)
     }
@@ -575,6 +581,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         binding.tvGenres.isVisible = genresMap.isNotEmpty()
         for (genre in genresMap) {
             val chip = getCustomChip(chgrGenres)
+            chip.text = genre
             chip.isClickable = true
             chip.isCheckable = false
             chip.setOnClickListener {

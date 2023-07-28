@@ -35,6 +35,7 @@ object AppConstants {
     }
 
     object SearchType {
+        const val TYPE = "TYPE"
         const val TITLE = "title"
         const val DIRECTORS = "directors"
         const val ACTORS = "actors"
@@ -46,5 +47,9 @@ object AppConstants {
     object Player {
         const val SEASON = "SEASON"
         const val EPISODE = "EPISODE"
+    }
+
+    object FRAGMENTS {
+        const val RESULTS = "RESULTS"
     }
 }

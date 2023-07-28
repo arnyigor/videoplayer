@@ -8,7 +8,7 @@ import androidx.sqlite.db.SupportSQLiteQuery
 import com.arny.mobilecinema.domain.models.ViewMovie
 
 interface BaseDao<T> {
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insert(vararg obj: T)
 
     @Update(onConflict = OnConflictStrategy.REPLACE)
