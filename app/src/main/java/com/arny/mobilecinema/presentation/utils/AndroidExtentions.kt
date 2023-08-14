@@ -72,10 +72,9 @@ fun ImageView.setTint(@ColorRes id: Int) {
     )
 }
 
-fun TextView.setTextColorRes(@ColorRes color: Int){
+fun TextView.setTextColorRes(@ColorRes color: Int) {
     setTextColor(this.context.getDrawableColor(color))
 }
-
 
 fun Int.toPx(context: Context): Int =
     (this * (context.resources.displayMetrics.xdpi / DisplayMetrics.DENSITY_DEFAULT)).roundToInt()
@@ -327,7 +326,15 @@ fun Fragment.requestPermission(
     }
 }
 
-fun ImageView.setDrawableCompat(@DrawableRes res: Int) = this.setImageDrawable(this.context.getImgCompat(res))
+fun Fragment.checkPermission(permission: String): Boolean {
+    return ContextCompat.checkSelfPermission(
+        requireContext(),
+        permission
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
+fun ImageView.setDrawableCompat(@DrawableRes res: Int) =
+    this.setImageDrawable(this.context.getImgCompat(res))
 
 fun Context.getImgCompat(@DrawableRes res: Int): Drawable? = ContextCompat.getDrawable(this, res)
 

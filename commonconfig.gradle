@@ -3,7 +3,7 @@ ext {
             minSdkVersion            : 21,
             compileSdkVersion        : 33,
             targetSdkVersion         : 33,
-            buildToolsVersion        : "31.0.1"
+            buildToolsVersion        : "33.0.1"
     ]
 }
 dependencies {
@@ -19,7 +19,7 @@ android {
     buildToolsVersion versions.buildToolsVersion
     def vMajor = 1
     def vMinor = 0
-    def vBuild = 6
+    def vBuild = 8
     defaultConfig {
         applicationId "com.arny.mobilecinema"
         minSdkVersion versions.minSdkVersion
@@ -75,6 +75,7 @@ android {
 
     buildTypes {
         release {
+            resValue "string", "app_name", "Anwap Movies"
             debuggable false
             minifyEnabled true
             shrinkResources true
@@ -84,6 +85,7 @@ android {
         }
 
         debug {
+            resValue "string", "app_name", "[DEBUG]Anwap Movies"
             applicationIdSuffix '.debug'
             versionNameSuffix '-DEBUG'
             debuggable true

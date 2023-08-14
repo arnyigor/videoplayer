@@ -40,6 +40,7 @@ import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
+import com.arny.mobilecinema.presentation.utils.checkPermission
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.getImgCompat
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
@@ -78,6 +79,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private val viewModel: HomeViewModel by viewModels { vmFactory }
     private lateinit var binding: FHomeBinding
     private var request: Int = -1
+    private var requestedNotice: Boolean = false
     private var currentOrder: String = ""
     private var searchType: String = ""
     private var searchAddTypes: MutableList<String> = mutableListOf(
@@ -166,12 +168,32 @@ class HomeFragment : Fragment(), OnSearchListener {
         initAdapters()
         observeData()
         observeResult()
+        requestPermissions()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        requireActivity().unlockOrientation()
+        registerReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
+        checkPermission()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterReceiver(updateReceiver)
+    }
+
+    private fun checkPermission() {
+        if (requestedNotice) {
+            requestedNotice = false
+            requestPermissions()
+        }
     }
 
     private fun observeResult() {
         setFragmentResultListener(AppConstants.FRAGMENTS.RESULTS) { _, _ ->
-          /*  val type = bundle.getString(AppConstants.SearchType.TYPE)
-            Timber.d("AppConstants.SearchType.TYPE:$type")*/
+            /*  val type = bundle.getString(AppConstants.SearchType.TYPE)
+              Timber.d("AppConstants.SearchType.TYPE:$type")*/
         }
     }
 
@@ -246,7 +268,10 @@ class HomeFragment : Fragment(), OnSearchListener {
             alertDialog(
                 title = getString(R.string.need_notice_permission_message),
                 btnOkText = getString(android.R.string.ok),
-                onConfirm = { openAppSettings() }
+                onConfirm = {
+                    requestedNotice = true
+                    openAppSettings()
+                }
             )
         }
         return enabled
@@ -280,18 +305,6 @@ class HomeFragment : Fragment(), OnSearchListener {
                 viewModel.downloadData(force)
             }
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        requireActivity().unlockOrientation()
-        registerReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
-        requestPermissions()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        unregisterReceiver(updateReceiver)
     }
 
     private fun initAdapters() {
@@ -451,6 +464,7 @@ class HomeFragment : Fragment(), OnSearchListener {
             title = getString(R.string.check_new_video_data),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
+                Timber.d("showVideoUpdateDialog")
                 downloadData(force = true)
             }
         )
