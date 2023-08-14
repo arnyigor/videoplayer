@@ -94,9 +94,18 @@ class UpdateRepositoryImpl @Inject constructor(
                         moviesDao.update(entity)
                     }
 
-                    dbMovie == null || dbMovie.updated == 0L -> {
-                        entity = entity.setData(movie)
-                        moviesDao.insert(entity)
+                    dbMovie != null && dbMovie.updated == 0L -> {
+                        /*error("Movie updated is 0L for movie:$dbMovie, has new movie:$movie")*/
+                    }
+
+                    dbMovie == null -> {
+                        val newId = moviesDao.getLastId() + 1
+                        entity = entity.setData(movie).copy(dbId = newId)
+                        try {
+                            moviesDao.insert(entity)
+                        } catch (e: Exception) {
+                            error("Insert error for $entity has error:${e.stackTraceToString()}")
+                        }
                     }
                 }
                 if (index % 1000 == 0) {

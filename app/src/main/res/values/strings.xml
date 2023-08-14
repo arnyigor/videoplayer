@@ -56,7 +56,8 @@
     <string name="episodes_not_found">Не найдены эпизоды</string>
     <string name="more">больше</string>
     <string name="less">меньше</string>
-    <string name="update_finished">Обновление завершено</string>
+    <string name="update_finished_success">Обновление завершено успешно</string>
+    <string name="update_finished_error">Обновление не завершено</string>
     <string name="attention">Внимание!</string>
     <string name="cache_complete">Фильм полностью загружен</string>
     <string name="cache_attention">Вы хотите загрузить фильм?</string>

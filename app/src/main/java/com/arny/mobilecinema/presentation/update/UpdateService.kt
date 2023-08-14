@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import androidx.core.os.bundleOf
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -21,6 +22,7 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
+import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
 import com.google.gson.GsonBuilder
 import dagger.android.AndroidInjection
 import kotlinx.coroutines.*
@@ -36,7 +38,6 @@ class UpdateService : LifecycleService(), CoroutineScope {
 
     @Inject
     lateinit var repository: UpdateRepository
-
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
@@ -68,43 +69,53 @@ class UpdateService : LifecycleService(), CoroutineScope {
         return super.onStartCommand(intent, flags, startId)
     }
 
-
     private suspend fun update(intent: Intent?) {
         withContext(Dispatchers.IO) {
             val filePath = intent?.getStringExtra(AppConstants.SERVICE_PARAM_FILE)
             if (filePath != null && intent.action == AppConstants.ACTION_UPDATE) {
-                LocalBroadcastManager.getInstance(applicationContext)
-                    .sendBroadcast(Intent().apply {
-                        action = AppConstants.ACTION_UPDATE_STATUS
-                        putExtra(
-                            AppConstants.ACTION_UPDATE_STATUS,
-                            AppConstants.ACTION_UPDATE_STATUS_STARTED
-                        )
-                    })
+                Intent().also { intent ->
+                    intent.action = AppConstants.ACTION_UPDATE_STATUS
+                    bundleOf(
+                        AppConstants.ACTION_UPDATE_STATUS to AppConstants.ACTION_UPDATE_STATUS_STARTED
+                    )
+                    sendBroadcast(intent)
+                }
                 val file = File(filePath)
                 val dataFile = unzipData(file, context = applicationContext)
                 if (dataFile != null) {
+                    var success = false
                     val anwapMovies = readData(dataFile)
                     if (anwapMovies.isNotEmpty()) {
                         file.delete()
                         dataFile.delete()
-                        repository.updateMovies(anwapMovies) { pers ->
-                            updateNotification(getString(R.string.updating, pers), true)
-                        }
-                        repository.setLastUpdate()
-                    }
-                    updateNotification(
-                        title = getString(R.string.update_finished),
-                        silent = false
-                    )
-                    LocalBroadcastManager.getInstance(applicationContext)
-                        .sendBroadcast(Intent().apply {
-                            action = AppConstants.ACTION_UPDATE_STATUS
-                            putExtra(
-                                AppConstants.ACTION_UPDATE_STATUS,
-                                AppConstants.ACTION_UPDATE_STATUS_COMPLETE
+                        try {
+                            repository.updateMovies(anwapMovies) { percent ->
+                                updateNotification(getString(R.string.updating, percent), true)
+                            }
+                            repository.setLastUpdate()
+                            updateNotification(
+                                title = getString(R.string.update_finished_success),
+                                silent = false
                             )
-                        })
+                            success = true
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            updateNotification(
+                                title = getString(R.string.update_finished_error),
+                                silent = false
+                            )
+                            success = false
+                        }
+                    }
+                    val completeStatus = if (success) {
+                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS
+                    } else {
+                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
+                    }
+                    sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                        putString(AppConstants.ACTION_UPDATE_STATUS, completeStatus)
+                    }
+                    delay(3000) // wait for sending broadcast FIXME
                     stop()
                 }
             } else {
@@ -159,7 +170,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
         title: String,
         silent: Boolean
     ): Notification {
-        val contentIntent =  PendingIntent.getActivity(
+        val contentIntent = PendingIntent.getActivity(
             /* context = */ this,
             /* requestCode = */ 0,
             /* intent = */ Intent(this, MainActivity::class.java),

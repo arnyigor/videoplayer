@@ -131,8 +131,13 @@ class HomeFragment : Fragment(), OnSearchListener {
                         binding.tvEmptyView.setText(R.string.update_started)
                     }
 
-                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE -> {
-                        toast(getString(R.string.update_finished))
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+                        toast(getString(R.string.update_finished_success))
+                        viewModel.loadMovies()
+                    }
+
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
+                        toast(getString(R.string.update_finished_error))
                         viewModel.loadMovies()
                     }
                 }
@@ -164,9 +169,9 @@ class HomeFragment : Fragment(), OnSearchListener {
     }
 
     private fun observeResult() {
-        setFragmentResultListener(AppConstants.FRAGMENTS.RESULTS) { _, bundle ->
-            val type = bundle.getString(AppConstants.SearchType.TYPE)
-            Timber.d("AppConstants.SearchType.TYPE:$type")
+        setFragmentResultListener(AppConstants.FRAGMENTS.RESULTS) { _, _ ->
+          /*  val type = bundle.getString(AppConstants.SearchType.TYPE)
+            Timber.d("AppConstants.SearchType.TYPE:$type")*/
         }
     }
 
@@ -181,10 +186,12 @@ class HomeFragment : Fragment(), OnSearchListener {
                     query = director
                     searchType = AppConstants.SearchType.DIRECTORS
                 }
+
                 !actor.isNullOrBlank() -> {
                     query = actor
                     searchType = AppConstants.SearchType.ACTORS
                 }
+
                 !genre.isNullOrBlank() -> {
                     query = genre
                     searchType = AppConstants.SearchType.GENRES
@@ -226,7 +233,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         return true
     }
 
-    private fun requestPermissions(){
+    private fun requestPermissions() {
         if (requestNotice()) {
             requestPermission()
         }
@@ -268,6 +275,7 @@ class HomeFragment : Fragment(), OnSearchListener {
             ConnectionType.NONE -> {
                 toast(getString(R.string.internet_connection_error))
             }
+
             else -> {
                 viewModel.downloadData(force)
             }
@@ -316,6 +324,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                     is ThrowableString -> {
                         toastError(error.throwable)
                     }
+
                     else -> toast(error.toString(requireContext()))
                 }
             }
@@ -474,7 +483,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                             AppConstants.Order.YEAR_ASC -> rbYearAsc.isChecked = true
                             else -> rbNone.isChecked = true
                         }
-                    }?: kotlin.run {
+                    } ?: kotlin.run {
                         rbNone.isChecked = true
                     }
                     radioBtn.forEach { (rb, orderString) ->

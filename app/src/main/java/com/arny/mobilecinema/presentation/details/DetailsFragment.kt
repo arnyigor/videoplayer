@@ -132,7 +132,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
-
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
         super.onAttach(context)
@@ -214,6 +213,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         )
                         true
                     }
+
                     else -> false
                 }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
@@ -272,6 +272,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             is ConnectionType.WIFI -> {
                 showDialogCache()
             }
+
             is ConnectionType.MOBILE -> {
                 alertDialog(
                     title = getString(R.string.attention),
@@ -283,6 +284,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     }
                 )
             }
+
             ConnectionType.NONE -> {
                 toast(getString(R.string.internet_connection_error))
             }
@@ -499,6 +501,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 currentEpisodePosition = saveData.episode
                 fillSpinners(currentMovie)
             }
+
             saveData.dbId == currentMovie?.dbId && currentMovie?.type == MovieType.CINEMA -> {
             }
         }
