@@ -16,8 +16,6 @@
     <item
         android:id="@+id/action_extended_search_settings"
         android:title="@string/search_extended_title"
-        android:visible="false"
-        tools:visible="true"
         app:showAsAction="never" />
     <item
         android:id="@+id/action_order_settings"

@@ -48,7 +48,7 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
 
     private fun initUI(navController: NavController) {
         navController.addOnDestinationChangedListener { _, destination, _ ->
-            showBottomNav(destination.id !in listOf(R.id.nav_player_view, R.id.nav_details))
+            showBottomNav(destination.id !in listOf(R.id.nav_player_view, R.id.nav_details, R.id.nav_extended_search))
             showHome(destination.id !in listOf(R.id.nav_home, R.id.nav_prefs, R.id.nav_history))
         }
     }

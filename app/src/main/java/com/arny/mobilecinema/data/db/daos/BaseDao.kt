@@ -11,7 +11,7 @@ interface BaseDao<T> {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(vararg obj: T)
 
-    @Update(onConflict = OnConflictStrategy.ABORT)
+    @Update(onConflict = OnConflictStrategy.REPLACE)
     fun update(vararg obj: T): Int
 
     @Insert

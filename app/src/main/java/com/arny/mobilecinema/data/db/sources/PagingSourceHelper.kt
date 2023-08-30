@@ -26,7 +26,7 @@ fun getMoviesSQL(
                 else -> ""
             }
         )
-        args.add(search)
+        extendedSearch(searchType, args, search, sb)
         if (movieTypes.isNotEmpty()) {
             sb.append(" AND")
             sb.append(" type IN (${movieTypes.joinToString { "'${it.value}'" }})")
@@ -55,6 +55,32 @@ fun getMoviesSQL(
     return SimpleSQLiteQuery(query, args.toTypedArray())
 }
 
+private fun extendedSearch(
+    searchType: String,
+    args: MutableList<Any?>,
+    search: String,
+    sb: StringBuilder
+) {
+    if (searchType == AppConstants.SearchType.TITLE) {
+        val words = search.split(" ")
+        if (words.size == 2) {
+            val first = words[0].trim()
+            val second = words[1].trim()
+            args.add("${first}_${second}")
+            sb.append(" OR")
+            sb.append(" title LIKE '%' || ? || '%'")
+            args.add("${first}_ $second")
+            sb.append(" OR")
+            sb.append(" title LIKE '%' || ? || '%'")
+            args.add("$first _ $second")
+        } else {
+            args.add(search)
+        }
+    } else {
+        args.add(search)
+    }
+}
+
 fun getHistorySQL(
     search: String,
     order: String,
@@ -76,7 +102,7 @@ fun getHistorySQL(
                 else -> ""
             }
         )
-        args.add(search)
+        extendedSearch(searchType, args, search, sb)
     }
     if (order.isNotBlank()) {
         sb.append(" ORDER BY")

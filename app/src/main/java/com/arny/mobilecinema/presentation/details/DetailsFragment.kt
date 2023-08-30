@@ -597,7 +597,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun getCustomChip(chipGroup: ChipGroup): Chip =
-        layoutInflater.inflate(R.layout.i_custom_chip, chipGroup, false) as Chip
+        layoutInflater.inflate(R.layout.i_custom_chip_choise, chipGroup, false) as Chip
 
     private fun FDetailsBinding.initActors(actors: List<String>) {
         for (actor in actors.filter { it.isNotBlank() }) {

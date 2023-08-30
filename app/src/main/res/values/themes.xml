@@ -26,6 +26,7 @@
         <item name="md_color_button_text">@color/textColorSecondary</item>
         <item name="md_corner_radius">8dp</item>
     </style>
+
     <style name="ItemMenuTextAppearance">
         <item name="android:textColor">@color/colorPrimaryDark</item>
         <item name="android:itemBackground">@android:color/white</item>
@@ -35,8 +36,13 @@
         <item name="android:popupBackground">@android:color/white</item>
     </style>
 
-    <style name="itemTextStyle.AppTheme" parent="@android:style/TextAppearance.Widget.IconMenu.Item">
-        <item name="android:textColor">@color/colorPrimaryDark</item>
+    <!--Input label style-->
+    <style name="InputTextStyle" parent="Widget.MaterialComponents.TextInputLayout.FilledBox">
+        <item name="android:textColor">@color/textColorPrimary</item>
+        <item name="boxBackgroundColor">@color/colorPrimaryDark</item>
+        <item name="colorControlNormal">@color/textColorPrimary</item>
+        <item name="colorControlActivated">@color/textColorPrimary</item>
+        <item name="hintTextColor">@color/textColorPrimary</item>
     </style>
 
     <style name="MyDialogStyle" parent="Theme.MaterialComponents.DayNight.Dialog">

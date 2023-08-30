@@ -5,8 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class SplashViewModel(interactor: DataUpdateInteractor) : ViewModel() {
+class SplashViewModel @Inject constructor(interactor: DataUpdateInteractor) : ViewModel() {
     private val _ready = MutableStateFlow(false)
     val ready = _ready.asStateFlow()
 

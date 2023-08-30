@@ -7,6 +7,7 @@ import com.arny.mobilecinema.di.scopes.ViewModelKey
 import com.arny.mobilecinema.domain.interactors.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.presentation.details.DetailsViewModel
+import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel
 import com.arny.mobilecinema.presentation.history.HistoryViewModel
 import com.arny.mobilecinema.presentation.home.HomeViewModel
 import com.arny.mobilecinema.presentation.player.PlayerSource
@@ -19,7 +20,6 @@ import javax.inject.Provider
 
 @Module(includes = [ActivitiesModule::class])
 class UiModule {
-
     @Provides
     fun provideViewModelFactory(
         providers: Map<Class<out ViewModel>, @JvmSuppressWildcards Provider<ViewModel>>
@@ -61,4 +61,11 @@ class UiModule {
     fun provideSplashViewModel(
         interactor: DataUpdateInteractor,
     ): ViewModel = SplashViewModel(interactor)
+
+    @Provides
+    @IntoMap
+    @ViewModelKey(ExtendedSearchViewModel::class)
+    fun provideExtendedSearchViewModel(
+        moviesInteractor: MoviesInteractor,
+    ): ViewModel = ExtendedSearchViewModel(moviesInteractor)
 }

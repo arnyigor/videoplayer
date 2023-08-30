@@ -14,6 +14,8 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
 class MoviesRepositoryImpl @Inject constructor(
@@ -53,7 +55,7 @@ class MoviesRepositoryImpl @Inject constructor(
 
     override suspend fun isHistoryEmpty(): Boolean = historyDao.getHistoryIds().isEmpty()
 
-    override suspend fun isMoviesEmpty(): Boolean = movieDao.getCount()==0
+    override suspend fun isMoviesEmpty(): Boolean = movieDao.getCount() == 0
 
     override fun getHistoryMovies(
         search: String,
@@ -70,6 +72,84 @@ class MoviesRepositoryImpl @Inject constructor(
 
     override fun getMovie(id: Long): Movie? =
         movieDao.getMovie(id)?.let { movieMapper.transform(it) }
+
+    override suspend fun getDistinctGenres(): List<String> = coroutineScope {
+        val start = System.currentTimeMillis()
+        val allGenres = movieDao.allGenres()
+        println("allGenres time:${System.currentTimeMillis() - start}")
+        val start2 = System.currentTimeMillis()
+        val sequence = allGenres.asSequence()
+            .flatMap { it.split(",") }
+            .map { it.lowercase() }
+        println("sequence time:${System.currentTimeMillis() - start2}")
+        val brackets = async { sequence.filter { isBrackets(it) }.toList() }
+        val special = async { sequence.filter { isSpecial(it) }.toList() }
+        val oneWord = async { sequence.filter { isOneWord(it) }.toList() }
+        val list = sequence
+            .filter { !isSpecialSplit(it) }
+            .filter { !isSpecial(it) }
+            .filter { !isBrackets(it) }
+            .filter { !isOneWord(it) }
+            .filter { !ignore(it) }
+            .flatMap { it.split(" ") }
+            .map { it.trim().replace(".", "") }
+            .filter { it.isNotBlank() }
+            .plus(brackets.await())
+            .plus(oneWord.await())
+            .plus(special.await())
+            .plus(specialSplitGenres)
+            .distinct()
+            .sorted()
+            .toList()
+        println("All time:${System.currentTimeMillis() - start}")
+        list
+    }
+
+    private fun isOneWord(it: String) = it.contains(""" \D{1,3} """.toRegex())
+
+    private fun ignore(it: String) = it.contains("александра леклер")
+            || it.contains("""\Sслова""".toRegex())
+
+    private val specialSplitGenres = listOf(
+        "индийское кино",
+        "любовный роман",
+        "драма для взрослых",
+        "восточные единоборства",
+        "боевые искусства",
+        "остросюжетная мелодрама",
+        "лирическая комедия",
+        "военный фильм",
+        "фильм-спектакль",
+        "рисованая анимация",
+        "рисованная анимация",
+        "обучающее видео",
+        "мультипликационный сериал",
+        "немое кино",
+        "биографическая драма",
+        "любительское видео",
+        "военная драма",
+        "военный парад",
+        "военный фильм",
+        "боевик",
+        "боевики",
+        "рукопашный бой",
+        "фильм ужасов",
+        "реальное тв",
+        "для взрослых",
+        "черный юмор",
+        "анимационный боевик",
+        "историческая драма",
+        "авторский проект",
+    )
+
+    private fun isSpecialSplit(it: String): Boolean = specialSplitGenres.any { genre ->
+        it.contains(genre)
+    }
+
+    private fun isSpecial(it: String) = it.contains("""тв\s?-\s?шоу""".toRegex())
+
+    private fun isBrackets(it: String) = it.contains("""\(""".toRegex())
+            || it.contains("""\)""".toRegex())
 
     override fun getSaveData(dbId: Long?): SaveData {
         val history = historyDao.getHistory(dbId)

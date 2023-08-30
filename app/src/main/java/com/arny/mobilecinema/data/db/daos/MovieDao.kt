@@ -20,4 +20,7 @@ interface MovieDao : BaseDao<MovieEntity> {
 
     @Query("SELECT dbId FROM movies ORDER BY dbId DESC LIMIT 1")
     fun getLastId(): Long
+
+    @Query("SELECT DISTINCT genre FROM movies")
+    fun allGenres(): List<String>
 }

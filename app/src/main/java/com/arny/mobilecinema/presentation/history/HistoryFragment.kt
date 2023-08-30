@@ -2,7 +2,12 @@ package com.arny.mobilecinema.presentation.history
 
 import android.content.Context
 import android.os.Bundle
-import android.view.*
+import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
+import android.view.View
+import android.view.ViewGroup
 import android.widget.SearchView
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
@@ -47,6 +52,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
     private var currentOrder: String = ""
     private var searchType: String = ""
     private var hasSavedData: Boolean = false
+
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
         super.onAttach(context)
@@ -116,14 +122,17 @@ class HistoryFragment : Fragment(), OnSearchListener {
                         findNavController().popBackStack()
                         true
                     }
+
                     R.id.action_order_settings -> {
                         showCustomOrderDialog()
                         true
                     }
+
                     R.id.action_search_settings -> {
                         showCustomSearchDialog()
                         true
                     }
+
                     R.id.menu_action_clear_cache -> {
                         alertDialog(
                             getString(R.string.question_remove),
@@ -138,11 +147,11 @@ class HistoryFragment : Fragment(), OnSearchListener {
                         )
                         true
                     }
+
                     else -> false
                 }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
-
 
     private fun showCustomOrderDialog() {
         createCustomLayoutDialog(
@@ -171,7 +180,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
                             AppConstants.Order.YEAR_ASC -> rbYearAsc.isChecked = true
                             else -> rbNone.isChecked = true
                         }
-                    }?: kotlin.run {
+                    } ?: kotlin.run {
                         rbNone.isChecked = true
                     }
                     radioBtn.forEach { (rb, orderString) ->
@@ -212,7 +221,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
                             AppConstants.SearchType.GENRES -> rbGenres.isChecked = true
                             else -> rbTitle.isChecked = true
                         }
-                    }?: kotlin.run {
+                    } ?: kotlin.run {
                         rbTitle.isChecked = true
                     }
                     radioBtn.forEach { (rb, orderString) ->
@@ -226,7 +235,6 @@ class HistoryFragment : Fragment(), OnSearchListener {
             }
         )
     }
-
 
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()

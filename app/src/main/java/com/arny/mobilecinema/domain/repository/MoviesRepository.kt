@@ -25,4 +25,5 @@ interface MoviesRepository {
     fun saveOrder(order: String)
     fun clearAllViewHistory():Boolean
     suspend fun isMoviesEmpty(): Boolean
+    suspend fun getDistinctGenres(): List<String>
 }

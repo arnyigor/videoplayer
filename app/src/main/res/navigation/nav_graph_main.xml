@@ -46,8 +46,8 @@
             app:nullable="true"
             android:defaultValue="@null" />
         <action
-            android:id="@+id/action_nav_home_to_extendedSearchFragment"
-            app:destination="@id/extendedSearchFragment" />
+            android:id="@+id/action_nav_home_to_nav_extended_search"
+            app:destination="@id/nav_extended_search" />
     </fragment>
     <fragment
         android:id="@+id/nav_details"
@@ -110,7 +110,7 @@
             android:defaultValue="false" />
     </fragment>
     <fragment
-        android:id="@+id/extendedSearchFragment"
-        android:name="com.arny.mobilecinema.presentation.home.ExtendedSearchFragment"
+        android:id="@+id/nav_extended_search"
+        android:name="com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchFragment"
         android:label="ExtendedSearchFragment" />
 </navigation>

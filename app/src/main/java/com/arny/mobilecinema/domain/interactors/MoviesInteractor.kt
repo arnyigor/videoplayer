@@ -27,7 +27,12 @@ interface MoviesInteractor {
     )
 
     fun getSaveData(dbId: Long?): Flow<DataResult<SaveData>>
-    fun getHistoryMovies(search: String = "", order: String, searchType: String): Flow<PagingData<ViewMovie>>
+    fun getHistoryMovies(
+        search: String = "",
+        order: String,
+        searchType: String
+    ): Flow<PagingData<ViewMovie>>
+
     fun isHistoryEmpty(): Flow<DataResult<Boolean>>
     fun clearViewHistory(dbId: Long?): Flow<DataResult<Boolean>>
     fun addToHistory(dbId: Long?): Flow<DataResult<Boolean>>
@@ -36,4 +41,5 @@ interface MoviesInteractor {
     fun clearAllViewHistory(): Flow<DataResult<Boolean>>
     fun isMoviesEmpty(): Flow<DataResult<Boolean>>
     fun getBaseUrl(): String
+    suspend fun loadDistinctGenres(): List<String>
 }

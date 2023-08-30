@@ -19,6 +19,8 @@ import com.arny.mobilecinema.domain.repository.UpdateRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import javax.inject.Singleton
 
 @Module
@@ -28,6 +30,11 @@ interface DataModule {
         @Provides
         @Singleton
         fun providePreferences(context: Context): Prefs = Prefs.getInstance(context)
+
+        @Provides
+        @Singleton
+        fun providesIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+
 
         @Provides
         @Singleton

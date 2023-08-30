@@ -12,6 +12,7 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.player.PlayerSource
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -21,6 +22,7 @@ class MoviesInteractorImpl @Inject constructor(
     private val repository: MoviesRepository,
     private val updateRepository: UpdateRepository,
     private val playerSource: PlayerSource,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : MoviesInteractor {
 
     override fun isPipModeEnable(): Boolean = repository.prefPipMode
@@ -33,6 +35,10 @@ class MoviesInteractorImpl @Inject constructor(
     ): Flow<PagingData<ViewMovie>> {
         val type = searchType.ifBlank { AppConstants.SearchType.TITLE }
         return repository.getMovies(search, order, type, searchAddTypes).flow
+    }
+
+    override suspend fun loadDistinctGenres(): List<String> = withContext(dispatcher) {
+        repository.getDistinctGenres()
     }
 
     override fun getBaseUrl(): String = updateRepository.baseUrl

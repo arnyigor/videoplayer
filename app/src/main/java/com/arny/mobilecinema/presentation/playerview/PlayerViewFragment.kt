@@ -77,6 +77,7 @@ import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import javax.inject.Inject
 import kotlin.math.abs
+import kotlin.properties.Delegates
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
     private var title: String = ""
@@ -279,6 +280,18 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         initVolumeObserver()
     }
 
+    private var volumeObs: Int by Delegates.observable(-1) { _, old, newVolume ->
+        if (old != newVolume) {
+            volume = newVolume
+            boost = 0
+            enhancer?.setTargetGain(boost)
+            binding.tvVolume.visibility = View.VISIBLE
+            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
+            updateUIByVolume()
+            hideVolumeBrightViews()
+        }
+    }
+
     private fun initVolumeObserver() {
         volumeObserver =
             SettingsContentObserver(requireContext(), Handler(Looper.getMainLooper())) { v ->
@@ -287,13 +300,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun updateVolumeByContentResolver(v: Int) {
-        volume = v
-        boost = 0
-        enhancer?.setTargetGain(boost)
-        binding.tvVolume.visibility = View.VISIBLE
-        audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
-        updateUIByVolume()
-        hideVolumeBrightViews()
+        volumeObs = v
     }
 
     private fun initAudioManager() {
@@ -399,8 +406,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         return when {
             !movieTitle.isNullOrBlank() && savedTitle.isNotBlank() && savedTitle != "null" ->
                 savedTitle
+
             !movieTitle.isNullOrBlank() && (savedTitle.isBlank() || savedTitle == "null") ->
                 movieTitle
+
             else -> getString(R.string.no_movie_title)
         }
     }
@@ -853,6 +862,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
         }
     }
+
     /*    private fun setQualityByConnection(list: ArrayList<Pair<String, TrackSelectionOverride>>) {
             val connectionType = getConnectionType(requireContext())
             val groupList = list.map { it.second }.map { it.mediaTrackGroup }
@@ -909,6 +919,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             Player.STATE_BUFFERING -> {
                 binding.progressBar.isVisible = true
             }
+
             Player.STATE_ENDED -> {
                 binding.progressBar.isVisible = false
             }
@@ -917,6 +928,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 binding.progressBar.isVisible = false
                 setUpPopups()
             }
+
             else -> {}
         }
     }

@@ -191,9 +191,9 @@ class HomeFragment : Fragment(), OnSearchListener {
     }
 
     private fun observeResult() {
-        setFragmentResultListener(AppConstants.FRAGMENTS.RESULTS) { _, _ ->
-            /*  val type = bundle.getString(AppConstants.SearchType.TYPE)
-              Timber.d("AppConstants.SearchType.TYPE:$type")*/
+        setFragmentResultListener(AppConstants.FRAGMENTS.RESULTS) { _, bundle ->
+              val type = bundle.getString(AppConstants.SearchType.TYPE)
+              Timber.d("AppConstants.SearchType.TYPE:$type")
         }
     }
 
@@ -439,7 +439,7 @@ class HomeFragment : Fragment(), OnSearchListener {
 
                     R.id.action_extended_search_settings -> {
                         findNavController().navigate(
-                            HomeFragmentDirections.actionNavHomeToExtendedSearchFragment()
+                            HomeFragmentDirections.actionNavHomeToNavExtendedSearch()
                         )
                         true
                     }
