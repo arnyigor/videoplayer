@@ -42,17 +42,28 @@
                     android:inputType="text" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <CheckBox
-                android:id="@+id/chbCinemas"
-                style="@style/DetailsSubTitleStyle"
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilTypes"
+                style="@style/InputTextStyle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/margin_small"
-                android:checked="true"
-                android:text="@string/in_films"
+                android:hint="@string/category"
+                android:textColorHint="@color/colorAccent"
+                app:endIconTint="@color/colorAccent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tilSearch" />
+                app:layout_constraintTop_toTopOf="parent">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/tiedtTypes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    tools:text="Фильм, Сериал"
+                    android:focusable="false"
+                    android:cursorVisible="false"
+                    android:clickable="true"
+                    android:inputType="text" />
+            </com.google.android.material.textfield.TextInputLayout>
 
             <CheckBox
                 android:id="@+id/chbSerials"

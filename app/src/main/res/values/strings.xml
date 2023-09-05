@@ -98,6 +98,8 @@
     <string name="menu_check_update">Проверить новые фильмы</string>
     <string name="check_new_video_data">Проверить новые фильмы и сериалы?</string>
     <string name="enter_url">Введите путь</string>
+    <string name="types_films">Фильмы</string>
+    <string name="types_serials">Сериалы</string>
     <string name="genre">Жанр</string>
     <string name="actors">Актёры:</string>
     <string name="movie_description">Описание:</string>
@@ -118,6 +120,8 @@
     <string name="pause_download">Приостановить</string>
     <string name="resume_download">Продолжить</string>
     <string name="volume_zero">0</string>
+    <string name="category">Категория</string>
+    <string name="choose_type">Выбрать категорию</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

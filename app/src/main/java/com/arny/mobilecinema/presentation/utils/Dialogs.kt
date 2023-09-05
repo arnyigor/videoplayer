@@ -9,13 +9,11 @@ import android.view.View
 import androidx.annotation.LayoutRes
 import androidx.fragment.app.Fragment
 import com.afollestad.materialdialogs.MaterialDialog
-import com.afollestad.materialdialogs.WhichButton
-import com.afollestad.materialdialogs.actions.getActionButton
-import com.afollestad.materialdialogs.actions.setActionButtonEnabled
 import com.afollestad.materialdialogs.customview.customView
 import com.afollestad.materialdialogs.customview.getCustomView
 import com.afollestad.materialdialogs.input.input
 import com.afollestad.materialdialogs.list.listItems
+import com.afollestad.materialdialogs.list.listItemsMultiChoice
 import com.afollestad.materialdialogs.list.listItemsSingleChoice
 
 fun Fragment.createCustomLayoutDialog(
@@ -71,9 +69,36 @@ fun Fragment.singleChoiceDialog(
     val dlg = MaterialDialog(requireContext())
         .title(text = title)
         .cancelable(cancelable ?: false)
-        .listItemsSingleChoice(items = items, initialSelection = selectedPosition) { dlg, index, text ->
+        .listItemsSingleChoice(
+            items = items,
+            initialSelection = selectedPosition
+        ) { dlg, index, text ->
             onSelect(index, dlg)
         }
+    dlg.show()
+    return dlg
+}
+
+fun Fragment.multiChoiceDialog(
+    title: String,
+    btnOk: String,
+    btnCancel: String,
+    initItems: List<String>,
+    selected: IntArray = intArrayOf(),
+    cancelable: Boolean? = false,
+    onSelect: (indices: IntArray, dlg: MaterialDialog) -> Unit
+): MaterialDialog {
+    val dlg = MaterialDialog(requireContext())
+        .title(text = title)
+        .cancelable(cancelable ?: false)
+        .listItemsMultiChoice(
+            items = initItems,
+            initialSelection = selected
+        ) { dlg, indices: IntArray, _ ->
+            onSelect(indices, dlg)
+        }
+    dlg.positiveButton(text = btnOk)
+    dlg.negativeButton(text = btnCancel)
     dlg.show()
     return dlg
 }

@@ -37,12 +37,13 @@
     </style>
 
     <!--Input label style-->
-    <style name="InputTextStyle" parent="Widget.MaterialComponents.TextInputLayout.FilledBox">
+    <style name="InputTextStyle" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
         <item name="android:textColor">@color/textColorPrimary</item>
         <item name="boxBackgroundColor">@color/colorPrimaryDark</item>
         <item name="colorControlNormal">@color/textColorPrimary</item>
         <item name="colorControlActivated">@color/textColorPrimary</item>
         <item name="hintTextColor">@color/textColorPrimary</item>
+        <item name="boxStrokeColor">@color/text_input_box_stroke</item>
     </style>
 
     <style name="MyDialogStyle" parent="Theme.MaterialComponents.DayNight.Dialog">

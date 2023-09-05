@@ -12,6 +12,7 @@ import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
+import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -45,8 +47,8 @@ class HomeViewModel @Inject constructor(
     val empty = _empty.asStateFlow()
     private val _toast = MutableSharedFlow<IWrappedString>()
     val toast = _toast.asSharedFlow()
-    private val _alert = MutableSharedFlow<Alert>()
-    val alert = _alert.asSharedFlow()
+    private val _alert = BufferedChannel<Alert>()
+    val alert = _alert.receiveAsFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
     private val _order = MutableStateFlow("")
@@ -115,8 +117,8 @@ class HomeViewModel @Inject constructor(
 
                         is DataResult.Success -> {
                             val updateTime = result.result
-                            if (updateTime.isNotBlank()) {
-                                _alert.emit(
+                            if (updateTime.isNotBlank() && !updateTime.contains("""[/|\\]""".toRegex())) {
+                                _alert.trySend(
                                     Alert(
                                         title = ResourceString(R.string.new_films_update),
                                         content = ResourceString(

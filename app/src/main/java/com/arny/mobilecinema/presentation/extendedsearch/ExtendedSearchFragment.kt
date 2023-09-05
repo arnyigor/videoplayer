@@ -8,7 +8,6 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
 import androidx.core.os.bundleOf
 import androidx.core.view.MenuProvider
 import androidx.fragment.app.Fragment
@@ -23,8 +22,12 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.databinding.FExtendedSearchBinding
+import com.arny.mobilecinema.presentation.uimodels.Dialog
+import com.arny.mobilecinema.presentation.uimodels.DialogType
 import com.arny.mobilecinema.presentation.utils.autoClean
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.multiChoiceDialog
+import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
@@ -80,6 +83,38 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
                 genresAdapter.submitList(genres.toList())
             }
         }
+        launchWhenCreated {
+            viewModel.dialog.collectLatest { dialog ->
+                showDialog(dialog)
+            }
+        }
+        launchWhenCreated {
+            viewModel.types.collectLatest { typesString ->
+                setTypes(typesString)
+            }
+        }
+    }
+
+    private fun setTypes(typesString: List<IWrappedString>) {
+        val types = typesString.map { it.toString(requireContext()) }
+        binding.tiedtTypes.setText(types.joinToString(","))
+    }
+
+    private fun showDialog(dialog: Dialog) {
+        when (dialog.type) {
+            is DialogType.MultiChoose -> {
+                multiChoiceDialog(
+                    title = dialog.title.toString(requireContext()).orEmpty(),
+                    btnOk = dialog.btnOk?.toString(requireContext()).orEmpty(),
+                    btnCancel = dialog.btnCancel?.toString(requireContext()).orEmpty(),
+                    initItems = dialog.type.items.map { it.toString(requireContext()).orEmpty() },
+                    onSelect = { indices: IntArray, dlg ->
+                        viewModel.onTypesChosen(indices)
+                        dlg.dismiss()
+                    }
+                )
+            }
+        }
     }
 
     private fun initMenu() {
@@ -102,14 +137,17 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
 
-    private fun initListeners() {
-        binding.btnSearchExtend.setOnClickListener {
+    private fun initListeners() = with(binding) {
+        btnSearchExtend.setOnClickListener {
             setFragmentResult(
                 AppConstants.FRAGMENTS.RESULTS, bundleOf(
                     AppConstants.SearchType.TYPE to AppConstants.SearchType.CINEMA
                 )
             )
             findNavController().popBackStack()
+        }
+        tiedtTypes.setOnClickListener {
+            viewModel.onTypesClicked()
         }
     }
 }

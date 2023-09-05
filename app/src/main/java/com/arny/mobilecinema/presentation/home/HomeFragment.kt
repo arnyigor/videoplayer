@@ -28,6 +28,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
+import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
@@ -397,6 +398,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                 menu.findItem(R.id.action_search).isVisible = hasQuery
                 menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
                 menu.findItem(R.id.action_order_settings).isVisible = hasQuery
+                menu.findItem(R.id.action_extended_search_settings).isVisible = false // TODO Сделать открытым
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {

@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.presentation.utils
 
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 fun <T> BufferedSharedFlow(
@@ -12,3 +13,8 @@ fun <T> BufferedSharedFlow(
     onBufferOverflow = bufferOverflow,
     replay = replay
 )
+
+@Suppress("FunctionName")
+fun <T> BufferedChannel(): Channel<T> = Channel(capacity = Channel.BUFFERED)
+
+fun Channel<Unit>.offer() = trySend(Unit).isSuccess
