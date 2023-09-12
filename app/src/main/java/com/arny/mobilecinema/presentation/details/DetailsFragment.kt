@@ -47,10 +47,10 @@ import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
 import com.arny.mobilecinema.presentation.utils.printTime
-import com.arny.mobilecinema.presentation.utils.registerReceiver
+import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import com.arny.mobilecinema.presentation.utils.toast
-import com.arny.mobilecinema.presentation.utils.unregisterReceiver
+import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
@@ -157,14 +157,14 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     override fun onResume() {
         super.onResume()
-        registerReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
-        registerReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
+        registerLocalReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
+        registerLocalReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
     }
 
     override fun onPause() {
         super.onPause()
-        unregisterReceiver(downloadReceiver)
-        unregisterReceiver(downloadUpdateReceiver)
+        unregisterLocalReceiver(downloadReceiver)
+        unregisterLocalReceiver(downloadUpdateReceiver)
     }
 
     private fun initMenu() {

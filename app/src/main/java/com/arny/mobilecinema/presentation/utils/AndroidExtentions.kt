@@ -3,8 +3,12 @@ package com.arny.mobilecinema.presentation.utils
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.SearchManager
-import android.content.*
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Context.POWER_SERVICE
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.database.Cursor
@@ -25,7 +29,11 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.*
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.SearchView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.annotation.ColorInt
 import androidx.annotation.ColorRes
@@ -440,6 +448,21 @@ fun Fragment.launchWhenStarted(block: suspend CoroutineScope.() -> Unit) {
     viewLifecycleOwner.lifecycleScope.launchWhenStarted { block.invoke(this) }
 }
 
+fun Context.sendBroadcast(action: String, extras: Bundle.() -> Unit = {}) {
+    val intent = Intent(action).apply {
+        this.putExtras(Bundle().apply(extras))
+    }
+    applicationContext.sendBroadcast(intent)
+}
+
+fun Fragment.registerReceiver(action: String, receiver: BroadcastReceiver) {
+    requireActivity().registerReceiver(receiver, IntentFilter(action))
+}
+
+fun Fragment.unregisterReceiver(receiver: BroadcastReceiver) {
+    requireActivity().unregisterReceiver(receiver)
+}
+
 fun Context.sendLocalBroadcast(action: String, extras: Bundle.() -> Unit = {}) {
     val intent = Intent(action).apply {
         this.putExtras(Bundle().apply(extras))
@@ -447,12 +470,12 @@ fun Context.sendLocalBroadcast(action: String, extras: Bundle.() -> Unit = {}) {
     LocalBroadcastManager.getInstance(applicationContext).sendBroadcast(intent)
 }
 
-fun Fragment.registerReceiver(action: String, receiver: BroadcastReceiver) {
+fun Fragment.registerLocalReceiver(action: String, receiver: BroadcastReceiver) {
     LocalBroadcastManager.getInstance(requireContext().applicationContext)
         .registerReceiver(receiver, IntentFilter(action))
 }
 
-fun Fragment.unregisterReceiver(receiver: BroadcastReceiver) {
+fun Fragment.unregisterLocalReceiver(receiver: BroadcastReceiver) {
     LocalBroadcastManager.getInstance(requireContext().applicationContext)
         .unregisterReceiver(receiver)
 }

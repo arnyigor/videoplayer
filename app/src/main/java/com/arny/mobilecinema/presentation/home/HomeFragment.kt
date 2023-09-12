@@ -28,7 +28,6 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
-import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
@@ -41,8 +40,8 @@ import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
-import com.arny.mobilecinema.presentation.utils.checkPermission
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
+import com.arny.mobilecinema.presentation.utils.dump
 import com.arny.mobilecinema.presentation.utils.getImgCompat
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.inputDialog
@@ -118,6 +117,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                 }
             }
         }
+    private val updateReceiver by lazy { makeBroadcastReceiver() }
 
     private fun request() {
         when (request) {
@@ -126,7 +126,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
-    private val updateReceiver = object : BroadcastReceiver() {
+    private fun makeBroadcastReceiver(): BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent != null) {
                 when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
@@ -140,6 +140,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                     }
 
                     AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
+                        binding.tvEmptyView.setText(R.string.update_finished_error)
                         toast(getString(R.string.update_finished_error))
                         viewModel.loadMovies()
                     }

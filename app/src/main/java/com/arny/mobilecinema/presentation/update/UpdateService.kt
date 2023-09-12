@@ -10,10 +10,8 @@ import android.graphics.Color
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
-import androidx.core.os.bundleOf
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.isFileExists
@@ -22,10 +20,15 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
-import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
+import com.arny.mobilecinema.presentation.utils.sendBroadcast
 import com.google.gson.GsonBuilder
 import dagger.android.AndroidInjection
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileReader
 import javax.inject.Inject
@@ -63,6 +66,10 @@ class UpdateService : LifecycleService(), CoroutineScope {
             } catch (e: Exception) {
                 // TODO: Отобразить ошибку и записать
                 e.printStackTrace()
+                sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                    putString(AppConstants.ACTION_UPDATE_STATUS, AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR)
+                }
+                delay(1000)
                 stop()
             }
         }
@@ -73,12 +80,11 @@ class UpdateService : LifecycleService(), CoroutineScope {
         withContext(Dispatchers.IO) {
             val filePath = intent?.getStringExtra(AppConstants.SERVICE_PARAM_FILE)
             if (filePath != null && intent.action == AppConstants.ACTION_UPDATE) {
-                Intent().also { intent ->
-                    intent.action = AppConstants.ACTION_UPDATE_STATUS
-                    bundleOf(
-                        AppConstants.ACTION_UPDATE_STATUS to AppConstants.ACTION_UPDATE_STATUS_STARTED
+                sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                    putString(
+                        AppConstants.ACTION_UPDATE_STATUS,
+                        AppConstants.ACTION_UPDATE_STATUS_STARTED
                     )
-                    sendBroadcast(intent)
                 }
                 val file = File(filePath)
                 val dataFile = unzipData(file, context = applicationContext)
@@ -112,7 +118,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
                     } else {
                         AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
                     }
-                    sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                    sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
                         putString(AppConstants.ACTION_UPDATE_STATUS, completeStatus)
                     }
                     delay(3000) // wait for sending broadcast FIXME
