@@ -399,7 +399,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                 menu.findItem(R.id.action_search).isVisible = hasQuery
                 menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
                 menu.findItem(R.id.action_order_settings).isVisible = hasQuery
-                menu.findItem(R.id.action_extended_search_settings).isVisible = false // TODO Сделать открытым
+                menu.findItem(R.id.action_extended_search_settings).isVisible = true // TODO Сделать открытым
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {

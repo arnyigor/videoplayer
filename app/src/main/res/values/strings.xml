@@ -95,6 +95,7 @@
     <string name="search_by_directors">В режисёрах</string>
     <string name="search_by_actors">В актёрах</string>
     <string name="search_by_genres">В жанрах</string>
+    <string name="genres">Жанры</string>
     <string name="menu_check_update">Проверить новые фильмы</string>
     <string name="check_new_video_data">Проверить новые фильмы и сериалы?</string>
     <string name="enter_url">Введите путь</string>
@@ -122,6 +123,10 @@
     <string name="volume_zero">0</string>
     <string name="category">Категория</string>
     <string name="choose_type">Выбрать категорию</string>
+    <string name="choose_genre">Выбрать жанр</string>
+    <string name="years_range">Дипазон лет</string>
+    <string name="years_range_from">c</string>
+    <string name="years_range_to">до</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

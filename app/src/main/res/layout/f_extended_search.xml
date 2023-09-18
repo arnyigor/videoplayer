@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
+    android:id="@+id/clRoot"
     android:layout_height="match_parent"
     android:paddingHorizontal="@dimen/margin"
     android:paddingVertical="@dimen/margin">
@@ -77,17 +78,90 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/chbCinemas" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvGenres"
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/tilGenres"
+                style="@style/InputTextStyle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/margin_small"
+                android:hint="@string/genres"
+                android:textColorHint="@color/colorAccent"
+                app:endIconDrawable="@android:drawable/ic_delete"
+                app:endIconMode="custom"
+                app:endIconTint="@color/colorAccent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/chbSerials"
-                tools:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
-                tools:listitem="@layout/i_custom_chip_choise"
-                tools:orientation="horizontal" />
+                app:layout_constraintTop_toTopOf="parent">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/tiedtGenres"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:cursorVisible="false"
+                    android:focusable="false"
+                    android:inputType="text"
+                    tools:text="Мультфильм" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/clRanges"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:id="@+id/tvYearsRange"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/years_range"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/tvYearsRangeFrom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/margin_small"
+                    android:text="@string/years_range_from"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@+id/tvYearsRange" />
+
+                <EditText
+                    android:id="@+id/edtRangeFrom"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/margin_small"
+                    android:inputType="numberDecimal"
+                    app:layout_constraintBottom_toBottomOf="@+id/tvYearsRangeFrom"
+                    app:layout_constraintStart_toEndOf="@+id/tvYearsRangeFrom"
+                    app:layout_constraintTop_toTopOf="@+id/tvYearsRangeFrom"
+                    tools:text="1920" />
+
+                <TextView
+                    android:id="@+id/tvYearsRangeTo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/margin_small"
+                    android:text="@string/years_range_to"
+                    app:layout_constraintBottom_toBottomOf="@+id/edtRangeFrom"
+                    app:layout_constraintStart_toEndOf="@+id/edtRangeFrom"
+                    app:layout_constraintTop_toTopOf="@+id/edtRangeFrom" />
+
+                <EditText
+                    android:id="@+id/edtRangeTo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="@dimen/margin_small"
+                    android:inputType="numberDecimal"
+                    app:layout_constraintBottom_toBottomOf="@+id/edtRangeFrom"
+                    app:layout_constraintStart_toEndOf="@+id/tvYearsRangeTo"
+                    app:layout_constraintTop_toTopOf="@+id/edtRangeFrom"
+                    app:layout_constraintVertical_bias="0.0"
+                    tools:text="2023" />
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
         </LinearLayout>
     </ScrollView>
 

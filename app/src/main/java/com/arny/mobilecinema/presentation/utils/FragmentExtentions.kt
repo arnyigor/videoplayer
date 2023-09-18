@@ -17,6 +17,7 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import com.arny.mobilecinema.data.models.DataThrowable
+import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 
 fun Fragment.registerContentResolver(observer: ContentObserver) {
     requireContext().contentResolver.registerContentObserver(
@@ -152,6 +153,9 @@ fun Fragment.launchIntent(
         startActivityForResult(intent, requestCode, options)
     }
 }
+
+fun Fragment.getString(string: IWrappedString?): String =
+    string?.toString(requireContext()).orEmpty()
 
 fun Fragment.toastError(throwable: Throwable?) {
     throwable?.printStackTrace()
