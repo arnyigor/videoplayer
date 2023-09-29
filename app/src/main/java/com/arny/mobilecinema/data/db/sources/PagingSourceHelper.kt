@@ -11,6 +11,8 @@ fun getMoviesSQL(
     movieTypes: List<MovieType>,
     limit: Int,
     offset: Int,
+    genres: List<String> = emptyList(),
+    countries: List<String> = emptyList(),
 ): SimpleSQLiteQuery {
     val sb = StringBuilder()
     val args = mutableListOf<Any?>()

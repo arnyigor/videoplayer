@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.db.models.MovieUpdate
+import com.arny.mobilecinema.domain.models.SimpleIntRange
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -23,4 +24,7 @@ interface MovieDao : BaseDao<MovieEntity> {
 
     @Query("SELECT DISTINCT genre FROM movies")
     fun allGenres(): List<String>
+
+    @Query("SELECT MIN(year) as `from`, MAX(year) as `to` FROM movies WHERE year > 1900")
+    fun getYearsMinMax(): SimpleIntRange
 }

@@ -11,7 +11,7 @@ import android.view.ViewGroup
 import androidx.core.os.bundleOf
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
-import androidx.core.widget.addTextChangedListener
+import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResult
 import androidx.fragment.app.viewModels
@@ -22,12 +22,13 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.databinding.FExtendedSearchBinding
+import com.arny.mobilecinema.domain.models.SimpleIntRange
+import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel.Companion.DIALOG_REQ_COUNTRIES
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel.Companion.DIALOG_REQ_GENRES
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel.Companion.DIALOG_REQ_TYPES
 import com.arny.mobilecinema.presentation.uimodels.Dialog
 import com.arny.mobilecinema.presentation.uimodels.DialogType
 import com.arny.mobilecinema.presentation.utils.getString
-import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.multiChoiceDialog
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
@@ -35,6 +36,7 @@ import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import kotlinx.coroutines.flow.collectLatest
+import timber.log.Timber
 import java.text.NumberFormat
 import javax.inject.Inject
 
@@ -47,6 +49,11 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
     @Inject
     lateinit var prefs: Prefs
     private val viewModel: ExtendedSearchViewModel by viewModels { vmFactory }
+
+    private companion object {
+        const val MIN_IMDB = 0.0f
+        const val MAX_IMDB = 10.0f
+    }
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
@@ -65,26 +72,44 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         updateTitle(getString(R.string.search_extended_title))
-        initUI()
+        initUi()
         initMenu()
         initListeners()
         observeData()
     }
 
-    private fun initUI() = with(binding) {
-        edtRangeFrom.setOnFocusChangeListener { _, hasFocus ->
-            if(!hasFocus){
-                viewModel.onRangeFromChange(edtRangeFrom.text.toString())
-            }
+    private fun initUi() = with(binding) {
+        rslYears.setLabelFormatter { value: Float ->
+            NumberFormat.getInstance().format(value.toInt()).replace(",", "")
         }
-        edtRangeTo.setOnFocusChangeListener { _, hasFocus ->
-            if(!hasFocus){
-                viewModel.onRangeToChange(edtRangeFrom.text.toString())
-            }
+        rslYears.addOnChangeListener { slider, _, _ ->
+            val from = slider.values[0]
+            val to = slider.values[1]
+            tvYearsRange.text = getString(
+                ResourceString(
+                    R.string.years_range,
+                    from.toInt().toString(),
+                    to.toInt().toString()
+                )
+            )
+            viewModel.updateYears(from, to)
         }
-        clRoot.setOnClickListener {
-            btnSearchExtend.clearFocus()
-            requireActivity().hideKeyboard()
+
+        initImdbRangeSlider()
+        rslImdb.setLabelFormatter { value: Float ->
+            NumberFormat.getInstance().format(value)
+        }
+        rslImdb.addOnChangeListener { slider, _, _ ->
+            val from = slider.values[0]
+            val to = slider.values[1]
+            tvImdbRange.text = getString(
+                ResourceString(
+                    R.string.imdb_range,
+                    from.toInt().toString(),
+                    to.toInt().toString()
+                )
+            )
+            viewModel.updateImdb(from, to)
         }
     }
 
@@ -92,6 +117,17 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
         launchWhenCreated {
             viewModel.dialog.collectLatest { dialog ->
                 showDialog(dialog)
+            }
+        }
+        launchWhenCreated {
+            viewModel.loading.collectLatest { loading ->
+                binding.pbLoading.isVisible = loading
+            }
+        }
+        launchWhenCreated {
+            viewModel.showContent.collectLatest { showContent ->
+                binding.svContent.isVisible = showContent
+                binding.btnSearchExtend.isVisible = showContent
             }
         }
         launchWhenCreated {
@@ -105,32 +141,82 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
             }
         }
         launchWhenCreated {
+            viewModel.selectedCountries.collectLatest { countries ->
+                setCountries(countries)
+            }
+        }
+        launchWhenCreated {
             viewModel.yearsRange.collectLatest { range ->
                 initYearsRangeSlider(range)
             }
         }
-    }
-
-    private fun initYearsRangeSlider(yearsRange: YearsRangeUIModel?) = with(binding) {
-        if (yearsRange != null) {
-            val from = yearsRange.from
-            val to = yearsRange.to
-            edtRangeFrom.setText(from.toString())
-            edtRangeTo.setText(to.toString())
-            tvYearsRange.isVisible = true
-            clRanges.isVisible = true
+        launchWhenCreated {
+            viewModel.onResult.collectLatest { result ->
+                onResultSend(result)
+            }
         }
     }
 
-    private fun setTypes(typesString: List<IWrappedString>) {
-        val types = typesString.map { it.toString(requireContext()) }
-        binding.tiedtTypes.setText(types.joinToString(","))
+    private fun onResultSend(result: ExtendSearchResult) {
+        setFragmentResult(
+            AppConstants.FRAGMENTS.RESULTS, bundleOf(
+                AppConstants.SearchType.TYPES to result.types,
+                AppConstants.SearchType.TITLE to result.search,
+                AppConstants.SearchType.GENRES to result.genres,
+                AppConstants.SearchType.YEARS to result.yearsRange,
+                AppConstants.SearchType.IMDBS to result.imdbRange,
+            )
+        )
+        findNavController().popBackStack()
     }
 
-    private fun setGenres(genres: List<GenreUIModel>) = with(binding) {
-        val genresTypes = genres.map { it.title }
-        tiedtGenres.setText(genresTypes.joinToString(","))
+    private fun initYearsRangeSlider(yearsRange: SimpleIntRange?) = with(binding) {
+        if (yearsRange != null) {
+            val from = yearsRange.from
+            val to = yearsRange.to
+            rslYears.valueFrom = from.toFloat()
+            rslYears.valueTo = to.toFloat()
+            rslYears.values = listOf(from.toFloat(), to.toFloat())
+            tvYearsRange.text = getString(
+                ResourceString(R.string.years_range, from.toString(), to.toString())
+            )
+            tvYearsRange.isVisible = true
+            rslYears.isVisible = true
+        }
+    }
+
+    private fun initImdbRangeSlider() = with(binding) {
+        rslImdb.valueFrom = MIN_IMDB
+        rslImdb.valueTo = MAX_IMDB
+        rslImdb.values = listOf(MIN_IMDB, MAX_IMDB)
+        tvYearsRange.text = getString(
+            ResourceString(R.string.imdb_range, MIN_IMDB.toString(), MAX_IMDB.toString())
+        )
+        tvImdbRange.isVisible = true
+        rslImdb.isVisible = true
+    }
+
+    private fun setTypes(typesString: List<IWrappedString>) {
+        if (typesString.isEmpty()) {
+            binding.tiedtTypes.setText("")
+        } else {
+            binding.tiedtTypes.setText(typesString.joinToString(",") { getString(it) })
+        }
+        binding.tilTypes.isEndIconVisible = typesString.isNotEmpty()
+    }
+
+    private fun setGenres(genres: List<SelectUIModel>) = with(binding) {
+        if (genres.isEmpty()) {
+            tiedtGenres.setText("")
+        } else {
+            tiedtGenres.setText(genres.joinToString(",") { it.title })
+        }
         tilGenres.isEndIconVisible = genres.isNotEmpty()
+    }
+
+    private fun setCountries(countries: List<SelectUIModel>) = with(binding) {
+        tiedtCountries.setText(countries.joinToString(",") { it.title })
+        tilCountries.isEndIconVisible = countries.isNotEmpty()
     }
 
     private fun showDialog(dialog: Dialog) {
@@ -138,33 +224,21 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
             is DialogType.MultiChoose -> {
                 when (dialog.request) {
                     DIALOG_REQ_TYPES -> {
-                        multiChoiceDialog(
-                            title = dialog.title.toString(requireContext()).orEmpty(),
-                            btnOk = dialog.btnOk?.toString(requireContext()).orEmpty(),
-                            btnCancel = dialog.btnCancel?.toString(requireContext()).orEmpty(),
-                            initItems = dialog.type.items.map {
-                                it.toString(requireContext()).orEmpty()
-                            },
-                            onSelect = { indices: IntArray, dlg ->
-                                viewModel.onTypesChosen(indices)
-                                dlg.dismiss()
-                            }
-                        )
+                        showDialogMultiChoose(dialog, dialog.type) {
+                            viewModel.onTypesChosen(it)
+                        }
                     }
 
                     DIALOG_REQ_GENRES -> {
-                        multiChoiceDialog(
-                            title = dialog.title.toString(requireContext()).orEmpty(),
-                            btnOk = dialog.btnOk?.toString(requireContext()).orEmpty(),
-                            btnCancel = dialog.btnCancel?.toString(requireContext()).orEmpty(),
-                            initItems = dialog.type.items.map {
-                                it.toString(requireContext()).orEmpty()
-                            },
-                            onSelect = { indices: IntArray, dlg ->
-                                viewModel.onGenreSelectChanged(indices)
-                                dlg.dismiss()
-                            }
-                        )
+                        showDialogMultiChoose(dialog, dialog.type) {
+                            viewModel.onGenreSelectChanged(it)
+                        }
+                    }
+
+                    DIALOG_REQ_COUNTRIES -> {
+                        showDialogMultiChoose(dialog, dialog.type) {
+                            viewModel.onCountriesSelectChanged(it)
+                        }
                     }
 
                     else -> {}
@@ -172,6 +246,26 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
 
             }
         }
+    }
+
+    private fun showDialogMultiChoose(
+        dialog: Dialog,
+        type: DialogType.MultiChoose,
+        onSelect: (indices: IntArray) -> Unit
+    ) {
+        multiChoiceDialog(
+            title = dialog.title.toString(requireContext()).orEmpty(),
+            btnOk = dialog.btnOk?.toString(requireContext()).orEmpty(),
+            btnCancel = dialog.btnCancel?.toString(requireContext()).orEmpty(),
+            initItems = type.items.map {
+                it.toString(requireContext()).orEmpty()
+            },
+            onSelect = { indices: IntArray, dlg ->
+                onSelect(indices)
+                dlg.dismiss()
+            },
+            selected = type.selected.toIntArray()
+        )
     }
 
     private fun initMenu() {
@@ -195,13 +289,11 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
     }
 
     private fun initListeners() = with(binding) {
+        tiedtSearch.doAfterTextChanged {
+            viewModel.onSearchChange(it.toString())
+        }
         btnSearchExtend.setOnClickListener {
-            setFragmentResult(
-                AppConstants.FRAGMENTS.RESULTS, bundleOf(
-                    AppConstants.SearchType.TYPE to AppConstants.SearchType.CINEMA
-                )
-            )
-            findNavController().popBackStack()
+            viewModel.onResultClick()
         }
         tiedtTypes.setOnClickListener {
             viewModel.onTypesClicked()
@@ -209,8 +301,17 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
         tiedtGenres.setOnClickListener {
             viewModel.onGenresClicked()
         }
+        tiedtCountries.setOnClickListener {
+            viewModel.onCountriesClicked()
+        }
+        tilTypes.setEndIconOnClickListener {
+            viewModel.onRemoveTypesClicked()
+        }
         tilGenres.setEndIconOnClickListener {
             viewModel.onRemoveGenresClicked()
+        }
+        tilCountries.setEndIconOnClickListener {
+            viewModel.onRemoveCountriesClicked()
         }
     }
 }

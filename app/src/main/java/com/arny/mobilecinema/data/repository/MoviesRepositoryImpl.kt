@@ -2,6 +2,7 @@ package com.arny.mobilecinema.data.repository
 
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
+import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.db.models.HistoryEntity
@@ -10,19 +11,20 @@ import com.arny.mobilecinema.data.db.sources.MainPagingSource
 import com.arny.mobilecinema.data.models.MovieMapper
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
+import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
+import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
 class MoviesRepositoryImpl @Inject constructor(
     private val movieMapper: MovieMapper,
     private val movieDao: MovieDao,
     private val historyDao: HistoryDao,
-    private val prefs: Prefs
+    private val prefs: Prefs,
+    private val appResources: AppResourcesProvider
 ) : MoviesRepository {
     override var order: String
         get() = prefs.get<String>(PrefsConstants.ORDER).orEmpty()
@@ -73,83 +75,13 @@ class MoviesRepositoryImpl @Inject constructor(
     override fun getMovie(id: Long): Movie? =
         movieDao.getMovie(id)?.let { movieMapper.transform(it) }
 
-    override suspend fun getDistinctGenres(): List<String> = coroutineScope {
-        val start = System.currentTimeMillis()
-        val allGenres = movieDao.allGenres()
-        println("allGenres time:${System.currentTimeMillis() - start}")
-        val start2 = System.currentTimeMillis()
-        val sequence = allGenres.asSequence()
-            .flatMap { it.split(",") }
-            .map { it.lowercase() }
-        println("sequence time:${System.currentTimeMillis() - start2}")
-        val brackets = async { sequence.filter { isBrackets(it) }.toList() }
-        val special = async { sequence.filter { isSpecial(it) }.toList() }
-        val oneWord = async { sequence.filter { isOneWord(it) }.toList() }
-        val list = sequence
-            .filter { !isSpecialSplit(it) }
-            .filter { !isSpecial(it) }
-            .filter { !isBrackets(it) }
-            .filter { !isOneWord(it) }
-            .filter { !ignore(it) }
-            .flatMap { it.split(" ") }
-            .map { it.trim().replace(".", "") }
-            .filter { it.isNotBlank() }
-            .plus(brackets.await())
-            .plus(oneWord.await())
-            .plus(special.await())
-            .plus(specialSplitGenres)
-            .distinct()
-            .sorted()
-            .toList()
-        println("All time:${System.currentTimeMillis() - start}")
-        list
-    }
+    override suspend fun getGenres(): List<String> =
+        appResources.getStringArray(R.array.genres)
 
-    private fun isOneWord(it: String) = it.contains(""" \D{1,3} """.toRegex())
+    override fun getMinMaxYears(): SimpleIntRange = movieDao.getYearsMinMax()
 
-    private fun ignore(it: String) = it.contains("александра леклер")
-            || it.contains("""\Sслова""".toRegex())
-
-    private val specialSplitGenres = listOf(
-        "индийское кино",
-        "любовный роман",
-        "драма для взрослых",
-        "восточные единоборства",
-        "боевые искусства",
-        "остросюжетная мелодрама",
-        "лирическая комедия",
-        "военный фильм",
-        "фильм-спектакль",
-        "рисованая анимация",
-        "рисованная анимация",
-        "обучающее видео",
-        "мультипликационный сериал",
-        "немое кино",
-        "биографическая драма",
-        "любительское видео",
-        "военная драма",
-        "военный парад",
-        "военный фильм",
-        "боевик",
-        "боевики",
-        "рукопашный бой",
-        "фильм ужасов",
-        "реальное тв",
-        "для взрослых",
-        "черный юмор",
-        "анимационный боевик",
-        "историческая драма",
-        "авторский проект",
-    )
-
-    private fun isSpecialSplit(it: String): Boolean = specialSplitGenres.any { genre ->
-        it.contains(genre)
-    }
-
-    private fun isSpecial(it: String) = it.contains("""тв\s?-\s?шоу""".toRegex())
-
-    private fun isBrackets(it: String) = it.contains("""\(""".toRegex())
-            || it.contains("""\)""".toRegex())
+    override fun getCountries(): List<String> =
+        appResources.getStringArray(R.array.countries)
 
     override fun getSaveData(dbId: Long?): SaveData {
         val history = historyDao.getHistory(dbId)

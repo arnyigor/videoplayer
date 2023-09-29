@@ -9,7 +9,7 @@ import com.arny.mobilecinema.presentation.utils.diffItemCallback
 
 class GenresChoiceAdapter(
     private val onItemClick: (position: Int, isChecked: Boolean) -> Unit
-) : ListAdapter<GenreUIModel, GenresChoiceAdapter.GenresChoiceViewHolder>(
+) : ListAdapter<SelectUIModel, GenresChoiceAdapter.GenresChoiceViewHolder>(
     diffItemCallback(
         itemsTheSame = { m1, m2 -> m1.id == m2.id },
         contentsTheSame = { m1, m2 -> m1 == m2 }
@@ -29,7 +29,7 @@ class GenresChoiceAdapter(
     inner class GenresChoiceViewHolder(private val binding: ICustomChipChoiseBinding) :
         RecyclerView.ViewHolder(binding.root) {
         fun bind() {
-            val model: GenreUIModel = getItem(bindingAdapterPosition)
+            val model: SelectUIModel = getItem(bindingAdapterPosition)
             binding.chipChoise.text = model.title
             binding.chipChoise.isChecked = model.selected
             binding.chipChoise.setOnCheckedChangeListener { _, isChecked ->

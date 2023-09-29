@@ -37,10 +37,14 @@ object AppConstants {
 
     object SearchType {
         const val TYPE = "TYPE"
+        const val TYPES = "types"
         const val TITLE = "title"
         const val DIRECTORS = "directors"
         const val ACTORS = "actors"
         const val GENRES = "genres"
+        const val COUNTRIES = "countries"
+        const val YEARS = "years"
+        const val IMDBS = "imdbs"
         const val CINEMA = "cinema"
         const val SERIAL = "serial"
     }

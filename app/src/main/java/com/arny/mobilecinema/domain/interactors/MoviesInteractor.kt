@@ -2,6 +2,7 @@ package com.arny.mobilecinema.domain.interactors
 
 import androidx.paging.PagingData
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -42,4 +43,6 @@ interface MoviesInteractor {
     fun isMoviesEmpty(): Flow<DataResult<Boolean>>
     fun getBaseUrl(): String
     suspend fun loadDistinctGenres(): List<String>
+    suspend fun getMinMaxYears(): SimpleIntRange
+    suspend fun getCountries(): List<String>
 }

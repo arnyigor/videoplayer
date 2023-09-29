@@ -3,6 +3,7 @@ package com.arny.mobilecinema.domain.repository
 import androidx.paging.Pager
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
+import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 
 interface MoviesRepository {
@@ -25,5 +26,7 @@ interface MoviesRepository {
     fun saveOrder(order: String)
     fun clearAllViewHistory():Boolean
     suspend fun isMoviesEmpty(): Boolean
-    suspend fun getDistinctGenres(): List<String>
+    suspend fun getGenres(): List<String>
+    fun getMinMaxYears(): SimpleIntRange
+    fun getCountries(): List<String>
 }

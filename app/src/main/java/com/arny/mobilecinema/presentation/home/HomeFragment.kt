@@ -38,6 +38,8 @@ import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
+import com.arny.mobilecinema.domain.models.SimpleFloatRange
+import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
@@ -194,8 +196,18 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     private fun observeResult() {
         setFragmentResultListener(AppConstants.FRAGMENTS.RESULTS) { _, bundle ->
-              val type = bundle.getString(AppConstants.SearchType.TYPE)
-              Timber.d("AppConstants.SearchType.TYPE:$type")
+            val search = bundle.getString(AppConstants.SearchType.TITLE)
+            Timber.d("observeResult search:$search")
+            val types = bundle.getStringArrayList(AppConstants.SearchType.TYPES)?.toList()
+            Timber.d("observeResult TYPES:$types")
+            val genres = bundle.getStringArrayList(AppConstants.SearchType.GENRES)?.toList()
+            Timber.d("observeResult GENRES:$genres")
+            val countries = bundle.getStringArrayList(AppConstants.SearchType.COUNTRIES)?.toList()
+            Timber.d("observeResult COUNTRIES:$countries")
+            val years = bundle.getParcelable<SimpleIntRange>(AppConstants.SearchType.YEARS)
+            Timber.d("observeResult years:$years")
+            val imdbs = bundle.getParcelable<SimpleFloatRange>(AppConstants.SearchType.IMDBS)
+            Timber.d("observeResult imdbs:$imdbs")
         }
     }
 

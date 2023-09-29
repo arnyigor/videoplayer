@@ -13,6 +13,8 @@ import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.MoviesRepositoryImpl
 import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
+import com.arny.mobilecinema.data.repository.resources.AppResourcesProviderImpl
 import com.arny.mobilecinema.data.repository.update.UpdateRepositoryImpl
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
@@ -84,4 +86,8 @@ interface DataModule {
     @Binds
     @Singleton
     fun bindsMoviesRepository(impl: MoviesRepositoryImpl): MoviesRepository
+
+    @Binds
+    @Singleton
+    fun bindsAppResourcesProvider(impl: AppResourcesProviderImpl): AppResourcesProvider
 }

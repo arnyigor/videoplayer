@@ -8,6 +8,7 @@ import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
+import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
@@ -38,7 +39,15 @@ class MoviesInteractorImpl @Inject constructor(
     }
 
     override suspend fun loadDistinctGenres(): List<String> = withContext(dispatcher) {
-        repository.getDistinctGenres()
+        repository.getGenres()
+    }
+
+    override suspend fun getMinMaxYears(): SimpleIntRange = withContext(dispatcher) {
+        repository.getMinMaxYears()
+    }
+
+    override suspend fun getCountries(): List<String> = withContext(dispatcher) {
+        repository.getCountries()
     }
 
     override fun getBaseUrl(): String = updateRepository.baseUrl
