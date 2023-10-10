@@ -202,11 +202,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                             onConfirm = {
                                 viewModel.clearViewHistory()
                                 lifecycleScope.launch {
-                                    currentMovie?.let {
-                                        if (it.type == MovieType.CINEMA) {
-                                            playerSource.clearDownloaded(it.getCinemaUrl())
-                                        }
-                                    }
                                     checkCache()
                                 }
                             }
@@ -325,7 +320,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun observeData() {
         launchWhenCreated {
-            viewModel.movie.collectLatest { movie ->
+            viewModel.currentMovie.collectLatest { movie ->
                 if (movie != null) {
                     onMovieLoaded(movie)
                 }

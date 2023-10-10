@@ -335,7 +335,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
             Configuration.ORIENTATION_LANDSCAPE -> {
                 binding.playerView.resizeMode = resizeModes[4]
-                binding.ivScreenRotation.isVisible = false
+                binding.ivScreenRotation.isVisible = binding.playerView.isControllerVisible
             }
 
             else -> {}
@@ -351,7 +351,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             findNavController().popBackStack()
         }
         ivScreenRotation.setOnClickListener {
-            requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            if (getOrientation() == Configuration.ORIENTATION_LANDSCAPE) {
+                requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            } else {
+                requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
         }
     }
 
@@ -521,6 +525,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private val listener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
             binding.progressBar.isVisible = false
+            error.printStackTrace()
             when (getConnectionType(requireContext())) {
                 ConnectionType.NONE -> {
                     toast(getString(R.string.internet_connection_error))

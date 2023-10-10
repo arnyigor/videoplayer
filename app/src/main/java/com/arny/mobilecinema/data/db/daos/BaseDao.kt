@@ -14,7 +14,7 @@ interface BaseDao<T> {
     @Update(onConflict = OnConflictStrategy.REPLACE)
     fun update(vararg obj: T): Int
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertAll(objs: List<T>)
 
     @RawQuery

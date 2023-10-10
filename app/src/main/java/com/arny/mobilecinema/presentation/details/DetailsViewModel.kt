@@ -43,8 +43,8 @@ class DetailsViewModel @Inject constructor(
     val downloadAll = _downloadAll.asStateFlow()
     private val _hasSavedData = MutableStateFlow(false)
     val hasSavedData = _hasSavedData.asStateFlow()
-    private val _movie = MutableStateFlow<Movie?>(null)
-    val movie = _movie.asSharedFlow()
+    private val _currentMovie = MutableStateFlow<Movie?>(null)
+    val currentMovie = _currentMovie.asSharedFlow()
     private val _downloadedData = MutableStateFlow<MovieDownloadedData?>(null)
     val downloadedData = _downloadedData.asStateFlow()
     private val _saveData = MutableSharedFlow<SaveData>()
@@ -69,7 +69,7 @@ class DetailsViewModel @Inject constructor(
                         }
 
                         is DataResult.Success -> {
-                            _movie.value = result.result
+                            _currentMovie.value = result.result
                         }
                     }
                 }
@@ -94,7 +94,7 @@ class DetailsViewModel @Inject constructor(
 
     fun clearViewHistory() {
         viewModelScope.launch {
-            val mMovie = _movie.value
+            val mMovie = _currentMovie.value
             interactor.clearViewHistory(mMovie?.dbId)
                 .catch { _error.emit(ThrowableString(it)) }
                 .collectLatest {
@@ -107,6 +107,7 @@ class DetailsViewModel @Inject constructor(
                             if (removed) {
                                 when (mMovie?.type) {
                                     MovieType.CINEMA -> {
+                                        playerSource.clearDownloaded(mMovie.getCinemaUrl())
                                         _toast.emit(ResourceString(R.string.movie_cache_cleared))
                                     }
                                     MovieType.SERIAL -> {
@@ -123,7 +124,7 @@ class DetailsViewModel @Inject constructor(
 
     fun addToHistory() {
         viewModelScope.launch {
-            val mMovie = _movie.value
+            val mMovie = _currentMovie.value
             interactor.addToHistory(mMovie?.dbId)
                 .catch { _error.emit(ThrowableString(it)) }
                 .collectLatest {
@@ -141,7 +142,7 @@ class DetailsViewModel @Inject constructor(
     }
 
     private suspend fun getDownloadedData() {
-        val currentMovie = _movie.value
+        val currentMovie = _currentMovie.value
         val cinemaUrl = currentMovie?.getCinemaUrl().orEmpty()
         val currentDownloadData = playerSource.getCurrentDownloadData(cinemaUrl)
         val data = MovieDownloadedData(

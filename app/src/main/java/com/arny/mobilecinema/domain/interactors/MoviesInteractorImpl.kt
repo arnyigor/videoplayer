@@ -8,6 +8,7 @@ import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
+import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
@@ -32,10 +33,24 @@ class MoviesInteractorImpl @Inject constructor(
         search: String,
         order: String,
         searchType: String,
-        searchAddTypes: List<String>
+        searchAddTypes: List<String>,
+        genres: List<String>,
+        countries: List<String>,
+        years: SimpleIntRange?,
+        imdbs: SimpleFloatRange?,
+        kps: SimpleFloatRange?,
     ): Flow<PagingData<ViewMovie>> {
         val type = searchType.ifBlank { AppConstants.SearchType.TITLE }
-        return repository.getMovies(search, order, type, searchAddTypes).flow
+        return repository.getMovies(
+            search = search,
+            order = order,
+            searchType = type,
+            searchAddTypes = searchAddTypes,
+            genres = genres,
+            countries = countries,
+            years = years,
+            imdbs = imdbs
+        ).flow
     }
 
     override suspend fun loadDistinctGenres(): List<String> = withContext(dispatcher) {

@@ -33,7 +33,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -83,7 +82,12 @@ class HomeViewModel @Inject constructor(
                 search = search.query,
                 order = search.order,
                 searchType = search.searchType,
-                searchAddTypes = search.searchAddTypes
+                searchAddTypes = search.searchAddTypes,
+                genres = search.genres,
+                countries = search.countries,
+                years = search.years,
+                imdbs = search.imdbs,
+                kps = search.kps
             )
         }
         .onEach {

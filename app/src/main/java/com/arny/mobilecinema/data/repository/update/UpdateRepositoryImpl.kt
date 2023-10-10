@@ -12,6 +12,7 @@ import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import java.io.File
 import javax.inject.Inject
@@ -54,13 +55,8 @@ class UpdateRepositoryImpl @Inject constructor(
         var entity = MovieEntity()
         val size = movies.size
         if (moviesDao.getCount() == 0) {
-            for ((ind, movie) in movies.withIndex()) {
-                entity = entity.setData(movie)
-                moviesDao.insert(entity)
-                if (ind % 1000 == 0) {
-                    onUpdate(getPercent(ind, size))
-                }
-            }
+            val entities = movies.map { movie -> MovieEntity().apply { setData(movie) } }
+            moviesDao.insertAll(entities)
         } else {
             val dbList = moviesDao.getUpdateMovies()
             movies.forEachIndexed { index, movie ->
@@ -100,6 +96,14 @@ class UpdateRepositoryImpl @Inject constructor(
                     }
 
                     isGenreChanged(dbMovie, movie) -> {
+                        entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
+                        try {
+                            moviesDao.update(entity)
+                        } catch (e: Exception) {
+                            error("Update error for $entity has error:${e.stackTraceToString()}")
+                        }
+                    }
+                    isCinemaUrlChange(dbMovie, movie) -> {
                         entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
                         try {
                             moviesDao.update(entity)
@@ -147,6 +151,16 @@ class UpdateRepositoryImpl @Inject constructor(
 
     private fun isGenreChanged(dbMovie: MovieUpdate?, movie: Movie) =
         dbMovie != null && dbMovie.genre != movie.info.genre.joinToString(",")
+
+    private fun isCinemaUrlChange(dbMovie: MovieUpdate?, movie: Movie): Boolean {
+        val dbCinemaUrls = dbMovie?.cinemaUrls
+        val isUrlsNeedReplace = !dbCinemaUrls.isNullOrBlank()
+                && dbCinemaUrls.startsWith("films/load")
+                && movie.cinemaUrlData?.cinemaUrl?.urls?.contains("http") == true
+        return dbMovie != null
+                && dbMovie.type == MovieType.CINEMA.value
+                && isUrlsNeedReplace
+    }
 
     override suspend fun checkBaseUrl(): Boolean = try {
         val baseLink = BuildConfig.BASE_LINK

@@ -14,6 +14,7 @@ import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
+import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
@@ -46,14 +47,32 @@ class MoviesRepositoryImpl @Inject constructor(
         search: String,
         order: String,
         searchType: String,
-        searchAddTypes: List<String>
+        searchAddTypes: List<String>,
+        genres: List<String>,
+        countries: List<String>,
+        years: SimpleIntRange?,
+        imdbs: SimpleFloatRange?,
+        kps: SimpleFloatRange?
     ): Pager<Int, ViewMovie> = Pager(
         PagingConfig(
             pageSize = 20,
             enablePlaceholders = false,
             initialLoadSize = 20
         ),
-    ) { MainPagingSource(movieDao, search.trim(), order, searchType, searchAddTypes) }
+    ) {
+        MainPagingSource(
+            dao = movieDao,
+            search = search.trim(),
+            order = order,
+            searchType = searchType,
+            searchAddTypes = searchAddTypes,
+            genres = genres,
+            countries = countries,
+            years = years,
+            imdbs = imdbs,
+            kps = kps
+        )
+    }
 
     override suspend fun isHistoryEmpty(): Boolean = historyDao.getHistoryIds().isEmpty()
 

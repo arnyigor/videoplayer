@@ -53,6 +53,8 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
     private companion object {
         const val MIN_IMDB = 0.0f
         const val MAX_IMDB = 10.0f
+        const val MIN_KP = 0.0f
+        const val MAX_KP = 10.0f
     }
 
     override fun onAttach(context: Context) {
@@ -79,6 +81,12 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
     }
 
     private fun initUi() = with(binding) {
+        initYearsRangeSlider()
+        initImdbRangeSlider()
+        initKpRangeSlider()
+    }
+
+    private fun FExtendedSearchBinding.initYearsRangeSlider() {
         rslYears.setLabelFormatter { value: Float ->
             NumberFormat.getInstance().format(value.toInt()).replace(",", "")
         }
@@ -93,23 +101,6 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
                 )
             )
             viewModel.updateYears(from, to)
-        }
-
-        initImdbRangeSlider()
-        rslImdb.setLabelFormatter { value: Float ->
-            NumberFormat.getInstance().format(value)
-        }
-        rslImdb.addOnChangeListener { slider, _, _ ->
-            val from = slider.values[0]
-            val to = slider.values[1]
-            tvImdbRange.text = getString(
-                ResourceString(
-                    R.string.imdb_range,
-                    from.toInt().toString(),
-                    to.toInt().toString()
-                )
-            )
-            viewModel.updateImdb(from, to)
         }
     }
 
@@ -165,6 +156,7 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
                 AppConstants.SearchType.GENRES to result.genres,
                 AppConstants.SearchType.YEARS to result.yearsRange,
                 AppConstants.SearchType.IMDBS to result.imdbRange,
+                AppConstants.SearchType.KPS to result.kpRange,
             )
         )
         findNavController().popBackStack()
@@ -189,11 +181,52 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
         rslImdb.valueFrom = MIN_IMDB
         rslImdb.valueTo = MAX_IMDB
         rslImdb.values = listOf(MIN_IMDB, MAX_IMDB)
-        tvYearsRange.text = getString(
+        tvImdbRange.text = getString(
             ResourceString(R.string.imdb_range, MIN_IMDB.toString(), MAX_IMDB.toString())
         )
         tvImdbRange.isVisible = true
         rslImdb.isVisible = true
+        rslImdb.setLabelFormatter { value: Float ->
+            NumberFormat.getInstance().format(value)
+        }
+        rslImdb.addOnChangeListener { slider, _, _ ->
+            val from = slider.values[0]
+            val to = slider.values[1]
+            tvImdbRange.text = getString(
+                ResourceString(
+                    R.string.imdb_range,
+                    from.toInt().toString(),
+                    to.toInt().toString()
+                )
+            )
+            viewModel.updateImdb(from, to)
+        }
+    }
+
+    private fun initKpRangeSlider() = with(binding) {
+        rslKp.valueFrom = MIN_KP
+        rslKp.valueTo = MAX_KP
+        rslKp.values = listOf(MIN_KP, MAX_KP)
+        tvKpRange.text = getString(
+            ResourceString(R.string.kp_range, MIN_KP.toString(), MAX_KP.toString())
+        )
+        tvKpRange.isVisible = true
+        rslKp.isVisible = true
+        rslKp.setLabelFormatter { value: Float ->
+            NumberFormat.getInstance().format(value)
+        }
+        rslKp.addOnChangeListener { slider, _, _ ->
+            val from = slider.values[0]
+            val to = slider.values[1]
+            tvKpRange.text = getString(
+                ResourceString(
+                    R.string.kp_range,
+                    from.toInt().toString(),
+                    to.toInt().toString()
+                )
+            )
+            viewModel.updateKp(from, to)
+        }
     }
 
     private fun setTypes(typesString: List<IWrappedString>) {

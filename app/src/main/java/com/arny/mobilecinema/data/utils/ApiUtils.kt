@@ -6,6 +6,10 @@ import android.net.NetworkCapabilities
 import android.net.NetworkInfo
 import android.os.Build
 import android.telephony.TelephonyManager
+import com.google.android.exoplayer2.ExoPlaybackException
+import com.google.android.exoplayer2.source.UnrecognizedInputFormatException
+import com.google.android.exoplayer2.upstream.HttpDataSource
+import com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -112,21 +116,35 @@ private fun getMaxSpeedKbps(it: NetworkInfo): Int = when (it.subtype) {
 
 fun getFullError(throwable: Throwable): String {
     throwable.printStackTrace()
-    var error: String
+    var error: String = throwable.message.orEmpty()
     val code: Int
     try {
         when (throwable) {
-//            is HttpException -> {
-//                code = throwable.code()
-//                error = throwable.response()?.errorBody()?.string().toString()
-//                when (code) {
-//                    500 -> error = "Внутренняя ошибка сервера"
-//                    504 -> error = "Время ожидания истекло, повторите запрос позже"
-//                    503 -> error = "Сервис временно недоступен, повторите запрос позже"
-//                    403 -> error = "Сервис заблокирован"
-//                    404 -> error = "Страница не найдена"
-//                }
-//            }
+            is ExoPlaybackException -> {
+                when (val sourceException = throwable.sourceException) {
+                    is HttpDataSource.InvalidResponseCodeException -> {
+                        code = sourceException.responseCode
+                        val url = sourceException.dataSpec.key
+                        when (code) {
+                            500 -> error = "Внутренняя ошибка сервера $url"
+                            504 -> error = "Время ожидания истекло, повторите запрос позже $url"
+                            503 -> error = "Сервис временно недоступен, повторите запрос позже $url"
+                            403 -> error = "Сервис заблокирован $url"
+                            404 -> error = "Страница не найдена $url"
+                        }
+                    }
+
+                    is UnrecognizedInputFormatException -> {
+                        error = "${sourceException.uri} ${sourceException.message}"
+                    }
+
+                    else -> {}
+                }
+            }
+
+            is HttpDataSourceException -> {
+                error = throwable.message.orEmpty()
+            }
             is SSLHandshakeException -> {
                 error = "Ошибка сертификата сервера"
             }

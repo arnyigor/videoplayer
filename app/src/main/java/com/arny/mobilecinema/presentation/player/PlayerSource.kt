@@ -10,6 +10,7 @@ import com.arny.mobilecinema.data.player.VideoCache
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.getDomainName
 import com.arny.mobilecinema.domain.models.DownloadManagerData
+import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.MediaMetadata
@@ -44,6 +45,7 @@ import kotlin.coroutines.suspendCoroutine
 
 class PlayerSource @Inject constructor(
     private val context: Context,
+    private val updateRepository: UpdateRepository,
     private val retriever: YouTubeVideoInfoRetriever
 ) {
     private companion object {
@@ -361,7 +363,12 @@ class PlayerSource @Inject constructor(
                 )
             }
             setMediaMetadata(builder.build())
-            setUri(Uri.parse(url))
+            var urlFull = url
+            val baseUrl = updateRepository.baseUrl
+            if (baseUrl.isNotBlank() && !urlFull.isNullOrBlank() && !urlFull.startsWith("http")) {
+                urlFull = "$baseUrl/$urlFull"
+            }
+            setUri(Uri.parse(urlFull))
         }
             .build()
     }
@@ -397,7 +404,9 @@ class PlayerSource @Inject constructor(
         val format = data.streamingData?.formats?.find { it?.itag == YOUTUBE_MAX_QUALITY_TAG }
         val url = format?.url
         return when {
-            !url.isNullOrBlank() -> getMp4MediaSource(factory, getMediaItem(url, title))
+            !url.isNullOrBlank() -> getMp4MediaSource(
+                factory, getMediaItem(url, title)
+            )
             else -> error("Media source from Youtube link $link not found")
         }
     }

@@ -40,6 +40,8 @@ class ExtendedSearchViewModel @Inject constructor(
     private var yearTo = 0
     private var imdbFrom = 0.0f
     private var imdbTo = 0.0f
+    private var kpFrom = 0.0f
+    private var kpTo = 0.0f
     private val _types = MutableStateFlow(emptyList<IWrappedString>())
     val types = _types.asStateFlow()
     private val _loading = MutableStateFlow(true)
@@ -220,6 +222,13 @@ class ExtendedSearchViewModel @Inject constructor(
         if (from != null && to != null) {
             imdbFrom = from
             imdbTo = to
+        }
+    }
+
+    fun updateKp(from: Float?, to: Float?) {
+        if (from != null && to != null) {
+            kpFrom = from
+            kpTo = to
         }
     }
 

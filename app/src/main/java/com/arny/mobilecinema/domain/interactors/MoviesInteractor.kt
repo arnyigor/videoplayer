@@ -5,6 +5,7 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SaveData
+import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import kotlinx.coroutines.flow.Flow
 
@@ -13,7 +14,12 @@ interface MoviesInteractor {
         search: String = "",
         order: String,
         searchType: String,
-        searchAddTypes: List<String>
+        searchAddTypes: List<String>,
+        genres: List<String> = emptyList(),
+        countries: List<String> = emptyList(),
+        years: SimpleIntRange? = null,
+        imdbs: SimpleFloatRange? = null,
+        kps: SimpleFloatRange? = null,
     ): Flow<PagingData<ViewMovie>>
 
     fun isPipModeEnable(): Boolean

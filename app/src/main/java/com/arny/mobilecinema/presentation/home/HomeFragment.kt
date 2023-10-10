@@ -43,7 +43,6 @@ import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
-import com.arny.mobilecinema.presentation.utils.dump
 import com.arny.mobilecinema.presentation.utils.getImgCompat
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.inputDialog
@@ -208,6 +207,15 @@ class HomeFragment : Fragment(), OnSearchListener {
             Timber.d("observeResult years:$years")
             val imdbs = bundle.getParcelable<SimpleFloatRange>(AppConstants.SearchType.IMDBS)
             Timber.d("observeResult imdbs:$imdbs")
+            val kps = bundle.getParcelable<SimpleFloatRange>(AppConstants.SearchType.KPS)
+            Timber.d("observeResult kps:$kps")
+            searchType = AppConstants.SearchType.TITLE
+            viewModel.setSearchType(
+                type = searchType,
+                submit = false,
+                addTypes = types.orEmpty()
+            )
+            viewModel.loadMovies(search.orEmpty())
         }
     }
 

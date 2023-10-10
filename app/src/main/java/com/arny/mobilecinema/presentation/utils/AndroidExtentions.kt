@@ -480,7 +480,7 @@ fun Fragment.unregisterLocalReceiver(receiver: BroadcastReceiver) {
         .unregisterReceiver(receiver)
 }
 
-fun Fragment.getOrientation() = requireActivity().resources.configuration.orientation
+fun Fragment.getOrientation(): Int = requireActivity().resources.configuration.orientation
 
 fun Fragment.setupSearchView(
     menuItem: MenuItem,
