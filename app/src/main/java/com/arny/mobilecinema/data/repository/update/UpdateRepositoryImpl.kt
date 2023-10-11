@@ -55,8 +55,13 @@ class UpdateRepositoryImpl @Inject constructor(
         var entity = MovieEntity()
         val size = movies.size
         if (moviesDao.getCount() == 0) {
-            val entities = movies.map { movie -> MovieEntity().apply { setData(movie) } }
-            moviesDao.insertAll(entities)
+            for ((ind, movie) in movies.withIndex()) {
+                entity = entity.setData(movie)
+                moviesDao.insert(entity)
+                if (ind % 1000 == 0) {
+                    onUpdate(getPercent(ind, size))
+                }
+            }
         } else {
             val dbList = moviesDao.getUpdateMovies()
             movies.forEachIndexed { index, movie ->

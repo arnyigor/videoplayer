@@ -40,7 +40,6 @@ captures/
 # IntelliJ
 *.iml
 .idea/
-release/
 
 # Keystore files
 # Uncomment the following lines if you do not want to check your keystore files in.
@@ -48,6 +47,7 @@ release/
 *.keystore
 signing.properties
 google-services.json
+schemas/
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
