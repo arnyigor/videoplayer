@@ -3,8 +3,6 @@ package com.arny.mobilecinema.data.db.sources
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.MovieType
-import com.arny.mobilecinema.domain.models.SimpleFloatRange
-import com.arny.mobilecinema.domain.models.SimpleIntRange
 
 fun getMoviesSQL(
     search: String,
@@ -13,11 +11,6 @@ fun getMoviesSQL(
     movieTypes: List<MovieType>,
     limit: Int,
     offset: Int,
-    genres: List<String> = emptyList(),
-    countries: List<String> = emptyList(),
-    years: SimpleIntRange? = null,
-    imdbs: SimpleFloatRange? = null,
-    kps: SimpleFloatRange? = null,
 ): SimpleSQLiteQuery {
     val sb = StringBuilder()
     val args = mutableListOf<Any?>()

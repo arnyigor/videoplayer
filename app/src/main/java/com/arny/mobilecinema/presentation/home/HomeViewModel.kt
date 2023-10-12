@@ -7,7 +7,7 @@ import androidx.paging.cachedIn
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.repository.AppConstants
-import com.arny.mobilecinema.domain.interactors.MoviesInteractor
+import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.uimodels.Alert
@@ -82,12 +82,7 @@ class HomeViewModel @Inject constructor(
                 search = search.query,
                 order = search.order,
                 searchType = search.searchType,
-                searchAddTypes = search.searchAddTypes,
-                genres = search.genres,
-                countries = search.countries,
-                years = search.years,
-                imdbs = search.imdbs,
-                kps = search.kps
+                searchAddTypes = search.searchAddTypes
             )
         }
         .onEach {
@@ -131,7 +126,12 @@ class HomeViewModel @Inject constructor(
                                         ),
                                         btnOk = ResourceString(android.R.string.ok),
                                         btnCancel = ResourceString(android.R.string.cancel),
-                                        type = AlertType.Update
+                                        btnNeutral = if (!_empty.value) {
+                                            ResourceString(R.string.full_update)
+                                        } else {
+                                            null
+                                        },
+                                        type = AlertType.Update(false)
                                     )
                                 )
                             }
@@ -164,9 +164,9 @@ class HomeViewModel @Inject constructor(
     fun onConfirmAlert(type: AlertType) {
         viewModelScope.launch {
             when (type) {
-                AlertType.Update -> {
+                is AlertType.Update -> {
                     _toast.emit(ResourceString(R.string.update_started))
-                    dataUpdateInteractor.requestFile()
+                    dataUpdateInteractor.requestFile(type.force)
                 }
                 else -> {}
             }
@@ -176,8 +176,28 @@ class HomeViewModel @Inject constructor(
     fun onCancelAlert(type: AlertType) {
         viewModelScope.launch {
             when (type) {
-                AlertType.Update -> {
+                is AlertType.Update -> {
                     dataUpdateInteractor.resetUpdate()
+                }
+
+                else -> {}
+            }
+        }
+    }
+
+    fun onNeutralAlert(type: AlertType) {
+        viewModelScope.launch {
+            when (type) {
+                is AlertType.Update -> {
+                    _alert.trySend(
+                        Alert(
+                            title = ResourceString(R.string.full_update_title),
+                            content = ResourceString(R.string.full_update_description),
+                            btnOk = ResourceString(android.R.string.ok),
+                            btnCancel = ResourceString(android.R.string.cancel),
+                            type = AlertType.Update(true)
+                        )
+                    )
                 }
 
                 else -> {}

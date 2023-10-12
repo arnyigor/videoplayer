@@ -393,6 +393,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                     content = alert.content?.toString(requireContext()),
                     btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
                     btnCancelText = alert.btnCancel?.toString(requireContext()),
+                    btnNeutralText = alert.btnNeutral?.toString(requireContext()),
                     cancelable = alert.cancelable,
                     icon = alert.icon?.let { requireContext().getImgCompat(it) },
                     onConfirm = {
@@ -400,6 +401,9 @@ class HomeFragment : Fragment(), OnSearchListener {
                     },
                     onCancel = {
                         viewModel.onCancelAlert(alert.type)
+                    },
+                    onNeutral = {
+                        viewModel.onNeutralAlert(alert.type)
                     }
                 )
             }

@@ -566,7 +566,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
         this.season = season
         this.episode = episode
-        viewModel.saveCurrentSerialPosition(args.movie?.dbId, season, episode, episodePosition)
+        viewModel.saveCurrentSerialPosition(
+            dbId = args.movie?.dbId,
+            season = season,
+            episode = episode,
+            episodePosition = episodePosition
+        )
     }
 
     private suspend fun setCinemaUrls(

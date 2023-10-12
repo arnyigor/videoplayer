@@ -13,8 +13,6 @@ import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
 import com.arny.mobilecinema.domain.models.Movie
-import com.arny.mobilecinema.domain.models.SaveData
-import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
@@ -47,12 +45,7 @@ class MoviesRepositoryImpl @Inject constructor(
         search: String,
         order: String,
         searchType: String,
-        searchAddTypes: List<String>,
-        genres: List<String>,
-        countries: List<String>,
-        years: SimpleIntRange?,
-        imdbs: SimpleFloatRange?,
-        kps: SimpleFloatRange?
+        searchAddTypes: List<String>
     ): Pager<Int, ViewMovie> = Pager(
         PagingConfig(
             pageSize = 20,
@@ -66,15 +59,8 @@ class MoviesRepositoryImpl @Inject constructor(
             order = order,
             searchType = searchType,
             searchAddTypes = searchAddTypes,
-            genres = genres,
-            countries = countries,
-            years = years,
-            imdbs = imdbs,
-            kps = kps
         )
     }
-
-    override suspend fun isHistoryEmpty(): Boolean = historyDao.getHistoryIds().isEmpty()
 
     override suspend fun isMoviesEmpty(): Boolean = movieDao.getCount() == 0
 
@@ -102,63 +88,52 @@ class MoviesRepositoryImpl @Inject constructor(
     override fun getCountries(): List<String> =
         appResources.getStringArray(R.array.countries)
 
-    override fun getSaveData(dbId: Long?): SaveData {
-        val history = historyDao.getHistory(dbId)
-        return if (history != null) {
-            SaveData(
-                dbId = history.movieDbId,
-                position = history.position,
-                season = history.season,
-                episode = history.episode
+    override fun getSaveData(movieDbId: Long?): HistoryEntity? = historyDao.getHistory(movieDbId)
+
+    override fun insertCinemaPosition(movieDbId: Long, position: Long): Boolean =
+        historyDao.insert(
+            HistoryEntity(
+                movieDbId = movieDbId,
+                position = position
             )
-        } else {
-            SaveData()
-        }
+        ) > 0L
+
+    override fun updateCinemaPosition(movieDbId: Long?, position: Long): Boolean {
+        return historyDao.updateHistory(movieDbId = movieDbId, position = position) != 0
     }
 
-    override fun saveCinemaPosition(dbId: Long?, position: Long) {
-        if (dbId != null) {
-            val history = historyDao.getHistory(dbId)
-            if (history == null) {
-                historyDao.insert(
-                    HistoryEntity(
-                        movieDbId = dbId,
-                        position = position
-                    )
-                )
-            } else {
-                historyDao.updateHistory(
-                    movieDbId = dbId,
-                    position = position
-                )
-            }
-        }
+    override fun insertSerialPosition(
+        movieDbId: Long,
+        season: Int,
+        episode: Int,
+        episodePosition: Long
+    ): Boolean = historyDao.insert(
+        HistoryEntity(
+            movieDbId = movieDbId,
+            position = episodePosition,
+            episode = episode,
+            season = season
+        )
+    ) > 0L
+
+    override fun updateSerialPosition(
+        movieDbId: Long?,
+        season: Int,
+        episode: Int,
+        episodePosition: Long
+    ): Boolean = historyDao.updateHistory(
+        movieDbId = movieDbId,
+        season = season,
+        episode = episode,
+        position = episodePosition
+    ) != 0
+
+    override suspend fun isHistoryEmpty(): Boolean {
+        return historyDao.getHistoryCount() == 0
     }
 
-    override fun saveSerialPosition(id: Long?, season: Int, episode: Int, episodePosition: Long) {
-        if (id != null) {
-            val history = historyDao.getHistory(id)
-            if (history == null) {
-                historyDao.insert(
-                    HistoryEntity(
-                        movieDbId = id,
-                        season = season,
-                        episode = episode,
-                        position = episodePosition
-                    )
-                )
-            } else {
-                historyDao.updateHistory(
-                    movieDbId = id,
-                    season = season,
-                    episode = episode,
-                    position = episodePosition
-                )
-            }
-        }
-    }
-
-    override fun clearViewHistory(dbId: Long?): Boolean = historyDao.deleteHistory(dbId) > 0
+    override fun clearViewHistory(movieDbId: Long?): Boolean =
+        historyDao.deleteHistory(movieDbId) > 0
 
     override fun clearAllViewHistory(): Boolean = historyDao.deleteAllHistory() > 0
 

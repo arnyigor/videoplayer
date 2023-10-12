@@ -9,10 +9,10 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 
 interface BaseDao<T> {
     @Insert(onConflict = OnConflictStrategy.ABORT)
-    fun insert(vararg obj: T)
+    fun insert(obj: T): Long
 
     @Update(onConflict = OnConflictStrategy.REPLACE)
-    fun update(vararg obj: T): Int
+    fun update(obj: T): Int
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertAll(objs: List<T>)

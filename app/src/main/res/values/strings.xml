@@ -32,6 +32,9 @@
     <string name="need_permission_message">Для работы приложения необходимо разрешить доступ на запись</string>
     <string name="need_notice_permission_message">Для работы приложения необходимо разрешить показ уведомлений</string>
     <string name="new_films_update">Доступно новое обновление фильмов</string>
+    <string name="full_update">Полное</string>
+    <string name="full_update_title">Полное обновление</string>
+    <string name="full_update_description">Полное обновление фильмов и сериалов позволит получить исправленные ссылки, но время обновления больше</string>
     <string name="question_update_format">Вы хотите загрузить новые фильмы от %s?</string>
     <string name="downloading_update">Загружаем обновление фильмов</string>
     <string name="wating">Подождите…</string>
@@ -109,6 +112,7 @@
     <string name="in_films">В фильмах</string>
     <string name="in_serials">В сериалах</string>
     <string name="cinema_save_data">Сохранён:%s%%, занимает: %s</string>
+    <string name="movie_save_error">Не сохранено в историю</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
     <string name="search_extended_title">Расширенный поиск</string>
     <string name="search_extended_ok">Поиск</string>
@@ -129,6 +133,7 @@
     <string name="years_range">Дипазон лет с %s по %s</string>
     <string name="imdb_range">Рейтинг IMBT с %s по %s</string>
     <string name="kp_range">Рейтинг KP с %s по %s</string>
+    <string name="error_history_remove_movie_fail">Видео нельзя очистить из истории.Воспользуйтесь полной очисткой истории</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

@@ -28,6 +28,7 @@ class DataUpdateInteractorImpl @Inject constructor(
     private val context: Context,
     private val repository: UpdateRepository
 ) : DataUpdateInteractor {
+    private var forceUpdate = false
     private val _updateFlow = MutableStateFlow<IWrappedString?>(null)
     override val updateTextFlow: Flow<IWrappedString?> = _updateFlow.asStateFlow()
     private lateinit var downloadedReceiver: DownloadedReceiver
@@ -36,7 +37,8 @@ class DataUpdateInteractorImpl @Inject constructor(
         repository.checkBaseUrl()
     }
 
-    override suspend fun requestFile() {
+    override suspend fun requestFile(force: Boolean) {
+        this.forceUpdate = force
         val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val zipFile = File(context.filesDir, "tmp_${System.currentTimeMillis()}.zip")
         val dataLink = if (BuildConfig.DEBUG) BuildConfig.DATA_DEBUG_LINK else BuildConfig.DATA_LINK
@@ -96,12 +98,13 @@ class DataUpdateInteractorImpl @Inject constructor(
         )
     }
 
-    private fun update(file: File) {
+    private fun update(file: File, forceUpdate: Boolean) {
         context.sendServiceMessage(
             Intent(context.applicationContext, UpdateService::class.java),
             AppConstants.ACTION_UPDATE
         ) {
             putString(AppConstants.SERVICE_PARAM_FILE, file.path)
+            putBoolean(AppConstants.SERVICE_PARAM_FORCE_ALL, forceUpdate)
         }
     }
 
@@ -116,7 +119,7 @@ class DataUpdateInteractorImpl @Inject constructor(
                     val uri = downloadManager?.getUriForDownloadedFile(id)
                     if (uri != null && context != null) {
                         FilePathUtils.getPath(uri, context)?.let {
-                            update(File(it))
+                            update(File(it), forceUpdate)
                         }
                     }
                 }

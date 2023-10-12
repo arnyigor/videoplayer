@@ -20,6 +20,8 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
+import com.arny.mobilecinema.presentation.utils.getDuration
+import com.arny.mobilecinema.presentation.utils.msToSec
 import com.arny.mobilecinema.presentation.utils.sendBroadcast
 import com.google.gson.GsonBuilder
 import dagger.android.AndroidInjection
@@ -79,6 +81,8 @@ class UpdateService : LifecycleService(), CoroutineScope {
     private suspend fun update(intent: Intent?) {
         withContext(Dispatchers.IO) {
             val filePath = intent?.getStringExtra(AppConstants.SERVICE_PARAM_FILE)
+            val forceAll =
+                intent?.getBooleanExtra(AppConstants.SERVICE_PARAM_FORCE_ALL, false) ?: false
             if (filePath != null && intent.action == AppConstants.ACTION_UPDATE) {
                 sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
                     putString(
@@ -95,7 +99,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
                         file.delete()
                         dataFile.delete()
                         try {
-                            repository.updateMovies(anwapMovies) { percent ->
+                            repository.updateMovies(anwapMovies, forceAll) { percent ->
                                 updateNotification(getString(R.string.updating, percent), true)
                             }
                             repository.setLastUpdate()

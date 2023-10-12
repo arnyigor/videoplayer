@@ -5,8 +5,6 @@ import androidx.paging.PagingState
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.MovieType
-import com.arny.mobilecinema.domain.models.SimpleFloatRange
-import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 
 class MainPagingSource(
@@ -15,12 +13,8 @@ class MainPagingSource(
     private val order: String,
     private val searchType: String,
     private val searchAddTypes: List<String>,
-    private val genres: List<String> = emptyList(),
-    private val countries: List<String> = emptyList(),
-    private val years: SimpleIntRange? = null,
-    private val imdbs: SimpleFloatRange? = null,
-    private val kps: SimpleFloatRange? = null,
 ) : PagingSource<Int, ViewMovie>() {
+
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ViewMovie> {
         val page = params.key ?: 0
         return try {

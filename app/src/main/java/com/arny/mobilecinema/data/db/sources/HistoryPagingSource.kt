@@ -6,14 +6,14 @@ import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.domain.models.ViewMovie
 
 class HistoryPagingSource(
-    private val dao: HistoryDao,
+    private val historyDao: HistoryDao,
     private val search: String,
     private val order: String,
     private val searchType: String,
 ) : PagingSource<Int, ViewMovie>() {
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ViewMovie> {
         val page = params.key ?: 0
-        val sqlResult = dao.getMovies(
+        val sqlResult = historyDao.getMovies(
             getHistorySQL(
                 search = search,
                 order = order,

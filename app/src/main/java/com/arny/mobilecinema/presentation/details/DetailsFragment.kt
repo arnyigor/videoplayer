@@ -491,13 +491,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun onSaveDataLoaded(saveData: SaveData) {
         when {
-            saveData.dbId == currentMovie?.dbId && currentMovie?.type == MovieType.SERIAL -> {
+            saveData.movieDbId == currentMovie?.dbId && currentMovie?.type == MovieType.SERIAL -> {
                 currentSeasonPosition = saveData.season
                 currentEpisodePosition = saveData.episode
                 fillSpinners(currentMovie)
             }
 
-            saveData.dbId == currentMovie?.dbId && currentMovie?.type == MovieType.CINEMA -> {
+            saveData.movieDbId == currentMovie?.dbId && currentMovie?.type == MovieType.CINEMA -> {
             }
         }
     }

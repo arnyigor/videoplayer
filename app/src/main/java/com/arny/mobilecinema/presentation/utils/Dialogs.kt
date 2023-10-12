@@ -22,8 +22,10 @@ fun Fragment.createCustomLayoutDialog(
     cancelable: Boolean = true,
     btnOkText: String? = null,
     btnCancelText: String? = null,
+    btnNeutralText: String? = null,
     onConfirm: () -> Unit = {},
     onCancel: () -> Unit = {},
+    onNeutral: () -> Unit = {},
     initView: View.() -> Unit,
 ): MaterialDialog {
     val dialog = materialDialog(
@@ -36,7 +38,9 @@ fun Fragment.createCustomLayoutDialog(
         btnCancelText = btnCancelText,
         onCancel = onCancel,
         content = null,
-        drawable = null
+        drawable = null,
+        btnNeutralText = btnNeutralText,
+        onNeutral = onNeutral,
     )
     dialog.show { customView(layout, scrollable = true) }
     initView(dialog.getCustomView())
@@ -125,8 +129,10 @@ fun Fragment.alertDialog(
     content: String? = null,
     btnOkText: String? = requireContext().getString(android.R.string.ok),
     btnCancelText: String? = null,
+    btnNeutralText: String? = null,
     cancelable: Boolean = false,
     onConfirm: () -> Unit = {},
+    onNeutral: () -> Unit = {},
     onCancel: () -> Unit = {},
     autoDismiss: Boolean = true,
     icon: Drawable? = null,
@@ -139,8 +145,10 @@ fun Fragment.alertDialog(
     onConfirm = onConfirm,
     btnCancelText = btnCancelText,
     onCancel = onCancel,
+    btnNeutralText = btnNeutralText,
     content = content,
-    drawable = icon
+    drawable = icon,
+    onNeutral = onNeutral
 )
 
 private fun materialDialog(
@@ -152,6 +160,8 @@ private fun materialDialog(
     onConfirm: () -> Unit,
     btnCancelText: String?,
     onCancel: () -> Unit,
+    btnNeutralText: String?,
+    onNeutral: () -> Unit,
     content: String?,
     drawable: Drawable?
 ): MaterialDialog {
@@ -174,6 +184,14 @@ private fun materialDialog(
             onCancel.invoke()
         }
     }
+    if (btnNeutralText != null) {
+        materialDialog.neutralButton(text = btnNeutralText) {
+            if (autoDismiss) {
+                it.dismiss()
+            }
+            onNeutral.invoke()
+        }
+    }
     if (!content.isNullOrBlank()) {
         materialDialog.message(text = content)
     }
@@ -192,9 +210,11 @@ fun Activity.alertDialog(
     content: String? = null,
     btnOkText: String? = getString(android.R.string.ok),
     btnCancelText: String? = null,
+    btnNeutralText: String? = null,
     cancelable: Boolean = false,
     onConfirm: () -> Unit = {},
     onCancel: () -> Unit = {},
+    onNeutral: () -> Unit = {},
     autoDismiss: Boolean = true,
     icon: Drawable? = null,
 ): MaterialDialog = materialDialog(
@@ -207,7 +227,9 @@ fun Activity.alertDialog(
     btnCancelText = btnCancelText,
     onCancel = onCancel,
     content = content,
-    drawable = icon
+    drawable = icon,
+    btnNeutralText = btnNeutralText,
+    onNeutral = onNeutral
 )
 
 @SuppressLint("CheckResult")

@@ -6,6 +6,8 @@ import java.util.concurrent.TimeUnit
 
 fun secToMs(duration: Long): Long = TimeUnit.SECONDS.toMillis(duration)
 
+fun msToSec(duration: Long): Long = TimeUnit.MILLISECONDS.toSeconds(duration)
+
 fun String?.getTime(pattern: String): DateTime =
     DateTimeFormat.forPattern(pattern).parseDateTime(this)
 
@@ -13,7 +15,11 @@ fun DateTime.printTime(pattern: String = "YYYY.MM.dd HH:mm"): String =
     DateTimeFormat.forPattern(pattern).print(this)
 
 fun getDuration(s: Int): String {
-    var sec = s.toLong()
+    return getDuration(s.toLong())
+}
+
+fun getDuration(s: Long): String {
+    var sec = s
     val hours: Long = TimeUnit.SECONDS.toHours(sec)
     sec -= TimeUnit.HOURS.toSeconds(hours)
     val minutes: Long = TimeUnit.SECONDS.toMinutes(sec)

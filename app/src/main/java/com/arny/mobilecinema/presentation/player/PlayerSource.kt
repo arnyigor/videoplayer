@@ -34,6 +34,7 @@ import com.google.android.exoplayer2.upstream.cache.Cache
 import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.util.Util
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -46,7 +47,8 @@ import kotlin.coroutines.suspendCoroutine
 class PlayerSource @Inject constructor(
     private val context: Context,
     private val updateRepository: UpdateRepository,
-    private val retriever: YouTubeVideoInfoRetriever
+    private val retriever: YouTubeVideoInfoRetriever,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private companion object {
         const val YOUTUBE_HOST = "youtube"
@@ -169,7 +171,7 @@ class PlayerSource @Inject constructor(
         }
     }
 
-    suspend fun clearDownloaded(url: String) = withContext(Dispatchers.IO) {
+    suspend fun clearDownloaded(url: String) = withContext(dispatcher) {
         ensureDownloadManagerInitialized(context)
         downloadManager?.removeDownload(url)
         val cache = VideoCache.getInstance(context).getDownloadCache()
@@ -178,7 +180,7 @@ class PlayerSource @Inject constructor(
         cache.removeResource(url)
     }
 
-    suspend fun clearAllDownloaded() = withContext(Dispatchers.IO) {
+    suspend fun clearAllDownloaded() = withContext(dispatcher) {
         ensureDownloadManagerInitialized(context)
         downloadManager?.currentDownloads?.forEach {
             downloadManager?.removeDownload(it.request.id)
@@ -212,7 +214,7 @@ class PlayerSource @Inject constructor(
     }
 
     suspend fun getCurrentDownloadData(cinemaUrl: String): DownloadManagerData {
-        return withContext(Dispatchers.IO) {
+        return withContext(dispatcher) {
             ensureDownloadManagerInitialized(context)
             var initialized = downloadManager?.isInitialized == true
             if (!initialized) {

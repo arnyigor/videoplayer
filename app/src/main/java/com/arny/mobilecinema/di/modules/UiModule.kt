@@ -4,7 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.arny.mobilecinema.di.AppViewModelFactory
 import com.arny.mobilecinema.di.scopes.ViewModelKey
-import com.arny.mobilecinema.domain.interactors.MoviesInteractor
+import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
+import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.presentation.details.DetailsViewModel
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel
@@ -38,22 +39,25 @@ class UiModule {
     @ViewModelKey(DetailsViewModel::class)
     fun provideDetailsViewModel(
         interactor: MoviesInteractor,
+        historyInteractor: HistoryInteractor,
         playerSource: PlayerSource
-    ): ViewModel = DetailsViewModel(interactor, playerSource)
+    ): ViewModel = DetailsViewModel(interactor, historyInteractor, playerSource)
 
     @Provides
     @IntoMap
     @ViewModelKey(HistoryViewModel::class)
     fun provideHistoryViewModel(
         interactor: MoviesInteractor,
-    ): ViewModel = HistoryViewModel(interactor)
+        historyInteractor: HistoryInteractor,
+    ): ViewModel = HistoryViewModel(interactor, historyInteractor)
 
     @Provides
     @IntoMap
     @ViewModelKey(PlayerViewModel::class)
     fun providePlayerViewModel(
         interactor: MoviesInteractor,
-    ): ViewModel = PlayerViewModel(interactor)
+        historyInteractor: HistoryInteractor
+    ): ViewModel = PlayerViewModel(interactor,historyInteractor)
 
     @Provides
     @IntoMap

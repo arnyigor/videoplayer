@@ -4,7 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
-import com.arny.mobilecinema.domain.interactors.MoviesInteractor
+import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
+import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
@@ -30,6 +31,7 @@ import javax.inject.Inject
 
 class DetailsViewModel @Inject constructor(
     private val interactor: MoviesInteractor,
+    private val historyInteractor: HistoryInteractor,
     private val playerSource: PlayerSource
 ) : ViewModel() {
     private var currentAlert: Alert? = null
@@ -76,17 +78,23 @@ class DetailsViewModel @Inject constructor(
         }
     }
 
-    fun loadSaveData(dbId: Long) {
+    fun loadSaveData(movieDbId: Long) {
         viewModelScope.launch {
-            interactor.getSaveData(dbId)
+            historyInteractor.getSaveData(movieDbId)
                 .catch { _error.emit(ThrowableString(it)) }
                 .collectLatest {
                     when (it) {
                         is DataResult.Error -> {
                             _error.emit(ThrowableString(it.throwable))
                         }
-                        is DataResult.Success ->
-                            _saveData.emit(it.result)
+
+                        is DataResult.Success -> {
+                            val data = it.result
+                            _saveData.emit(data)
+                            if (data.movieDbId != null) {
+                                _hasSavedData.value = true
+                            }
+                        }
                     }
                 }
         }
@@ -95,7 +103,7 @@ class DetailsViewModel @Inject constructor(
     fun clearViewHistory() {
         viewModelScope.launch {
             val mMovie = _currentMovie.value
-            interactor.clearViewHistory(mMovie?.dbId)
+            historyInteractor.clearViewHistory(mMovie?.dbId)
                 .catch { _error.emit(ThrowableString(it)) }
                 .collectLatest {
                     when (it) {
@@ -125,19 +133,28 @@ class DetailsViewModel @Inject constructor(
     fun addToHistory() {
         viewModelScope.launch {
             val mMovie = _currentMovie.value
-            interactor.addToHistory(mMovie?.dbId)
-                .catch { _error.emit(ThrowableString(it)) }
-                .collectLatest {
-                    when (it) {
-                        is DataResult.Error -> {
-                            _error.emit(ThrowableString(it.throwable))
-                        }
+            val movieDbId = mMovie?.dbId
+            if (movieDbId != null) {
+                historyInteractor.addToHistory(movieDbId)
+                    .catch { _error.emit(ThrowableString(it)) }
+                    .collectLatest {
+                        when (it) {
+                            is DataResult.Error -> {
+                                _error.emit(ThrowableString(it.throwable))
+                            }
 
-                        is DataResult.Success -> {
-                            _addToHistory.emit(it.result)
+                            is DataResult.Success -> {
+                                _addToHistory.emit(it.result)
+                            }
                         }
                     }
-                }
+            }
+        }
+    }
+
+    fun updateDownloadedData() {
+        viewModelScope.launch {
+            getDownloadedData()
         }
     }
 
@@ -227,12 +244,6 @@ class DetailsViewModel @Inject constructor(
             }
         }
         _downloadInit.value = initValid
-    }
-
-    fun updateDownloadedData() {
-        viewModelScope.launch {
-            getDownloadedData()
-        }
     }
 
     fun updateDownloadedData(percent: Float?, bytes: Long?) {

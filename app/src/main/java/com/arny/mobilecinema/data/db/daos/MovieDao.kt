@@ -10,10 +10,13 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface MovieDao : BaseDao<MovieEntity> {
 
-    @Query("SELECT COUNT(dbId) FROM movies")
+    @Query("SELECT COUNT(*) FROM movies")
     fun getCount(): Int
 
-    @Query("SELECT dbId, pageUrl, title, updated, genre, type, cinemaUrls FROM movies")
+    @Query("DELETE FROM movies")
+    fun deleteAll(): Int
+
+    @Query("SELECT dbId, pageUrl, title, updated, genre FROM movies")
     fun getUpdateMovies(): List<MovieUpdate>
 
     @Query("SELECT * FROM movies WHERE dbId = :id")

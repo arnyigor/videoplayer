@@ -5,7 +5,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.arny.mobilecinema.data.models.DataResult
-import com.arny.mobilecinema.domain.interactors.MoviesInteractor
+import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
+import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.home.UiAction
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -27,7 +28,8 @@ import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class,FlowPreview::class)
 class HistoryViewModel @Inject constructor(
-    private val interactor: MoviesInteractor
+    private val interactor: MoviesInteractor,
+    private val historyInteractor: HistoryInteractor
 ) : ViewModel() {
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
@@ -57,7 +59,7 @@ class HistoryViewModel @Inject constructor(
         }
         .flatMapLatest { search ->
             this.search = search
-            interactor.getHistoryMovies(
+            historyInteractor.getHistoryMovies(
                 search = search.query,
                 order = search.order,
                 searchType = search.searchType
@@ -118,7 +120,7 @@ class HistoryViewModel @Inject constructor(
 
     private fun checkEmpty() {
         viewModelScope.launch {
-            interactor.isHistoryEmpty()
+            historyInteractor.isHistoryEmpty()
                 .collectLatest { data ->
                     when (data) {
                         is DataResult.Error -> {}
@@ -130,7 +132,7 @@ class HistoryViewModel @Inject constructor(
 
     fun clearAllViewHistory() {
         viewModelScope.launch {
-            interactor.clearAllViewHistory()
+            historyInteractor.clearAllViewHistory()
                 .collectLatest { data ->
                     when (data) {
                         is DataResult.Error -> {}

@@ -2,52 +2,61 @@ package com.arny.mobilecinema.presentation.playerview
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
-import com.arny.mobilecinema.domain.interactors.MoviesInteractor
+import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
+import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
+import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class PlayerViewModel @Inject constructor(
     private val interactor: MoviesInteractor,
+    private val historyInteractor: HistoryInteractor,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState = _uiState.asStateFlow()
     private val _isPipModeEnable = MutableStateFlow(false)
-    private val _pipMode = MutableSharedFlow<Boolean>()
-    val pipMode = _pipMode.asSharedFlow()
+    private val _pipMode = BufferedChannel<Boolean>()
+    val pipMode = _pipMode.receiveAsFlow()
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
-    private val _error = MutableSharedFlow<IWrappedString>()
-    val error = _error.asSharedFlow()
+    private val _error = BufferedChannel<IWrappedString>()
+    val error = _error.receiveAsFlow()
 
     fun saveCurrentCinemaPosition(position: Long, dbId: Long?) {
         viewModelScope.launch {
             val playerUiState = _uiState.value
-            when {
-                playerUiState.movie?.type == MovieType.CINEMA && !playerUiState.isTrailer -> {
-                    savePosition(dbId, position)
-                }
+            if (dbId != null) {
+                when {
+                    playerUiState.movie?.type == MovieType.CINEMA && !playerUiState.isTrailer -> {
+                        savePosition(dbId, position)
+                    }
 
-                playerUiState.movie?.type == MovieType.CINEMA && playerUiState.isTrailer -> {
-                    _uiState.value = _uiState.value.copy(
-                        isTrailer = false
-                    )
+                    playerUiState.movie?.type == MovieType.CINEMA && playerUiState.isTrailer -> {
+                        _uiState.value = _uiState.value.copy(
+                            isTrailer = false
+                        )
+                    }
                 }
             }
         }
     }
 
-    private suspend fun savePosition(dbId: Long?, position: Long) {
-        interactor.saveCinemaPosition(dbId, position)
+    private suspend fun savePosition(movieDbId: Long, position: Long) {
+        val save = historyInteractor.saveCinemaPosition(movieDbId, position)
+        if (!save) {
+            _error.trySend(ResourceString(R.string.movie_save_error))
+        }
     }
 
     fun setPlayData(
@@ -58,12 +67,12 @@ class PlayerViewModel @Inject constructor(
         trailer: Boolean
     ) {
         viewModelScope.launch {
-            interactor.getSaveData(movie?.dbId)
-                .catch { _error.emit(ThrowableString(it)) }
+            historyInteractor.getSaveData(movie?.dbId)
+                .catch { _error.trySend(ThrowableString(it)) }
                 .collect {
                     when (it) {
                         is DataResult.Error -> {
-                            _error.emit(ThrowableString(it.throwable))
+                            _error.trySend(ThrowableString(it.throwable))
                         }
 
                         is DataResult.Success -> {
@@ -81,10 +90,20 @@ class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun saveCurrentSerialPosition(dbId: Long?, season: Int, episode: Int, episodePosition: Long) {
+    fun saveCurrentSerialPosition(
+        dbId: Long?,
+        season: Int,
+        episode: Int,
+        episodePosition: Long
+    ) {
         viewModelScope.launch {
-            if (_uiState.value.movie?.type == MovieType.SERIAL) {
-                interactor.saveSerialPosition(dbId, season, episode, episodePosition)
+            if (_uiState.value.movie?.type == MovieType.SERIAL && dbId != null) {
+                historyInteractor.saveSerialPosition(
+                    movieDbId = dbId,
+                    season = season,
+                    episode = episode,
+                    episodePosition = episodePosition
+                )
             }
         }
     }
@@ -96,7 +115,7 @@ class PlayerViewModel @Inject constructor(
     fun requestPipMode() {
         viewModelScope.launch {
             if (_isPipModeEnable.value) {
-                _pipMode.emit(true)
+                _pipMode.trySend(true)
             }
         }
     }
