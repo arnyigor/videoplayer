@@ -49,7 +49,6 @@ import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
 import com.arny.mobilecinema.presentation.utils.printTime
 import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
-import com.arny.mobilecinema.presentation.utils.singleChoiceDialog
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems

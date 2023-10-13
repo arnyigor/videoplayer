@@ -80,46 +80,51 @@ class UpdateRepositoryImpl @Inject constructor(
                 }
                 val dbMovie = dbMovies.find { isEqualsUrlAndTitle(it, movie) }
                 entity.clear()
-                when {
-                    forceAll -> {
-                        entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
-                        try {
-                            moviesDao.update(entity)
-                        } catch (e: Exception) {
-                            error("Update error for $entity has error:${e.stackTraceToString()}")
-                        }
-                    }
-                    isTitleChanged(dbMovie, movie) -> {
-                        entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
-                        try {
-                            moviesDao.update(entity)
-                        } catch (e: Exception) {
-                            error("Update error for $entity has error:${e.stackTraceToString()}")
-                        }
-                    }
+                try {
+                    entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
+                    moviesDao.update(entity)
+                } catch (e: Exception) {
+                    error("Update error for $entity has error:${e.stackTraceToString()}")
+                }
+                /* when {
+                     forceAll -> {
+                         entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
+                         try {
+                             moviesDao.update(entity)
+                         } catch (e: Exception) {
+                             error("Update error for $entity has error:${e.stackTraceToString()}")
+                         }
+                     }
+                     isTitleChanged(dbMovie, movie) -> {
+                         entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
+                         try {
+                             moviesDao.update(entity)
+                         } catch (e: Exception) {
+                             error("Update error for $entity has error:${e.stackTraceToString()}")
+                         }
+                     }
 
-                    isUpdateTimeChanged(dbMovie, movie) -> {
-                        entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
-                        try {
-                            moviesDao.update(entity)
-                        } catch (e: Exception) {
-                            error("Update error for $entity has error:${e.stackTraceToString()}")
-                        }
-                    }
+                     isUpdateTimeChanged(dbMovie, movie) -> {
+                         entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
+                         try {
+                             moviesDao.update(entity)
+                         } catch (e: Exception) {
+                             error("Update error for $entity has error:${e.stackTraceToString()}")
+                         }
+                     }
 
-                    isGenreChanged(dbMovie, movie) -> {
-                        entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
-                        try {
-                            moviesDao.update(entity)
-                        } catch (e: Exception) {
-                            error("Update error for $entity has error:${e.stackTraceToString()}")
-                        }
-                    }
+                     isGenreChanged(dbMovie, movie) -> {
+                         entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
+                         try {
+                             moviesDao.update(entity)
+                         } catch (e: Exception) {
+                             error("Update error for $entity has error:${e.stackTraceToString()}")
+                         }
+                     }
 
-                    dbMovie != null && dbMovie.updated == 0L -> {
-                        /*error("Movie updated is 0L for movie:$dbMovie, has new movie:$movie")*/
+                     dbMovie != null && dbMovie.updated == 0L -> {
+                          error("Movie updated is 0L for movie:$dbMovie, has new movie:$movie")
                     }
-
                     dbMovie == null -> {
                         val newId = moviesDao.getLastId() + 1
                         entity = entity.setData(movie).copy(dbId = newId)
@@ -129,7 +134,7 @@ class UpdateRepositoryImpl @Inject constructor(
                             error("Insert error for $entity has error:${e.stackTraceToString()}")
                         }
                     }
-                }
+                }*/
                 if (index % 1000 == 0) {
                     onUpdate(getPercent(index, size))
                 }
