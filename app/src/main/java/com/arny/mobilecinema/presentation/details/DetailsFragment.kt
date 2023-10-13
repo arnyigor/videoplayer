@@ -49,6 +49,7 @@ import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
 import com.arny.mobilecinema.presentation.utils.printTime
 import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
+import com.arny.mobilecinema.presentation.utils.singleChoiceDialog
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
@@ -226,7 +227,20 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun playMovie(isTrailer: Boolean) {
         currentMovie?.let { movie ->
             val connectionType = getConnectionType(requireContext())
+//            val cinemaUrls = movie.getCinemaUrls()
             when {
+//                movie.type == MovieType.CINEMA && cinemaUrls.size > 1 -> {
+//                    singleChoiceDialog(
+//                        title = "Выберите ссылку для воспроизведения",
+//                        items = List(cinemaUrls.size) { index -> "Ссылка ${index + 1}" },
+//                        selectedPosition = 0,
+//                        cancelable = true,
+//                        btnOk = "OK",
+//                        btnCancel = "Cancel"
+//                    ) { ind, _ ->
+//                        toast(cinemaUrls[ind])
+//                    }
+//                }
                 movie.type == MovieType.CINEMA && downloadAll -> {
                     navigateToPLayer(movie, isTrailer)
                 }
