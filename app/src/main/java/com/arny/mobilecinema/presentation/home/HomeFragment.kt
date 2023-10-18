@@ -491,7 +491,6 @@ class HomeFragment : Fragment(), OnSearchListener {
             title = getString(R.string.check_new_video_data),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                Timber.d("showVideoUpdateDialog")
                 downloadData(force = true)
             }
         )

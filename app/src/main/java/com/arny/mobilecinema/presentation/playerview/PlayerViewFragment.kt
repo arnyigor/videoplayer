@@ -64,7 +64,9 @@ import com.google.android.exoplayer2.DefaultLoadControl
 import com.google.android.exoplayer2.DefaultRenderersFactory
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.PlaybackException
+import com.google.android.exoplayer2.PlaybackParameters
 import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.analytics.AnalyticsListener
 import com.google.android.exoplayer2.source.MediaSource
@@ -727,8 +729,19 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 episodeIndex = args.episodeIndex,
                 trailer = args.isTrailer
             )
+//            changePlaybackSpeed()
         }
     }
+
+    fun changePlaybackSpeed(){
+       player?.playbackSpeed = 1.1f
+    }
+
+    private var ExoPlayer?.playbackSpeed: Float
+        get() = this?.playbackParameters?.speed ?: 1f
+        set(speed) {
+            this?.playbackParameters = PlaybackParameters(speed)
+        }
 
     private fun initEnhancer() {
         val audioSessionId = player?.audioSessionId

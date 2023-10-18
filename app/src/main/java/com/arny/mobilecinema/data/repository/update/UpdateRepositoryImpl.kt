@@ -81,8 +81,15 @@ class UpdateRepositoryImpl @Inject constructor(
                 val dbMovie = dbMovies.find { isEqualsUrlAndTitle(it, movie) }
                 entity.clear()
                 try {
-                    entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
-                    moviesDao.update(entity)
+                    val dbId = dbMovie?.dbId
+                    if (dbId != null) {
+                        entity = entity.setData(movie).copy(dbId = dbId)
+                        moviesDao.update(entity)
+                    } else {
+                        val newId = moviesDao.getLastId() + 1
+                        entity = entity.setData(movie).copy(dbId = newId)
+                        moviesDao.insert(entity)
+                    }
                 } catch (e: Exception) {
                     error("Update error for $entity has error:${e.stackTraceToString()}")
                 }

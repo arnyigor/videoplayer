@@ -126,11 +126,6 @@ class HomeViewModel @Inject constructor(
                                         ),
                                         btnOk = ResourceString(android.R.string.ok),
                                         btnCancel = ResourceString(android.R.string.cancel),
-                                        btnNeutral = if (!_empty.value) {
-                                            ResourceString(R.string.full_update)
-                                        } else {
-                                            null
-                                        },
                                         type = AlertType.Update(false)
                                     )
                                 )
