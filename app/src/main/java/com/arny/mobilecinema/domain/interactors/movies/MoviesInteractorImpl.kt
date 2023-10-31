@@ -7,6 +7,7 @@ import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
@@ -30,11 +31,23 @@ class MoviesInteractorImpl @Inject constructor(
         order: String,
         searchType: String,
         searchAddTypes: List<String>,
+        genres: List<String>,
+        countries: List<String>,
+        years: SimpleIntRange?,
+        imdbs: SimpleFloatRange?,
+        kps: SimpleFloatRange?,
+        likesPriority: Boolean,
     ): Flow<PagingData<ViewMovie>> = repository.getMovies(
         search = search,
         order = order,
         searchType = searchType.ifBlank { AppConstants.SearchType.TITLE },
-        searchAddTypes = searchAddTypes
+        searchAddTypes = searchAddTypes,
+        genres = genres,
+        countries = countries,
+        years = years,
+        imdbs = imdbs,
+        kps = kps,
+        likesPriority = likesPriority,
     ).flow
 
     override suspend fun loadDistinctGenres(): List<String> = withContext(dispatcher) {

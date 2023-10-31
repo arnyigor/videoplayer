@@ -18,6 +18,8 @@ import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -29,7 +31,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-class DetailsViewModel @Inject constructor(
+class DetailsViewModel @AssistedInject constructor(
+    @Assisted("id") private val id: Long,
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
     private val playerSource: PlayerSource
@@ -58,7 +61,11 @@ class DetailsViewModel @Inject constructor(
     private val _alert = BufferedSharedFlow<Alert>()
     val alert = _alert.asSharedFlow()
 
-    fun loadVideo(id: Long) {
+    init {
+        loadVideo()
+    }
+
+    private fun loadVideo() {
         viewModelScope.launch {
             interactor.getMovie(id)
                 .onStart { _loading.value = true }

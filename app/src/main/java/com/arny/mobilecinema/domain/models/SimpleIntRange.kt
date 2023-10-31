@@ -5,6 +5,8 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class SimpleIntRange(
-    val from: Int,
-    val to: Int,
+    val from: Int = 0,
+    val to: Int = 0,
 ) : Parcelable
+
+fun SimpleIntRange?.isNotEmpty(): Boolean = this != null && from != 0 && to != 0

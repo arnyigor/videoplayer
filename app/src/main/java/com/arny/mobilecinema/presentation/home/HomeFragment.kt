@@ -2,13 +2,13 @@ package com.arny.mobilecinema.presentation.home
 
 import android.Manifest
 import android.app.Activity
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
@@ -18,16 +18,13 @@ import android.view.ViewGroup
 import android.widget.SearchView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
+import androidx.paging.LoadState
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
@@ -38,14 +35,15 @@ import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
-import com.arny.mobilecinema.domain.models.SimpleFloatRange
-import com.arny.mobilecinema.domain.models.SimpleIntRange
+import com.arny.mobilecinema.di.viewModelFactory
+import com.arny.mobilecinema.presentation.extendedsearch.ExtendSearchResult
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.getImgCompat
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.inputDialog
+import com.arny.mobilecinema.presentation.utils.isNotificationsFullyEnabled
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.openAppSettings
 import com.arny.mobilecinema.presentation.utils.registerReceiver
@@ -58,29 +56,36 @@ import com.arny.mobilecinema.presentation.utils.unlockOrientation
 import com.arny.mobilecinema.presentation.utils.unregisterReceiver
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
+import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
-import timber.log.Timber
 import javax.inject.Inject
 
 class HomeFragment : Fragment(), OnSearchListener {
+
     private companion object {
         const val REQUEST_LOAD: Int = 99
         const val REQUEST_OPEN_FILE: Int = 100
         const val REQUEST_OPEN_FOLDER: Int = 101
     }
 
-    private var searchMenuItem: MenuItem? = null
-    private var searchView: SearchView? = null
-
-    @Inject
-    lateinit var vmFactory: ViewModelProvider.Factory
-
     @Inject
     lateinit var prefs: Prefs
-    private val viewModel: HomeViewModel by viewModels { vmFactory }
+
+    @AssistedFactory
+    internal interface ViewModelFactory {
+        fun create(): HomeViewModel
+    }
+
+    @Inject
+    internal lateinit var viewModelFactory: ViewModelFactory
+    private val viewModel: HomeViewModel by viewModelFactory { viewModelFactory.create() }
+
     private lateinit var binding: FHomeBinding
+    private var searchMenuItem: MenuItem? = null
+    private var searchView: SearchView? = null
     private var request: Int = -1
     private var requestedNotice: Boolean = false
+    private var likesPriority: Boolean = true
     private var currentOrder: String = ""
     private var searchType: String = ""
     private var searchAddTypes: MutableList<String> = mutableListOf(
@@ -88,9 +93,11 @@ class HomeFragment : Fragment(), OnSearchListener {
         AppConstants.SearchType.SERIAL
     )
     private var emptySearch = true
+    private var extendSearch = false
     private var hasQuery = false
     private var onQueryChangeSubmit = true
     private var itemsAdapter: VideoItemsAdapter? = null
+    private var extendSearchResult: ExtendSearchResult? = null
     private val startForResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result: ActivityResult ->
@@ -119,36 +126,6 @@ class HomeFragment : Fragment(), OnSearchListener {
             }
         }
     private val updateReceiver by lazy { makeBroadcastReceiver() }
-
-    private fun request() {
-        when (request) {
-            REQUEST_OPEN_FILE -> requestFile()
-            REQUEST_LOAD -> downloadData()
-        }
-    }
-
-    private fun makeBroadcastReceiver(): BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent != null) {
-                when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
-                    AppConstants.ACTION_UPDATE_STATUS_STARTED -> {
-                        binding.tvEmptyView.setText(R.string.update_started)
-                    }
-
-                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
-                        toast(getString(R.string.update_finished_success))
-                        viewModel.loadMovies()
-                    }
-
-                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
-                        binding.tvEmptyView.setText(R.string.update_finished_error)
-                        toast(getString(R.string.update_finished_error))
-                        viewModel.loadMovies()
-                    }
-                }
-            }
-        }
-    }
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
@@ -186,6 +163,36 @@ class HomeFragment : Fragment(), OnSearchListener {
         unregisterReceiver(updateReceiver)
     }
 
+    private fun request() {
+        when (request) {
+            REQUEST_OPEN_FILE -> requestFile()
+            REQUEST_LOAD -> downloadData()
+        }
+    }
+
+    private fun makeBroadcastReceiver(): BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent != null) {
+                when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
+                    AppConstants.ACTION_UPDATE_STATUS_STARTED -> {
+                        binding.tvEmptyView.setText(R.string.update_started)
+                    }
+
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+                        toast(getString(R.string.update_finished_success))
+                        viewModel.loadMovies()
+                    }
+
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
+                        binding.tvEmptyView.setText(R.string.update_finished_error)
+                        toast(getString(R.string.update_finished_error))
+                        viewModel.loadMovies()
+                    }
+                }
+            }
+        }
+    }
+
     private fun checkPermission() {
         if (requestedNotice) {
             requestedNotice = false
@@ -195,27 +202,25 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     private fun observeResult() {
         setFragmentResultListener(AppConstants.FRAGMENTS.RESULTS) { _, bundle ->
-            val search = bundle.getString(AppConstants.SearchType.TITLE)
-            Timber.d("observeResult search:$search")
-            val types = bundle.getStringArrayList(AppConstants.SearchType.TYPES)?.toList()
-            Timber.d("observeResult TYPES:$types")
-            val genres = bundle.getStringArrayList(AppConstants.SearchType.GENRES)?.toList()
-            Timber.d("observeResult GENRES:$genres")
-            val countries = bundle.getStringArrayList(AppConstants.SearchType.COUNTRIES)?.toList()
-            Timber.d("observeResult COUNTRIES:$countries")
-            val years = bundle.getParcelable<SimpleIntRange>(AppConstants.SearchType.YEARS)
-            Timber.d("observeResult years:$years")
-            val imdbs = bundle.getParcelable<SimpleFloatRange>(AppConstants.SearchType.IMDBS)
-            Timber.d("observeResult imdbs:$imdbs")
-            val kps = bundle.getParcelable<SimpleFloatRange>(AppConstants.SearchType.KPS)
-            Timber.d("observeResult kps:$kps")
-            searchType = AppConstants.SearchType.TITLE
-            viewModel.setSearchType(
-                type = searchType,
-                submit = false,
-                addTypes = types.orEmpty()
-            )
-            viewModel.loadMovies(search.orEmpty())
+            extendSearchResult = bundle.getParcelable(AppConstants.SearchType.SEARCH_RESULT)
+            extendedSearch()
+        }
+    }
+
+    private fun extendedSearch() {
+        extendSearchResult?.let {
+            Handler(Looper.getMainLooper()).postDelayed({
+                extendSearch = true
+                viewModel.extendedSearch(it)
+                val search = it.search
+                if (search.isNotBlank()) {
+                    emptySearch = false
+                    onQueryChangeSubmit = false
+                    searchMenuItem?.expandActionView()
+                    searchView?.setQuery(search, false)
+                }
+            }, 350)
+            extendSearchResult = null
         }
     }
 
@@ -241,41 +246,26 @@ class HomeFragment : Fragment(), OnSearchListener {
                     searchType = AppConstants.SearchType.GENRES
                 }
             }
-            if (query.isNotBlank() && searchType.isNotBlank()) {
-                viewModel.setSearchType(
-                    type = searchType,
-                    submit = false,
-                    addTypes = searchAddTypes
-                )
-                onQueryChangeSubmit = false
-                searchMenuItem?.expandActionView()
-                searchView?.setQuery(query, false)
-                viewModel.loadMovies(query, delay = true)
-                arguments?.clear()
-            }
+            setMenuSearchQuery(query)
+        }
+    }
+
+    private fun setMenuSearchQuery(query: String) {
+        if (query.isNotBlank() && searchType.isNotBlank()) {
+            viewModel.setSearchType(
+                type = searchType,
+                submit = false,
+                addTypes = searchAddTypes
+            )
+            onQueryChangeSubmit = false
+            searchMenuItem?.expandActionView()
+            searchView?.setQuery(query, false)
+            viewModel.loadMovies(query, delay = true)
+            arguments?.clear()
         }
     }
 
     private fun getIntentString(param: String) = arguments?.getString(param)
-
-    private fun NotificationManagerCompat.areNotificationsFullyEnabled(): Boolean {
-        if (!areNotificationsEnabled()) return false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            for (notificationChannel in notificationChannels) {
-                if (!notificationChannel.isFullyEnabled(this)) return false
-            }
-        }
-        return true
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    fun NotificationChannel.isFullyEnabled(notificationManager: NotificationManagerCompat): Boolean {
-        if (importance == NotificationManager.IMPORTANCE_NONE) return false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            if (notificationManager.getNotificationChannelGroup(group)?.isBlocked == true) return false
-        }
-        return true
-    }
 
     private fun requestPermissions() {
         if (requestNotice()) {
@@ -284,8 +274,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     }
 
     private fun requestNotice(): Boolean {
-        val enabled =
-            NotificationManagerCompat.from(requireContext()).areNotificationsFullyEnabled()
+        val enabled = isNotificationsFullyEnabled()
         if (!enabled) {
             alertDialog(
                 title = getString(R.string.need_notice_permission_message),
@@ -332,7 +321,14 @@ class HomeFragment : Fragment(), OnSearchListener {
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
         itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
-            findNavController().navigate(HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId))
+            findNavController().navigate(
+                HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId),
+            )
+        }
+        itemsAdapter?.addLoadStateListener { loadState ->
+            if (loadState.source.refresh is LoadState.NotLoading) {
+                binding.tvEmptyView.isVisible = (itemsAdapter?.itemCount ?: 0) < 1
+            }
         }
         binding.rcVideoList.apply {
             adapter = itemsAdapter
@@ -350,6 +346,11 @@ class HomeFragment : Fragment(), OnSearchListener {
             viewModel.empty.collectLatest { empty ->
                 hasQuery = !empty
                 requireActivity().invalidateOptionsMenu()
+                binding.tvEmptyView.isVisible = empty
+            }
+        }
+        launchWhenCreated {
+            viewModel.emptyExtended.collectLatest { empty ->
                 binding.tvEmptyView.isVisible = empty
             }
         }
@@ -410,11 +411,14 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
-    override fun isSearchComplete(): Boolean = emptySearch
+    override fun isSearchComplete(): Boolean = emptySearch && !extendSearch
 
     override fun collapseSearch() {
-        viewModel.loadMovies()
+        viewModel.loadMovies(resetAll = true)
         emptySearch = true
+        extendSearch = false
+        requireActivity().hideKeyboard()
+        requireActivity().invalidateOptionsMenu()
     }
 
     private fun initMenu() {
@@ -423,7 +427,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                 menu.findItem(R.id.action_search).isVisible = hasQuery
                 menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
                 menu.findItem(R.id.action_order_settings).isVisible = hasQuery
-                menu.findItem(R.id.action_extended_search_settings).isVisible = false // TODO Сделать открытым
+                menu.findItem(R.id.action_extended_search_settings).isVisible = true
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -504,10 +508,14 @@ class HomeFragment : Fragment(), OnSearchListener {
             btnOkText = getString(android.R.string.ok),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                viewModel.setOrder(currentOrder)
+                viewModel.setOrder(currentOrder, likesPriority)
             },
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
+                    chbLikesPriority.isChecked = likesPriority
+                    chbLikesPriority.setOnCheckedChangeListener { _, isChecked ->
+                        likesPriority = isChecked
+                    }
                     val radioBtn = listOf(
                         rbNone to AppConstants.Order.NONE,
                         rbTitle to AppConstants.Order.TITLE,

@@ -36,6 +36,7 @@ import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
+import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
@@ -77,11 +78,28 @@ import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
+import dagger.assisted.AssistedFactory
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.properties.Delegates
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
+
+    @AssistedFactory
+    internal interface ViewModelFactory {
+        fun create(): PlayerViewModel
+    }
+
+    @Inject
+    internal lateinit var viewModelFactory: ViewModelFactory
+    private val viewModel: PlayerViewModel by viewModelFactory { viewModelFactory.create() }
+
+    @Inject
+    lateinit var prefs: Prefs
+
+    @Inject
+    lateinit var playerSource: PlayerSource
+
     private var title: String = ""
     private var position: Long = 0L
     private var season: Int = 0
@@ -119,16 +137,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private companion object {
         const val MAX_BOOST = 150
     }
-
-    @Inject
-    lateinit var vmFactory: ViewModelProvider.Factory
-    private val viewModel: PlayerViewModel by viewModels { vmFactory }
-
-    @Inject
-    lateinit var prefs: Prefs
-
-    @Inject
-    lateinit var playerSource: PlayerSource
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)

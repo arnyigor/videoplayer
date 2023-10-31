@@ -1,6 +1,8 @@
 package com.arny.mobilecinema.presentation.utils
 
 import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -15,9 +17,30 @@ import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.core.app.NotificationManagerCompat
 import androidx.fragment.app.Fragment
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
+
+fun Fragment.isNotificationsFullyEnabled(): Boolean {
+    val notificationManagerCompat = NotificationManagerCompat.from(requireContext())
+    if (!notificationManagerCompat.areNotificationsEnabled()) return false
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        for (notificationChannel in notificationManagerCompat.notificationChannels) {
+            if (!notificationChannel.isFullyEnabled(notificationManagerCompat)) return false
+        }
+    }
+    return true
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun NotificationChannel.isFullyEnabled(notificationManager: NotificationManagerCompat): Boolean {
+    if (importance == NotificationManager.IMPORTANCE_NONE) return false
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        if (notificationManager.getNotificationChannelGroup(group)?.isBlocked == true) return false
+    }
+    return true
+}
 
 fun Fragment.registerContentResolver(observer: ContentObserver) {
     requireContext().contentResolver.registerContentObserver(

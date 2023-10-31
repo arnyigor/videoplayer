@@ -37,7 +37,7 @@ object AppConstants {
     }
 
     object SearchType {
-        const val TYPES = "types"
+        const val SEARCH_RESULT = "SEARCH_RESULT"
         const val TITLE = "title"
         const val DIRECTORS = "directors"
         const val ACTORS = "actors"

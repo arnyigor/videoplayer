@@ -13,13 +13,13 @@ import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.strings.SimpleString
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
-class ExtendedSearchViewModel @Inject constructor(
+class ExtendedSearchViewModel @AssistedInject constructor(
     private val moviesInteractor: MoviesInteractor,
 ) : ViewModel() {
     companion object {
@@ -241,6 +241,7 @@ class ExtendedSearchViewModel @Inject constructor(
                 countries = _selectedCountries.value.filter { it.selected }.map { it.title },
                 yearsRange = SimpleIntRange(yearFrom, yearTo),
                 imdbRange = SimpleFloatRange(imdbFrom, imdbTo),
+                kpRange = SimpleFloatRange(kpFrom, kpTo)
             )
         )
     }

@@ -9,6 +9,7 @@ import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.home.UiAction
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -27,7 +28,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class,FlowPreview::class)
-class HistoryViewModel @Inject constructor(
+class HistoryViewModel @AssistedInject constructor(
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor
 ) : ViewModel() {

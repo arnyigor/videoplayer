@@ -9,11 +9,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModelProvider
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.presentation.MainActivity
+import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
+import dagger.assisted.AssistedFactory
 import javax.inject.Inject
 
 class StartActivity : AppCompatActivity(), HasAndroidInjector {
@@ -21,9 +24,16 @@ class StartActivity : AppCompatActivity(), HasAndroidInjector {
     lateinit var dispatchingAndroidInjector: DispatchingAndroidInjector<Any>
 
     override fun androidInjector(): AndroidInjector<Any> = dispatchingAndroidInjector
+
+    @AssistedFactory
+    internal interface ViewModelFactory {
+        fun create(): SplashViewModel
+    }
+
     @Inject
-    lateinit var vmFactory: ViewModelProvider.Factory
-    private val viewModel: SplashViewModel by viewModels { vmFactory }
+    internal lateinit var viewModelFactory: ViewModelFactory
+    private val viewModel: SplashViewModel by viewModelFactory { viewModelFactory.create() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AndroidInjection.inject(this)
         val splashScreen = installSplashScreen()

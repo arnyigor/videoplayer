@@ -14,14 +14,13 @@ import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResult
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.databinding.FExtendedSearchBinding
+import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel.Companion.DIALOG_REQ_COUNTRIES
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel.Companion.DIALOG_REQ_GENRES
@@ -35,20 +34,24 @@ import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
+import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
-import timber.log.Timber
 import java.text.NumberFormat
 import javax.inject.Inject
 
 class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
-    private lateinit var binding: FExtendedSearchBinding
-
-    @Inject
-    lateinit var vmFactory: ViewModelProvider.Factory
 
     @Inject
     lateinit var prefs: Prefs
-    private val viewModel: ExtendedSearchViewModel by viewModels { vmFactory }
+
+    @AssistedFactory
+    internal interface ViewModelFactory {
+        fun create(): ExtendedSearchViewModel
+    }
+
+    @Inject
+    internal lateinit var viewModelFactory: ViewModelFactory
+    private val viewModel: ExtendedSearchViewModel by viewModelFactory { viewModelFactory.create() }
 
     private companion object {
         const val MIN_IMDB = 0.0f
@@ -56,6 +59,8 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
         const val MIN_KP = 0.0f
         const val MAX_KP = 10.0f
     }
+
+    private lateinit var binding: FExtendedSearchBinding
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
@@ -151,12 +156,7 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
     private fun onResultSend(result: ExtendSearchResult) {
         setFragmentResult(
             AppConstants.FRAGMENTS.RESULTS, bundleOf(
-                AppConstants.SearchType.TYPES to result.types,
-                AppConstants.SearchType.TITLE to result.search,
-                AppConstants.SearchType.GENRES to result.genres,
-                AppConstants.SearchType.YEARS to result.yearsRange,
-                AppConstants.SearchType.IMDBS to result.imdbRange,
-                AppConstants.SearchType.KPS to result.kpRange,
+                AppConstants.SearchType.SEARCH_RESULT to result,
             )
         )
         findNavController().popBackStack()

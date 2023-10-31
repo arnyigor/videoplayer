@@ -12,9 +12,7 @@ import android.widget.SearchView
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
@@ -23,6 +21,7 @@ import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHistoryBinding
+import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
@@ -30,20 +29,26 @@ import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.setupSearchView
+import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
+import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
 class HistoryFragment : Fragment(), OnSearchListener {
-    private lateinit var binding: FHistoryBinding
-
-    @Inject
-    lateinit var vmFactory: ViewModelProvider.Factory
-
     @Inject
     lateinit var prefs: Prefs
-    private val viewModel: HistoryViewModel by viewModels { vmFactory }
+
+    @AssistedFactory
+    internal interface ViewModelFactory {
+        fun create(): HistoryViewModel
+    }
+
+    @Inject
+    internal lateinit var viewModelFactory: ViewModelFactory
+    private val viewModel: HistoryViewModel by viewModelFactory { viewModelFactory.create() }
+    private lateinit var binding: FHistoryBinding
     private var itemsAdapter: VideoItemsAdapter? = null
     private var searchMenuItem: MenuItem? = null
     private var searchView: SearchView? = null
@@ -239,7 +244,9 @@ class HistoryFragment : Fragment(), OnSearchListener {
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
         itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
-            findNavController().navigate(HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId))
+            findNavController().navigate(
+                HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId),
+            )
         }
         binding.rvHistoryList.apply {
             adapter = itemsAdapter

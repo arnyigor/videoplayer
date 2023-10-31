@@ -9,12 +9,16 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
+import com.arny.mobilecinema.domain.models.SimpleFloatRange
+import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
+import com.arny.mobilecinema.presentation.extendedsearch.ExtendSearchResult
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -28,22 +32,40 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class HomeViewModel @Inject constructor(
+class HomeViewModel @AssistedInject constructor(
     private val dataUpdateInteractor: DataUpdateInteractor,
     private val moviesInteractor: MoviesInteractor,
 ) : ViewModel() {
+    companion object {
+        val SEARCH_TYPES = listOf(
+            AppConstants.SearchType.CINEMA,
+            AppConstants.SearchType.SERIAL,
+        )
+    }
+
+    private var kpRange: SimpleFloatRange = SimpleFloatRange()
+    private var imdbRange: SimpleFloatRange = SimpleFloatRange()
+    private var years: SimpleIntRange = SimpleIntRange()
+    private var countries: List<String> = emptyList()
+    private var queryString = ""
+    private var mlikesPriority = true
+    private var searchType = ""
+    private var searchAddTypes = SEARCH_TYPES
+    private var genres: List<String> = emptyList()
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
     private val _empty = MutableStateFlow(false)
     val empty = _empty.asStateFlow()
+    private val _emptyExtended = MutableStateFlow(false)
+    val emptyExtended = _emptyExtended.asStateFlow()
     private val _toast = MutableSharedFlow<IWrappedString>()
     val toast = _toast.asSharedFlow()
     private val _alert = BufferedChannel<Alert>()
@@ -53,43 +75,51 @@ class HomeViewModel @Inject constructor(
     private val _order = MutableStateFlow("")
     val order = _order.asStateFlow()
     private var search = UiAction.Search()
-    private var query = ""
-    private var searchType = ""
-    private var searchAddTypes = listOf(
-        AppConstants.SearchType.CINEMA,
-        AppConstants.SearchType.SERIAL,
-    )
+    private val trigger = MutableSharedFlow<Unit>()
     private val actionStateFlow = MutableSharedFlow<UiAction>()
     val updateText = dataUpdateInteractor.updateTextFlow
-    var moviesDataFlow: Flow<PagingData<ViewMovie>> = actionStateFlow
-        .filterIsInstance<UiAction.Search>()
-        .distinctUntilChanged()
-        .debounce(350)
-        .onStart {
-            val savedOrder = moviesInteractor.getOrder()
-            _order.value = savedOrder
-            emit(
-                UiAction.Search(
-                    order = savedOrder,
-                    searchType = searchType,
-                    searchAddTypes = searchAddTypes
+    var moviesDataFlow: Flow<PagingData<ViewMovie>> =
+        listOf(
+            trigger,
+            actionStateFlow.filterIsInstance<UiAction.Search>()
+                .distinctUntilChanged()
+                .debounce(350)
+        )
+            .merge()
+            .onStart {
+                val savedOrder = moviesInteractor.getOrder()
+                _order.value = savedOrder
+                emit(
+                    UiAction.Search(
+                        order = savedOrder,
+                        searchType = searchType,
+                        searchAddTypes = searchAddTypes
+                    )
                 )
-            )
-        }
-        .flatMapLatest { search ->
-            this.search = search
-            moviesInteractor.getMovies(
-                search = search.query,
-                order = search.order,
-                searchType = search.searchType,
-                searchAddTypes = search.searchAddTypes
-            )
-        }
-        .onEach {
-            _loading.value = false
-            checkEmpty()
-        }
-        .cachedIn(viewModelScope)
+            }
+            .flatMapLatest { trig ->
+                if (trig is UiAction.Search) {
+                    this.search = trig
+                }
+                val dataFlow = moviesInteractor.getMovies(
+                    search = search.query,
+                    order = search.order,
+                    searchType = search.searchType,
+                    searchAddTypes = search.searchAddTypes,
+                    genres = search.genres,
+                    countries = search.countries,
+                    years = search.years,
+                    imdbs = search.imdbs,
+                    kps = search.kps,
+                    likesPriority = mlikesPriority
+                )
+                dataFlow
+            }
+            .onEach {
+                _loading.value = false
+                checkEmpty()
+            }
+            .cachedIn(viewModelScope)
 
     private fun checkEmpty() {
         viewModelScope.launch {
@@ -136,22 +166,45 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun loadMovies(query: String = "", submit: Boolean = true, delay: Boolean = false) {
+    fun loadMovies(
+        query: String = "",
+        submit: Boolean = true,
+        delay: Boolean = false,
+        resetAll: Boolean = false
+    ) {
         viewModelScope.launch {
-            this@HomeViewModel.query = query
+            queryString = query
             if (submit) {
                 if (delay) {
                     delay(350)
                 }
-                actionStateFlow.emit(UiAction.Search())
-                actionStateFlow.emit(
-                    UiAction.Search(
-                        searchType = searchType,
-                        query = query,
-                        order = _order.value,
-                        searchAddTypes = query.takeIf { it.isNotBlank() }?.let { searchAddTypes } ?:emptyList()
-                    )
-                )
+                when {
+                    resetAll -> {
+                        resetExtendSearch()
+                        actionStateFlow.emit(
+                            UiAction.Search(
+                                order = _order.value,
+                                searchAddTypes = searchAddTypes
+                            )
+                        )
+                    }
+
+                    query.isNotBlank() -> {
+                        actionStateFlow.emit(
+                            UiAction.Search(
+                                searchType = searchType,
+                                query = query,
+                                order = _order.value,
+                                searchAddTypes = query.takeIf { it.isNotBlank() }
+                                    ?.let { searchAddTypes } ?: emptyList()
+                            )
+                        )
+                    }
+
+                    else -> {
+                        trigger.emit(Unit)
+                    }
+                }
             }
         }
     }
@@ -200,15 +253,23 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun setOrder(order: String) {
+    fun setOrder(order: String, likesPriority: Boolean) {
         viewModelScope.launch {
             moviesInteractor.saveOrder(order)
+            _order.value = order
+            mlikesPriority = likesPriority
             actionStateFlow.emit(
                 UiAction.Search(
                     searchType = searchType,
-                    query = search.query,
-                    order = order,
-                    searchAddTypes = searchAddTypes
+                    query = queryString,
+                    order = _order.value,
+                    searchAddTypes = searchAddTypes,
+                    genres = genres,
+                    countries = countries,
+                    years = years,
+                    imdbs = imdbRange,
+                    kps = kpRange,
+                    likesPriority = mlikesPriority
                 )
             )
         }
@@ -219,16 +280,46 @@ class HomeViewModel @Inject constructor(
             searchType = type
             searchAddTypes = addTypes
             if (submit) {
-                actionStateFlow.emit(UiAction.Search())
-                actionStateFlow.emit(
-                    UiAction.Search(
-                        searchType = searchType,
-                        query = search.query,
-                        order = _order.value,
-                        searchAddTypes = searchAddTypes
-                    )
-                )
+                trigger.emit(Unit)
             }
         }
+    }
+
+    fun extendedSearch(searchResult: ExtendSearchResult) {
+        viewModelScope.launch {
+            searchType = AppConstants.SearchType.TITLE
+            searchAddTypes = searchResult.types
+            queryString = searchResult.search
+            genres = searchResult.genres
+            countries = searchResult.countries
+            years = searchResult.yearsRange
+            imdbRange = searchResult.imdbRange
+            kpRange = searchResult.kpRange
+            actionStateFlow.emit(
+                UiAction.Search(
+                    searchType = searchType,
+                    query = queryString,
+                    order = _order.value,
+                    searchAddTypes = searchAddTypes,
+                    genres = genres,
+                    countries = countries,
+                    years = years,
+                    imdbs = imdbRange,
+                    kps = kpRange,
+                    likesPriority = mlikesPriority
+                )
+            )
+        }
+    }
+
+    private fun resetExtendSearch() {
+        searchType = AppConstants.SearchType.TITLE
+        searchAddTypes = SEARCH_TYPES
+        queryString = ""
+        genres = emptyList()
+        countries = emptyList()
+        years = SimpleIntRange()
+        imdbRange = SimpleFloatRange()
+        kpRange = SimpleFloatRange()
     }
 }

@@ -11,6 +11,5 @@ enum class MovieType(val value: Int) {
 
     companion object {
         fun fromValue(value: Int): MovieType = values().find { it.value == value } ?: CINEMA
-        fun fromStringValue(value: String): MovieType = values().find { it.toString() == value } ?: CINEMA
     }
 }

@@ -14,9 +14,7 @@ import android.widget.AdapterView
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
@@ -29,6 +27,7 @@ import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.FDetailsBinding
+import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
@@ -57,15 +56,26 @@ import com.bumptech.glide.Glide
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import dagger.android.support.AndroidSupportInjection
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.joda.time.DateTime
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
+    private val args: DetailsFragmentArgs by navArgs()
+
+    @AssistedFactory
+    internal interface ViewModelFactory {
+        fun create(@Assisted("id") id: Long): DetailsViewModel
+    }
+
     @Inject
-    lateinit var vmFactory: ViewModelProvider.Factory
-    private val viewModel: DetailsViewModel by viewModels { vmFactory }
+    internal lateinit var viewModelFactory: ViewModelFactory
+    private val viewModel: DetailsViewModel by viewModelFactory {
+        viewModelFactory.create(args.id)
+    }
 
     @Inject
     lateinit var playerSource: PlayerSource
@@ -80,7 +90,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private var hasSavedData: Boolean = false
     private var downloadAll: Boolean = false
     private var canDownload: Boolean = false
-    private val args: DetailsFragmentArgs by navArgs()
+
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
             parent: AdapterView<*>?,
@@ -152,7 +162,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         initTrackAdapters()
         observeData()
         initMenu()
-        viewModel.loadVideo(args.id)
     }
 
     override fun onResume() {
@@ -567,7 +576,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }.toString()
         tvQuality.isVisible = movie.type == MovieType.CINEMA
         tvQuality.text = getString(R.string.quality_format, info.quality)
-        initGenres(info.genre)
+        initGenres(info.genres)
         initDirectors(info.directors)
         initActors(info.actors)
     }

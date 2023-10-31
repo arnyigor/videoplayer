@@ -2,7 +2,7 @@
     <string name="app_name">Anwap Movies</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
-    <string name="film_not_found">Список видео пуст</string>
+    <string name="movies_not_found">Список видео пуст</string>
     <string name="home_search">Поиск</string>
     <string name="video_url_not_found">URL видео не найден</string>
     <string name="home_choose_source">Выбрать источник</string>
@@ -111,6 +111,7 @@
     <string name="added_to_history">Добавлен в историю просмотра</string>
     <string name="in_films">В фильмах</string>
     <string name="in_serials">В сериалах</string>
+    <string name="likes_priority">Приоритет по лайкам</string>
     <string name="cinema_save_data">Сохранён:%s%%, занимает: %s</string>
     <string name="movie_save_error">Не сохранено в историю</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
@@ -134,6 +135,7 @@
     <string name="imdb_range">Рейтинг IMBT с %s по %s</string>
     <string name="kp_range">Рейтинг KP с %s по %s</string>
     <string name="error_history_remove_movie_fail">Видео нельзя очистить из истории.Воспользуйтесь полной очисткой истории</string>
+    <string name="movie_details_transition">movie_details_transition</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

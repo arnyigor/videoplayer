@@ -166,7 +166,7 @@ class UpdateRepositoryImpl @Inject constructor(
         dbMovie != null && dbMovie.title != movie.title
 
     private fun isGenreChanged(dbMovie: MovieUpdate?, movie: Movie) =
-        dbMovie != null && dbMovie.genre != movie.info.genre.joinToString(",")
+        dbMovie != null && dbMovie.genre != movie.info.genres.joinToString(",")
 
     override suspend fun checkBaseUrl(): Boolean = try {
         val baseLink = BuildConfig.BASE_LINK

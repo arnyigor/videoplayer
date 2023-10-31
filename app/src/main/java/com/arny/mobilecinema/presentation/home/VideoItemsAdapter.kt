@@ -22,6 +22,7 @@ class VideoItemsAdapter(
         contentsTheSame = { m1, m2 -> m1 == m2 }
     )
 ) {
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideosViewHolder =
         VideosViewHolder(
             IHomeVideoBinding.inflate(

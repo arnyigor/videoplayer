@@ -13,6 +13,7 @@ import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
@@ -45,7 +46,13 @@ class MoviesRepositoryImpl @Inject constructor(
         search: String,
         order: String,
         searchType: String,
-        searchAddTypes: List<String>
+        searchAddTypes: List<String>,
+        genres: List<String>,
+        countries: List<String>,
+        years: SimpleIntRange?,
+        imdbs: SimpleFloatRange?,
+        kps: SimpleFloatRange?,
+        likesPriority: Boolean,
     ): Pager<Int, ViewMovie> = Pager(
         PagingConfig(
             pageSize = 20,
@@ -58,7 +65,13 @@ class MoviesRepositoryImpl @Inject constructor(
             search = search.trim(),
             order = order,
             searchType = searchType,
+            genres = genres,
+            countries = countries,
+            years = years,
+            imdbs = imdbs,
+            kps = kps,
             searchAddTypes = searchAddTypes,
+            likesPriority = likesPriority
         )
     }
 

@@ -45,5 +45,12 @@
             android:layout_height="wrap_content"
             android:text="@string/sort_year_asc" />
 
+        <CheckBox
+            android:id="@+id/chbLikesPriority"
+            style="@style/DetailsSubTitleStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/likes_priority" />
+
     </RadioGroup>
 </LinearLayout>
