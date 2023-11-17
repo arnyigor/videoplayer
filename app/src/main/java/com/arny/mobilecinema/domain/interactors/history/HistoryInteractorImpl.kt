@@ -6,6 +6,7 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
@@ -61,11 +62,17 @@ class HistoryInteractorImpl @Inject constructor(
         }
     }
 
-    override fun clearViewHistory(movieDbId: Long?): Flow<DataResult<Boolean>> =
+    override fun clearViewHistory(
+        movieDbId: Long?,
+        type: MovieType?,
+        total: Boolean
+    ): Flow<DataResult<Boolean>> =
         doAsync {
-            val clearViewHistory = repository.clearViewHistory(movieDbId)
-            if (!clearViewHistory) {
-                throw DataThrowable(R.string.error_history_remove_movie_fail)
+            if (total) {
+                val clearViewHistory = repository.clearViewHistory(movieDbId)
+                if (!clearViewHistory && type == MovieType.CINEMA) {
+                    throw DataThrowable(R.string.error_history_remove_movie_fail)
+                }
             }
             true
         }

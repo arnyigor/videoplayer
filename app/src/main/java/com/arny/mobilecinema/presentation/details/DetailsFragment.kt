@@ -34,14 +34,14 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
-import com.arny.mobilecinema.presentation.player.MovieDownloadService
 import com.arny.mobilecinema.presentation.player.PlayerSource
-import com.arny.mobilecinema.presentation.player.getCinemaUrl
+import com.arny.mobilecinema.presentation.services.MovieDownloadService
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.getDP
 import com.arny.mobilecinema.presentation.utils.getDuration
+import com.arny.mobilecinema.presentation.utils.getString
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
@@ -101,6 +101,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             updateCurrentSerialPosition()
             currentEpisodePosition = 0
             fillSpinners(currentMovie)
+            viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -114,6 +115,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             id: Long
         ) {
             updateCurrentSerialPosition()
+            viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
+            viewModel.initSerialDownloadedData()
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -127,9 +130,21 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
     private val downloadUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            val pageUrl =
+                intent?.getStringExtra(AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL).orEmpty()
             val percent = intent?.getFloatExtra(AppConstants.SERVICE_PARAM_PERCENT, 0.0f)
             val bytes = intent?.getLongExtra(AppConstants.SERVICE_PARAM_BYTES, 0L)
-            viewModel.updateDownloadedData(percent, bytes)
+            val season = intent?.getIntExtra(AppConstants.SERVICE_PARAM_CACHE_SEASON, 0) ?: 0
+            val episode = intent?.getIntExtra(AppConstants.SERVICE_PARAM_CACHE_EPISODE, 0) ?: 0
+            viewModel.updateDownloadedData(
+                pageUrl = pageUrl,
+                percent = percent,
+                bytes = bytes,
+                episode = season,
+                season = episode,
+                currentSeasonPosition = currentSeasonPosition,
+                currentEpisodePosition = currentSeasonPosition
+            )
         }
     }
 
@@ -179,8 +194,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun initMenu() {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onPrepareMenu(menu: Menu) {
-                menu.findItem(R.id.menu_action_clear_cache).isVisible = hasSavedData
                 menu.findItem(R.id.menu_action_cache_movie).isVisible = canDownload
+                menu.findItem(R.id.menu_action_clear_cache).isVisible = hasSavedData
             }
 
             override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
@@ -200,21 +215,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     }
 
                     R.id.menu_action_clear_cache -> {
-                        alertDialog(
-                            getString(R.string.question_remove),
-                            getString(
-                                R.string.question_remove_from_history_title,
-                                currentMovie?.title
-                            ),
-                            getString(android.R.string.ok),
-                            getString(android.R.string.cancel),
-                            onConfirm = {
-                                viewModel.clearViewHistory()
-                                lifecycleScope.launch {
-                                    checkCache()
-                                }
-                            }
-                        )
+                        viewModel.onClearCacheClick(currentSeasonPosition, currentEpisodePosition)
                         true
                     }
 
@@ -316,14 +317,20 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun requestCacheMovie(
+        url: String,
         resetDownloads: Boolean = false
     ) {
         sendServiceMessage(
             Intent(requireContext(), MovieDownloadService::class.java),
             AppConstants.ACTION_CACHE_MOVIE,
         ) {
-            putString(AppConstants.SERVICE_PARAM_CACHE_URL, currentMovie?.getCinemaUrl())
+            putString(AppConstants.SERVICE_PARAM_CACHE_URL, url)
+            putString(AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL, currentMovie?.pageUrl)
             putString(AppConstants.SERVICE_PARAM_CACHE_TITLE, currentMovie?.title)
+            if (currentMovie?.type == MovieType.SERIAL) {
+                putInt(AppConstants.SERVICE_PARAM_CACHE_SEASON, currentSeasonPosition + 1)
+                putInt(AppConstants.SERVICE_PARAM_CACHE_EPISODE, currentEpisodePosition + 1)
+            }
             putBoolean(AppConstants.SERVICE_PARAM_RESET_CURRENT_DOWNLOADS, resetDownloads)
         }
     }
@@ -351,6 +358,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         launchWhenCreated {
             viewModel.saveData.collectLatest { saveData ->
                 onSaveDataLoaded(saveData)
+            }
+        }
+        launchWhenCreated {
+            viewModel.serialTitle.collectLatest { serialTitle ->
+                binding.tvTitle.text = getString(serialTitle)
             }
         }
         launchWhenCreated {
@@ -392,99 +404,104 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
         launchWhenCreated {
             viewModel.downloadInit.collectLatest { init ->
-                if (init) {
-                    canDownload = true
-                    requireActivity().invalidateOptionsMenu()
-                }
+                canDownload = init
+                requireActivity().invalidateOptionsMenu()
             }
         }
     }
 
+    private fun Alert.show(onConfirm: () -> Unit = {}) {
+        alertDialog(
+            title = title.toString(requireContext()).orEmpty(),
+            content = content?.toString(requireContext()).orEmpty(),
+            btnOkText = btnOk?.toString(requireContext()).orEmpty(),
+            btnCancelText = btnCancel?.toString(requireContext()).orEmpty(),
+            onConfirm = { onConfirm() }
+        )
+    }
+
     private fun showAlert(alert: Alert?) {
-        when (val type = alert?.type) {
+        when (val alertType = alert?.type) {
             is AlertType.Download -> {
                 when {
-                    type.complete -> {
+                    alertType.complete -> {
                         alertDialog(
                             title = alert.title.toString(requireContext()).orEmpty(),
                             btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
                         )
                     }
 
-                    type.empty -> {
+                    alertType.empty -> {
                         // Новая
-                        alertDialog(
-                            title = alert.title.toString(requireContext()).orEmpty(),
-                            content = alert.content?.toString(requireContext()).orEmpty(),
-                            btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
-                            btnCancelText = alert.btnCancel?.toString(requireContext()).orEmpty(),
-                            onConfirm = {
-                                viewModel.addToHistory()
-                                requestCacheMovie()
-                            }
-                        )
+                        alert.show {
+                            viewModel.addToHistory()
+                            requestCacheMovie(alertType.link)
+                        }
                     }
 
-                    type.equalsLinks && type.equalsTitle -> {
+                    alertType.equalsLinks && alertType.equalsTitle -> {
                         // Продолжить загрузку текущего
-                        alertDialog(
-                            title = alert.title.toString(requireContext()).orEmpty(),
-                            content = alert.content?.toString(requireContext()).orEmpty(),
-                            btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
-                            btnCancelText = alert.btnCancel?.toString(requireContext()).orEmpty(),
-                            onConfirm = {
-                                viewModel.addToHistory()
-                                requestCacheMovie()
-                            }
-                        )
+                        alert.show {
+                            viewModel.addToHistory()
+                            requestCacheMovie(alertType.link)
+                        }
                     }
 
-                    !type.equalsLinks && type.equalsTitle -> {
+                    !alertType.equalsLinks && alertType.equalsTitle -> {
                         // Текущий фильм,но ссылки разные(возможно сериал,но нужно будет привязаться к эпизодам)
-                        alertDialog(
-                            title = alert.title.toString(requireContext()).orEmpty(),
-                            content = alert.content?.toString(requireContext()).orEmpty(),
-                            btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
-                            btnCancelText = alert.btnCancel?.toString(requireContext()).orEmpty(),
-                            onConfirm = {
-                                viewModel.addToHistory()
-                                requestCacheMovie(
-                                    resetDownloads = true
-                                )
-                            }
-                        )
+                        alert.show {
+                            viewModel.addToHistory()
+                            requestCacheMovie(
+                                alertType.link,
+                                resetDownloads = true
+                            )
+                        }
                     }
 
-                    !type.equalsLinks && !type.equalsTitle -> {
+                    !alertType.equalsLinks && !alertType.equalsTitle -> {
                         // Новая загрузка
-                        alertDialog(
-                            title = alert.title.toString(requireContext()).orEmpty(),
-                            content = alert.content?.toString(requireContext()).orEmpty(),
-                            btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
-                            btnCancelText = alert.btnCancel?.toString(requireContext()).orEmpty(),
-                            onConfirm = {
-                                viewModel.addToHistory()
-                                requestCacheMovie(
-                                    resetDownloads = true
-                                )
-                            }
-                        )
+                        alert.show {
+                            viewModel.addToHistory()
+                            requestCacheMovie(
+                                alertType.link,
+                                resetDownloads = true
+                            )
+                        }
                     }
                 }
             }
 
+            is AlertType.ClearCache -> {
+                alert.show {
+                    viewModel.clearViewHistory(
+                        url = alertType.url,
+                        seasonPosition = alertType.seasonPosition,
+                        episodePosition = alertType.episodePosition,
+                        total = alertType.total
+                    )
+                    checkCache()
+                }
+            }
             else -> {}
         }
     }
 
     private fun updateDownloadedData(data: MovieDownloadedData?) {
         binding.tvSaveData.isVisible = data != null
-        if (data != null) {
-            binding.tvSaveData.text = getString(
-                R.string.cinema_save_data,
-                String.format("%.1f", data.downloadedPercent),
-                formatFileSize(data.downloadedSize, 1)
-            )
+        when {
+            data != null && data.loading -> {
+                binding.tvSaveData.text = getString(
+                    R.string.cinema_save_data_invalidate,
+                )
+            }
+
+            data != null && data.downloadedPercent > 0.0f && data.downloadedSize > 0L -> {
+                binding.tvSaveData.text = getString(
+                    R.string.cinema_save_data,
+                    String.format("%.1f", data.downloadedPercent),
+                    formatFileSize(data.downloadedSize, 1)
+                )
+            }
         }
     }
 
@@ -497,17 +514,21 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun initButtons(movie: Movie) = with(binding) {
+        viewModel.invalidateCache()
+        viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
         btnTrailer.isVisible =
             movie.cinemaUrlData?.trailerUrl?.urls?.filter { it.isNotBlank() }.orEmpty().isNotEmpty()
         if (movie.type == MovieType.CINEMA) {
             val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
             btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
-            viewModel.updateDownloadedData()
+            viewModel.initCinemaDownloadedData()
         } else {
-            canDownload = false // TODO Продумать как грузить серии от сериалов
-            requireActivity().invalidateOptionsMenu()
-            btnPlay.isVisible = true
+            val hasAnyLink = movie.seasons.any { season ->
+                season.episodes.any { episode -> episode.hls.isNotBlank() || episode.dash.isNotBlank() }
+            }
+            btnPlay.isVisible = hasAnyLink
+            viewModel.initSerialDownloadedData()
         }
     }
 
@@ -549,7 +570,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 append(" ")
             }
             if (info.ratingKP > 0) {
-                append("%s:%.02f".format(getString(R.string.kp), info.ratingImdb).replace(",", "."))
+                append("%s:%.02f".format(getString(R.string.kp), info.ratingKP).replace(",", "."))
                 append(" ")
             }
             append(String.format("%d\uD83D\uDC4D %d\uD83D\uDC4E", info.likes, info.dislikes))
@@ -678,6 +699,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     spinEpisodes.setSelection(currentEpisodePosition, false)
                 }
             }
+            viewModel.initSerialDownloadedData()
         }
     }
 

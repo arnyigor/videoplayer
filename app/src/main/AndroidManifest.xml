@@ -46,12 +46,12 @@
             android:launchMode="singleInstance" />
 
         <service
-            android:name=".presentation.update.UpdateService"
+            android:name=".presentation.services.UpdateService"
             android:enabled="true"
             android:exported="false" />
 
         <service
-            android:name=".presentation.player.MovieDownloadService"
+            android:name=".presentation.services.MovieDownloadService"
             android:enabled="true"
             android:exported="false" />
     </application>

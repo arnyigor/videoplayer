@@ -23,6 +23,8 @@
     <string name="movie_cleared">Видео удалено из кеша</string>
     <string name="question_remove">Удалить?</string>
     <string name="question_remove_from_history_title">Хотите удалить \"%s\" из истории просмотра и очистить кеш?</string>
+    <string name="question_remove_episodes_from_cache">Хотите удалить \"%s\"(%s сезон,%s серия) из кеша?</string>
+    <string name="question_remove_serial_from_history">Хотите удалить \"%s\" из истории просмотра?</string>
     <string name="title_home">Главная</string>
     <string name="press_back_again_to_exit">Нажмите назад еще раз чтобы выйти</string>
     <string name="exit">Выход</string>
@@ -46,6 +48,7 @@
     <string name="updating_channel_name">Обновление</string>
     <string name="updating">Обновление фильмов и сериалов %d%%</string>
     <string name="no_movie_title">Нет названия</string>
+    <string name="serial_title">%s (%s сезон,%s серия)</string>
     <string name="movie_not_found">Фильм или сериал не найден</string>
     <string name="watch_trailer">Смотреть трейлер</string>
     <string name="watch">Смотреть</string>
@@ -62,11 +65,15 @@
     <string name="update_finished_success">Обновление завершено успешно</string>
     <string name="update_finished_error">Обновление не завершено</string>
     <string name="attention">Внимание!</string>
-    <string name="cache_complete">Фильм полностью загружен</string>
-    <string name="cache_attention">Вы хотите загрузить фильм?</string>
-    <string name="cache_attention_new">Вы хотите загрузить фильм и отменить предыдущую загрузку "%s"?</string>
+    <string name="cinema_cache_complete">Фильм полностью загружен</string>
+    <string name="serial_episode_cache_complete">Эпизод полностью загружен</string>
+    <string name="cinema_cache_attention">Вы хотите загрузить фильм?</string>
+    <string name="serial_episode_cache_attention">Вы хотите загрузить \"%s\"(%s сезон,%s серия)?</string>
+    <string name="cinema_cache_attention_new">Вы хотите загрузить фильм и отменить предыдущую загрузку "%s"?</string>
+    <string name="serial_episode_cache_attention_new">Вы хотите загрузить эпизод и отменить предыдущую загрузку "%s"?</string>
     <string name="cache_attention_continue">Вы хотите продолжить загрузку?</string>
-    <string name="cache_attention_links_title">Вы хотите продолжить загрузку фильма "%s"?</string>
+    <string name="cinema_cache_attention_links_title">Вы хотите продолжить загрузку фильма "%s"?</string>
+    <string name="serial_episode_cache_attention_links_title">Вы хотите продолжить загрузку \"%s\" (%s сезон,%s серия)?</string>
     <string name="cache_attention_links_not_equals">Вы хотите загрузить фильм "%s" с другой ссылкой?</string>
     <string name="mobile_network_play">Вы не подключены к WIFI\nПродолжить?</string>
     <string name="mobile_network_poor_play">Плохое интернет соединение\nПродолжить?</string>
@@ -79,7 +86,8 @@
     <string name="duration_format">Длительность: %s</string>
     <string name="updated_format">Обновлен: %s</string>
     <string name="movie_cache_cleared">Фильм удален из истории</string>
-    <string name="serial_cache_cleared">Сериал удален из истории</string>
+    <string name="serial_history_cleared">Сериал удален из истории</string>
+    <string name="serial_episode_cache_cleared">Эпизод удален из кеша</string>
     <string name="search_settings">Настройки поиска</string>
     <string name="search_settings_title">Где искать?</string>
     <string name="search_order_settings">Настройки сортировки</string>
@@ -92,8 +100,10 @@
     <string name="notification_channel_id">notification_channel_cache</string>
     <string name="notification_title">Загрузка фильма</string>
     <string name="cache">Сохранить фильм</string>
-    <string name="download_cinema_title_format">Загрузка \"%s\" - %.01f%%,%s</string>
-    <string name="download_cinema_text_format">Осталось ~ %s</string>
+    <string name="download_cinema_title_format">Загрузка \"%s\" - %.01f%%</string>
+    <string name="download_text_format">Осталось ~ %s</string>
+    <string name="download_text_format_one_more">Осталось ~ %s, еще %s</string>
+    <string name="download_cinema_text_format_empty_downloads">Осталось ~ %s</string>
     <string name="search_by_title">В названии</string>
     <string name="search_by_directors">В режисёрах</string>
     <string name="search_by_actors">В актёрах</string>
@@ -113,6 +123,7 @@
     <string name="in_serials">В сериалах</string>
     <string name="likes_priority">Приоритет по лайкам</string>
     <string name="cinema_save_data">Сохранён:%s%%, занимает: %s</string>
+    <string name="cinema_save_data_invalidate">Проверяем кеш…</string>
     <string name="movie_save_error">Не сохранено в историю</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
     <string name="search_extended_title">Расширенный поиск</string>
@@ -147,11 +158,20 @@
     </plurals>
 
     <plurals name="episods">
-        <item quantity="one">%d эпизод</item>
+        <item quantity="one">%d серия</item>
         <item quantity="two">%d эпизода</item>
-        <item quantity="few">%d эпизодов</item>
+        <item quantity="few">%d эпизода</item>
         <item quantity="many">%d эпизодов</item>
         <item quantity="zero">%d эпизодов</item>
         <item quantity="other">%d эпизода</item>
+    </plurals>
+
+    <plurals name="downloads">
+        <item quantity="zero">%1$d загрузок</item>
+        <item quantity="one">%1$d загрузка</item>
+        <item quantity="two">%1$d загрузки</item>
+        <item quantity="few">%1$d загрузки</item>
+        <item quantity="many">%1$d загрузок</item>
+        <item quantity="other">%1$d загрузок</item>
     </plurals>
 </resources>

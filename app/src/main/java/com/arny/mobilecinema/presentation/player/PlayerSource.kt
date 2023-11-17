@@ -213,7 +213,7 @@ class PlayerSource @Inject constructor(
         updateProgress()
     }
 
-    suspend fun getCurrentDownloadData(cinemaUrl: String): DownloadManagerData {
+    suspend fun getCurrentDownloadData(url: String): DownloadManagerData {
         return withContext(dispatcher) {
             ensureDownloadManagerInitialized(context)
             var initialized = downloadManager?.isInitialized == true
@@ -227,15 +227,15 @@ class PlayerSource @Inject constructor(
             var downloadBytes = 0L
             val factory = dataSourceFactory()
             val cache = factory.cache
-            val segmentsData = getSegmentsData(cinemaUrl, factory)
-            val list = cache?.let { getCachedKeys(it, cinemaUrl, segmentsData) }.orEmpty()
+            val segmentsData = getSegmentsData(url, factory)
+            val list = cache?.let { getCachedKeys(it, url, segmentsData) }.orEmpty()
             downloadManager?.let { dManager ->
                 initialized = dManager.isInitialized == true
                 val downloads = dManager.currentDownloads
                 downloadsEmpty = downloads.isEmpty()
                 if (!downloadsEmpty) {
-                    // TODO обработать множество загрузок
-                    val download = downloads.find { it.request.id == cinemaUrl }
+                    // TODO обработать множество загрузок(пока решение - очередь на уровне сервиса)
+                    val download = downloads.find { it.request.id == url }
                     title = download?.request?.data?.toString(Charsets.UTF_8).orEmpty()
                     downloadPercent = getDownloadedPercent(segmentsData, list)
                     downloadBytes = getDownloadedSize(cache, list)
@@ -243,7 +243,7 @@ class PlayerSource @Inject constructor(
                     downloadPercent = getDownloadedPercent(segmentsData, list)
                     downloadBytes = getDownloadedSize(cache, list)
                 }
-                isEquals = initialized && downloads.find { it.request.id == cinemaUrl } != null
+                isEquals = initialized && downloads.find { it.request.id == url } != null
             }
             DownloadManagerData(
                 isInitValid = initialized,

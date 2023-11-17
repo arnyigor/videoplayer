@@ -1,7 +1,7 @@
 package com.arny.mobilecinema.presentation.di
 
-import com.arny.mobilecinema.presentation.player.MovieDownloadService
-import com.arny.mobilecinema.presentation.update.UpdateService
+import com.arny.mobilecinema.presentation.services.MovieDownloadService
+import com.arny.mobilecinema.presentation.services.UpdateService
 import dagger.Module
 import dagger.android.ContributesAndroidInjector
 
