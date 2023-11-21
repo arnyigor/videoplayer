@@ -142,8 +142,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 bytes = bytes,
                 episode = season,
                 season = episode,
-                currentSeasonPosition = currentSeasonPosition,
-                currentEpisodePosition = currentSeasonPosition
             )
         }
     }
@@ -489,10 +487,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun updateDownloadedData(data: MovieDownloadedData?) {
         binding.tvSaveData.isVisible = data != null
         when {
-            data != null && data.loading -> {
-                binding.tvSaveData.text = getString(
-                    R.string.cinema_save_data_invalidate,
-                )
+            data != null && data.loading-> {
+                binding.tvSaveData.text = getString(R.string.cinema_save_data_invalidate,)
             }
 
             data != null && data.downloadedPercent > 0.0f && data.downloadedSize > 0L -> {

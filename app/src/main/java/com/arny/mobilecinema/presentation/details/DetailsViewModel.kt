@@ -363,7 +363,7 @@ class DetailsViewModel @AssistedInject constructor(
     }
 
     private fun checkDownloadSize(data: MovieDownloadedData) {
-        if (data.downloadedPercent > 0.0f && data.downloadedSize > 0L) {
+        if (data.downloadedPercent > 10.0f && data.downloadedSize > 0L) {
             _downloadedData.value = data
         } else {
             _downloadedData.value = null
@@ -376,20 +376,16 @@ class DetailsViewModel @AssistedInject constructor(
         bytes: Long?,
         episode: Int,
         season: Int,
-        currentSeasonPosition: Int,
-        currentEpisodePosition: Int
     ) {
         viewModelScope.launch {
             val movie = _currentMovie.value
-            val seasonPosition = season - 1
-            val episodePosition = episode - 1
             if (movie != null && movie.pageUrl == pageUrl && percent != null && percent > 0.0f && bytes != null && bytes > 0L) {
                 if (movie.type == MovieType.CINEMA || isCurrentSerialPositionEqualsDownload(
-                        movie,
-                        seasonPosition,
-                        currentSeasonPosition,
-                        episodePosition,
-                        currentEpisodePosition
+                        movie = movie,
+                        seasonPosition = season - 1,
+                        currentSeasonPosition = seasonPosition,
+                        episodePosition = episode - 1,
+                        currentEpisodePosition = episodePosition
                     )
                 ) {
                     _downloadedData.value = MovieDownloadedData(percent, bytes)
@@ -475,11 +471,13 @@ class DetailsViewModel @AssistedInject constructor(
 
     private fun updateSerialTitle() {
         val movie = _currentMovie.value
-        _serialTitle.value = ResourceString(
-            R.string.serial_title,
-            movie?.title,
-            "${seasonPosition + 1}",
-            "${episodePosition + 1}"
-        )
+        if (movie?.type == MovieType.SERIAL) {
+            _serialTitle.value = ResourceString(
+                R.string.serial_title,
+                movie.title,
+                "${seasonPosition + 1}",
+                "${episodePosition + 1}"
+            )
+        }
     }
 }

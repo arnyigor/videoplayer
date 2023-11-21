@@ -441,7 +441,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                         onQueryChangeSubmit = true
                     },
                     onMenuCollapse = {
-                        viewModel.loadMovies()
+                        viewModel.loadMovies(resetAll = true)
                         emptySearch = true
                         requireActivity().hideKeyboard()
                         requireActivity().invalidateOptionsMenu()

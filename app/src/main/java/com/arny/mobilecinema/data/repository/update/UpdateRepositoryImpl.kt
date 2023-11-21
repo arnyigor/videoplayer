@@ -4,6 +4,7 @@ import android.content.Context
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.db.daos.MovieDao
+import com.arny.mobilecinema.data.db.models.IMovieUpdate
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.db.models.MovieUpdate
 import com.arny.mobilecinema.data.models.setData
@@ -50,6 +51,10 @@ class UpdateRepositoryImpl @Inject constructor(
         return file
     }
 
+    private fun diffByGroup(list1: List<IMovieUpdate>, list2: List<IMovieUpdate>): List<IMovieUpdate> {
+        return (list1 + list2).groupBy { it.pageUrl }.filter { it.value.size == 1 }.flatMap { it.value }
+    }
+
     override fun updateMovies(movies: List<Movie>, forceAll: Boolean, onUpdate: (ind: Int) -> Unit) {
         var entity = MovieEntity()
         val size = movies.size
@@ -62,7 +67,10 @@ class UpdateRepositoryImpl @Inject constructor(
                 }
             }
         } else {
+            // remove movies each not in updates
+            removeNotInUpdates(movies)
             val dbList = moviesDao.getUpdateMovies()
+
             movies.forEachIndexed { index, movie ->
                 val dbMovies = dbList.filter { it.pageUrl == movie.pageUrl }
                 val notCorrectDbMovies = dbMovies.filter { isEqualsUrlAndNotTitle(it, movie) }
@@ -93,60 +101,19 @@ class UpdateRepositoryImpl @Inject constructor(
                 } catch (e: Exception) {
                     error("Update error for $entity has error:${e.stackTraceToString()}")
                 }
-                /* when {
-                     forceAll -> {
-                         entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
-                         try {
-                             moviesDao.update(entity)
-                         } catch (e: Exception) {
-                             error("Update error for $entity has error:${e.stackTraceToString()}")
-                         }
-                     }
-                     isTitleChanged(dbMovie, movie) -> {
-                         entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
-                         try {
-                             moviesDao.update(entity)
-                         } catch (e: Exception) {
-                             error("Update error for $entity has error:${e.stackTraceToString()}")
-                         }
-                     }
-
-                     isUpdateTimeChanged(dbMovie, movie) -> {
-                         entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
-                         try {
-                             moviesDao.update(entity)
-                         } catch (e: Exception) {
-                             error("Update error for $entity has error:${e.stackTraceToString()}")
-                         }
-                     }
-
-                     isGenreChanged(dbMovie, movie) -> {
-                         entity = entity.setData(movie).copy(dbId = dbMovie?.dbId!!)
-                         try {
-                             moviesDao.update(entity)
-                         } catch (e: Exception) {
-                             error("Update error for $entity has error:${e.stackTraceToString()}")
-                         }
-                     }
-
-                     dbMovie != null && dbMovie.updated == 0L -> {
-                          error("Movie updated is 0L for movie:$dbMovie, has new movie:$movie")
-                    }
-                    dbMovie == null -> {
-                        val newId = moviesDao.getLastId() + 1
-                        entity = entity.setData(movie).copy(dbId = newId)
-                        try {
-                            moviesDao.insert(entity)
-                        } catch (e: Exception) {
-                            error("Insert error for $entity has error:${e.stackTraceToString()}")
-                        }
-                    }
-                }*/
                 if (index % 1000 == 0) {
                     onUpdate(getPercent(index, size))
                 }
             }
         }
+    }
+
+    private fun removeNotInUpdates(
+        moviesUpdates: List<Movie>
+    ) {
+        val moviesDiff = diffByGroup(moviesUpdates, moviesDao.getUpdateMovies())
+        val dbMoviesNotInUpdates = moviesDiff.filterIsInstance<MovieUpdate>()
+        moviesDao.deleteAll(dbMoviesNotInUpdates.map { it.dbId })
     }
 
     private fun isEqualsUrlAndTitle(
