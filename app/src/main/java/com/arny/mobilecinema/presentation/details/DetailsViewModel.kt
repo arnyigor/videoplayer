@@ -101,6 +101,7 @@ class DetailsViewModel @AssistedInject constructor(
                         is DataResult.Success -> {
                             val data = it.result
                             _saveData.emit(data)
+                            seasonPosition = data.seasonPosition
                             if (data.movieDbId != null) {
                                 _hasSavedData.value = true
                             }

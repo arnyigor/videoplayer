@@ -114,7 +114,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             position: Int,
             id: Long
         ) {
-            updateCurrentSerialPosition()
             viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
             viewModel.initSerialDownloadedData()
         }
@@ -531,8 +530,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun onSaveDataLoaded(saveData: SaveData) {
         when {
             saveData.movieDbId == currentMovie?.dbId && currentMovie?.type == MovieType.SERIAL -> {
-                currentSeasonPosition = saveData.season
-                currentEpisodePosition = saveData.episode
+                currentSeasonPosition = saveData.seasonPosition
+                currentEpisodePosition = saveData.episodePosition
                 fillSpinners(currentMovie)
             }
 

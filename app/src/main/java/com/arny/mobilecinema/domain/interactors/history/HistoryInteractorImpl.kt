@@ -52,13 +52,13 @@ class HistoryInteractorImpl @Inject constructor(
         movieDbId: Long,
         season: Int,
         episode: Int,
-        episodePosition: Long
+        time: Long
     ): Boolean = withContext(dispatcher) {
         val data = getHistoryData(movieDbId)
         if (data.movieDbId != null) {
-            repository.updateSerialPosition(data.movieDbId, season, episode, episodePosition)
+            repository.updateSerialPosition(data.movieDbId, season, episode, time)
         } else {
-            repository.insertSerialPosition(movieDbId, season, episode, episodePosition)
+            repository.insertSerialPosition(movieDbId, season, episode, time)
         }
     }
 
@@ -112,8 +112,8 @@ class HistoryInteractorImpl @Inject constructor(
             SaveData(
                 movieDbId = data.movieDbId,
                 position = data.position,
-                season = data.season,
-                episode = data.episode
+                seasonPosition = data.season,
+                episodePosition = data.episode
             )
         } else {
             SaveData()

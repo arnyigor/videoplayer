@@ -133,12 +133,12 @@ class MoviesRepositoryImpl @Inject constructor(
         movieDbId: Long?,
         season: Int,
         episode: Int,
-        episodePosition: Long
+        time: Long
     ): Boolean = historyDao.updateHistory(
         movieDbId = movieDbId,
         season = season,
         episode = episode,
-        position = episodePosition
+        position = time
     ) != 0
 
     override suspend fun isHistoryEmpty(): Boolean {

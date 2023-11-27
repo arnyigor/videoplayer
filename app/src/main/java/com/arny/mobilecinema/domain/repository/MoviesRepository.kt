@@ -28,7 +28,7 @@ interface MoviesRepository {
     fun insertCinemaPosition(movieDbId: Long, position: Long): Boolean
     fun updateCinemaPosition(movieDbId: Long?, position: Long): Boolean
     fun insertSerialPosition(movieDbId: Long, season: Int, episode: Int, episodePosition: Long): Boolean
-    fun updateSerialPosition(movieDbId: Long?, season: Int, episode: Int, episodePosition: Long): Boolean
+    fun updateSerialPosition(movieDbId: Long?, season: Int, episode: Int, time: Long): Boolean
     fun getHistoryMovies(search: String, order: String, searchType: String): Pager<Int, ViewMovie>
     fun clearViewHistory(movieDbId: Long?): Boolean
     suspend fun isHistoryEmpty(): Boolean
