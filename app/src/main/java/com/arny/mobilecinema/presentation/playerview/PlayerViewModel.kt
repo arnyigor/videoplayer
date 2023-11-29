@@ -8,6 +8,7 @@ import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 class PlayerViewModel @AssistedInject constructor(
     private val interactor: MoviesInteractor,
@@ -34,29 +34,38 @@ class PlayerViewModel @AssistedInject constructor(
     private val _error = BufferedChannel<IWrappedString>()
     val error = _error.receiveAsFlow()
 
-    fun saveCurrentCinemaPosition(position: Long, dbId: Long?) {
+    fun saveMoviePosition(dbId: Long?, time: Long, season: Int, episode: Int) {
         viewModelScope.launch {
             val playerUiState = _uiState.value
             if (dbId != null) {
                 when {
                     playerUiState.movie?.type == MovieType.CINEMA && !playerUiState.isTrailer -> {
-                        savePosition(dbId, position)
+                        val save = historyInteractor.saveCinemaPosition(dbId, time)
+                        if (!save) {
+                            _error.trySend(ResourceString(R.string.movie_save_error))
+                        }
                     }
 
-                    playerUiState.movie?.type == MovieType.CINEMA && playerUiState.isTrailer -> {
+                    (playerUiState.movie?.type == MovieType.CINEMA || playerUiState.movie?.type == MovieType.SERIAL)
+                            && playerUiState.isTrailer -> {
                         _uiState.value = _uiState.value.copy(
                             isTrailer = false
                         )
                     }
+
+                    playerUiState.movie?.type == MovieType.SERIAL && !playerUiState.isTrailer -> {
+                        val save = historyInteractor.saveSerialPosition(
+                            movieDbId = dbId,
+                            season = season,
+                            episode = episode,
+                            time = time
+                        )
+                        if (!save) {
+                            _error.trySend(ResourceString(R.string.movie_save_error))
+                        }
+                    }
                 }
             }
-        }
-    }
-
-    private suspend fun savePosition(movieDbId: Long, position: Long) {
-        val save = historyInteractor.saveCinemaPosition(movieDbId, position)
-        if (!save) {
-            _error.trySend(ResourceString(R.string.movie_save_error))
         }
     }
 
@@ -70,17 +79,18 @@ class PlayerViewModel @AssistedInject constructor(
         viewModelScope.launch {
             historyInteractor.getSaveData(movie?.dbId)
                 .catch { _error.trySend(ThrowableString(it)) }
-                .collect {
-                    when (it) {
+                .collect { dataResult ->
+                    when (dataResult) {
                         is DataResult.Error -> {
-                            _error.trySend(ThrowableString(it.throwable))
+                            _error.trySend(ThrowableString(dataResult.throwable))
                         }
 
                         is DataResult.Success -> {
+                            val saveData = dataResult.result
                             _uiState.value = _uiState.value.copy(
                                 path = path,
                                 movie = movie,
-                                position = it.result.position,
+                                time = getTime(movie, saveData, seasonIndex, episodeIndex),
                                 season = seasonIndex,
                                 episode = episodeIndex,
                                 isTrailer = trailer
@@ -91,21 +101,17 @@ class PlayerViewModel @AssistedInject constructor(
         }
     }
 
-    fun saveCurrentSerialPosition(
-        dbId: Long?,
-        season: Int,
-        episode: Int,
-        episodePosition: Long
-    ) {
-        viewModelScope.launch {
-            if (_uiState.value.movie?.type == MovieType.SERIAL && dbId != null) {
-                historyInteractor.saveSerialPosition(
-                    movieDbId = dbId,
-                    season = season,
-                    episode = episode,
-                    episodePosition = episodePosition
-                )
-            }
+    private fun getTime(
+        movie: Movie?,
+        saveData: SaveData,
+        seasonIndex: Int,
+        episodeIndex: Int
+    ): Long {
+        return when {
+            movie == null -> 0L
+            movie.type == MovieType.CINEMA -> saveData.time
+            movie.type == MovieType.SERIAL && saveData.seasonPosition == seasonIndex && saveData.episodePosition == episodeIndex -> saveData.time
+            else -> 0L
         }
     }
 

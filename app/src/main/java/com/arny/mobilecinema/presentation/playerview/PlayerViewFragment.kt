@@ -24,8 +24,6 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
-import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
@@ -67,7 +65,6 @@ import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.PlaybackParameters
 import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.SimpleExoPlayer
 import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.analytics.AnalyticsListener
 import com.google.android.exoplayer2.source.MediaSource
@@ -79,6 +76,7 @@ import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
+import timber.log.Timber
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.properties.Delegates
@@ -101,7 +99,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     lateinit var playerSource: PlayerSource
 
     private var title: String = ""
-    private var position: Long = 0L
+    private var timePosition: Long = 0L
     private var season: Int = 0
     private var episode: Int = 0
     private var qualityVisible: Boolean = false
@@ -386,7 +384,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     setCurrentTitle(getTitle(movie?.title))
                     setMediaSources(
                         path = state.path,
-                        position = getPosition(state.position),
+                        time = getTimePosition(state.time),
                         movie = movie,
                         seasonIndex = season,
                         episodeIndex = episode,
@@ -404,8 +402,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    private fun getPosition(statePosition: Long) =
-        if (statePosition >= position) statePosition else position
+    private fun getTimePosition(stateTimePosition: Long) =
+        if (stateTimePosition >= timePosition) stateTimePosition else timePosition
 
     private fun getSerialPosition(stateSeason: Int?, stateEpisode: Int?): Pair<Int, Int> {
         val cSeason: Int = if (stateSeason != null && stateSeason > season)
@@ -430,7 +428,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private suspend fun setMediaSources(
         path: String?,
-        position: Long,
+        time: Long,
         movie: Movie?,
         seasonIndex: Int? = 0,
         episodeIndex: Int? = 0,
@@ -440,7 +438,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             movie == null && !path.isNullOrBlank() -> {
                 try {
                     setPlayerSource(
-                        position = position,
+                        time = time,
                         source = playerSource.getSource(path, getString(R.string.no_movie_title)),
                     )
                 } catch (e: Exception) {
@@ -450,12 +448,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
 
             movie != null && isTrailer -> setTrailerUrl(movie)
-            movie != null && movie.type == MovieType.CINEMA -> setCinemaUrls(movie, position)
+            movie != null && movie.type == MovieType.CINEMA -> setCinemaUrls(movie, time)
             movie != null && movie.type == MovieType.SERIAL -> setSerialUrls(
                 movie = movie,
                 seasonIndex = seasonIndex,
                 episodeIndex = episodeIndex,
-                position = position
+                position = time
             )
 
             else -> {
@@ -568,20 +566,15 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    private fun saveSerialPosition(exoPlayer: ExoPlayer) {
-        val episodePosition = exoPlayer.currentPosition
+    private fun saveMoviePosition(exoPlayer: ExoPlayer) {
+        this.timePosition = exoPlayer.currentPosition
         val metadata = exoPlayer.currentMediaItem?.mediaMetadata
         val bundle = metadata?.extras
         val season = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
         val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
         this.season = season
         this.episode = episode
-        viewModel.saveCurrentSerialPosition(
-            dbId = args.movie?.dbId,
-            season = season,
-            episode = episode,
-            episodePosition = episodePosition
-        )
+        viewModel.saveMoviePosition(args.movie?.dbId, timePosition, season, episode)
     }
 
     private suspend fun setCinemaUrls(
@@ -611,7 +604,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         movie.getTrailerUrl().takeIf { it.isNotBlank() }?.let { url ->
             try {
                 setPlayerSource(
-                    position = 0,
+                    time = 0,
                     source = playerSource.getSource(
                         url = url,
                         title = movie.title
@@ -660,8 +653,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             supportActionBar?.show()
         }
         player?.let { exoPlayer ->
-            savePosition(exoPlayer.currentPosition)
-            saveSerialPosition(exoPlayer)
+            saveMoviePosition(exoPlayer)
         }
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
             releasePlayer()
@@ -825,11 +817,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    private fun setPlayerSource(position: Long = 0, source: MediaSource?) {
+    private fun setPlayerSource(time: Long = 0, source: MediaSource?) {
         player?.apply {
             source?.let {
                 setMediaSource(source)
-                seekTo(position)
+                seekTo(time)
                 addListener(listener)
                 prepare()
             }
@@ -971,10 +963,5 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             it.release()
             player = null
         }
-    }
-
-    private fun savePosition(position: Long) {
-        this.position = position
-        viewModel.saveCurrentCinemaPosition(position, args.movie?.dbId)
     }
 }

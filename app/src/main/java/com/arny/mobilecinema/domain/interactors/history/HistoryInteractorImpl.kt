@@ -14,6 +14,8 @@ import com.arny.mobilecinema.presentation.player.PlayerSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -22,8 +24,16 @@ class HistoryInteractorImpl @Inject constructor(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val playerSource: PlayerSource,
 ) : HistoryInteractor {
-    override fun addToHistory(movieDbId: Long): Flow<DataResult<Boolean>> = doAsync {
-        getResultAddToHistory(
+    private val _serialPositionChange = MutableStateFlow(false)
+    override val serialPositionChange: Flow<Boolean>
+        get() = _serialPositionChange.asStateFlow()
+
+    override fun setSerialPositionChange(change: Boolean) {
+        _serialPositionChange.value = false
+    }
+
+    override fun addToViewHistory(movieDbId: Long): Flow<DataResult<Boolean>> = doAsync {
+        getResultAddToViewHistory(
             movieDbId = movieDbId,
             save = repository.prefHistoryOnCache
         )
@@ -39,11 +49,11 @@ class HistoryInteractorImpl @Inject constructor(
 
     override suspend fun saveCinemaPosition(
         movieDbId: Long,
-        position: Long
+        time: Long
     ): Boolean = withContext(dispatcher) {
-        getResultAddToHistory(
+        getResultAddToViewHistory(
             movieDbId = movieDbId,
-            position = position,
+            position = time,
             save = true
         )
     }
@@ -55,6 +65,8 @@ class HistoryInteractorImpl @Inject constructor(
         time: Long
     ): Boolean = withContext(dispatcher) {
         val data = getHistoryData(movieDbId)
+        _serialPositionChange.value =
+            data.seasonPosition != season || data.episodePosition != episode
         if (data.movieDbId != null) {
             repository.updateSerialPosition(data.movieDbId, season, episode, time)
         } else {
@@ -91,7 +103,7 @@ class HistoryInteractorImpl @Inject constructor(
         return repository.getHistoryMovies(search, order, type).flow
     }
 
-    private fun getResultAddToHistory(
+    private fun getResultAddToViewHistory(
         movieDbId: Long,
         position: Long = 0,
         save: Boolean
@@ -111,7 +123,7 @@ class HistoryInteractorImpl @Inject constructor(
         return if (data != null && data.movieDbId != 0L) {
             SaveData(
                 movieDbId = data.movieDbId,
-                position = data.position,
+                time = data.position,
                 seasonPosition = data.season,
                 episodePosition = data.episode
             )

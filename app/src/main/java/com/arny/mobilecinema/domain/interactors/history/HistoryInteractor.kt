@@ -8,12 +8,13 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 import kotlinx.coroutines.flow.Flow
 
 interface HistoryInteractor {
-    suspend fun saveCinemaPosition(movieDbId: Long, position: Long): Boolean
+    val serialPositionChange: Flow<Boolean>
+    suspend fun saveCinemaPosition(movieDbId: Long, time: Long): Boolean
     suspend fun saveSerialPosition(
         movieDbId: Long,
         season: Int,
         episode: Int,
-        episodePosition: Long
+        time: Long
     ): Boolean
 
     fun getSaveData(movieDbId: Long?): Flow<DataResult<SaveData>>
@@ -23,7 +24,8 @@ interface HistoryInteractor {
         searchType: String
     ): Flow<PagingData<ViewMovie>>
     fun clearViewHistory(movieDbId: Long?, type: MovieType?, total: Boolean): Flow<DataResult<Boolean>>
-    fun addToHistory(movieDbId: Long): Flow<DataResult<Boolean>>
+    fun addToViewHistory(movieDbId: Long): Flow<DataResult<Boolean>>
     fun clearAllViewHistory(): Flow<DataResult<Boolean>>
     fun isHistoryEmpty(): Flow<DataResult<Boolean>>
+    fun setSerialPositionChange(change: Boolean)
 }

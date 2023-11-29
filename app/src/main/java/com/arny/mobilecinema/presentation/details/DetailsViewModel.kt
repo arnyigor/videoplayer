@@ -9,7 +9,6 @@ import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
-import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.uimodels.Alert
@@ -20,15 +19,20 @@ import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.zip
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import kotlin.properties.Delegates
 
 class DetailsViewModel @AssistedInject constructor(
     @Assisted("id") private val id: Long,
@@ -38,6 +42,7 @@ class DetailsViewModel @AssistedInject constructor(
 ) : ViewModel() {
     private var seasonPosition = 0
     private var episodePosition = 0
+    private var movieTime = 0L
     private var currentAlert: Alert? = null
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
@@ -55,8 +60,6 @@ class DetailsViewModel @AssistedInject constructor(
     val serialTitle = _serialTitle.asSharedFlow()
     private val _downloadedData = MutableStateFlow<MovieDownloadedData?>(null)
     val downloadedData = _downloadedData.asStateFlow()
-    private val _saveData = MutableSharedFlow<SaveData>()
-    val saveData = _saveData.asSharedFlow()
     private val _toast = MutableSharedFlow<IWrappedString>()
     val toast = _toast.asSharedFlow()
     private val _addToHistory = MutableSharedFlow<Boolean>()
@@ -66,47 +69,62 @@ class DetailsViewModel @AssistedInject constructor(
 
     init {
         loadVideo()
+        observeSerialPositionChange()
     }
 
-    private fun loadVideo() {
+    private fun observeSerialPositionChange() {
         viewModelScope.launch {
-            interactor.getMovie(id)
-                .onStart { _loading.value = true }
-                .onCompletion { _loading.value = false }
-                .catch { _error.emit(ThrowableString(it)) }
-                .collect { result ->
-                    when (result) {
-                        is DataResult.Error -> {
-                            _error.emit(ThrowableString(result.throwable))
-                        }
-
-                        is DataResult.Success -> {
-                            _currentMovie.value = result.result
-                        }
+            historyInteractor.serialPositionChange
+                .flowOn(Dispatchers.Main)
+                .collectLatest { change ->
+                    if (change) {
+                        loadVideo()
                     }
                 }
         }
     }
 
-    fun loadSaveData(movieDbId: Long) {
+    private fun loadVideo() {
         viewModelScope.launch {
-            historyInteractor.getSaveData(movieDbId)
+            interactor.getMovie(id)
+                .zip(historyInteractor.getSaveData(id)) { movieResult, saveResult ->
+                    movieResult to saveResult
+                }
+                .onStart { _loading.value = true }
+                .onCompletion { _loading.value = false }
                 .catch { _error.emit(ThrowableString(it)) }
-                .collectLatest {
-                    when (it) {
+                .collect { (movieResult, saveResult) ->
+                    when (saveResult) {
                         is DataResult.Error -> {
-                            _error.emit(ThrowableString(it.throwable))
+                            _error.emit(ThrowableString(saveResult.throwable))
                         }
 
                         is DataResult.Success -> {
-                            val data = it.result
-                            _saveData.emit(data)
+                            val data = saveResult.result
                             seasonPosition = data.seasonPosition
+                            episodePosition = data.episodePosition
+                            movieTime = data.time
                             if (data.movieDbId != null) {
                                 _hasSavedData.value = true
                             }
+                            historyInteractor.setSerialPositionChange(false)
                         }
                     }
+                    when (movieResult) {
+                        is DataResult.Error -> {
+                            _error.emit(ThrowableString(movieResult.throwable))
+                        }
+
+                        is DataResult.Success -> {
+                            val movie = movieResult.result
+                            _currentMovie.value = movie.copy(
+                                seasonPosition = seasonPosition,
+                                episodePosition = episodePosition,
+                                time = movieTime
+                            )
+                        }
+                    }
+                    updateSerialTitle()
                 }
         }
     }
@@ -148,12 +166,12 @@ class DetailsViewModel @AssistedInject constructor(
         }
     }
 
-    fun addToHistory() {
+    fun addToViewHistory() {
         viewModelScope.launch {
             val mMovie = _currentMovie.value
             val movieDbId = mMovie?.dbId
             if (movieDbId != null) {
-                historyInteractor.addToHistory(movieDbId)
+                historyInteractor.addToViewHistory(movieDbId)
                     .catch { _error.emit(ThrowableString(it)) }
                     .collectLatest {
                         when (it) {
@@ -264,10 +282,16 @@ class DetailsViewModel @AssistedInject constructor(
         _downloadInit.value = initValid
     }
 
-    fun initSerialDownloadedData() {
-        viewModelScope.launch {
-            getSerialDownloadedData(seasonPosition, episodePosition)
+    private var serialPosition by Delegates.observable(-1) { _, old, new ->
+        if (old != new) {
+            viewModelScope.launch {
+                getSerialDownloadedData(seasonPosition, episodePosition)
+            }
         }
+    }
+
+    fun initSerialDownloadedData() {
+        serialPosition = seasonPosition + episodePosition
     }
 
     private suspend fun getSerialDownloadedData(
@@ -401,8 +425,9 @@ class DetailsViewModel @AssistedInject constructor(
         currentSeasonPosition: Int,
         episodePosition: Int,
         currentEpisodePosition: Int
-    ) =
-        movie.type == MovieType.SERIAL && seasonPosition == currentSeasonPosition && episodePosition == currentEpisodePosition
+    ) = movie.type == MovieType.SERIAL
+            && seasonPosition == currentSeasonPosition
+            && episodePosition == currentEpisodePosition
 
     fun showCacheDialog() {
         viewModelScope.launch {

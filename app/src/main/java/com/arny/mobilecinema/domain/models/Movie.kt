@@ -16,5 +16,8 @@ data class Movie(
     val info: MovieInfo = MovieInfo(),
     val seasons: List<SerialSeason> = emptyList(),
     val cinemaUrlData: CinemaUrlData? = null,
-    val cached: Boolean = false
+    val cached: Boolean = false,
+    val seasonPosition: Int? = null,
+    val episodePosition: Int? = null,
+    val time: Long? = null,
 ) : Parcelable, IMovieUpdate

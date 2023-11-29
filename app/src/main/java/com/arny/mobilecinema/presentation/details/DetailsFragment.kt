@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.presentation.details
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -61,6 +62,7 @@ import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.joda.time.DateTime
+import timber.log.Timber
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
@@ -90,6 +92,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private var hasSavedData: Boolean = false
     private var downloadAll: Boolean = false
     private var canDownload: Boolean = false
+    private var isUserTouchSeasons = false
+    private var isUserTouchEpisodes = false
 
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
@@ -98,10 +102,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             position: Int,
             id: Long
         ) {
-            updateCurrentSerialPosition()
-            currentEpisodePosition = 0
-            fillSpinners(currentMovie)
-            viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
+            if (isUserTouchSeasons) {
+                updateCurrentSerialPosition()
+                currentEpisodePosition = 0
+                fillSpinners(currentMovie)
+                viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
+                isUserTouchSeasons = false
+            }
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -114,8 +121,12 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             position: Int,
             id: Long
         ) {
-            viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
-            viewModel.initSerialDownloadedData()
+            if(isUserTouchEpisodes){
+                updateCurrentSerialPosition()
+                viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
+                viewModel.initSerialDownloadedData()
+                isUserTouchEpisodes = false
+            }
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -352,11 +363,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
             }
         }
-        launchWhenCreated {
+        /*launchWhenCreated {
             viewModel.saveData.collectLatest { saveData ->
                 onSaveDataLoaded(saveData)
             }
-        }
+        }*/
         launchWhenCreated {
             viewModel.serialTitle.collectLatest { serialTitle ->
                 binding.tvTitle.text = getString(serialTitle)
@@ -431,7 +442,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     alertType.empty -> {
                         // Новая
                         alert.show {
-                            viewModel.addToHistory()
+                            viewModel.addToViewHistory()
                             requestCacheMovie(alertType.link)
                         }
                     }
@@ -439,7 +450,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     alertType.equalsLinks && alertType.equalsTitle -> {
                         // Продолжить загрузку текущего
                         alert.show {
-                            viewModel.addToHistory()
+                            viewModel.addToViewHistory()
                             requestCacheMovie(alertType.link)
                         }
                     }
@@ -447,7 +458,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     !alertType.equalsLinks && alertType.equalsTitle -> {
                         // Текущий фильм,но ссылки разные(возможно сериал,но нужно будет привязаться к эпизодам)
                         alert.show {
-                            viewModel.addToHistory()
+                            viewModel.addToViewHistory()
                             requestCacheMovie(
                                 alertType.link,
                                 resetDownloads = true
@@ -458,7 +469,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     !alertType.equalsLinks && !alertType.equalsTitle -> {
                         // Новая загрузка
                         alert.show {
-                            viewModel.addToHistory()
+                            viewModel.addToViewHistory()
                             requestCacheMovie(
                                 alertType.link,
                                 resetDownloads = true
@@ -487,7 +498,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         binding.tvSaveData.isVisible = data != null
         when {
             data != null && data.loading-> {
-                binding.tvSaveData.text = getString(R.string.cinema_save_data_invalidate,)
+                binding.tvSaveData.text = getString(R.string.cinema_save_data_invalidate)
             }
 
             data != null && data.downloadedPercent > 0.0f && data.downloadedSize > 0L -> {
@@ -502,7 +513,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun onMovieLoaded(movie: Movie) {
         currentMovie = movie
-        viewModel.loadSaveData(movie.dbId)
         updateSpinData(movie)
         initUI(movie)
         initButtons(movie)
@@ -527,7 +537,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
-    private fun onSaveDataLoaded(saveData: SaveData) {
+    /*private fun onSaveDataLoaded(saveData: SaveData) {
         when {
             saveData.movieDbId == currentMovie?.dbId && currentMovie?.type == MovieType.SERIAL -> {
                 currentSeasonPosition = saveData.seasonPosition
@@ -538,7 +548,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             saveData.movieDbId == currentMovie?.dbId && currentMovie?.type == MovieType.CINEMA -> {
             }
         }
-    }
+    }*/
 
     private fun initUI(movie: Movie) = with(binding) {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
@@ -650,16 +660,25 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun initTrackAdapters() {
         with(binding) {
             seasonsTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
             episodesTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
             spinSeasons.adapter = seasonsTracksAdapter
             spinEpisodes.adapter = episodesTracksAdapter
-            spinSeasons.setSelection(currentSeasonPosition, false)
+            spinSeasons.setOnTouchListener { _, _ ->
+                isUserTouchSeasons = true
+                false
+            }
+            spinEpisodes.setOnTouchListener { _, _ ->
+                isUserTouchEpisodes = true
+                false
+            }
+            /*spinSeasons.setSelection(currentSeasonPosition, false)
             spinEpisodes.setSelection(currentEpisodePosition, false)
             spinSeasons.updateSpinnerItems(seasonsChangeListener)
-            spinEpisodes.updateSpinnerItems(episodesChangeListener)
+            spinEpisodes.updateSpinnerItems(episodesChangeListener)*/
         }
     }
 
@@ -670,6 +689,12 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun updateSpinData(movie: Movie) = with(binding) {
         if (movie.type == MovieType.SERIAL) {
+            val seasonPosition = movie.seasonPosition
+            val episodePosition = movie.episodePosition
+            if (seasonPosition != null && episodePosition!=null) {
+                currentSeasonPosition = seasonPosition
+                currentEpisodePosition = episodePosition
+            }
             fillSpinners(movie)
             spinEpisodes.isVisible = true
             spinSeasons.isVisible = true
