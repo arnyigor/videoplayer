@@ -58,6 +58,13 @@ class PlayerSource @Inject constructor(
     private var cacheFactory: CacheDataSource.Factory? = null
     private val handler = Handler(Looper.getMainLooper())
     private var downloadManager: DownloadManager? = null
+
+    /* @set:Synchronized
+     private var managerInProgress by Delegates.observable(false) { _, old, new ->
+         if (old != new) {
+             Timber.d("managerInProgress:$new")
+         }
+     }*/
     private var onUpdate: ((Float, Long, Long, Long, Int, Int) -> Unit?)? = null
     private val downloadListener = object : DownloadManager.Listener {
         override fun onDownloadChanged(
@@ -65,14 +72,13 @@ class PlayerSource @Inject constructor(
             download: Download,
             finalException: Exception?
         ) {
-            val size = downloadManager.currentDownloads.size
             onUpdate?.invoke(
                 download.percentDownloaded,
                 download.bytesDownloaded,
                 download.startTimeMs,
                 download.updateTimeMs,
                 download.state,
-                size
+                downloadManager.currentDownloads.size
             )
         }
     }
@@ -84,7 +90,8 @@ class PlayerSource @Inject constructor(
         updateTime: Long,
         state: Int,
         size: Int
-    ) -> Unit) {
+    ) -> Unit
+    ) {
         onUpdate = progressListener
         downloadManager?.addListener(downloadListener)
     }
@@ -196,6 +203,16 @@ class PlayerSource @Inject constructor(
         downloadManager?.setStopReason(url, Download.STOP_REASON_NONE)
         downloadManager?.currentDownloads?.forEach {
             downloadManager?.removeDownload(it.request.id)
+        }
+    }
+
+    fun skipDownload(url: String) {
+        handler.removeCallbacksAndMessages(null)
+        ensureDownloadManagerInitialized(context)
+        downloadManager?.currentDownloads?.forEach {
+            if (it.request.id == url) {
+                downloadManager?.removeDownload(it.request.id)
+            }
         }
     }
 

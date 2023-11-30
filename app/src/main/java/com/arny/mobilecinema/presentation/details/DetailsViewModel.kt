@@ -28,10 +28,10 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.zip
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import kotlin.properties.Delegates
 
 class DetailsViewModel @AssistedInject constructor(
@@ -132,9 +132,7 @@ class DetailsViewModel @AssistedInject constructor(
     fun clearViewHistory(url: String, seasonPosition: Int, episodePosition: Int, total: Boolean) {
         viewModelScope.launch {
             val mMovie = _currentMovie.value
-            historyInteractor.clearViewHistory(
-                movieDbId = mMovie?.dbId, type = mMovie?.type, total = total
-            )
+            historyInteractor.clearViewHistory(movieDbId = mMovie?.dbId, type = mMovie?.type, total = total,url)
                 .catch { _error.emit(ThrowableString(it)) }
                 .collectLatest {
                     when (it) {
@@ -144,10 +142,14 @@ class DetailsViewModel @AssistedInject constructor(
                         is DataResult.Success -> {
                             val removed = it.result
                             if (removed) {
-                                playerSource.clearDownloaded(url)
                                 when (mMovie?.type) {
                                     MovieType.CINEMA -> {
-                                        _toast.emit(ResourceString(R.string.movie_cache_cleared))
+                                        if (total) {
+                                            _toast.emit(ResourceString(R.string.movie_viewhistory_cleared))
+                                        } else {
+                                            _toast.emit(ResourceString(R.string.movie_cache_cleared))
+                                            onClearCacheClick(0, 0, true)
+                                        }
                                     }
                                     MovieType.SERIAL -> {
                                         if (total) {
@@ -216,7 +218,6 @@ class DetailsViewModel @AssistedInject constructor(
                         type = AlertType.Download(complete = true, link = url)
                     )
                 }
-
                 currentDownloadData.downloadsEmpty -> {
                     currentAlert = Alert(
                         title = ResourceString(R.string.cinema_cache_attention),
@@ -265,16 +266,11 @@ class DetailsViewModel @AssistedInject constructor(
                 // Новая загрузка
                 else -> {
                     currentAlert = Alert(
-                        title = ResourceString(R.string.cinema_cache_attention_new, movieTitle),
+                        title = ResourceString(R.string.cinema_cache_attention),
                         content = ResourceString(R.string.cache_description),
                         btnOk = ResourceString(android.R.string.ok),
                         btnCancel = ResourceString(android.R.string.cancel),
-                        type = AlertType.Download(
-                            equalsLinks = false,
-                            equalsTitle = false,
-                            empty = false,
-                            link = url
-                        )
+                        type = AlertType.Download(empty = true, link = url)
                     )
                 }
             }
@@ -388,7 +384,7 @@ class DetailsViewModel @AssistedInject constructor(
     }
 
     private fun checkDownloadSize(data: MovieDownloadedData) {
-        if (data.downloadedPercent > 10.0f && data.downloadedSize > 0L) {
+        if (data.downloadedPercent > 1.0f && data.downloadedSize > 0L) {
             _downloadedData.value = data
         } else {
             _downloadedData.value = null
@@ -399,35 +395,45 @@ class DetailsViewModel @AssistedInject constructor(
         pageUrl: String,
         percent: Float?,
         bytes: Long?,
-        episode: Int,
-        season: Int,
+        updateSeason: Int,
+        updateEpisode: Int,
     ) {
         viewModelScope.launch {
             val movie = _currentMovie.value
-            if (movie != null && movie.pageUrl == pageUrl && percent != null && percent > 0.0f && bytes != null && bytes > 0L) {
-                if (movie.type == MovieType.CINEMA || isCurrentSerialPositionEqualsDownload(
-                        movie = movie,
-                        seasonPosition = season - 1,
+            if (
+                movie != null
+                && movie.pageUrl.isNotBlank()
+                && pageUrl.isNotBlank()
+                && movie.pageUrl == pageUrl
+                && percent != null
+                && percent > 0.0f
+                && bytes != null
+                && bytes > 0L
+            ) {
+                when {
+                    movie.type == MovieType.CINEMA -> {
+                        _downloadedData.value = MovieDownloadedData(percent, bytes)
+                    }
+
+                    movie.type == MovieType.SERIAL && isCurrentSerialPositionEqualsDownload(
+                        seasonPosition = updateSeason,
                         currentSeasonPosition = seasonPosition,
-                        episodePosition = episode - 1,
+                        episodePosition = updateEpisode,
                         currentEpisodePosition = episodePosition
-                    )
-                ) {
-                    _downloadedData.value = MovieDownloadedData(percent, bytes)
+                    ) -> {
+                        _downloadedData.value = MovieDownloadedData(percent, bytes)
+                    }
                 }
             }
         }
     }
 
     private fun isCurrentSerialPositionEqualsDownload(
-        movie: Movie,
         seasonPosition: Int,
         currentSeasonPosition: Int,
         episodePosition: Int,
         currentEpisodePosition: Int
-    ) = movie.type == MovieType.SERIAL
-            && seasonPosition == currentSeasonPosition
-            && episodePosition == currentEpisodePosition
+    ) = seasonPosition == currentSeasonPosition && episodePosition == currentEpisodePosition
 
     fun showCacheDialog() {
         viewModelScope.launch {
@@ -438,12 +444,12 @@ class DetailsViewModel @AssistedInject constructor(
     fun onClearCacheClick(
         currentSeasonPosition: Int,
         currentEpisodePosition: Int,
-        clearSerialViewHistory: Boolean = false
+        clearViewHistory: Boolean = false
     ) {
         val movie = _currentMovie.value
         var total = false
         val content = when {
-            movie?.type == MovieType.SERIAL && clearSerialViewHistory -> {
+            movie?.type == MovieType.SERIAL && clearViewHistory -> {
                 total = true
                 ResourceString(
                     R.string.question_remove_serial_from_history,
@@ -460,8 +466,23 @@ class DetailsViewModel @AssistedInject constructor(
                 )
             }
 
+            movie?.type == MovieType.CINEMA && clearViewHistory -> {
+                total = true
+                ResourceString(
+                    R.string.question_remove_from_history_title,
+                    movie.title,
+                )
+            }
+
+            movie?.type == MovieType.CINEMA  -> {
+                ResourceString(
+                    R.string.question_remove_cinema_from_cache,
+                    movie.title,
+                )
+            }
+
             else -> {
-                ResourceString(R.string.question_remove_from_history_title, movie?.title)
+                ResourceString(R.string.question_remove_from_history_total, movie?.title)
             }
         }
         val url = if (movie?.type == MovieType.SERIAL) {
@@ -470,7 +491,6 @@ class DetailsViewModel @AssistedInject constructor(
             )
             episode?.dash?.ifBlank { episode.hls }.orEmpty()
         } else {
-            total = true
             movie?.getCinemaUrl().orEmpty()
         }
         currentAlert = Alert(
@@ -489,6 +509,7 @@ class DetailsViewModel @AssistedInject constructor(
         _downloadInit.value = false
         invalidateCache()
         updateSerialTitle()
+        initSerialDownloadedData()
     }
 
     fun invalidateCache() {

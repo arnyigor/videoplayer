@@ -23,6 +23,7 @@ import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import timber.log.Timber
 import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
 
@@ -33,19 +34,17 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     @Inject
     lateinit var playerSource: PlayerSource
-    private var currentPageUrl: String = ""
-    private var currentUrl: String = ""
-    private var currentTitle: String = ""
-    private var currentSeason: Int = 0
-    private var currentEpisode: Int = 0
+
     private var nextPauseResumeAction: String = ""
     private var noticeStopped = false
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
     private val downloadHelper = DownloadHelper()
+    private var currentDownload: DownloadMovieItem? = null
     private var downloadList = listOf<DownloadMovieItem>()
     private var currentState = -1
+    private var stTitle = ""
     private val progressListener: (
         percent: Float,
         bytes: Long,
@@ -53,74 +52,117 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         updateTime: Long,
         state: Int,
         size: Int
-    ) -> Unit = { percent, bytes, _, _, state, size ->
-        currentState = state
-        if (!noticeStopped && percent >= 0.0f && bytes > 0L) {
-            var title = currentTitle
+    ) -> Unit = { percent, bytes, _, _, state, stSize ->
+        val isNoticeCanUpdate = !noticeStopped && percent >= 0.0f && bytes > 0L
+        val currentDownloadListSize = downloadList.size
+        val download = currentDownload
+        val season = download?.season
+        val episode = download?.episode
+        val downloadUrl = download?.downloadUrl
+        val curTitle = download?.title
+        if (isNoticeCanUpdate) {
+            var title = download?.title.orEmpty()
             val maxTitleSize = 15
-            if (currentTitle.length > maxTitleSize) {
-                title = currentTitle.substring(0, maxTitleSize) + "..."
+            if (title.length > maxTitleSize) {
+                title = title.substring(0, maxTitleSize) + "..."
             }
-            if (currentSeason != 0 && currentEpisode != 0) {
+            if (season != 0 && episode != 0) {
                 title += String.format(
                     "(%s%s,%s%s)",
-                    currentSeason,
+                    season,
                     getString(R.string.spinner_season),
-                    currentEpisode,
+                    episode,
                     getString(R.string.spinner_episode)
                 )
             }
-            val titleRes = if (downloadList.isNotEmpty()) {
-                R.string.download_text_format_one_more
-            } else {
-                R.string.download_text_format
-            }
-            updateNotification(
-                title = getString(
-                    R.string.download_cinema_title_format,
-                    title,
-                    percent,
-                ),
-                text = getString(
-                    titleRes,
-                    downloadHelper.getRemainTime(
-                        percent = percent.toDouble(),
+            stTitle = title
+        }
+        currentState = state
+        val sizeDiff = stSize - currentDownloadListSize
+        Timber.d("progressListener ${state.getStateString()} size:$currentDownloadListSize, s:$stSize, sizeDiff:$sizeDiff")
+        when {
+            isNoticeCanUpdate && state == Download.STATE_QUEUED -> {
+                updateNotification(
+                    title = getString(
+                        R.string.download_cinema_title_format,
+                        stTitle,
+                        percent,
                     ),
-                    resources.getQuantityString(
-                        R.plurals.downloads,
-                        downloadList.size,
-                        downloadList.size
-                    )
-                ),
-                silent = true
-            )
+                    text = getString(R.string.download_cinema_state_state_pause),
+                    silent = false
+                )
+            }
+
+            isNoticeCanUpdate && state == Download.STATE_REMOVING && sizeDiff > 1 -> {
+                updateNotification(
+                    title = getString(
+                        R.string.download_cinema_title_format,
+                        stTitle,
+                        percent,
+                    ),
+                    text = getString(
+                        R.string.download_cinema_state_state_updating,
+                    ),
+                    silent = false
+                )
+            }
+
+            isNoticeCanUpdate -> {
+                val titleRes = if (downloadList.isNotEmpty()) {
+                    R.string.download_text_format_one_more
+                } else {
+                    R.string.download_text_format
+                }
+                updateNotification(
+                    title = getString(
+                        R.string.download_cinema_title_format,
+                        stTitle,
+                        percent,
+                    ),
+                    text = getString(
+                        titleRes,
+                        downloadHelper.getRemainTime(percent.toDouble()),
+                        resources.getQuantityString(
+                            R.plurals.downloads,
+                            currentDownloadListSize,
+                            currentDownloadListSize
+                        )
+                    ),
+                    silent = true
+                )
+            }
+
+            else -> {}
         }
         when (state) {
             Download.STATE_QUEUED, Download.STATE_DOWNLOADING, Download.STATE_STOPPED -> {
                 sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_UPDATE) {
-                    putString(AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL, currentPageUrl)
+                    putString(
+                        AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL,
+                        download?.pageUrl.orEmpty()
+                    )
                     putFloat(AppConstants.SERVICE_PARAM_PERCENT, percent)
                     putLong(AppConstants.SERVICE_PARAM_BYTES, bytes)
-                    if (currentSeason != 0 && currentEpisode != 0) {
-                        putInt(AppConstants.SERVICE_PARAM_CACHE_SEASON, currentSeason)
-                        putInt(AppConstants.SERVICE_PARAM_CACHE_EPISODE, currentEpisode)
+                    if (season != null && episode != null) {
+                        putInt(AppConstants.SERVICE_PARAM_CACHE_SEASON, season)
+                        putInt(AppConstants.SERVICE_PARAM_CACHE_EPISODE, episode)
                     }
                 }
             }
 
             Download.STATE_COMPLETED -> {
                 sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE) {
-                    putString(AppConstants.SERVICE_PARAM_CACHE_URL, currentUrl)
-                    putString(AppConstants.SERVICE_PARAM_CACHE_TITLE, currentTitle)
+                    putString(AppConstants.SERVICE_PARAM_CACHE_URL, downloadUrl)
+                    putString(AppConstants.SERVICE_PARAM_CACHE_TITLE, curTitle)
                 }
-                if (size == 0) {
+                if (stSize == 0) {
                     startNextDownload()
                 }
             }
 
             Download.STATE_REMOVING -> {}
             else -> {
-                if (size == 0) {
+                if (stSize == 0) {
                     stopCurrentService()
                 }
             }
@@ -130,17 +172,21 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     private fun startNextDownload() {
         if (downloadList.isNotEmpty()) {
             val downloadMovieItem = downloadList[0]
-            currentPageUrl = downloadMovieItem.pageUrl
-            currentUrl = downloadMovieItem.downloadUrl
-            currentTitle = downloadMovieItem.title
-            currentSeason = downloadMovieItem.season
-            currentEpisode = downloadMovieItem.episode
-            playerSource.cacheVideo(currentUrl, currentTitle)
-            downloadList = downloadList.toMutableList().apply {
-                removeAt(0)
-            }
+            currentDownload = downloadMovieItem.copy()
+            downloadHelper.reset()
+            playerSource.cacheVideo(
+                videoUrl = currentDownload?.downloadUrl.orEmpty(),
+                currentTitle = currentDownload?.title.orEmpty()
+            )
+            removeFirstDownload()
         } else {
             stopCurrentService()
+        }
+    }
+
+    private fun removeFirstDownload() {
+        downloadList = downloadList.toMutableList().apply {
+            removeAt(0)
         }
     }
 
@@ -169,7 +215,11 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             getNotice(
                 channelId = "channelId",
                 channelName = "channelName",
-                title = getString(R.string.download_cinema_title_format, currentTitle, 0.0f),
+                title = getString(
+                    R.string.download_cinema_title_format,
+                    currentDownload?.title.orEmpty(),
+                    0.0f
+                ),
                 text = getString(R.string.download_cinema_text_format_empty_downloads, ""),
                 silent = false
             )
@@ -184,6 +234,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             AppConstants.ACTION_CACHE_MOVIE_EXIT -> exitDownload()
             AppConstants.ACTION_CACHE_MOVIE_PAUSE -> pauseDownload()
             AppConstants.ACTION_CACHE_MOVIE_RESUME -> resumeDownload()
+            AppConstants.ACTION_CACHE_MOVIE_SKIP -> skipDownload()
             else -> stopCurrentService()
         }
         return super.onStartCommand(intent, flags, startId)
@@ -191,43 +242,36 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     private fun download(intent: Intent?) {
         nextPauseResumeAction = AppConstants.ACTION_CACHE_MOVIE_PAUSE
-        val extras = intent?.extras
-        downloadHelper.reset()
         noticeStopped = false
+        val extras = intent?.extras
         val cacheUrl = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_URL).orEmpty()
         val pageUrl = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL).orEmpty()
         val cacheTitle = extras?.getString(AppConstants.SERVICE_PARAM_CACHE_TITLE).orEmpty()
         val cacheSeason = extras?.getInt(AppConstants.SERVICE_PARAM_CACHE_SEASON) ?: 0
         val cacheEpisode = extras?.getInt(AppConstants.SERVICE_PARAM_CACHE_EPISODE) ?: 0
-        addToDownloadList(cacheUrl, cacheTitle, cacheSeason, cacheEpisode, pageUrl)
-        if (currentState != Download.STATE_QUEUED && currentState != Download.STATE_DOWNLOADING && currentState != Download.STATE_STOPPED) {
+        addToDownloadList(
+            DownloadMovieItem(
+                pageUrl = pageUrl,
+                downloadUrl = cacheUrl,
+                title = cacheTitle,
+                season = cacheSeason,
+                episode = cacheEpisode
+            )
+        )
+        if (currentState != Download.STATE_QUEUED
+            && currentState != Download.STATE_DOWNLOADING && currentState != Download.STATE_STOPPED
+        ) {
             startNextDownload()
         }
     }
 
-    private fun addToDownloadList(
-        cacheUrl: String,
-        cacheTitle: String,
-        cacheSeason: Int,
-        cacheEpisode: Int,
-        pageUrl: String
-    ) {
-        downloadList = downloadList.toMutableList().apply {
-            add(
-                DownloadMovieItem(
-                    pageUrl = pageUrl,
-                    downloadUrl = cacheUrl,
-                    title = cacheTitle,
-                    season = cacheSeason,
-                    episode = cacheEpisode
-                )
-            )
-        }
+    private fun addToDownloadList(download: DownloadMovieItem) {
+        downloadList = downloadList.toMutableList().apply { add(download) }
     }
 
     private fun cancelDownload() {
         nextPauseResumeAction = AppConstants.ACTION_CACHE_MOVIE_RESUME
-        playerSource.cancelDownload(currentUrl)
+        playerSource.cancelDownload(currentDownload?.downloadUrl.orEmpty())
         downloadList = downloadList.toMutableList().apply {
             clear()
         }
@@ -251,6 +295,21 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     private fun resumeDownload() {
         nextPauseResumeAction = AppConstants.ACTION_CACHE_MOVIE_PAUSE
         playerSource.resumeDownloads()
+    }
+
+    private fun skipDownload() {
+        val isCurrentActionPause = nextPauseResumeAction == AppConstants.ACTION_CACHE_MOVIE_RESUME
+        val download = currentDownload?.copy()
+        val hasDownloads = downloadList.isNotEmpty()
+        nextPauseResumeAction = AppConstants.ACTION_CACHE_MOVIE_PAUSE
+        playerSource.pauseDownload()
+        if (!isCurrentActionPause) {
+            playerSource.skipDownload(currentDownload?.downloadUrl.orEmpty())
+        }
+        startNextDownload()
+        if (isCurrentActionPause && download != null && hasDownloads) {
+            addToDownloadList(download)
+        }
     }
 
     private fun stopCurrentService() {
@@ -289,6 +348,14 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             /* intent = */ Intent(this, MovieDownloadService::class.java).apply {
                 action =
                     if (!isNextPause) AppConstants.ACTION_CACHE_MOVIE_EXIT else AppConstants.ACTION_CACHE_MOVIE_CANCEL
+            },
+            /* flags = */ pendingFlags
+        )
+        val skipIntent: PendingIntent = PendingIntent.getService(
+            /* context = */ this,
+            /* requestCode = */ 0,
+            /* intent = */ Intent(this, MovieDownloadService::class.java).apply {
+                action = AppConstants.ACTION_CACHE_MOVIE_SKIP
             },
             /* flags = */ pendingFlags
         )
@@ -340,6 +407,11 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                         }
                     ),
                     stopIntent
+                )
+                addAction(
+                    R.drawable.ic_skip_next,
+                    getString(R.string.download_skip),
+                    skipIntent
                 )
                 addAction(
                     getPauseResumeIcon(nextPauseResumeAction),

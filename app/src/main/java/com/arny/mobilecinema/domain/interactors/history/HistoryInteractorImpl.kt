@@ -77,7 +77,8 @@ class HistoryInteractorImpl @Inject constructor(
     override fun clearViewHistory(
         movieDbId: Long?,
         type: MovieType?,
-        total: Boolean
+        total: Boolean,
+        url: String
     ): Flow<DataResult<Boolean>> =
         doAsync {
             if (total) {
@@ -86,6 +87,7 @@ class HistoryInteractorImpl @Inject constructor(
                     throw DataThrowable(R.string.error_history_remove_movie_fail)
                 }
             }
+            playerSource.clearDownloaded(url)
             true
         }
 

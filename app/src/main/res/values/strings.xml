@@ -22,12 +22,15 @@
     <string name="menu_clear_file_view_history">Очистить историю просмотра</string>
     <string name="movie_cleared">Видео удалено из кеша</string>
     <string name="question_remove">Удалить?</string>
-    <string name="question_remove_from_history_title">Хотите удалить \"%s\" из истории просмотра и очистить кеш?</string>
+    <string name="question_remove_from_history_total">Хотите удалить \"%s\" из истории просмотра и очистить кеш?</string>
+    <string name="question_remove_cinema_from_cache">Хотите удалить \"%s\" из кеша?</string>
+    <string name="question_remove_from_history_title">Хотите удалить \"%s\" из истории просмотра?</string>
     <string name="question_remove_episodes_from_cache">Хотите удалить \"%s\"(%s сезон,%s серия) из кеша?</string>
     <string name="question_remove_serial_from_history">Хотите удалить \"%s\" из истории просмотра?</string>
     <string name="title_home">Главная</string>
     <string name="press_back_again_to_exit">Нажмите назад еще раз чтобы выйти</string>
     <string name="exit">Выход</string>
+    <string name="download_skip">Пропустить</string>
     <string name="pref_main_header">Основные</string>
     <string name="action_settings">Настройки</string>
     <string name="play">Смотреть</string>
@@ -85,7 +88,8 @@
     <string name="internet_connection_error">Отсутствует интернет соединение</string>
     <string name="duration_format">Длительность: %s</string>
     <string name="updated_format">Обновлен: %s</string>
-    <string name="movie_cache_cleared">Фильм удален из истории</string>
+    <string name="movie_viewhistory_cleared">Фильм удален из истории</string>
+    <string name="movie_cache_cleared">Фильм удален из кеша</string>
     <string name="serial_history_cleared">Сериал удален из истории</string>
     <string name="serial_episode_cache_cleared">Эпизод удален из кеша</string>
     <string name="search_settings">Настройки поиска</string>
@@ -101,6 +105,8 @@
     <string name="notification_title">Загрузка фильма</string>
     <string name="cache">Сохранить фильм</string>
     <string name="download_cinema_title_format">Загрузка \"%s\" - %.01f%%</string>
+    <string name="download_cinema_state_state_updating">Обновление списка…</string>
+    <string name="download_cinema_state_state_pause">Пауза</string>
     <string name="download_text_format">Осталось ~ %s</string>
     <string name="download_text_format_one_more">Осталось ~ %s, еще %s</string>
     <string name="download_cinema_text_format_empty_downloads">Осталось ~ %s</string>

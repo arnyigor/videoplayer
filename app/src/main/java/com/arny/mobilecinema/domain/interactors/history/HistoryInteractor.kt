@@ -23,7 +23,7 @@ interface HistoryInteractor {
         order: String,
         searchType: String
     ): Flow<PagingData<ViewMovie>>
-    fun clearViewHistory(movieDbId: Long?, type: MovieType?, total: Boolean): Flow<DataResult<Boolean>>
+    fun clearViewHistory(movieDbId: Long?, type: MovieType?, total: Boolean, url: String): Flow<DataResult<Boolean>>
     fun addToViewHistory(movieDbId: Long): Flow<DataResult<Boolean>>
     fun clearAllViewHistory(): Flow<DataResult<Boolean>>
     fun isHistoryEmpty(): Flow<DataResult<Boolean>>

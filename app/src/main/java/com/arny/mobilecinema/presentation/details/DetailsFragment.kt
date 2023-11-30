@@ -32,7 +32,6 @@ import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
-import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.PlayerSource
@@ -62,7 +61,6 @@ import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.joda.time.DateTime
-import timber.log.Timber
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
@@ -124,7 +122,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             if(isUserTouchEpisodes){
                 updateCurrentSerialPosition()
                 viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
-                viewModel.initSerialDownloadedData()
                 isUserTouchEpisodes = false
             }
         }
@@ -140,18 +137,19 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
     private val downloadUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            val pageUrl =
-                intent?.getStringExtra(AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL).orEmpty()
-            val percent = intent?.getFloatExtra(AppConstants.SERVICE_PARAM_PERCENT, 0.0f)
-            val bytes = intent?.getLongExtra(AppConstants.SERVICE_PARAM_BYTES, 0L)
-            val season = intent?.getIntExtra(AppConstants.SERVICE_PARAM_CACHE_SEASON, 0) ?: 0
-            val episode = intent?.getIntExtra(AppConstants.SERVICE_PARAM_CACHE_EPISODE, 0) ?: 0
             viewModel.updateDownloadedData(
-                pageUrl = pageUrl,
-                percent = percent,
-                bytes = bytes,
-                episode = season,
-                season = episode,
+                pageUrl = intent?.getStringExtra(AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL)
+                    .orEmpty(),
+                percent = intent?.getFloatExtra(AppConstants.SERVICE_PARAM_PERCENT, 0.0f),
+                bytes = intent?.getLongExtra(AppConstants.SERVICE_PARAM_BYTES, 0L),
+                updateSeason = intent?.getIntExtra(
+                    AppConstants.SERVICE_PARAM_CACHE_SEASON,
+                    0
+                ) ?: 0,
+                updateEpisode = intent?.getIntExtra(
+                    AppConstants.SERVICE_PARAM_CACHE_EPISODE,
+                    0
+                ) ?: 0,
             )
         }
     }
@@ -244,20 +242,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun playMovie(isTrailer: Boolean) {
         currentMovie?.let { movie ->
             val connectionType = getConnectionType(requireContext())
-//            val cinemaUrls = movie.getCinemaUrls()
             when {
-//                movie.type == MovieType.CINEMA && cinemaUrls.size > 1 -> {
-//                    singleChoiceDialog(
-//                        title = "Выберите ссылку для воспроизведения",
-//                        items = List(cinemaUrls.size) { index -> "Ссылка ${index + 1}" },
-//                        selectedPosition = 0,
-//                        cancelable = true,
-//                        btnOk = "OK",
-//                        btnCancel = "Cancel"
-//                    ) { ind, _ ->
-//                        toast(cinemaUrls[ind])
-//                    }
-//                }
                 movie.type == MovieType.CINEMA && downloadAll -> {
                     navigateToPLayer(movie, isTrailer)
                 }
@@ -363,11 +348,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
             }
         }
-        /*launchWhenCreated {
-            viewModel.saveData.collectLatest { saveData ->
-                onSaveDataLoaded(saveData)
-            }
-        }*/
         launchWhenCreated {
             viewModel.serialTitle.collectLatest { serialTitle ->
                 binding.tvTitle.text = getString(serialTitle)
@@ -520,7 +500,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun initButtons(movie: Movie) = with(binding) {
         viewModel.invalidateCache()
-        viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
         btnTrailer.isVisible =
             movie.cinemaUrlData?.trailerUrl?.urls?.filter { it.isNotBlank() }.orEmpty().isNotEmpty()
         if (movie.type == MovieType.CINEMA) {
@@ -536,19 +515,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             viewModel.initSerialDownloadedData()
         }
     }
-
-    /*private fun onSaveDataLoaded(saveData: SaveData) {
-        when {
-            saveData.movieDbId == currentMovie?.dbId && currentMovie?.type == MovieType.SERIAL -> {
-                currentSeasonPosition = saveData.seasonPosition
-                currentEpisodePosition = saveData.episodePosition
-                fillSpinners(currentMovie)
-            }
-
-            saveData.movieDbId == currentMovie?.dbId && currentMovie?.type == MovieType.CINEMA -> {
-            }
-        }
-    }*/
 
     private fun initUI(movie: Movie) = with(binding) {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
@@ -675,10 +641,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 isUserTouchEpisodes = true
                 false
             }
-            /*spinSeasons.setSelection(currentSeasonPosition, false)
-            spinEpisodes.setSelection(currentEpisodePosition, false)
-            spinSeasons.updateSpinnerItems(seasonsChangeListener)
-            spinEpisodes.updateSpinnerItems(episodesChangeListener)*/
         }
     }
 

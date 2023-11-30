@@ -18,6 +18,7 @@ class MovieMapper @Inject constructor() : Mapper<MovieEntity, Movie> {
             dbId = data.dbId,
             movieId = data.movieId,
             title = data.title,
+            pageUrl = data.pageUrl,
             type = MovieType.fromValue(data.type),
             img = data.img,
             info = MovieInfo(
