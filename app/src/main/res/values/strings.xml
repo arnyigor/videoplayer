@@ -26,6 +26,7 @@
     <string name="question_remove_cinema_from_cache">Хотите удалить \"%s\" из кеша?</string>
     <string name="question_remove_from_history_title">Хотите удалить \"%s\" из истории просмотра?</string>
     <string name="question_remove_episodes_from_cache">Хотите удалить \"%s\"(%s сезон,%s серия) из кеша?</string>
+    <string name="question_remove_episodes_from_viewhistory">Хотите удалить \"%s\"(%s сезон,%s серия) из истории просмотра?</string>
     <string name="question_remove_serial_from_history">Хотите удалить \"%s\" из истории просмотра?</string>
     <string name="title_home">Главная</string>
     <string name="press_back_again_to_exit">Нажмите назад еще раз чтобы выйти</string>

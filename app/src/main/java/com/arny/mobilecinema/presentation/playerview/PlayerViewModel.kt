@@ -36,6 +36,9 @@ class PlayerViewModel @AssistedInject constructor(
 
     fun saveMoviePosition(dbId: Long?, time: Long, season: Int, episode: Int) {
         viewModelScope.launch {
+            //detect cache changed
+            historyInteractor.setCacheChanged(true)
+
             val playerUiState = _uiState.value
             if (dbId != null) {
                 when {
@@ -54,11 +57,14 @@ class PlayerViewModel @AssistedInject constructor(
                     }
 
                     playerUiState.movie?.type == MovieType.SERIAL && !playerUiState.isTrailer -> {
+                        val state = _uiState.value
                         val save = historyInteractor.saveSerialPosition(
                             movieDbId = dbId,
-                            season = season,
-                            episode = episode,
-                            time = time
+                            playerSeasonPosition = season,
+                            playerEpisodePosition = episode,
+                            time = time,
+                            currentSeasonPosition = state.season,
+                            currentEpisodePosition = state.episode
                         )
                         if (!save) {
                             _error.trySend(ResourceString(R.string.movie_save_error))

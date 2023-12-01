@@ -2,19 +2,22 @@ package com.arny.mobilecinema.domain.interactors.history
 
 import androidx.paging.PagingData
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.domain.models.CacheChangeType
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
 import kotlinx.coroutines.flow.Flow
 
 interface HistoryInteractor {
-    val serialPositionChange: Flow<Boolean>
+    val cacheChange: Flow<CacheChangeType?>
     suspend fun saveCinemaPosition(movieDbId: Long, time: Long): Boolean
     suspend fun saveSerialPosition(
         movieDbId: Long,
-        season: Int,
-        episode: Int,
-        time: Long
+        playerSeasonPosition: Int,
+        playerEpisodePosition: Int,
+        time: Long,
+        currentSeasonPosition: Int?,
+        currentEpisodePosition: Int?
     ): Boolean
 
     fun getSaveData(movieDbId: Long?): Flow<DataResult<SaveData>>
@@ -28,4 +31,5 @@ interface HistoryInteractor {
     fun clearAllViewHistory(): Flow<DataResult<Boolean>>
     fun isHistoryEmpty(): Flow<DataResult<Boolean>>
     fun setSerialPositionChange(change: Boolean)
+    fun setCacheChanged(changed: Boolean)
 }

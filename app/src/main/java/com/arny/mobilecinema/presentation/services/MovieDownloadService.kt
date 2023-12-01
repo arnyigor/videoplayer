@@ -79,7 +79,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         }
         currentState = state
         val sizeDiff = stSize - currentDownloadListSize
-        Timber.d("progressListener ${state.getStateString()} size:$currentDownloadListSize, s:$stSize, sizeDiff:$sizeDiff")
+//        Timber.d("progressListener ${state.getStateString()} size:$currentDownloadListSize, s:$stSize, sizeDiff:$sizeDiff")
         when {
             isNoticeCanUpdate && state == Download.STATE_QUEUED -> {
                 updateNotification(
@@ -151,10 +151,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             }
 
             Download.STATE_COMPLETED -> {
-                sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE) {
-                    putString(AppConstants.SERVICE_PARAM_CACHE_URL, downloadUrl)
-                    putString(AppConstants.SERVICE_PARAM_CACHE_TITLE, curTitle)
-                }
+                sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE)
                 if (stSize == 0) {
                     startNextDownload()
                 }
@@ -276,6 +273,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             clear()
         }
         noticeStopped = true
+        sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE)
         stopCurrentService()
     }
 
@@ -284,6 +282,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             clear()
         }
         noticeStopped = true
+        sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE)
         stopCurrentService()
     }
 

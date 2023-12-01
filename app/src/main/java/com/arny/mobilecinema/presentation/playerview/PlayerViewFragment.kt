@@ -543,10 +543,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
         }
 
-        override fun onCues(cueGroup: CueGroup) {
+        /*override fun onCues(cueGroup: CueGroup) {
             super.onCues(cueGroup)
 //            binding.sbtvSubtitles.setCues(cueGroup.cues)
-        }
+        }*/
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             updateState(playbackState)

@@ -41,7 +41,6 @@ import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.getDP
 import com.arny.mobilecinema.presentation.utils.getDuration
-import com.arny.mobilecinema.presentation.utils.getString
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
@@ -61,6 +60,7 @@ import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.joda.time.DateTime
+import timber.log.Timber
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
@@ -158,7 +158,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         lifecycleScope.launch {
             val movie = currentMovie
             if (movie != null) {
-                initButtons(movie)
+                initButtons(movie, true)
             }
         }
     }
@@ -349,11 +349,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             }
         }
         launchWhenCreated {
-            viewModel.serialTitle.collectLatest { serialTitle ->
-                binding.tvTitle.text = getString(serialTitle)
-            }
-        }
-        launchWhenCreated {
             viewModel.toast.collectLatest { text ->
                 toast(text.toString(requireContext()))
             }
@@ -498,15 +493,15 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         initButtons(movie)
     }
 
-    private fun initButtons(movie: Movie) = with(binding) {
-        viewModel.invalidateCache()
+    private fun initButtons(movie: Movie, invalidate: Boolean = false) = with(binding) {
+        viewModel.invalidateCache(invalidate)
         btnTrailer.isVisible =
             movie.cinemaUrlData?.trailerUrl?.urls?.filter { it.isNotBlank() }.orEmpty().isNotEmpty()
         if (movie.type == MovieType.CINEMA) {
             val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
             btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
-            viewModel.initCinemaDownloadedData()
+            viewModel.updateCinemaDownloadedData()
         } else {
             val hasAnyLink = movie.seasons.any { season ->
                 season.episodes.any { episode -> episode.hls.isNotBlank() || episode.dash.isNotBlank() }
@@ -653,7 +648,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         if (movie.type == MovieType.SERIAL) {
             val seasonPosition = movie.seasonPosition
             val episodePosition = movie.episodePosition
-            if (seasonPosition != null && episodePosition!=null) {
+            if (seasonPosition != null && episodePosition != null) {
                 currentSeasonPosition = seasonPosition
                 currentEpisodePosition = episodePosition
             }

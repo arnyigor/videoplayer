@@ -6,6 +6,7 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.domain.models.CacheChangeType
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -24,12 +25,16 @@ class HistoryInteractorImpl @Inject constructor(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val playerSource: PlayerSource,
 ) : HistoryInteractor {
-    private val _serialPositionChange = MutableStateFlow(false)
-    override val serialPositionChange: Flow<Boolean>
-        get() = _serialPositionChange.asStateFlow()
+    private val _cacheChange = MutableStateFlow<CacheChangeType?>(null)
+    override val cacheChange: Flow<CacheChangeType?>
+        get() = _cacheChange.asStateFlow()
+
+    override fun setCacheChanged(changed: Boolean) {
+        _cacheChange.value = if (changed) CacheChangeType.CACHE else CacheChangeType.NONE
+    }
 
     override fun setSerialPositionChange(change: Boolean) {
-        _serialPositionChange.value = false
+        _cacheChange.value = if (change) CacheChangeType.SERIAL_POSITION else CacheChangeType.NONE
     }
 
     override fun addToViewHistory(movieDbId: Long): Flow<DataResult<Boolean>> = doAsync {
@@ -60,18 +65,34 @@ class HistoryInteractorImpl @Inject constructor(
 
     override suspend fun saveSerialPosition(
         movieDbId: Long,
-        season: Int,
-        episode: Int,
-        time: Long
+        playerSeasonPosition: Int,
+        playerEpisodePosition: Int,
+        time: Long,
+        currentSeasonPosition: Int?,
+        currentEpisodePosition: Int?
     ): Boolean = withContext(dispatcher) {
         val data = getHistoryData(movieDbId)
-        _serialPositionChange.value =
-            data.seasonPosition != season || data.episodePosition != episode
-        if (data.movieDbId != null) {
-            repository.updateSerialPosition(data.movieDbId, season, episode, time)
+        val result = if (data.movieDbId != null) {
+            repository.updateSerialPosition(
+                data.movieDbId,
+                playerSeasonPosition,
+                playerEpisodePosition,
+                time
+            )
         } else {
-            repository.insertSerialPosition(movieDbId, season, episode, time)
+            repository.insertSerialPosition(
+                movieDbId,
+                playerSeasonPosition,
+                playerEpisodePosition,
+                time
+            )
         }
+        if (result) {
+            if (currentSeasonPosition != playerSeasonPosition || currentEpisodePosition != playerEpisodePosition) {
+                _cacheChange.value = CacheChangeType.SERIAL_POSITION
+            }
+        }
+        result
     }
 
     override fun clearViewHistory(
@@ -87,6 +108,7 @@ class HistoryInteractorImpl @Inject constructor(
                     throw DataThrowable(R.string.error_history_remove_movie_fail)
                 }
             }
+            setCacheChanged(true)
             playerSource.clearDownloaded(url)
             true
         }

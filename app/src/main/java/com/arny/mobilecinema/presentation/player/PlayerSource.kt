@@ -27,17 +27,20 @@ import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource
 import com.google.android.exoplayer2.source.hls.HlsManifest
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.upstream.DataSource
+import com.google.android.exoplayer2.upstream.DataSpec
 import com.google.android.exoplayer2.upstream.DefaultDataSource
 import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
 import com.google.android.exoplayer2.upstream.FileDataSource
 import com.google.android.exoplayer2.upstream.cache.Cache
 import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
+import com.google.android.exoplayer2.upstream.cache.ContentMetadata
 import com.google.android.exoplayer2.util.Util
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.Executors
 import javax.inject.Inject
@@ -55,16 +58,14 @@ class PlayerSource @Inject constructor(
         const val YOUTUBE_MAX_QUALITY_TAG = 22
     }
 
+    @get:Synchronized
+    @set:Synchronized
     private var cacheFactory: CacheDataSource.Factory? = null
     private val handler = Handler(Looper.getMainLooper())
-    private var downloadManager: DownloadManager? = null
 
-    /* @set:Synchronized
-     private var managerInProgress by Delegates.observable(false) { _, old, new ->
-         if (old != new) {
-             Timber.d("managerInProgress:$new")
-         }
-     }*/
+    @get:Synchronized
+    @set:Synchronized
+    private var downloadManager: DownloadManager? = null
     private var onUpdate: ((Float, Long, Long, Long, Int, Int) -> Unit?)? = null
     private val downloadListener = object : DownloadManager.Listener {
         override fun onDownloadChanged(
@@ -233,19 +234,25 @@ class PlayerSource @Inject constructor(
     suspend fun getCurrentDownloadData(url: String): DownloadManagerData {
         return withContext(dispatcher) {
             ensureDownloadManagerInitialized(context)
-            var initialized = downloadManager?.isInitialized == true
-            if (!initialized) {
-                delay(1000) // wait init
+//            Timber.d("getCurrentDownloadData init downloadManager")
+            while (downloadManager?.isInitialized == false) {
+//                Timber.d("wait downloadManager")
+                delay(1000)
             }
+            var initialized = downloadManager?.isInitialized == true
+//            Timber.d("downloadManager init:$initialized")
             var isEquals = false
             var title = ""
             var downloadsEmpty = false
             var downloadPercent = 0.0f
             var downloadBytes = 0L
             val factory = dataSourceFactory()
-            val cache = factory.cache
+//            val cache = factory.cache
             val segmentsData = getSegmentsData(url, factory)
-            val list = cache?.let { getCachedKeys(it, url, segmentsData) }.orEmpty()
+//            val list = cache?.let { getCachedKeys(it, url, segmentsData) }.orEmpty()
+            val spans = getCachedSpans(segmentsData)
+            val downloadSize = spans.sumOf { it.length }
+            val percent = getDownloadedPercent(spans.size, segmentsData.segments.size)
             downloadManager?.let { dManager ->
                 initialized = dManager.isInitialized == true
                 val downloads = dManager.currentDownloads
@@ -254,14 +261,17 @@ class PlayerSource @Inject constructor(
                     // TODO обработать множество загрузок(пока решение - очередь на уровне сервиса)
                     val download = downloads.find { it.request.id == url }
                     title = download?.request?.data?.toString(Charsets.UTF_8).orEmpty()
-                    downloadPercent = getDownloadedPercent(segmentsData, list)
-                    downloadBytes = getDownloadedSize(cache, list)
+//                    downloadPercent = getDownloadedPercent(list.size, segmentsData.segments.size)
+//                    downloadBytes = getDownloadedSize(cache, list)
                 } else {
-                    downloadPercent = getDownloadedPercent(segmentsData, list)
-                    downloadBytes = getDownloadedSize(cache, list)
+//                    downloadPercent = getDownloadedPercent(list.size, segmentsData.segments.size)
+//                    downloadBytes = getDownloadedSize(cache, list)
                 }
+                downloadPercent = percent
+                downloadBytes = downloadSize
                 isEquals = initialized && downloads.find { it.request.id == url } != null
             }
+//            Timber.d("downloadManager downloadPercent:$downloadPercent, downloadBytes:$downloadBytes")
             DownloadManagerData(
                 isInitValid = initialized,
                 downloadsEmpty = downloadsEmpty,
@@ -273,13 +283,19 @@ class PlayerSource @Inject constructor(
         }
     }
 
+    private fun getCachedSpans(segmentsData: SegmentsData) =
+        segmentsData.segments.map { s ->
+            "${segmentsData.otherBaseUrl.substringBefore("/index")}/$s"
+        }.flatMap { s ->
+            cacheFactory?.cache?.getCachedSpans(s)?.filter { it.isCached }.orEmpty()
+        }
+
     private fun getDownloadedPercent(
-        segmentsData: SegmentsData,
-        list: List<String>
+        cachedSize: Int,
+        totalSize: Int
     ): Float {
-        val cached = list.size.toFloat()
-        val total = segmentsData.segments.size.toFloat()
-        var percent = ((cached / total) * 100)
+        val total = totalSize.toFloat()
+        var percent = ((cachedSize.toFloat() / total) * 100)
         if (percent > 100.0) {
             percent = 100.0f
         }
@@ -305,16 +321,20 @@ class PlayerSource @Inject constructor(
         segmentsData: SegmentsData
     ): List<String> {
         val cacheKeys = cache.keys.toList()
-        val segments = segmentsData.segments
-        return if (segments.isNotEmpty()) {
-            if (!segments.all { it.startsWith("http") }) {
-                val urls = cacheKeys.filter { it in segmentsData.baseUrls }
-                    .map { getDomainName(it) }
-                    .distinct()
-                val filter = cacheKeys.filter { urls.any { u -> it.contains(u, true) } }
-                    .filter { !it.contains("/index") }
-                    .filter { segments.any { s -> it.contains(s, true) } }
-                filter
+        val movieSegments = segmentsData.segments
+        val hlsBaseUrl = segmentsData.hlsBaseUrl
+        val otherBaseUrl = segmentsData.otherBaseUrl
+        val list = if (movieSegments.isNotEmpty()) {
+            if (!movieSegments.all { it.startsWith("http") }) {
+                val filterByIndex = cacheKeys
+                    .filter { !it.contains("/index") && !it.contains("/master.m3u8") }
+                var filter =
+                    filterByIndex.filter { s -> getDomainName(s) in getDomainName(hlsBaseUrl) }
+                if (filter.isEmpty()) {
+                    filter =
+                        filterByIndex.filter { s -> getDomainName(s) in getDomainName(otherBaseUrl) }
+                }
+                filter.filter { movieSegments.any { s -> it.contains(s, true) } }
             } else {
                 cacheKeys.filter { it in segmentsData.segments }
             }
@@ -325,6 +345,7 @@ class PlayerSource @Inject constructor(
                 emptyList()
             }
         }
+        return list
     }
 
     private suspend fun getSegmentsData(
@@ -356,11 +377,18 @@ class PlayerSource @Inject constructor(
                     })
         }
 
-    private fun getSegmentData(manifest: HlsManifest): SegmentsData {
-        val playlist = manifest.mediaPlaylist
-        val segments = playlist.segments.map { it.url }
-        return SegmentsData(listOf(playlist.baseUri), segments)
+    private fun getCachedContentMetadata(url: String): ContentMetadata? {
+        val buildCacheKey =
+            dataSourceFactory().cacheKeyFactory.buildCacheKey(DataSpec(Uri.parse(url)))
+        return cacheFactory?.cache?.getContentMetadata(buildCacheKey)
     }
+
+    private fun getSegmentData(manifest: HlsManifest): SegmentsData =
+        SegmentsData(
+            hlsBaseUrl = manifest.multivariantPlaylist.baseUri.substringBefore("/master.m3u8"),
+            otherBaseUrl = manifest.mediaPlaylist.baseUri,
+            segments = manifest.mediaPlaylist.segments.map { it.url }
+        )
 
     private fun getMediaItem(
         url: String?,
