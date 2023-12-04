@@ -9,7 +9,7 @@ def Alias(Closure closure) {
 }
 
 ext {
-    kotlin = { stdlib_version = KOTLIN_VERSION  -> Alias {
+    kotlinLib = { stdlib_version = KOTLIN_VERSION  -> Alias {
         implementation "org.jetbrains.kotlin:kotlin-stdlib:$stdlib_version"
         implementation "org.jetbrains.kotlin:kotlin-reflect:$stdlib_version"
     }}
@@ -265,6 +265,21 @@ ext {
     leakcanary = { version = '2.6' -> Alias {
         debugImplementation "com.squareup.leakcanary:leakcanary-android:$version"
         implementation "com.squareup.leakcanary:leakcanary-object-watcher-android:$version"
+    }}
+
+    tracerLib = { version = '0.2.8' -> Alias {
+        // Сбор и анализ крешей и ANR
+        implementation "ru.ok.tracer:tracer-crash-report:$version"
+        // Сбор и анализ нативных крешей
+        implementation "ru.ok.tracer:tracer-crash-report-native:$version"
+        // Сбор и анализ хипдапмов при OOM
+        implementation "ru.ok.tracer:tracer-heap-dumps:$version"
+        // Анализ потребления дискового места на устройстве
+        implementation "ru.ok.tracer:tracer-disk-usage:$version"
+        // Семплирующий профайлер
+        implementation "ru.ok.tracer:tracer-profiler-sampling:$version"
+        // Систрейс
+        implementation "ru.ok.tracer:tracer-profiler-systrace:$version"
     }}
 
 }

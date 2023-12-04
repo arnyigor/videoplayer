@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-parcelize'
 apply plugin: 'kotlin-kapt'
@@ -6,13 +7,13 @@ apply plugin: "androidx.navigation.safeargs.kotlin"
 apply plugin: "com.google.android.libraries.mapsplatform.secrets-gradle-plugin"
 apply from: "$rootProject.projectDir/dependencies.gradle"
 apply from: "$rootProject.projectDir/commonconfig.gradle"
-apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'ru.ok.tracer'
 
 android {
 }
 
 dependencies {
-    kotlin()
+    kotlinLib()
     core()
     workmanager()
     splashscreen()
@@ -42,5 +43,30 @@ dependencies {
     ktor()
     jsoup()
     roomDB()
-    debugDB()
+    tracerLib()
+}
+
+tracer {
+    defaultConfig {
+        Properties properties = new Properties()
+        File propertiesFile = new File('secrets.properties')
+        propertiesFile.withInputStream {
+            properties.load(it)
+        }
+        // См. в разделе "Настройки"
+        pluginToken = properties['TRACER_PLUGIN_TOKEN']
+        appToken = properties['TRACER_APP_TOKEN']
+
+        // Включает загрузку маппингов для билда. По умолчанию включена
+        uploadMapping = true
+    }
+
+    // Также можно задавать конфигурацию для каждого flavor, buildType, buildVariant.
+    // Конфигурации наследуют defaultConfig.
+    debug {
+        // Параметры...
+    }
+    demoDebug {
+        // Параметры...
+    }
 }
