@@ -57,7 +57,9 @@ import com.google.android.material.chip.ChipGroup
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import org.joda.time.DateTime
 import timber.log.Timber
@@ -340,9 +342,10 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         )
     }
 
+    @OptIn(FlowPreview::class)
     private fun observeData() {
         launchWhenCreated {
-            viewModel.currentMovie.collectLatest { movie ->
+            viewModel.currentMovie.debounce(50).collectLatest { movie ->
                 if (movie != null) {
                     onMovieLoaded(movie)
                 }
@@ -655,6 +658,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         if (movie.type == MovieType.SERIAL) {
             val seasonPosition = movie.seasonPosition
             val episodePosition = movie.episodePosition
+//            Timber.d("updateSpinData season:$currentSeasonPosition->$seasonPosition,episode:$currentEpisodePosition->$episodePosition")
             if (seasonPosition != null && episodePosition != null) {
                 currentSeasonPosition = seasonPosition
                 currentEpisodePosition = episodePosition

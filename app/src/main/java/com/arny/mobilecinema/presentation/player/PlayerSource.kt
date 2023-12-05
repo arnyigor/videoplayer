@@ -37,12 +37,10 @@ import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.upstream.cache.CacheSpan
 import com.google.android.exoplayer2.util.Util
-import com.google.common.base.Stopwatch
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.Executors
 import javax.inject.Inject
@@ -191,7 +189,7 @@ class PlayerSource @Inject constructor(
         val cache = VideoCache.getInstance(context).getDownloadCache()
         val segmentsData = getSegmentsData(url, dataSourceFactory())
         val keys = cache.keys
-        val cachedKeys = getCachedKeys(segmentsData, keys.toList())
+        val cachedKeys = getCachedHlsKeys(segmentsData, keys.toList())
 //        Timber.d("clearDownloaded ${keys.size}, ${segmentsData.segments.size}")
         try {
             cachedKeys.forEach { cache.removeResource(it) }
@@ -264,7 +262,7 @@ class PlayerSource @Inject constructor(
             val cacheKeys = cache.keys.toList()
             val segmentsData: SegmentsData? =
                 if (!isMp4) getSegmentsData(url, factory) else null
-            val cachedKeysList = segmentsData?.let { getCachedKeys(it, cacheKeys) }.orEmpty()
+            val cachedKeysList = segmentsData?.let { getCachedHlsKeys(it, cacheKeys) }.orEmpty()
             val key = getCacheKey(url)
             val spans = if (isMp4) {
                 cache.getCachedSpans(key)
@@ -340,29 +338,25 @@ class PlayerSource @Inject constructor(
         return size
     }
 
-    private fun getCachedKeys(
+    private fun getCachedHlsKeys(
         segmentsData: SegmentsData,
         cacheKeys: List<String>
     ): List<String> {
-        val stopwatch = Stopwatch.createStarted()
         val movieSegments = segmentsData.segments
-        val hlsBaseUrl = segmentsData.hlsBaseUrl
-        val otherBaseUrl = segmentsData.otherBaseUrl
-        val hlsDomainName = getDomainName(hlsBaseUrl)
-        val otherDomainName = getDomainName(otherBaseUrl)
-//        Timber.d("getCachedKeys cacheKeys size:${cacheKeys.size}, movieSegments size:${movieSegments.size}")
+        val hlsDomainName = getDomainName(segmentsData.hlsBaseUrl)
+        val otherDomainName = getDomainName(segmentsData.otherBaseUrl)
         val list = if (movieSegments.isNotEmpty()) {
             if (!movieSegments.all { it.startsWith("http") }) {
                 val filterByIndex = cacheKeys.filter {
-                    !it.contains("/index") && !it.contains("/master.m3u8")
+                    it.indexOf("/index") == -1 && !it.endsWith("master.m3u8")
                 }
-                var filter = filterByIndex.asSequence().filter { s ->
-                    getDomainName(s) in hlsDomainName
-                }.toList()
+                var filter = filterByIndex.filter { s ->
+                    getDomainName(s) in otherDomainName  && s.indexOf("seg-") != -1
+                }
                 if (filter.isEmpty()) {
-                    filter = filterByIndex.asSequence().filter { s ->
-                        getDomainName(s) in otherDomainName
-                    }.toList()
+                    filter = filterByIndex.filter { s ->
+                        getDomainName(s) in hlsDomainName && s.indexOf("seg-") != -1
+                    }
                 }
                 if (movieSegments.all { it.startsWith("seg") }) {
                     val filterSegments = hashMapOf<String, Int>()
@@ -375,21 +369,15 @@ class PlayerSource @Inject constructor(
                     val indexes = filterSegments
                         .filter { it.key in movieSegments }
                         .map { it.value }
-                    val filterIndexed = filter.filterIndexed { index, _ -> index in indexes }
-//                    Timber.d("getCachedKeys filterSegments  filter time:${stopwatch}")
-                    stopwatch.stop()
-                    filterIndexed
+                    filter.filterIndexed { index, _ -> index in indexes }
                 } else {
-                    val toList = filter.asSequence()
+                    filter.asSequence()
                         .filter {
                             movieSegments.any { s ->
                                 it.contains(s, true)
                             }
                         }
                         .toList()
-//                    Timber.d("getCachedKeys any filter time:${stopwatch}")
-                    stopwatch.stop()
-                    toList
                 }
             } else {
                 cacheKeys.filter { it in segmentsData.segments }
@@ -418,7 +406,7 @@ class PlayerSource @Inject constructor(
                             Result.success(
                                 when (val manifest = helper.manifest) {
                                     is HlsManifest -> getSegmentData(manifest)
-                                    is DashManifest -> getSegmentData(manifest)
+//                                    is DashManifest -> getSegmentData(manifest)
                                     else -> SegmentsData()
                                 }
                             )
@@ -449,8 +437,7 @@ class PlayerSource @Inject constructor(
             for (j in 0 until period.adaptationSets.size) {
                 val adaptationSet = period.adaptationSets[j]
                 for (k in 0 until adaptationSet.representations.size) {
-                    val representation = adaptationSet.representations[k]
-                    println(representation)
+//                    println(adaptationSet.representations[k])
                 }
             }
         }
