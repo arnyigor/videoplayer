@@ -130,6 +130,7 @@
     <string name="in_serials">В сериалах</string>
     <string name="likes_priority">Приоритет по лайкам</string>
     <string name="cinema_save_data">Сохранён:%s%%, занимает: %s</string>
+    <string name="cinema_save_data_only_bytes">Сохранён:нет данных, занимает: %s</string>
     <string name="cinema_save_data_invalidate">Проверяем кеш…</string>
     <string name="movie_save_error">Не сохранено в историю</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>

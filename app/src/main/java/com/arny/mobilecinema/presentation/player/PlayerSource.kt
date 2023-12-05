@@ -24,6 +24,7 @@ import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.source.ProgressiveMediaSource
 import com.google.android.exoplayer2.source.dash.DashMediaSource
 import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource
+import com.google.android.exoplayer2.source.dash.manifest.DashManifest
 import com.google.android.exoplayer2.source.hls.HlsManifest
 import com.google.android.exoplayer2.source.hls.HlsMediaSource
 import com.google.android.exoplayer2.upstream.DataSource
@@ -34,8 +35,9 @@ import com.google.android.exoplayer2.upstream.FileDataSource
 import com.google.android.exoplayer2.upstream.cache.Cache
 import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
-import com.google.android.exoplayer2.upstream.cache.ContentMetadata
+import com.google.android.exoplayer2.upstream.cache.CacheSpan
 import com.google.android.exoplayer2.util.Util
+import com.google.common.base.Stopwatch
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -112,7 +114,7 @@ class PlayerSource @Inject constructor(
         val factory = dataSourceFactory()
         val mediaItem = getMediaItem(url, title, season, episode)
         when (val type: @C.ContentType Int = Util.inferContentType(uri)) {
-            C.CONTENT_TYPE_DASH -> getDashMediaSource(factory, mediaItem)
+            C.CONTENT_TYPE_DASH -> getDashMediaSourceFactory(factory, mediaItem)
             C.CONTENT_TYPE_HLS -> getHlsMedialSource(factory, mediaItem)
             C.CONTENT_TYPE_OTHER -> {
                 when {
@@ -181,11 +183,21 @@ class PlayerSource @Inject constructor(
 
     suspend fun clearDownloaded(url: String) = withContext(dispatcher) {
         ensureDownloadManagerInitialized(context)
-        downloadManager?.removeDownload(url)
+        try {
+            downloadManager?.removeDownload(url)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         val cache = VideoCache.getInstance(context).getDownloadCache()
         val segmentsData = getSegmentsData(url, dataSourceFactory())
-        segmentsData.segments.forEach { cache.removeResource(it) }
-        cache.removeResource(url)
+        val keys = cache.keys
+        val cachedKeys = getCachedKeys(segmentsData, keys.toList())
+//        Timber.d("clearDownloaded ${keys.size}, ${segmentsData.segments.size}")
+        try {
+            cachedKeys.forEach { cache.removeResource(it) }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     suspend fun clearAllDownloaded() = withContext(dispatcher) {
@@ -237,41 +249,50 @@ class PlayerSource @Inject constructor(
 //            Timber.d("getCurrentDownloadData init downloadManager")
             while (downloadManager?.isInitialized == false) {
 //                Timber.d("wait downloadManager")
-                delay(1000)
+                delay(250)
             }
             var initialized = downloadManager?.isInitialized == true
-//            Timber.d("downloadManager init:$initialized")
             var isEquals = false
             var title = ""
             var downloadsEmpty = false
             var downloadPercent = 0.0f
             var downloadBytes = 0L
+            val isMp4 = isMp4(url)
+//            Timber.d("getCurrentDownloadData isMp4:$isMp4")
             val factory = dataSourceFactory()
-//            val cache = factory.cache
-            val segmentsData = getSegmentsData(url, factory)
-//            val list = cache?.let { getCachedKeys(it, url, segmentsData) }.orEmpty()
-            val spans = getCachedSpans(segmentsData)
-            val downloadSize = spans.sumOf { it.length }
-            val percent = getDownloadedPercent(spans.size, segmentsData.segments.size)
+            val cache = getCache()
+            val cacheKeys = cache.keys.toList()
+            val segmentsData: SegmentsData? =
+                if (!isMp4) getSegmentsData(url, factory) else null
+            val cachedKeysList = segmentsData?.let { getCachedKeys(it, cacheKeys) }.orEmpty()
+            val key = getCacheKey(url)
+            val spans = if (isMp4) {
+                cache.getCachedSpans(key)
+            } else {
+                segmentsData?.let { getCachedSpans(it) }.orEmpty()
+            }
+            val segments = segmentsData?.segments.orEmpty()
             downloadManager?.let { dManager ->
                 initialized = dManager.isInitialized == true
                 val downloads = dManager.currentDownloads
                 downloadsEmpty = downloads.isEmpty()
                 if (!downloadsEmpty) {
-                    // TODO обработать множество загрузок(пока решение - очередь на уровне сервиса)
                     val download = downloads.find { it.request.id == url }
                     title = download?.request?.data?.toString(Charsets.UTF_8).orEmpty()
-//                    downloadPercent = getDownloadedPercent(list.size, segmentsData.segments.size)
-//                    downloadBytes = getDownloadedSize(cache, list)
-                } else {
-//                    downloadPercent = getDownloadedPercent(list.size, segmentsData.segments.size)
-//                    downloadBytes = getDownloadedSize(cache, list)
                 }
-                downloadPercent = percent
-                downloadBytes = downloadSize
+                downloadPercent = if (isMp4) {
+                    getDownloadedPercent(spans.size, segments.size)
+                } else {
+                    getDownloadedPercent(cachedKeysList.size, segments.size)
+                }
+                downloadBytes = if (isMp4) {
+                    spans.sumOf { it.length }
+                } else {
+                    getDownloadedSize(cache, cachedKeysList)
+                }
                 isEquals = initialized && downloads.find { it.request.id == url } != null
+//                Timber.d("downloadPercent:$downloadPercent, downloadBytes:$downloadBytes")
             }
-//            Timber.d("downloadManager downloadPercent:$downloadPercent, downloadBytes:$downloadBytes")
             DownloadManagerData(
                 isInitValid = initialized,
                 downloadsEmpty = downloadsEmpty,
@@ -283,7 +304,9 @@ class PlayerSource @Inject constructor(
         }
     }
 
-    private fun getCachedSpans(segmentsData: SegmentsData) =
+    private fun isMp4(url: String) = url.endsWith(".mp4")
+
+    private fun getCachedSpans(segmentsData: SegmentsData): List<CacheSpan> =
         segmentsData.segments.map { s ->
             "${segmentsData.otherBaseUrl.substringBefore("/index")}/$s"
         }.flatMap { s ->
@@ -294,10 +317,12 @@ class PlayerSource @Inject constructor(
         cachedSize: Int,
         totalSize: Int
     ): Float {
-        val total = totalSize.toFloat()
-        var percent = ((cachedSize.toFloat() / total) * 100)
-        if (percent > 100.0) {
-            percent = 100.0f
+        var percent = 0.0f
+        if (totalSize != 0) {
+            percent = ((cachedSize.toFloat() / totalSize.toFloat()) * 100)
+            if (percent > 100.0) {
+                percent = 100.0f
+            }
         }
         return percent
     }
@@ -316,41 +341,68 @@ class PlayerSource @Inject constructor(
     }
 
     private fun getCachedKeys(
-        cache: Cache,
-        url: String,
-        segmentsData: SegmentsData
+        segmentsData: SegmentsData,
+        cacheKeys: List<String>
     ): List<String> {
-        val cacheKeys = cache.keys.toList()
+        val stopwatch = Stopwatch.createStarted()
         val movieSegments = segmentsData.segments
         val hlsBaseUrl = segmentsData.hlsBaseUrl
         val otherBaseUrl = segmentsData.otherBaseUrl
+        val hlsDomainName = getDomainName(hlsBaseUrl)
+        val otherDomainName = getDomainName(otherBaseUrl)
+//        Timber.d("getCachedKeys cacheKeys size:${cacheKeys.size}, movieSegments size:${movieSegments.size}")
         val list = if (movieSegments.isNotEmpty()) {
             if (!movieSegments.all { it.startsWith("http") }) {
-                val filterByIndex = cacheKeys
-                    .filter { !it.contains("/index") && !it.contains("/master.m3u8") }
-                var filter =
-                    filterByIndex.filter { s -> getDomainName(s) in getDomainName(hlsBaseUrl) }
-                if (filter.isEmpty()) {
-                    filter =
-                        filterByIndex.filter { s -> getDomainName(s) in getDomainName(otherBaseUrl) }
+                val filterByIndex = cacheKeys.filter {
+                    !it.contains("/index") && !it.contains("/master.m3u8")
                 }
-                filter.filter { movieSegments.any { s -> it.contains(s, true) } }
+                var filter = filterByIndex.asSequence().filter { s ->
+                    getDomainName(s) in hlsDomainName
+                }.toList()
+                if (filter.isEmpty()) {
+                    filter = filterByIndex.asSequence().filter { s ->
+                        getDomainName(s) in otherDomainName
+                    }.toList()
+                }
+                if (movieSegments.all { it.startsWith("seg") }) {
+                    val filterSegments = hashMapOf<String, Int>()
+                    filter
+                        .asSequence()
+                        .map { "seg-${it.substringAfter("/seg-")}" }
+                        .forEachIndexed { index, s ->
+                            filterSegments[s] = index
+                        }
+                    val indexes = filterSegments
+                        .filter { it.key in movieSegments }
+                        .map { it.value }
+                    val filterIndexed = filter.filterIndexed { index, _ -> index in indexes }
+//                    Timber.d("getCachedKeys filterSegments  filter time:${stopwatch}")
+                    stopwatch.stop()
+                    filterIndexed
+                } else {
+                    val toList = filter.asSequence()
+                        .filter {
+                            movieSegments.any { s ->
+                                it.contains(s, true)
+                            }
+                        }
+                        .toList()
+//                    Timber.d("getCachedKeys any filter time:${stopwatch}")
+                    stopwatch.stop()
+                    toList
+                }
             } else {
                 cacheKeys.filter { it in segmentsData.segments }
             }
         } else {
-            if (cacheKeys.contains(element = url)) {
-                cacheKeys.filter { it.contains(other = url) }
-            } else {
-                emptyList()
-            }
+            emptyList()
         }
         return list
     }
 
     private suspend fun getSegmentsData(
         url: String,
-        factory: CacheDataSource.Factory
+        cacheFactory: CacheDataSource.Factory
     ): SegmentsData =
         suspendCoroutine { continuation ->
             val mediaItem = getMediaItem(url)
@@ -358,37 +410,56 @@ class PlayerSource @Inject constructor(
                 /* context = */ context,
                 /* mediaItem = */ mediaItem,
                 /* renderersFactory = */ null,
-                /* dataSourceFactory = */ factory
-            )
-                .prepare(
-                    object : DownloadHelper.Callback {
-                        override fun onPrepared(helper: DownloadHelper) {
-                            val segments = when (val manifest = helper.manifest) {
-                                is HlsManifest -> getSegmentData(manifest)
-                                else -> SegmentsData()
-                            }
-                            continuation.resumeWith(Result.success(segments))
-                        }
+                /* dataSourceFactory = */ cacheFactory
+            ).prepare(
+                object : DownloadHelper.Callback {
+                    override fun onPrepared(helper: DownloadHelper) {
+                        continuation.resumeWith(
+                            Result.success(
+                                when (val manifest = helper.manifest) {
+                                    is HlsManifest -> getSegmentData(manifest)
+                                    is DashManifest -> getSegmentData(manifest)
+                                    else -> SegmentsData()
+                                }
+                            )
+                        )
+                    }
 
-                        override fun onPrepareError(helper: DownloadHelper, e: IOException) {
-                            e.printStackTrace()
-                            continuation.resumeWithException(e)
-                        }
-                    })
+                    override fun onPrepareError(helper: DownloadHelper, e: IOException) {
+                        e.printStackTrace()
+                        continuation.resumeWithException(e)
+                    }
+                })
         }
 
-    private fun getCachedContentMetadata(url: String): ContentMetadata? {
-        val buildCacheKey =
-            dataSourceFactory().cacheKeyFactory.buildCacheKey(DataSpec(Uri.parse(url)))
-        return cacheFactory?.cache?.getContentMetadata(buildCacheKey)
-    }
+    private fun getCacheKey(url: String): String =
+        dataSourceFactory().cacheKeyFactory.buildCacheKey(DataSpec(Uri.parse(url)))
 
-    private fun getSegmentData(manifest: HlsManifest): SegmentsData =
-        SegmentsData(
+    private fun getSegmentData(manifest: HlsManifest): SegmentsData {
+        return SegmentsData(
             hlsBaseUrl = manifest.multivariantPlaylist.baseUri.substringBefore("/master.m3u8"),
             otherBaseUrl = manifest.mediaPlaylist.baseUri,
             segments = manifest.mediaPlaylist.segments.map { it.url }
         )
+    }
+
+    private fun getSegmentData(manifest: DashManifest): SegmentsData {
+        for (i in 0 until manifest.periodCount) {
+            val period = manifest.getPeriod(i)
+            for (j in 0 until period.adaptationSets.size) {
+                val adaptationSet = period.adaptationSets[j]
+                for (k in 0 until adaptationSet.representations.size) {
+                    val representation = adaptationSet.representations[k]
+                    println(representation)
+                }
+            }
+        }
+        return SegmentsData(
+            hlsBaseUrl = "",
+            otherBaseUrl = "",
+            segments = emptyList()
+        )
+    }
 
     private fun getMediaItem(
         url: String?,
@@ -423,17 +494,17 @@ class PlayerSource @Inject constructor(
     private fun getMp4MediaSource(
         factory: DataSource.Factory,
         item: MediaItem
-    ) = ProgressiveMediaSource.Factory(factory, DefaultExtractorsFactory())
+    ): ProgressiveMediaSource = ProgressiveMediaSource.Factory(factory, DefaultExtractorsFactory())
         .createMediaSource(item)
 
     private fun getHlsMedialSource(
         factory: DataSource.Factory,
         item: MediaItem
-    ) = HlsMediaSource.Factory(factory)
+    ): HlsMediaSource = HlsMediaSource.Factory(factory)
         .setAllowChunklessPreparation(true)
         .createMediaSource(item)
 
-    private fun getDashMediaSource(
+    private fun getDashMediaSourceFactory(
         factory: DataSource.Factory,
         item: MediaItem
     ) = DashMediaSource.Factory(
@@ -465,8 +536,10 @@ class PlayerSource @Inject constructor(
         return cacheFactory!!
     }
 
+    private fun getCache(): Cache = VideoCache.getInstance(context).getDownloadCache()
+
     private fun initCacheFactory() {
-        val cache = VideoCache.getInstance(context).getDownloadCache()
+        val cache = getCache()
         val cacheSink = CacheDataSink.Factory().setCache(cache)
         val upstreamFactory = DefaultDataSource.Factory(context, DefaultHttpDataSource.Factory())
         cacheFactory = CacheDataSource.Factory()

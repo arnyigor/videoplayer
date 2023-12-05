@@ -22,7 +22,6 @@ import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +29,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -45,6 +43,9 @@ class DetailsViewModel @AssistedInject constructor(
     private val historyInteractor: HistoryInteractor,
     private val playerSource: PlayerSource
 ) : ViewModel() {
+    private companion object {
+        const val MB = 1024 * 1024
+    }
     private var currentDownloadData: DownloadManagerData? = null
     private var seasonPosition = 0
     private var episodePosition = 0
@@ -237,15 +238,15 @@ class DetailsViewModel @AssistedInject constructor(
     private suspend fun getCinemaDownloadedData() {
         val currentMovie = _currentMovie.value
         val url = currentMovie?.getCinemaUrl().orEmpty()
-        val currentDownloadData = playerSource.getCurrentDownloadData(url)
+        val downloadData = playerSource.getCurrentDownloadData(url)
         val data = MovieDownloadedData(
-            currentDownloadData.downloadPercent,
-            currentDownloadData.downloadBytes
+            downloadData.downloadPercent,
+            downloadData.downloadBytes
         )
         checkDownloadSize(data)
-        val movieTitle = currentDownloadData.movieTitle
+        val movieTitle = downloadData.movieTitle
         val titleEquals = movieTitle == currentMovie?.title
-        val initValid = currentDownloadData.isInitValid
+        val initValid = downloadData.isInitValid
         if (initValid) {
             checkAllDownload(data)
             when {
@@ -256,7 +257,7 @@ class DetailsViewModel @AssistedInject constructor(
                         type = AlertType.Download(complete = true, link = url)
                     )
                 }
-                currentDownloadData.downloadsEmpty -> {
+                downloadData.downloadsEmpty -> {
                     currentCacheAlert = Alert(
                         title = ResourceString(R.string.cinema_cache_attention),
                         content = ResourceString(R.string.cache_description),
@@ -266,7 +267,7 @@ class DetailsViewModel @AssistedInject constructor(
                     )
                 }
                 // Продолжить загрузку текущего
-                currentDownloadData.isEqualsLinks -> {
+                downloadData.isEqualsLinks -> {
                     currentCacheAlert = Alert(
                         title = ResourceString(
                             R.string.cinema_cache_attention_links_title,
@@ -429,7 +430,7 @@ class DetailsViewModel @AssistedInject constructor(
     }
 
     private fun checkDownloadSize(data: MovieDownloadedData) {
-        if (data.downloadedPercent > 1.0f && data.downloadedSize > 0L) {
+        if (data.downloadedSize > MB) {
             _downloadedData.value = data
         } else {
             _downloadedData.value = null

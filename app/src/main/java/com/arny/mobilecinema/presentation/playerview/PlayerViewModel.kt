@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 class PlayerViewModel @AssistedInject constructor(
     private val interactor: MoviesInteractor,

@@ -58,8 +58,8 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         val download = currentDownload
         val season = download?.season
         val episode = download?.episode
-        val downloadUrl = download?.downloadUrl
-        val curTitle = download?.title
+//        val downloadUrl = download?.downloadUrl
+//        val curTitle = download?.title
         if (isNoticeCanUpdate) {
             var title = download?.title.orEmpty()
             val maxTitleSize = 15
@@ -79,7 +79,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         }
         currentState = state
         val sizeDiff = stSize - currentDownloadListSize
-//        Timber.d("progressListener ${state.getStateString()} size:$currentDownloadListSize, s:$stSize, sizeDiff:$sizeDiff")
+//        Timber.d("progressListener ${state.getStateString()} size:$currentDownloadListSize, s:$stSize, sizeDiff:$sizeDiff, bytes:${bytes.formatSize()}")
         when {
             isNoticeCanUpdate && state == Download.STATE_QUEUED -> {
                 updateNotification(

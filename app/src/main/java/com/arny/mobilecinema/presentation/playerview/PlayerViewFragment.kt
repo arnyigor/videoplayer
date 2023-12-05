@@ -68,7 +68,6 @@ import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.analytics.AnalyticsListener
 import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.text.CueGroup
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
@@ -131,26 +130,22 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var brightness: Int = 0
     private var volume: Int = -1
     private var boost: Int = -1
-
-    private companion object {
-        const val MAX_BOOST = 150
+    private var ExoPlayer?.playbackSpeed: Float
+        get() = this?.playbackParameters?.speed ?: 1f
+        set(speed) {
+            this?.playbackParameters = PlaybackParameters(speed)
+        }
+    private var volumeObs: Int by Delegates.observable(-1) { _, old, newVolume ->
+        if (old != newVolume) {
+            volume = newVolume
+            boost = 0
+            enhancer?.setTargetGain(boost)
+            binding.tvVolume.visibility = View.VISIBLE
+            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
+            updateUIByVolume()
+            hideVolumeBrightViews()
+        }
     }
-
-    override fun onAttach(context: Context) {
-        AndroidSupportInjection.inject(this)
-        super.onAttach(context)
-    }
-
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
-        val view = FPlayerViewBinding.inflate(inflater, container, false)
-        binding = view
-        return view.root
-    }
-
     private val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         if (focusChange <= 0) {
             player?.pause()
@@ -221,8 +216,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                         volume = newVolume
                     }
                     val newBoost: Int = when {
-                        increase -> if (volume == maxVolume) boost + 10 else boost
-                        else -> if (volume == maxVolume) boost - 10 else boost
+                        increase -> if (volume == maxVolume) boost + getBoostDiff(boost) else boost
+                        else -> if (volume == maxVolume) boost - getBoostDiff(boost) else boost
                     }
                     val isBoostChanges = newBoost in 1..MAX_BOOST
                     if (isBoostChanges) {
@@ -251,6 +246,16 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             return true
         }
 
+        private fun getBoostDiff(boost: Int): Int {
+            return when {
+                boost < 100 -> 10
+                boost < 250 -> 20
+                boost < 500 -> 30
+                boost < 1000 -> 50
+                else -> 10
+            }
+        }
+
         private fun getMaxVolume() =
             audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 30
 
@@ -262,6 +267,60 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             velocityX: Float,
             velocityY: Float
         ): Boolean = false
+    }
+    private val analytic = object : AnalyticsListener {
+    }
+    private val listener = object : Player.Listener {
+        override fun onPlayerError(error: PlaybackException) {
+            binding.progressBar.isVisible = false
+            error.printStackTrace()
+            when (getConnectionType(requireContext())) {
+                ConnectionType.NONE -> {
+                    toast(getString(R.string.internet_connection_error))
+                }
+
+                else -> toast(getFullError(error))
+            }
+        }
+        /*override fun onCues(cueGroup: CueGroup) {
+            super.onCues(cueGroup)
+//            binding.sbtvSubtitles.setCues(cueGroup.cues)
+        }*/
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            updateState(playbackState)
+        }
+
+        override fun onTracksChanged(tracks: Tracks) {
+            val index = player?.currentMediaItemIndex ?: 0
+            if (index != mediaItemIndex) {
+                mediaItemIndex = index
+                player?.let {
+                    val metadata = it.currentMediaItem?.mediaMetadata
+                    this@PlayerViewFragment.title = metadata?.title.toString()
+                    setCurrentTitle(title)
+                }
+                setupPopupMenus = true
+            }
+        }
+    }
+
+    private companion object {
+        const val MAX_BOOST = 1000
+    }
+
+    override fun onAttach(context: Context) {
+        AndroidSupportInjection.inject(this)
+        super.onAttach(context)
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        val view = FPlayerViewBinding.inflate(inflater, container, false)
+        binding = view
+        return view.root
     }
 
     private fun hideVolumeBrightViews() {
@@ -286,18 +345,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         initPlayerTouchListener()
         initAudioManager()
         initVolumeObserver()
-    }
-
-    private var volumeObs: Int by Delegates.observable(-1) { _, old, newVolume ->
-        if (old != newVolume) {
-            volume = newVolume
-            boost = 0
-            enhancer?.setTargetGain(boost)
-            binding.tvVolume.visibility = View.VISIBLE
-            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
-            updateUIByVolume()
-            hideVolumeBrightViews()
-        }
     }
 
     private fun initVolumeObserver() {
@@ -528,53 +575,18 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         return currentIndexEpisode
     }
 
-    private val analytic = object : AnalyticsListener {
-    }
-    private val listener = object : Player.Listener {
-        override fun onPlayerError(error: PlaybackException) {
-            binding.progressBar.isVisible = false
-            error.printStackTrace()
-            when (getConnectionType(requireContext())) {
-                ConnectionType.NONE -> {
-                    toast(getString(R.string.internet_connection_error))
-                }
-
-                else -> toast(getFullError(error))
-            }
-        }
-
-        /*override fun onCues(cueGroup: CueGroup) {
-            super.onCues(cueGroup)
-//            binding.sbtvSubtitles.setCues(cueGroup.cues)
-        }*/
-
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            updateState(playbackState)
-        }
-
-        override fun onTracksChanged(tracks: Tracks) {
-            val index = player?.currentMediaItemIndex ?: 0
-            if (index != mediaItemIndex) {
-                mediaItemIndex = index
-                player?.let {
-                    val metadata = it.currentMediaItem?.mediaMetadata
-                    this@PlayerViewFragment.title = metadata?.title.toString()
-                    setCurrentTitle(title)
-                }
-                setupPopupMenus = true
-            }
-        }
-    }
-
     private fun saveMoviePosition(exoPlayer: ExoPlayer) {
         this.timePosition = exoPlayer.currentPosition
         val metadata = exoPlayer.currentMediaItem?.mediaMetadata
         val bundle = metadata?.extras
-        val season = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
-        val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
-        this.season = season
-        this.episode = episode
-        viewModel.saveMoviePosition(args.movie?.dbId, timePosition, season, episode)
+        val newSeason = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
+        val newEpisode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
+//        Timber.d("saveMoviePosition: dbId:${args.movie?.dbId}, time:$timePosition, season:$season->$newSeason, episode:$episode->$newEpisode")
+        if (timePosition != 0L) {
+            this.season = newSeason
+            this.episode = newEpisode
+            viewModel.saveMoviePosition(args.movie?.dbId, timePosition, season, episode)
+        }
     }
 
     private suspend fun setCinemaUrls(
@@ -729,6 +741,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 episodeIndex = args.episodeIndex,
                 trailer = args.isTrailer
             )
+//            Timber.d("preparePlayer complete")
 //            changePlaybackSpeed()
         }
     }
@@ -736,12 +749,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     fun changePlaybackSpeed(){
        player?.playbackSpeed = 1.1f
     }
-
-    private var ExoPlayer?.playbackSpeed: Float
-        get() = this?.playbackParameters?.speed ?: 1f
-        set(speed) {
-            this?.playbackParameters = PlaybackParameters(speed)
-        }
 
     private fun initEnhancer() {
         val audioSessionId = player?.audioSessionId

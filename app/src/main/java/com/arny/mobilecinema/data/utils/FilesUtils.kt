@@ -18,6 +18,10 @@ suspend fun File.create() {
     }
 }
 
+fun Long.formatSize(digits: Int = 3): String {
+    return formatFileSize(this, digits)
+}
+
 fun formatFileSize(size: Long, digits: Int = 3): String {
     if (size <= 0) return "0"
     val units = arrayOf("B", "KB", "MB", "GB", "TB")

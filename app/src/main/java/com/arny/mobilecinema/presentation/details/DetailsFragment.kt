@@ -483,6 +483,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     formatFileSize(data.downloadedSize, 1)
                 )
             }
+
+            data != null && data.downloadedSize > 0L -> {
+                binding.tvSaveData.text = getString(
+                    R.string.cinema_save_data_only_bytes,
+                    formatFileSize(data.downloadedSize, 1)
+                )
+            }
         }
     }
 
