@@ -134,6 +134,7 @@
     <string name="cinema_save_data_invalidate">Проверяем кеш…</string>
     <string name="movie_save_error">Не сохранено в историю</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
+    <string name="downloading_database_error_unsupport_path">Ошибка загрузки файла базы фильмов, установите разрешения для записи и попробуйте снова</string>
     <string name="search_extended_title">Расширенный поиск</string>
     <string name="search_extended_ok">Поиск</string>
     <!--Prefs-->
@@ -153,7 +154,8 @@
     <string name="years_range">Дипазон лет с %s по %s</string>
     <string name="imdb_range">Рейтинг IMBT с %s по %s</string>
     <string name="kp_range">Рейтинг KP с %s по %s</string>
-    <string name="error_history_remove_movie_fail">Видео нельзя очистить из истории.Воспользуйтесь полной очисткой истории</string>
+    <string name="error_history_remove_movie_fail">Видео нельзя очистить из истории. Воспользуйтесь полной очисткой истории</string>
+    <string name="download_manager_fail">Ошибка загрузки файла, повторите загрузку</string>
     <string name="movie_details_transition">movie_details_transition</string>
 
     <plurals name="sezons">

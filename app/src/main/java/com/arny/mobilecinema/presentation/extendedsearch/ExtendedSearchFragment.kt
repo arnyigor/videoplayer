@@ -40,7 +40,6 @@ import java.text.NumberFormat
 import javax.inject.Inject
 
 class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
-
     @Inject
     lateinit var prefs: Prefs
 
@@ -166,14 +165,16 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
         if (yearsRange != null) {
             val from = yearsRange.from
             val to = yearsRange.to
-            rslYears.valueFrom = from.toFloat()
-            rslYears.valueTo = to.toFloat()
-            rslYears.values = listOf(from.toFloat(), to.toFloat())
-            tvYearsRange.text = getString(
-                ResourceString(R.string.years_range, from.toString(), to.toString())
-            )
-            tvYearsRange.isVisible = true
-            rslYears.isVisible = true
+            if (to > from) {
+                rslYears.valueFrom = from.toFloat()
+                rslYears.valueTo = to.toFloat()
+                rslYears.values = listOf(from.toFloat(), to.toFloat())
+                tvYearsRange.text = getString(
+                    ResourceString(R.string.years_range, from.toString(), to.toString())
+                )
+                tvYearsRange.isVisible = true
+                rslYears.isVisible = true
+            }
         }
     }
 

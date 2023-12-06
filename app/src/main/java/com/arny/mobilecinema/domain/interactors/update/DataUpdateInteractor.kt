@@ -10,4 +10,5 @@ interface DataUpdateInteractor {
     fun resetUpdate()
     suspend fun checkBaseUrl(): Flow<DataResult<Boolean>>
     val updateTextFlow: Flow<IWrappedString?>
+    val errorFlow: Flow<IWrappedString?>
 }

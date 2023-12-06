@@ -16,6 +16,7 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SearchView
+import android.widget.Toast
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.MenuProvider
@@ -61,7 +62,6 @@ import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
 class HomeFragment : Fragment(), OnSearchListener {
-
     private companion object {
         const val REQUEST_LOAD: Int = 99
         const val REQUEST_OPEN_FILE: Int = 100
@@ -79,7 +79,6 @@ class HomeFragment : Fragment(), OnSearchListener {
     @Inject
     internal lateinit var viewModelFactory: ViewModelFactory
     private val viewModel: HomeViewModel by viewModelFactory { viewModelFactory.create() }
-
     private lateinit var binding: FHomeBinding
     private var searchMenuItem: MenuItem? = null
     private var searchView: SearchView? = null
@@ -384,6 +383,13 @@ class HomeFragment : Fragment(), OnSearchListener {
             viewModel.updateText.collectLatest { updateText ->
                 if (updateText != null) {
                     binding.tvEmptyView.text = updateText.toString(requireContext())
+                }
+            }
+        }
+        launchWhenCreated {
+            viewModel.errorText.collectLatest { text ->
+                if (text != null) {
+                    toast(text.toString(requireContext()), Toast.LENGTH_LONG)
                 }
             }
         }

@@ -85,7 +85,7 @@ fun Window.hideSystemBar() {
 
 fun Window.hideSystemUI() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-         insetsController?.hide(WindowInsets.Type.systemBars())
+        insetsController?.hide(WindowInsets.Type.systemBars())
     } else {
         val decorView = decorView
         var uiVisibility = decorView.systemUiVisibility
@@ -100,7 +100,7 @@ fun Window.hideSystemUI() {
 
 fun Window.showSystemUI() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-         insetsController?.show(WindowInsets.Type.systemBars())
+        insetsController?.show(WindowInsets.Type.systemBars())
     } else {
         val decorView = decorView
         var uiVisibility = decorView.systemUiVisibility
@@ -144,7 +144,8 @@ fun Activity.lockOrientation() {
     requestedOrientation = if (orientLand && land) {
         val sensorLand = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         if (rotation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            || rotation == ActivityInfo.SCREEN_ORIENTATION_BEHIND) sensorLand
+            || rotation == ActivityInfo.SCREEN_ORIENTATION_BEHIND
+        ) sensorLand
         else rotation ?: sensorLand
     } else {
         ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -162,6 +163,7 @@ fun Window.showSystemBar() {
         decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
     }
 }
+
 fun newIntent(): Intent = Intent()
 
 fun Fragment.launchIntent(
@@ -190,12 +192,12 @@ fun Fragment.toastError(throwable: Throwable?) {
     )
 }
 
-fun Fragment.toast(text: String?) {
+fun Fragment.toast(text: String?, duration: Int = Toast.LENGTH_SHORT) {
     text?.let {
         Toast.makeText(
             requireContext(),
             it,
-            Toast.LENGTH_SHORT
+            duration
         ).show()
     }
 }
