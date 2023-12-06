@@ -37,6 +37,7 @@ import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import java.text.NumberFormat
+import java.util.Calendar
 import javax.inject.Inject
 
 class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
@@ -163,9 +164,14 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
 
     private fun initYearsRangeSlider(yearsRange: SimpleIntRange?) = with(binding) {
         if (yearsRange != null) {
-            val from = yearsRange.from
-            val to = yearsRange.to
-            if (to > from) {
+            var from = yearsRange.from
+            var to = yearsRange.to
+            if (to == 0 || to < from) {
+                val year = Calendar.getInstance().get(Calendar.YEAR)
+                from = 1900
+                to = year
+            }
+            if (to >= from) {
                 rslYears.valueFrom = from.toFloat()
                 rslYears.valueTo = to.toFloat()
                 rslYears.values = listOf(from.toFloat(), to.toFloat())
