@@ -29,8 +29,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
+import java.io.BufferedInputStream
 import java.io.File
-import java.io.FileReader
+import java.io.FileInputStream
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
 import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
 
@@ -67,7 +71,10 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 // TODO: Отобразить ошибку и записать
                 e.printStackTrace()
                 sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
-                    putString(AppConstants.ACTION_UPDATE_STATUS, AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR)
+                    putString(
+                        AppConstants.ACTION_UPDATE_STATUS,
+                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
+                    )
                 }
                 delay(1000)
                 stop()
@@ -157,13 +164,23 @@ class UpdateService : LifecycleService(), CoroutineScope {
         return dataFile
     }
 
-    private fun readData(file: File): List<Movie> = GsonBuilder()
-        .setLenient()
-        .create()
-        .fromJson(
-            FileReader(file),
-            MoviesData::class.java
-        ).movies
+    private fun readData(file: File): List<Movie> {
+        val movies = try {
+            val buf = BufferedInputStream(FileInputStream(file), 32 * 1024)
+            val inputStreamReader = InputStreamReader(buf, StandardCharsets.UTF_8)
+            GsonBuilder()
+                .setLenient()
+                .create()
+                .fromJson(
+                    inputStreamReader,
+                    MoviesData::class.java
+                ).movies
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+        return movies
+    }
 
     private fun updateNotification(title: String, silent: Boolean) {
         (applicationContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(

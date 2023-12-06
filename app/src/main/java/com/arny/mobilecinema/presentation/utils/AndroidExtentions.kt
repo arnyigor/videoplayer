@@ -455,6 +455,13 @@ fun Context.sendBroadcast(action: String, extras: Bundle.() -> Unit = {}) {
     applicationContext.sendBroadcast(intent)
 }
 
+fun getFreeMemoryMB(): Long {
+    val runtime = Runtime.getRuntime()
+    val usedMemInMB = (runtime.totalMemory() - runtime.freeMemory()) / 1048576L
+    val maxHeapSizeInMB = runtime.maxMemory() / 1048576L
+    return maxHeapSizeInMB - usedMemInMB
+}
+
 fun Fragment.registerReceiver(action: String, receiver: BroadcastReceiver) {
     requireActivity().registerReceiver(receiver, IntentFilter(action))
 }
