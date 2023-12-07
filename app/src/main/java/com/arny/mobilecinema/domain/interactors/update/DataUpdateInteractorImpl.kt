@@ -3,6 +3,7 @@ package com.arny.mobilecinema.domain.interactors.update
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
+import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
 import com.arny.mobilecinema.BuildConfig
@@ -91,23 +92,6 @@ class DataUpdateInteractorImpl @Inject constructor(
         _updateFlow.value = updateString
     }
 
-    private suspend fun updateDownloadStatus(downloadId: Long) {
-        when (isDownloadManagerComplete(downloadId)) {
-            DownloadMangerStatus.PROGRESS -> {
-                delay(1000)
-                updateDownloadStatus(downloadId)
-            }
-
-            DownloadMangerStatus.ERROR -> {
-                throw DataThrowable(R.string.download_manager_fail)
-            }
-
-            DownloadMangerStatus.COMPLETE -> {
-                forceUpdate(context, downloadId)
-            }
-        }
-    }
-
     override fun resetUpdate() {
         repository.newUpdate = ""
         repository.checkUpdate = false
@@ -136,32 +120,58 @@ class DataUpdateInteractorImpl @Inject constructor(
         }
     }
 
-    private fun isDownloadManagerComplete(downloadId: Long): DownloadMangerStatus {
-        val c = downloadManager.query(DownloadManager.Query().setFilterById(downloadId))
-        if (c.moveToFirst()) {
-            val statusIndex = c.getColumnIndex(DownloadManager.COLUMN_STATUS)
-            val status = c.getInt(statusIndex)
-//            Timber.d("Download status [${status.toStringStatus()}]")
-            return when (status) {
-                DownloadManager.STATUS_SUCCESSFUL -> DownloadMangerStatus.COMPLETE
-                DownloadManager.STATUS_PENDING,
-                DownloadManager.STATUS_RUNNING,
-                DownloadManager.STATUS_PAUSED -> DownloadMangerStatus.PROGRESS
+    private suspend fun updateDownloadStatus(downloadId: Long) {
+        when (isDownloadManagerComplete(downloadId)) {
+            DownloadMangerStatus.PROGRESS -> {
+                delay(1000)
+                updateDownloadStatus(downloadId)
+            }
 
-                DownloadManager.STATUS_FAILED -> {
-//                    val reasonIndex = c.getColumnIndex(DownloadManager.COLUMN_REASON)
-//                    val reason = c.getInt(reasonIndex)
-//                    Timber.d("Download not correct, status [${status.toStringStatus()}] reason [$reason]")
-                    DownloadMangerStatus.ERROR
-                }
+            DownloadMangerStatus.ERROR -> {
+                throw DataThrowable(R.string.download_manager_fail)
+            }
 
-                else -> DownloadMangerStatus.PROGRESS
+            DownloadMangerStatus.COMPLETE -> {
+                forceUpdate(context, downloadId)
             }
         }
-        return DownloadMangerStatus.PROGRESS
     }
 
-    private fun Int.toStringStatus(): String {
+    private fun isDownloadManagerComplete(downloadId: Long): DownloadMangerStatus {
+        val c: Cursor? = try {
+            downloadManager.query(DownloadManager.Query().setFilterById(downloadId))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+        return when {
+            c == null -> DownloadMangerStatus.ERROR
+            c.moveToFirst() -> {
+                val statusIndex = c.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                val status = c.getInt(statusIndex)
+//                Timber.d("Download status [${status.toStringStatus()}]")
+                return when (status) {
+                    DownloadManager.STATUS_SUCCESSFUL -> DownloadMangerStatus.COMPLETE
+                    DownloadManager.STATUS_PENDING,
+                    DownloadManager.STATUS_RUNNING,
+                    DownloadManager.STATUS_PAUSED -> DownloadMangerStatus.PROGRESS
+
+                    DownloadManager.STATUS_FAILED -> {
+                        // val reasonIndex = c.getColumnIndex(DownloadManager.COLUMN_REASON)
+                        // val reason = c.getInt(reasonIndex)
+                        //  Timber.d("Download not correct, status [${status.toStringStatus()}] reason [$reason]")
+                        DownloadMangerStatus.ERROR
+                    }
+
+                    else -> DownloadMangerStatus.PROGRESS
+                }
+            }
+
+            else -> DownloadMangerStatus.PROGRESS
+        }
+    }
+
+    /*private fun Int.toStringStatus(): String {
         return when (this) {
             DownloadManager.STATUS_SUCCESSFUL -> "STATUS_SUCCESSFUL"
             DownloadManager.STATUS_FAILED -> "STATUS_FAILED"
@@ -170,7 +180,7 @@ class DataUpdateInteractorImpl @Inject constructor(
             DownloadManager.STATUS_RUNNING -> "STATUS_RUNNING"
             else -> "STATUS_NONE"
         }
-    }
+    }*/
 
     private fun update(file: File, forceUpdate: Boolean) {
         context.sendServiceMessage(
