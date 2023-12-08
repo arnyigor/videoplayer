@@ -107,6 +107,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var mediaItemIndex: Int = 0
     private var movie: Movie? = null
     private val btnsHandler = Handler(Looper.getMainLooper())
+    private val volumeHandler = Handler(Looper.getMainLooper())
     private val args: PlayerViewFragmentArgs by navArgs()
     private val resizeModes = arrayOf(
         AspectRatioFrameLayout.RESIZE_MODE_FIT,
@@ -169,6 +170,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             distanceX: Float,
             distanceY: Float
         ): Boolean {
+            resetVolumeHandlerState()
             minSwipeY += distanceY
             val sWidth = Resources.getSystem().displayMetrics.widthPixels
             val sHeight = Resources.getSystem().displayMetrics.heightPixels
@@ -243,6 +245,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 hideVolumeBrightViews()
                 minSwipeY = 0f
             }
+            hideControlsDelayed()
             return true
         }
 
@@ -268,6 +271,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             velocityY: Float
         ): Boolean = false
     }
+
+    private fun hideControlsDelayed() {
+        volumeHandler.postDelayed({
+            binding.playerView.hideController()
+        }, 5000)
+    }
+
     private val analytic = object : AnalyticsListener {
     }
     private val listener = object : Player.Listener {
@@ -715,10 +725,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             youtubeOverlay.performListener(object : YouTubeOverlay.PerformListener {
                 override fun onAnimationStart() {
                     youtubeOverlay.visibility = View.VISIBLE
+                    resetVolumeHandlerState()
                 }
 
                 override fun onAnimationEnd() {
                     youtubeOverlay.visibility = View.GONE
+                    hideControlsDelayed()
                 }
             }).playerView(playerView)
             playerView.controller(youtubeOverlay)
@@ -744,6 +756,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 //            Timber.d("preparePlayer complete")
 //            changePlaybackSpeed()
         }
+    }
+
+    private fun resetVolumeHandlerState() {
+        volumeHandler.removeCallbacksAndMessages(null)
     }
 
     fun changePlaybackSpeed(){

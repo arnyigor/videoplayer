@@ -48,7 +48,13 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
 
     private fun initUI(navController: NavController) {
         navController.addOnDestinationChangedListener { _, destination, _ ->
-            showBottomNav(destination.id !in listOf(R.id.nav_player_view, R.id.nav_details, R.id.nav_extended_search))
+            showBottomNav(
+                destination.id !in listOf(
+                    R.id.nav_player_view,
+                    R.id.nav_details,
+                    R.id.nav_extended_search
+                )
+            )
             showHome(destination.id !in listOf(R.id.nav_home, R.id.nav_prefs, R.id.nav_history))
         }
     }
@@ -90,8 +96,11 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
 
     override fun onStop() {
         super.onStop()
-        @RequiresApi(Build.VERSION_CODES.O)
-        if (isInPictureInPictureMode) {
+        finishPicInPicTask()
+    }
+
+    private fun finishPicInPicTask() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
             finishAndRemoveTask()
         }
     }
@@ -109,6 +118,7 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
                     currentFragment is OnSearchListener && !currentFragment.isSearchComplete() -> {
                         currentFragment.collapseSearch()
                     }
+
                     else -> {
                         onBack(isLastFragment)
                     }
