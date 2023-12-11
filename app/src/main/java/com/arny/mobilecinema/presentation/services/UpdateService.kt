@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.os.Build
 import androidx.annotation.RequiresApi
@@ -29,7 +30,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -52,15 +52,28 @@ class UpdateService : LifecycleService(), CoroutineScope {
     override fun onCreate() {
         super.onCreate()
         AndroidInjection.inject(this)
-        startForeground(
-            NOTICE_ID,
-            getNotice(
-                channelId = "updating_channel_name",
-                channelName = getString(R.string.updating_channel_name),
-                title = getString(R.string.updating, 0),
-                silent = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTICE_ID,
+                getNotice(
+                    channelId = "updating_channel_name",
+                    channelName = getString(R.string.updating_channel_name),
+                    title = getString(R.string.updating, 0),
+                    silent = false
+                ),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
             )
-        )
+        } else {
+            startForeground(
+                NOTICE_ID,
+                getNotice(
+                    channelId = "updating_channel_name",
+                    channelName = getString(R.string.updating_channel_name),
+                    title = getString(R.string.updating, 0),
+                    silent = false
+                ),
+            )
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

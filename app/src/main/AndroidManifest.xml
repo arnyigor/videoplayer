@@ -48,11 +48,13 @@
         <service
             android:name=".presentation.services.UpdateService"
             android:enabled="true"
+            android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
 
         <service
             android:name=".presentation.services.MovieDownloadService"
             android:enabled="true"
+            android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
     </application>
 </manifest>

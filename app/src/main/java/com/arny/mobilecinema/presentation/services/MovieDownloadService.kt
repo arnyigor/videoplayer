@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.os.Build
 import androidx.annotation.RequiresApi
@@ -207,20 +208,38 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     override fun onCreate() {
         super.onCreate()
         AndroidInjection.inject(this)
-        startForeground(
-            NOTICE_ID,
-            getNotice(
-                channelId = "channelId",
-                channelName = "channelName",
-                title = getString(
-                    R.string.download_cinema_title_format,
-                    currentDownload?.title.orEmpty(),
-                    0.0f
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTICE_ID,
+                getNotice(
+                    channelId = "channelId",
+                    channelName = "channelName",
+                    title = getString(
+                        R.string.download_cinema_title_format,
+                        currentDownload?.title.orEmpty(),
+                        0.0f
+                    ),
+                    text = getString(R.string.download_cinema_text_format_empty_downloads, ""),
+                    silent = false
                 ),
-                text = getString(R.string.download_cinema_text_format_empty_downloads, ""),
-                silent = false
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
             )
-        )
+        }else{
+            startForeground(
+                NOTICE_ID,
+                getNotice(
+                    channelId = "channelId",
+                    channelName = "channelName",
+                    title = getString(
+                        R.string.download_cinema_title_format,
+                        currentDownload?.title.orEmpty(),
+                        0.0f
+                    ),
+                    text = getString(R.string.download_cinema_text_format_empty_downloads, ""),
+                    silent = false
+                ),
+            )
+        }
         playerSource.setListener(progressListener)
     }
 
