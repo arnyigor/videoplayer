@@ -14,6 +14,9 @@ import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
+import com.arny.mobilecinema.presentation.utils.getTime
+import org.joda.time.DateTime
+import org.joda.time.Duration
 import java.io.File
 import javax.inject.Inject
 
@@ -24,6 +27,9 @@ class UpdateRepositoryImpl @Inject constructor(
     private val context: Context,
     private val moviesDao: MovieDao
 ) : UpdateRepository {
+    private companion object {
+        const val UPDATE_PERIOD = 182L
+    }
     override var checkUpdate: Boolean = false
     override var newUpdate: String = ""
     override var updateDownloadId: Long = -1L
@@ -38,6 +44,8 @@ class UpdateRepositoryImpl @Inject constructor(
             prefs.put(PrefsConstants.BASE_URL, value)
         }
 
+    override fun hasMovies(): Boolean = moviesDao.getCount() != 0
+
     override fun setLastUpdate() {
         lastUpdate = newUpdate
         newUpdate = ""
@@ -51,11 +59,31 @@ class UpdateRepositoryImpl @Inject constructor(
         return file
     }
 
+    override suspend fun checkPath(url: String): Boolean {
+        val checkPath = apiService.checkPath(url)
+        return checkPath.value != 404
+    }
+
+    override fun hasLastUpdates(): Boolean {
+        return if (lastUpdate.isNotBlank()) {
+            val time = lastUpdate.getTime("YYYY.MM.dd HH:mm", "Europe/Moscow")
+            val yearBeforeTime = DateTime.now().minus(Duration.standardDays(UPDATE_PERIOD))
+            time.millis >= yearBeforeTime.millis
+        } else {
+            false
+        }
+    }
+
     private fun diffByGroup(list1: List<IMovieUpdate>, list2: List<IMovieUpdate>): List<IMovieUpdate> {
         return (list1 + list2).groupBy { it.pageUrl }.filter { it.value.size == 1 }.flatMap { it.value }
     }
 
-    override fun updateMovies(movies: List<Movie>, forceAll: Boolean, onUpdate: (ind: Int) -> Unit) {
+    override fun updateMovies(
+        movies: List<Movie>,
+        hasLastYearUpdate: Boolean,
+        forceAll: Boolean,
+        onUpdate: (ind: Int) -> Unit
+    ) {
         var entity = MovieEntity()
         val size = movies.size
         if (moviesDao.getCount() == 0) {
@@ -68,7 +96,9 @@ class UpdateRepositoryImpl @Inject constructor(
             }
         } else {
             // remove movies each not in updates
-            removeNotInUpdates(movies)
+            if (!hasLastYearUpdate && forceAll) {
+                removeNotInUpdates(movies)
+            }
             val dbList = moviesDao.getUpdateMovies()
 
             movies.forEachIndexed { index, movie ->

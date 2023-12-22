@@ -1,11 +1,13 @@
 package com.arny.mobilecinema.data.api
 
-import io.ktor.client.*
-import io.ktor.client.request.*
-import io.ktor.http.*
-import io.ktor.util.*
-import io.ktor.util.cio.*
-import io.ktor.utils.io.*
+import io.ktor.client.HttpClient
+import io.ktor.client.request.prepareGet
+import io.ktor.client.request.request
+import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
+import io.ktor.util.InternalAPI
+import io.ktor.util.cio.writeChannel
+import io.ktor.utils.io.copyAndClose
 import java.io.File
 import javax.inject.Inject
 
@@ -20,4 +22,9 @@ class ApiService @Inject constructor(
             httpResponse.content.copyAndClose(file.writeChannel())
         }
     }
+
+    suspend fun checkPath(url: String): HttpStatusCode =
+        httpClient.request(url) {
+            method = HttpMethod.Get
+        }.status
 }

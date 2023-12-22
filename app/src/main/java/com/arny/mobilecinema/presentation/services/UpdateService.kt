@@ -15,12 +15,14 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.data.utils.isFileExists
 import com.arny.mobilecinema.data.utils.unzip
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
+import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendBroadcast
 import com.google.gson.GsonBuilder
 import dagger.android.AndroidInjection
@@ -30,6 +32,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.joda.time.DateTime
+import org.joda.time.Duration
+import timber.log.Timber
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
@@ -109,15 +114,26 @@ class UpdateService : LifecycleService(), CoroutineScope {
                     )
                 }
                 val file = File(filePath)
-                val dataFile = unzipData(file, context = applicationContext)
-                if (dataFile != null) {
+//                Timber.d("has zip file:${formatFileSize(file.length())}")
+                val dataFiles = unzipData(file, context = applicationContext)
+//                Timber.d("unzipData dataFiles:${dataFiles.map { "file:${it.name}:${formatFileSize(it.length())}" }}")
+                if (dataFiles.isNotEmpty()) {
                     var success = false
-                    val anwapMovies = readData(dataFile)
+//                    Timber.d("read files")
+                    val hasUpdate = !forceAll && repository.hasLastUpdates()
+                    val anwapMovies = readData(dataFiles, hasUpdate)
+//                    Timber.d("read files complete:${anwapMovies.size}")
                     if (anwapMovies.isNotEmpty()) {
                         file.delete()
-                        dataFile.delete()
+                        dataFiles.forEach {
+                            it.delete()
+                        }
                         try {
-                            repository.updateMovies(anwapMovies, forceAll) { percent ->
+                            repository.updateMovies(
+                                anwapMovies,
+                                hasUpdate,
+                                forceAll
+                            ) { percent ->
                                 updateNotification(getString(R.string.updating, percent), true)
                             }
                             repository.setLastUpdate()
@@ -161,38 +177,51 @@ class UpdateService : LifecycleService(), CoroutineScope {
         }
     }
 
-    private fun unzipData(zipFile: File, context: Context): File? {
+    private fun unzipData(zipFile: File, context: Context): List<File> {
         val path = context.filesDir.path
         zipFile.unzip(path)
-        var dataFile: File? = null
-        val files = File(path).listFiles()
-        files?.forEach { file ->
-            if (file.name == "data.json") {
-                dataFile = file
-            }
+        val files = File(path).listFiles()?.filter { it.name.contains(".json") }
+        val checkAllFiles = files?.all {
+            it.isFileExists() && it.length() > 0
         }
-        if (dataFile != null && dataFile!!.isFileExists() && dataFile!!.length() > 0) {
+        return if (checkAllFiles == true) {
             zipFile.delete()
-        }
-        return dataFile
-    }
-
-    private fun readData(file: File): List<Movie> {
-        val movies = try {
-            val buf = BufferedInputStream(FileInputStream(file), 32 * 1024)
-            val inputStreamReader = InputStreamReader(buf, StandardCharsets.UTF_8)
-            GsonBuilder()
-                .setLenient()
-                .create()
-                .fromJson(
-                    inputStreamReader,
-                    MoviesData::class.java
-                ).movies
-        } catch (e: Exception) {
-            e.printStackTrace()
+            files.toList()
+        } else {
             emptyList()
         }
+    }
+
+    private fun readData(files: List<File>, hasUpdateByPeriod: Boolean): List<Movie> {
+        val movies = if (hasUpdateByPeriod) {
+            files.find { it.name == "data_0.json" }?.let {
+                readFile(it)
+            } ?: getAllMovies(files)
+        } else {
+            files.filter { it.name == "data.json" }.flatMap {
+                readFile(it)
+            }
+        }
         return movies
+    }
+
+    private fun getAllMovies(files: List<File>) = files.flatMap {
+        readFile(it)
+    }
+
+    private fun readFile(file: File): List<Movie> = try {
+        val buf = BufferedInputStream(FileInputStream(file), 32 * 1024)
+        val inputStreamReader = InputStreamReader(buf, StandardCharsets.UTF_8)
+        GsonBuilder()
+            .setLenient()
+            .create()
+            .fromJson(
+                inputStreamReader,
+                MoviesData::class.java
+            ).movies
+    } catch (e: Exception) {
+        e.printStackTrace()
+        emptyList()
     }
 
     private fun updateNotification(title: String, silent: Boolean) {

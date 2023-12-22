@@ -13,6 +13,7 @@ import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.FilePathUtils
+import com.arny.mobilecinema.domain.models.DataUpdateResult
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
@@ -22,7 +23,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
 
@@ -53,14 +53,19 @@ class DataUpdateInteractorImpl @Inject constructor(
         repository.checkBaseUrl()
     }
 
-    override suspend fun requestFile(force: Boolean) {
+    override suspend fun requestFile(force: Boolean, hasPartUpdate: Boolean) {
         this.forceUpdate = force
         var updateString = ResourceString(R.string.downloading_database)
         _updateFlow.value = updateString
         try {
             val zipFile = File(context.filesDir, "tmp_${System.currentTimeMillis()}.zip")
-            val dataLink =
-                if (BuildConfig.DEBUG) BuildConfig.DATA_DEBUG_LINK else BuildConfig.DATA_LINK
+            val dataLink = when {
+                hasPartUpdate && BuildConfig.DEBUG -> BuildConfig.DATA_0_DEBUG_LINK
+                !hasPartUpdate && BuildConfig.DEBUG -> BuildConfig.DATA_DEBUG_LINK
+                hasPartUpdate -> BuildConfig.DATA_0_LINK
+                !hasPartUpdate -> BuildConfig.DATA_LINK
+                else -> BuildConfig.DATA_LINK
+            }
             val description = DownloadManager.Request(Uri.parse(dataLink))
                 .setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
@@ -97,28 +102,38 @@ class DataUpdateInteractorImpl @Inject constructor(
         repository.checkUpdate = false
     }
 
-    override suspend fun getUpdateDate(force: Boolean): Flow<DataResult<String>> = doAsync {
-        if (force) {
-            repository.newUpdate = ""
-            repository.checkUpdate = false
+    override suspend fun getUpdateDate(force: Boolean): Flow<DataResult<DataUpdateResult>> =
+        doAsync {
+            val hasMovies = repository.hasMovies()
+            if (!hasMovies) {
+                repository.lastUpdate = ""
+            }
+            if (force || !hasMovies) {
+                resetUpdate()
+            }
+            var newUpdate = ""
+            var hasPartUpdateFile = false
+            if (!repository.checkUpdate && repository.newUpdate.isBlank()) {
+                repository.checkUpdate = true
+                val updateFile = repository.downloadFile(
+                    if (BuildConfig.DEBUG) BuildConfig.UPDATE_DEBUG_LINK else BuildConfig.UPDATE_LINK,
+                    AppConstants.UPDATE_FILE
+                )
+                newUpdate = updateFile.readText()
+                updateFile.delete()
+                if (hasMovies && repository.hasLastUpdates()) {
+                    hasPartUpdateFile = repository.checkPath(
+                        if (BuildConfig.DEBUG) BuildConfig.DATA_0_DEBUG_LINK else BuildConfig.DATA_0_LINK,
+                    )
+                }
+            }
+            if (repository.lastUpdate != newUpdate && newUpdate.isNotBlank()) {
+                repository.newUpdate = newUpdate
+                DataUpdateResult(newUpdate, hasPartUpdateFile)
+            } else {
+                DataUpdateResult("")
+            }
         }
-        var newUpdate = ""
-        if (!repository.checkUpdate && repository.newUpdate.isBlank()) {
-            repository.checkUpdate = true
-            val updateFile = repository.downloadFile(
-                if (BuildConfig.DEBUG) BuildConfig.UPDATE_DEBUG_LINK else BuildConfig.UPDATE_LINK,
-                AppConstants.UPDATE_FILE
-            )
-            newUpdate = updateFile.readText()
-            updateFile.delete()
-        }
-        if (repository.lastUpdate != newUpdate && newUpdate.isNotBlank()) {
-            repository.newUpdate = newUpdate
-            newUpdate
-        } else {
-            ""
-        }
-    }
 
     private suspend fun updateDownloadStatus(downloadId: Long) {
         when (isDownloadManagerComplete(downloadId)) {

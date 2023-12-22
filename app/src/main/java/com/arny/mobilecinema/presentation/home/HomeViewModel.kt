@@ -146,7 +146,9 @@ class HomeViewModel @AssistedInject constructor(
                         }
 
                         is DataResult.Success -> {
-                            val updateTime = result.result
+                            val updateResult = result.result
+                            val hasPartUpdate = updateResult.hasPartUpdate
+                            val updateTime = updateResult.updateDateTime
                             if (updateTime.isNotBlank() && !updateTime.contains("""[/|\\]""".toRegex())) {
                                 _alert.trySend(
                                     Alert(
@@ -157,7 +159,8 @@ class HomeViewModel @AssistedInject constructor(
                                         ),
                                         btnOk = ResourceString(android.R.string.ok),
                                         btnCancel = ResourceString(android.R.string.cancel),
-                                        type = AlertType.Update(false)
+                                        btnNeutral = if (hasPartUpdate) ResourceString(R.string.full_update) else null,
+                                        type = AlertType.Update(false, hasPartUpdate)
                                     )
                                 )
                             }
@@ -215,7 +218,7 @@ class HomeViewModel @AssistedInject constructor(
             when (type) {
                 is AlertType.Update -> {
                     _toast.emit(ResourceString(R.string.update_started))
-                    dataUpdateInteractor.requestFile(type.force)
+                    dataUpdateInteractor.requestFile(type.force, type.hasPartUpdate)
                 }
                 else -> {}
             }
@@ -244,7 +247,7 @@ class HomeViewModel @AssistedInject constructor(
                             content = ResourceString(R.string.full_update_description),
                             btnOk = ResourceString(android.R.string.ok),
                             btnCancel = ResourceString(android.R.string.cancel),
-                            type = AlertType.Update(true)
+                            type = AlertType.Update(true, type.hasPartUpdate)
                         )
                     )
                 }
