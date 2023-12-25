@@ -30,8 +30,8 @@ internal class ArraysUtilsTest {
 
         val diff = diffByGroup(list1, list2)
 
-        println("diff time:${System.currentTimeMillis() - start}")
-        println("diff:$diff")
+//        println("diff time:${System.currentTimeMillis() - start}")
+//        println("diff:$diff")
         val subList = list2.subList(size1, size2)
         assertEquals(
             /* expected = */ subList,

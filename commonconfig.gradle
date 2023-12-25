@@ -19,7 +19,7 @@ android {
     buildToolsVersion versions.buildToolsVersion
     def vMajor = 1
     def vMinor = 3
-    def vBuild = 1
+    def vBuild = 2
     defaultConfig {
         applicationId "com.arny.mobilecinema"
         minSdkVersion versions.minSdkVersion

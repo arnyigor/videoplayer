@@ -773,7 +773,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 enhancer = LoudnessEnhancer(audioSessionId)
                 enhancer?.enabled = true
                 val targetGain = enhancer?.targetGain
-                println("LoudnessEnhancer Init and enabled targetGain:$targetGain")
             } catch (e: RuntimeException) {
                 e.printStackTrace()
             }

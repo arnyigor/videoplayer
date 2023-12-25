@@ -20,7 +20,6 @@ class JsoupService @Inject constructor() {
         userAgent(JsoupServiceHelper.UA)
         headers(requestHeaders)
         val cookie = JsoupServiceHelper.cookie
-        println("")
         if (resetCookie && cookie.isNotEmpty()) {
             cookies(cookie)
         }
