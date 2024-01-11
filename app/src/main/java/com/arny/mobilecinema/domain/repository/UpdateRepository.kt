@@ -16,4 +16,5 @@ interface UpdateRepository {
     suspend fun checkPath(url: String): Boolean
     fun hasLastUpdates(): Boolean
     fun hasMovies(): Boolean
+    fun downloadUpdates(url: String, forceUpdate: Boolean)
 }

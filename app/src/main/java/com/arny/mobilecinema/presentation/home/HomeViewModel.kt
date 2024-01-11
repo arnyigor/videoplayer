@@ -77,8 +77,6 @@ class HomeViewModel @AssistedInject constructor(
     private var search = UiAction.Search()
     private val trigger = MutableSharedFlow<Unit>()
     private val actionStateFlow = MutableSharedFlow<UiAction>()
-    val updateText = dataUpdateInteractor.updateTextFlow
-    val errorText = dataUpdateInteractor.errorFlow
     var moviesDataFlow: Flow<PagingData<ViewMovie>> =
         listOf(
             trigger,

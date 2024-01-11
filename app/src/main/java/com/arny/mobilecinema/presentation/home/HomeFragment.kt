@@ -16,7 +16,6 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SearchView
-import android.widget.Toast
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.MenuProvider
@@ -377,20 +376,6 @@ class HomeFragment : Fragment(), OnSearchListener {
         launchWhenCreated {
             viewModel.order.collectLatest { order ->
                 currentOrder = order
-            }
-        }
-        launchWhenCreated {
-            viewModel.updateText.collectLatest { updateText ->
-                if (updateText != null) {
-                    binding.tvEmptyView.text = updateText.toString(requireContext())
-                }
-            }
-        }
-        launchWhenCreated {
-            viewModel.errorText.collectLatest { text ->
-                if (text != null) {
-                    toast(text.toString(requireContext()), Toast.LENGTH_LONG)
-                }
             }
         }
         launchWhenCreated {

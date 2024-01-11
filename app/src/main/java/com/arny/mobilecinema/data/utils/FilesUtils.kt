@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.data.utils
 
+import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -31,6 +32,21 @@ fun formatFileSize(size: Long, digits: Int = 3): String {
         digs.append("#")
     }
     return (DecimalFormat("#,##0.$digs").format(size / 1024.0.pow(digitGroups.toDouble())) + " " + units[digitGroups])
+}
+
+fun Context.unzipData(zipFile: File, extension: String): List<File> {
+    val path = filesDir.path
+    zipFile.unzip(path)
+    val files = File(path).listFiles()?.filter { it.name.endsWith(extension) }
+    val checkAllFiles = files?.all {
+        it.isFileExists() && it.length() > 0
+    }
+    return if (checkAllFiles == true) {
+        zipFile.delete()
+        files.toList()
+    } else {
+        emptyList()
+    }
 }
 
 /**

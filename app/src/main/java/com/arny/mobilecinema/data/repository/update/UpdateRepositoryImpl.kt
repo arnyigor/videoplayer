@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.data.repository.update
 
 import android.content.Context
+import android.content.Intent
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.db.daos.MovieDao
@@ -9,12 +10,15 @@ import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.db.models.MovieUpdate
 import com.arny.mobilecinema.data.models.setData
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
+import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.utils.getTime
+import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import org.joda.time.DateTime
 import org.joda.time.Duration
 import java.io.File
@@ -76,6 +80,16 @@ class UpdateRepositoryImpl @Inject constructor(
 
     private fun diffByGroup(list1: List<IMovieUpdate>, list2: List<IMovieUpdate>): List<IMovieUpdate> {
         return (list1 + list2).groupBy { it.pageUrl }.filter { it.value.size == 1 }.flatMap { it.value }
+    }
+
+    override fun downloadUpdates(url: String, forceUpdate: Boolean) {
+        context.sendServiceMessage(
+            Intent(context.applicationContext, UpdateService::class.java),
+            AppConstants.ACTION_DOWNLOAD_DATABASE
+        ) {
+            putString(AppConstants.SERVICE_PARAM_URL, url)
+            putBoolean(AppConstants.SERVICE_PARAM_FORCE_ALL, forceUpdate)
+        }
     }
 
     override fun updateMovies(

@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.presentation.services
 
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -15,16 +16,19 @@ import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
-import com.arny.mobilecinema.data.utils.formatFileSize
-import com.arny.mobilecinema.data.utils.isFileExists
-import com.arny.mobilecinema.data.utils.unzip
+import com.arny.mobilecinema.data.repository.AppConstants.ACTION_DOWNLOAD_DATABASE
+import com.arny.mobilecinema.data.repository.AppConstants.ACTION_UPDATE
+import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_FILE
+import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_FORCE_ALL
+import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_URL
+import com.arny.mobilecinema.data.utils.unzipData
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
-import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendBroadcast
 import com.google.gson.GsonBuilder
+import com.google.gson.stream.JsonReader
 import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,12 +36,12 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.joda.time.DateTime
-import org.joda.time.Duration
 import timber.log.Timber
 import java.io.BufferedInputStream
+import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileReader
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 import javax.inject.Inject
@@ -82,11 +86,22 @@ class UpdateService : LifecycleService(), CoroutineScope {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_UPDATE -> actionUpdate(intent)
+            ACTION_DOWNLOAD_DATABASE -> actionDownload(intent)
+            else -> {}
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
+    private fun actionDownload(intent: Intent?) {
         lifecycleScope.launch(coroutineContext) {
             try {
-                update(intent)
+                download(
+                    intent?.getStringExtra(SERVICE_PARAM_URL),
+                    intent?.getBooleanExtra(SERVICE_PARAM_FORCE_ALL, false)
+                )
             } catch (e: Exception) {
-                // TODO: Отобразить ошибку и записать
                 e.printStackTrace()
                 sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
                     putString(
@@ -98,15 +113,50 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 stop()
             }
         }
-        return super.onStartCommand(intent, flags, startId)
     }
 
-    private suspend fun update(intent: Intent?) {
+    private suspend fun download(url: String?, forceAll: Boolean?) {
         withContext(Dispatchers.IO) {
-            val filePath = intent?.getStringExtra(AppConstants.SERVICE_PARAM_FILE)
-            val forceAll =
-                intent?.getBooleanExtra(AppConstants.SERVICE_PARAM_FORCE_ALL, false) ?: false
-            if (filePath != null && intent.action == AppConstants.ACTION_UPDATE) {
+            if (!url.isNullOrBlank()) {
+                updateNotification(
+                    title = getString(R.string.downloading_database),
+                    silent = false
+                )
+                val file = repository.downloadFile(url, "tmp_${System.currentTimeMillis()}.zip")
+                update(
+                    filePath = file.absolutePath,
+                    forceAll = forceAll ?: false
+                )
+            } else {
+                stop()
+            }
+        }
+    }
+
+    private fun actionUpdate(intent: Intent?) {
+        lifecycleScope.launch(coroutineContext) {
+            try {
+                update(
+                    filePath = intent?.getStringExtra(SERVICE_PARAM_FILE),
+                    forceAll = intent?.getBooleanExtra(SERVICE_PARAM_FORCE_ALL, false) ?: false
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+                sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                    putString(
+                        AppConstants.ACTION_UPDATE_STATUS,
+                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
+                    )
+                }
+                delay(1000)
+                stop()
+            }
+        }
+    }
+
+    private suspend fun update(filePath: String?, forceAll: Boolean) {
+        withContext(Dispatchers.IO) {
+            if (filePath != null) {
                 sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
                     putString(
                         AppConstants.ACTION_UPDATE_STATUS,
@@ -115,13 +165,15 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 }
                 val file = File(filePath)
 //                Timber.d("has zip file:${formatFileSize(file.length())}")
-                val dataFiles = unzipData(file, context = applicationContext)
+                val dataFiles = applicationContext.unzipData(file, extension = ".json")
 //                Timber.d("unzipData dataFiles:${dataFiles.map { "file:${it.name}:${formatFileSize(it.length())}" }}")
                 if (dataFiles.isNotEmpty()) {
                     var success = false
-//                    Timber.d("read files")
                     val hasUpdate = !forceAll && repository.hasLastUpdates()
-                    val anwapMovies = readData(dataFiles, hasUpdate)
+                    var anwapMovies: List<Movie> = emptyList()
+                    if (!getAvailableMemory().lowMemory) {
+                        anwapMovies = readData(dataFiles, hasUpdate)
+                    }
 //                    Timber.d("read files complete:${anwapMovies.size}")
                     if (anwapMovies.isNotEmpty()) {
                         file.delete()
@@ -145,7 +197,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
                         } catch (e: Exception) {
                             e.printStackTrace()
                             updateNotification(
-                                title = getString(R.string.update_finished_error),
+                                title = getString(R.string.update_finished_error, e.message),
                                 silent = false
                             )
                             success = false
@@ -177,18 +229,11 @@ class UpdateService : LifecycleService(), CoroutineScope {
         }
     }
 
-    private fun unzipData(zipFile: File, context: Context): List<File> {
-        val path = context.filesDir.path
-        zipFile.unzip(path)
-        val files = File(path).listFiles()?.filter { it.name.contains(".json") }
-        val checkAllFiles = files?.all {
-            it.isFileExists() && it.length() > 0
-        }
-        return if (checkAllFiles == true) {
-            zipFile.delete()
-            files.toList()
-        } else {
-            emptyList()
+    // Get a MemoryInfo object for the device's current memory status.
+    private fun getAvailableMemory(): ActivityManager.MemoryInfo {
+        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        return ActivityManager.MemoryInfo().also { memoryInfo ->
+            activityManager.getMemoryInfo(memoryInfo)
         }
     }
 
@@ -198,9 +243,25 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 readFile(it)
             } ?: getAllMovies(files)
         } else {
-            files.filter { it.name == "data.json" }.flatMap {
-                readFile(it)
+            val list = ArrayList<Movie>(10000)
+            val gson = GsonBuilder().setLenient().create()
+            for (file in files) {
+                var reader: JsonReader? = null
+                val data: MoviesData? = try {
+                    reader = JsonReader(BufferedReader(FileReader(file)))
+                    gson.fromJson(reader, MoviesData::class.java)
+                } catch (e: Exception) {
+                    Timber.e(e)
+                    e.printStackTrace()
+                    null
+                } finally {
+                    reader?.close()
+                }
+                if (data != null) {
+                    list.addAll(data.movies)
+                }
             }
+            list
         }
         return movies
     }

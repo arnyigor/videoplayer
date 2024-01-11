@@ -8,4 +8,4 @@ data class CinemaUrlData(
     val hdUrl: UrlData? = null,
     val cinemaUrl: UrlData? = null,
     val trailerUrl: UrlData? = null
-):Parcelable
+) : Parcelable
