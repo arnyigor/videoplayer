@@ -142,6 +142,7 @@
     <string name="pref_title_add_to_history_on_cache">Добавлять в историю</string>
     <string name="pref_summary_add_to_history_on_cache">Добавлять в историю при загрузке из деталей</string>
     <string name="pref_key_pip_mode">pref_key_pip_mode</string>
+    <string name="pref_max_boost_size">pref_max_boost_size</string>
     <string name="pref_title_pip_mode">PIP Режим</string>
     <string name="pref_summary_pip_mode">Включить режим картинка в картинке по кнопке HOME</string>
     <string name="pause_download">Приостановить</string>

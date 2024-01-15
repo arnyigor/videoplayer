@@ -75,12 +75,14 @@ import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
-import timber.log.Timber
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.properties.Delegates
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
+    private companion object {
+        const val MAX_BOOST_DEFAULT = 1000
+    }
 
     @AssistedFactory
     internal interface ViewModelFactory {
@@ -152,6 +154,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             player?.pause()
         }
     }
+    private val maxBoost by lazy {
+        prefs.get<String>(getString(R.string.pref_max_boost_size))?.toIntOrNull()
+            ?: MAX_BOOST_DEFAULT
+    }
     private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         GestureDetector.OnGestureListener {
         override fun onDown(e: MotionEvent): Boolean {
@@ -221,7 +227,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                         increase -> if (volume == maxVolume) boost + getBoostDiff(boost) else boost
                         else -> if (volume == maxVolume) boost - getBoostDiff(boost) else boost
                     }
-                    val isBoostChanges = newBoost in 1..MAX_BOOST
+                    val isBoostChanges = newBoost in 1..maxBoost
                     if (isBoostChanges) {
                         boost = newBoost
                     }
@@ -312,10 +318,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 setupPopupMenus = true
             }
         }
-    }
-
-    private companion object {
-        const val MAX_BOOST = 1000
     }
 
     override fun onAttach(context: Context) {
@@ -505,13 +507,28 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
 
             movie != null && isTrailer -> setTrailerUrl(movie)
-            movie != null && movie.type == MovieType.CINEMA -> setCinemaUrls(movie, time)
-            movie != null && movie.type == MovieType.SERIAL -> setSerialUrls(
-                movie = movie,
-                seasonIndex = seasonIndex,
-                episodeIndex = episodeIndex,
-                position = time
-            )
+            movie != null && movie.type == MovieType.CINEMA -> {
+                try {
+                    setCinemaUrls(movie, time)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    toast(e.message)
+                }
+            }
+
+            movie != null && movie.type == MovieType.SERIAL -> {
+                try {
+                    setSerialUrls(
+                        movie = movie,
+                        seasonIndex = seasonIndex,
+                        episodeIndex = episodeIndex,
+                        position = time
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    toast(e.message)
+                }
+            }
 
             else -> {
                 toast(getString(R.string.path_not_found))

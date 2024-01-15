@@ -14,5 +14,14 @@
             android:key="@string/pref_key_pip_mode"
             android:summary="@string/pref_summary_pip_mode"
             android:title="@string/pref_title_pip_mode"/>
+
+        <EditTextPreference
+            android:defaultValue="1000"
+            android:dialogLayout="@layout/preference_edit_text"
+            android:dialogTitle="Введите максимальное усиление звука(100-100000)"
+            android:key="@string/pref_max_boost_size"
+            android:summary="Установить максимальное усиление звука в процентах(100-100000)"
+            android:title="Усиление звука" />
+
     </PreferenceCategory>
 </PreferenceScreen>
