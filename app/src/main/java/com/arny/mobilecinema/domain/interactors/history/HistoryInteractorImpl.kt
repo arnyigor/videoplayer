@@ -40,7 +40,6 @@ class HistoryInteractorImpl @Inject constructor(
     override fun addToViewHistory(movieDbId: Long): Flow<DataResult<Boolean>> = doAsync {
         getResultAddToViewHistory(
             movieDbId = movieDbId,
-            save = repository.prefHistoryOnCache
         )
     }
 
@@ -59,7 +58,6 @@ class HistoryInteractorImpl @Inject constructor(
         getResultAddToViewHistory(
             movieDbId = movieDbId,
             position = time,
-            save = true
         )
     }
 
@@ -130,16 +128,13 @@ class HistoryInteractorImpl @Inject constructor(
     private fun getResultAddToViewHistory(
         movieDbId: Long,
         position: Long = 0,
-        save: Boolean
-    ): Boolean = if (save) {
+    ): Boolean {
         val data = getHistoryData(movieDbId)
-        if (data.movieDbId != null) {
+        return  if (data.movieDbId != null) {
             repository.updateCinemaPosition(data.movieDbId, position)
         } else {
             repository.insertCinemaPosition(movieDbId, position)
         }
-    } else {
-        false
     }
 
     private fun getHistoryData(movieDbId: Long?): SaveData {

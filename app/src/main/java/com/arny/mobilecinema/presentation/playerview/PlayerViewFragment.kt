@@ -289,7 +289,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private val listener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
             binding.progressBar.isVisible = false
-            error.printStackTrace()
             when (getConnectionType(requireContext())) {
                 ConnectionType.NONE -> {
                     toast(getString(R.string.internet_connection_error))
@@ -562,7 +561,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             binding.playerView.setShowPreviousButton(size > 0)
             player?.apply {
                 player?.seekTo(startEpisodeIndex, position)
-                addListener(listener)
+//                addListener(listener)
                 prepare()
             }
         } else {

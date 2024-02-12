@@ -31,11 +31,6 @@ class MoviesRepositoryImpl @Inject constructor(
         set(value) {
             prefs.put(PrefsConstants.ORDER, value)
         }
-    override var prefHistoryOnCache: Boolean
-        get() = prefs.get<Boolean>(PrefsConstants.PREF_KEY_ADD_HISTORY_ON_CACHE) ?: false
-        set(value) {
-            prefs.put(PrefsConstants.PREF_KEY_ADD_HISTORY_ON_CACHE, value)
-        }
     override var prefPipMode: Boolean
         get() = prefs.get<Boolean>(PrefsConstants.PREF_KEY_PIP_MODE) ?: false
         set(value) {

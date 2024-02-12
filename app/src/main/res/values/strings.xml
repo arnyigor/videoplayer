@@ -138,7 +138,6 @@
     <string name="search_extended_title">Расширенный поиск</string>
     <string name="search_extended_ok">Поиск</string>
     <!--Prefs-->
-    <string name="pref_key_add_to_history_on_cache">pref_key_add_to_history_on_cache</string>
     <string name="pref_title_add_to_history_on_cache">Добавлять в историю</string>
     <string name="pref_summary_add_to_history_on_cache">Добавлять в историю при загрузке из деталей</string>
     <string name="pref_key_pip_mode">pref_key_pip_mode</string>

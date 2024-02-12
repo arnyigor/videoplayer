@@ -238,7 +238,12 @@ class DetailsViewModel @AssistedInject constructor(
     private suspend fun getCinemaDownloadedData() {
         val currentMovie = _currentMovie.value
         val url = currentMovie?.getCinemaUrl().orEmpty()
-        val downloadData = playerSource.getCurrentDownloadData(url)
+        val downloadData = try {
+            playerSource.getCurrentDownloadData(url)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            DownloadManagerData()
+        }
         val data = MovieDownloadedData(
             downloadData.downloadPercent,
             downloadData.downloadBytes

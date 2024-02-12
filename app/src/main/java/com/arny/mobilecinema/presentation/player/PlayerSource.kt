@@ -8,6 +8,8 @@ import androidx.core.os.bundleOf
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.data.player.VideoCache
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.utils.ConnectionType
+import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getDomainName
 import com.arny.mobilecinema.domain.models.DownloadManagerData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
@@ -41,6 +43,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.Executors
 import javax.inject.Inject
@@ -187,12 +190,19 @@ class PlayerSource @Inject constructor(
             e.printStackTrace()
         }
         val cache = VideoCache.getInstance(context).getDownloadCache()
-        val segmentsData = getSegmentsData(url, dataSourceFactory())
+        val segmentsData = try {
+            getSegmentsData(url, dataSourceFactory())
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
         val keys = cache.keys
-        val cachedKeys = getCachedHlsKeys(segmentsData, keys.toList())
 //        Timber.d("clearDownloaded ${keys.size}, ${segmentsData.segments.size}")
         try {
-            cachedKeys.forEach { cache.removeResource(it) }
+            if (segmentsData != null) {
+                val cachedKeys = getCachedHlsKeys(segmentsData, keys.toList())
+                cachedKeys.forEach { cache.removeResource(it) }
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -261,7 +271,16 @@ class PlayerSource @Inject constructor(
             val cache = getCache()
             val cacheKeys = cache.keys.toList()
             val segmentsData: SegmentsData? =
-                if (!isMp4) getSegmentsData(url, factory) else null
+                if (!isMp4) {
+                    try {
+                        getSegmentsData(url, factory)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        null
+                    }
+                } else {
+                    null
+                }
             val cachedKeysList = segmentsData?.let { getCachedHlsKeys(it, cacheKeys) }.orEmpty()
             val key = getCacheKey(url)
             val spans = if (isMp4) {
@@ -391,8 +410,8 @@ class PlayerSource @Inject constructor(
     private suspend fun getSegmentsData(
         url: String,
         cacheFactory: CacheDataSource.Factory
-    ): SegmentsData =
-        suspendCoroutine { continuation ->
+    ): SegmentsData = suspendCoroutine { continuation ->
+        if (getConnectionType(context) != ConnectionType.NONE) {
             val mediaItem = getMediaItem(url)
             DownloadHelper.forMediaItem(
                 /* context = */ context,
@@ -406,7 +425,7 @@ class PlayerSource @Inject constructor(
                             Result.success(
                                 when (val manifest = helper.manifest) {
                                     is HlsManifest -> getSegmentData(manifest)
-//                                    is DashManifest -> getSegmentData(manifest)
+                                    //                                    is DashManifest -> getSegmentData(manifest)
                                     else -> SegmentsData()
                                 }
                             )
@@ -414,10 +433,14 @@ class PlayerSource @Inject constructor(
                     }
 
                     override fun onPrepareError(helper: DownloadHelper, e: IOException) {
+                        Timber.e("getSegmentsData error ${e.message}")
                         e.printStackTrace()
                         continuation.resumeWithException(e)
                     }
                 })
+        } else {
+            continuation.resumeWithException(Exception("no_internet_connection"))
+        }
         }
 
     private fun getCacheKey(url: String): String =
