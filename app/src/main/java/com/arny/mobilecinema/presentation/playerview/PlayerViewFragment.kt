@@ -118,7 +118,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         AspectRatioFrameLayout.RESIZE_MODE_FILL,
         AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     )
-    private var subtPopUp: PopupMenu? = null
+    private var moreLinkPopUp: PopupMenu? = null
     private var qualityPopUp: PopupMenu? = null
     private var langPopUp: PopupMenu? = null
     private var player: ExoPlayer? = null
@@ -410,7 +410,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private fun initListener() = with(binding) {
         ivQuality.setOnClickListener { qualityPopUp?.show() }
-        ivSubt.setOnClickListener { subtPopUp?.show() }
+        ivMoreLink.setOnClickListener { moreLinkPopUp?.show() }
         ivLang.setOnClickListener { langPopUp?.show() }
         ivResizes.setOnClickListener { changeResize() }
         ivBack.setOnClickListener {
@@ -506,6 +506,15 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
 
             movie != null && isTrailer -> setTrailerUrl(movie)
+            movie != null && movie.type == MovieType.CINEMA && !path.isNullOrBlank() -> {
+                try {
+                    setCinemaUrls(movie, time, path)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    toast(e.message)
+                }
+            }
+
             movie != null && movie.type == MovieType.CINEMA -> {
                 try {
                     setCinemaUrls(movie, time)
@@ -561,7 +570,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             binding.playerView.setShowPreviousButton(size > 0)
             player?.apply {
                 player?.seekTo(startEpisodeIndex, position)
-//                addListener(listener)
+                addListener(listener)
                 prepare()
             }
         } else {
@@ -617,9 +626,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private suspend fun setCinemaUrls(
         movie: Movie,
-        position: Long
+        position: Long,
+        path: String? = null
     ) {
-        val url = movie.getCinemaUrl()
+        val url = path ?: movie.getCinemaUrl()
         url.takeIf { it.isNotBlank() }?.let { cinemaUrl ->
             try {
                 setPlayerSource(
@@ -836,7 +846,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         if (visible) {
             tvTitle.isVisible = true
             ivQuality.isVisible = qualityVisible
-//            ivSubt.isVisible = subTitlesVisible
+            ivMoreLink.isVisible = true
             ivResizes.isVisible = true
             ivScreenRotation.isVisible = true
             ivBack.isVisible = true
@@ -847,7 +857,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             ivResizes.isVisible = false
             ivScreenRotation.isVisible = false
             ivQuality.isVisible = false
-//            ivSubt.isVisible = false
+            ivMoreLink.isVisible = false
             ivBack.isVisible = false
             tvTitle.isVisible = false
             ivLang.isVisible = false
@@ -891,21 +901,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     }
                 }
             }
-            /*trackSelector?.generateSubTitlesList(requireContext())?.let { list ->
-                subTitlesVisible = list.isNotEmpty()
-                binding.ivSubt.isVisible = subTitlesVisible
-                if (subTitlesVisible) {
-                    subtPopUp = PopupMenu(requireContext(), binding.ivSubt)
-                    for ((i, subtQuality) in list.withIndex()) {
-                        subtPopUp?.menu?.add(0, i, 0, subtQuality.first)
-                    }
-                    subtPopUp?.setOnMenuItemClickListener { menuItem ->
-                        setSubTitles(list[menuItem.itemId].second)
-                        true
-                    }
-                    setSubTitles(list[0].second)
-                }
-            }*/
             trackSelector?.generateQualityList(requireContext())?.let { list ->
                 qualityVisible = list.size > 1
                 binding.ivQuality.isVisible = qualityVisible
@@ -923,6 +918,34 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
         }
     }
+    /*private fun initMoreLinksPopup() {
+        if (movie?.type == MovieType.CINEMA) {
+            val cinemaUrlData = movie?.cinemaUrlData
+            val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
+            val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
+            val fullLinkList = hdUrls + cinemaUrls
+            val popupItems = fullLinkList.mapIndexed { index, s -> "Ссылка ${index + 1}" to s }
+            val notEmpty = fullLinkList.isNotEmpty()
+            binding.ivMoreLink.isVisible = notEmpty
+            if (notEmpty) {
+                moreLinkPopUp = PopupMenu(requireContext(), binding.ivMoreLink)
+                for ((i, items) in popupItems.withIndex()) {
+                    moreLinkPopUp?.menu?.add(0, i, 0, items.first)
+                }
+                moreLinkPopUp?.setOnMenuItemClickListener { menuItem ->
+                    launchWhenCreated {
+                        setMediaSources(
+                            path = popupItems[menuItem.itemId].second,
+                            time = getTimePosition(player?.currentPosition ?: 0),
+                            movie = movie,
+                            isTrailer = false
+                        )
+                    }
+                    true
+                }
+            }
+        }
+    }*/
 
     /*    private fun setQualityByConnection(list: ArrayList<Pair<String, TrackSelectionOverride>>) {
             val connectionType = getConnectionType(requireContext())

@@ -151,12 +151,14 @@
     <string name="choose_type">Выбрать категорию</string>
     <string name="choose_genre">Выбрать жанр</string>
     <string name="choose_countries">Выбрать страны</string>
+    <string name="choose_play_link">Выберите ссылку</string>
     <string name="years_range">Дипазон лет с %s по %s</string>
     <string name="imdb_range">Рейтинг IMBT с %s по %s</string>
     <string name="kp_range">Рейтинг KP с %s по %s</string>
     <string name="error_history_remove_movie_fail">Видео нельзя очистить из истории. Воспользуйтесь полной очисткой истории</string>
     <string name="download_manager_fail">Ошибка загрузки файла, повторите загрузку</string>
     <string name="movie_details_transition">movie_details_transition</string>
+    <string name="link_format">Ссылка %1$s</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

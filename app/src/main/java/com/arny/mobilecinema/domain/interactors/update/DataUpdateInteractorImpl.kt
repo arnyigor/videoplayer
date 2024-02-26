@@ -55,7 +55,6 @@ class DataUpdateInteractorImpl @Inject constructor(
                     if (BuildConfig.DEBUG) BuildConfig.UPDATE_DEBUG_LINK else BuildConfig.UPDATE_LINK,
                     AppConstants.UPDATE_FILE
                 )
-                Timber.d("updateFile:$updateFile")
                 newUpdate = updateFile.readText()
                 updateFile.delete()
                 if (hasMovies && repository.hasLastUpdates()) {

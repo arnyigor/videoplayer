@@ -47,6 +47,7 @@ import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
 import com.arny.mobilecinema.presentation.utils.printTime
 import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
+import com.arny.mobilecinema.presentation.utils.singleChoiceDialog
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
@@ -63,6 +64,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import org.joda.time.DateTime
 import timber.log.Timber
+import java.util.Locale
 import javax.inject.Inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
@@ -246,11 +248,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             val connectionType = getConnectionType(requireContext())
             when {
                 movie.type == MovieType.CINEMA && downloadAll -> {
-                    navigateToPLayer(movie, isTrailer)
+                    navigateToPlayer(movie, isTrailer)
                 }
 
                 connectionType is ConnectionType.WIFI -> {
-                    navigateToPLayer(movie, isTrailer)
+                    navigateToPlayer(movie, isTrailer)
                 }
 
                 connectionType is ConnectionType.MOBILE -> {
@@ -259,7 +261,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         content = getString(R.string.mobile_network_play),
                         btnOkText = getString(android.R.string.ok),
                         btnCancelText = getString(android.R.string.cancel),
-                        onConfirm = { navigateToPLayer(movie, isTrailer) }
+                        onConfirm = { navigateToPlayer(movie, isTrailer) }
                     )
                 }
 
@@ -269,12 +271,12 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         content = getString(R.string.mobile_network_poor_play),
                         btnOkText = getString(android.R.string.ok),
                         btnCancelText = getString(android.R.string.cancel),
-                        onConfirm = { navigateToPLayer(movie, isTrailer) }
+                        onConfirm = { navigateToPlayer(movie, isTrailer) }
                     )
                 }
 
                 else -> {
-                    navigateToPLayer(movie, isTrailer)
+                    navigateToPlayer(movie, isTrailer)
                 }
             }
         }
@@ -330,16 +332,45 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
-    private fun navigateToPLayer(movie: Movie, isTrailer: Boolean) {
-        findNavController().navigate(
-            DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                path = null,
-                movie = movie,
-                seasonIndex = currentSeasonPosition,
-                episodeIndex = currentEpisodePosition,
-                isTrailer = isTrailer
+    private fun navigateToPlayer(movie: Movie, isTrailer: Boolean) {
+        val cinemaUrlData = movie.cinemaUrlData
+        val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
+        val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
+        val fullLinkList = (hdUrls + cinemaUrls).filter { it.isNotBlank() }
+        val popupItems = fullLinkList.mapIndexed { index, s ->
+            getString(R.string.link_format, "${index + 1}") to s
+        }
+        val notEmpty = fullLinkList.isNotEmpty()
+        if (notEmpty && fullLinkList.size > 1) {
+            singleChoiceDialog(
+                title = getString(R.string.choose_play_link),
+                items = popupItems.map { it.first },
+                selectedPosition = 0,
+                btnOk = getString(android.R.string.ok),
+                btnCancel = getString(android.R.string.cancel),
+                onSelect = { i, dlg ->
+                    val path = popupItems[i].second
+                    findNavController().navigate(
+                        DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
+                            path = path,
+                            movie = movie,
+                            isTrailer = false,
+                        )
+                    )
+                    dlg.dismiss()
+                }
             )
-        )
+        } else {
+            findNavController().navigate(
+                DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
+                    path = null,
+                    movie = movie,
+                    seasonIndex = currentSeasonPosition,
+                    episodeIndex = currentEpisodePosition,
+                    isTrailer = isTrailer,
+                )
+            )
+        }
     }
 
     @OptIn(FlowPreview::class)
@@ -482,7 +513,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             data != null && data.downloadedPercent > 0.0f && data.downloadedSize > 0L -> {
                 binding.tvSaveData.text = getString(
                     R.string.cinema_save_data,
-                    String.format("%.1f", data.downloadedPercent),
+                    "%.1f".format(Locale.getDefault(), data.downloadedPercent),
                     formatFileSize(data.downloadedSize, 1)
                 )
             }
@@ -535,21 +566,38 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         tvDuration.isVisible = movie.type == MovieType.CINEMA
         tvDuration.text = getString(R.string.duration_format, getDuration(movie.info.durationSec))
         tvTitle.text = movie.title
+        tvTitle.setOnLongClickListener {
+            toast(movie.pageUrl)
+            false
+        }
         val info = movie.info
         tvDescription.text = info.description
         tvDescription.makeTextViewResizable()
         tvRating.text = StringBuilder().apply {
             if (info.ratingImdb > 0) {
                 append(
-                    "%s:%.02f".format(getString(R.string.imdb), info.ratingImdb).replace(",", ".")
+                    "%s:%.02f".format(
+                        Locale.getDefault(),
+                        getString(R.string.imdb),
+                        info.ratingImdb
+                    ).replace(",", ".")
                 )
                 append(" ")
             }
             if (info.ratingKP > 0) {
-                append("%s:%.02f".format(getString(R.string.kp), info.ratingKP).replace(",", "."))
+                append(
+                    "%s:%.02f".format(Locale.getDefault(), getString(R.string.kp), info.ratingKP)
+                        .replace(",", ".")
+                )
                 append(" ")
             }
-            append(String.format("%d\uD83D\uDC4D %d\uD83D\uDC4E", info.likes, info.dislikes))
+            append(
+                "%d\uD83D\uDC4D %d\uD83D\uDC4E".format(
+                    Locale.getDefault(),
+                    info.likes,
+                    info.dislikes
+                )
+            )
         }.toString()
         val seasons = movie.seasons
         val episodesSize = seasons.sumOf { it.episodes.size }
@@ -703,9 +751,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             .toList()
 
     private fun getSeasonTitle(it: SerialSeason) =
-        "%d %s".format(it.id, getString(R.string.spinner_season))
+        "%d %s".format(Locale.getDefault(), it.id, getString(R.string.spinner_season))
 
     private fun getEpisodeTitle(it: SerialEpisode) =
-        "%s %s".format(it.episode, getString(R.string.spinner_episode))
+        "%s %s".format(Locale.getDefault(), it.episode, getString(R.string.spinner_episode))
 
 }

@@ -92,7 +92,7 @@
         app:srcCompat="@drawable/ic_language" />
 
     <ImageView
-        android:id="@+id/ivSubt"
+        android:id="@+id/ivMoreLink"
         android:layout_width="35dp"
         android:layout_height="35dp"
         android:layout_marginTop="16dp"
@@ -110,7 +110,7 @@
         android:layout_marginTop="16dp"
         android:layout_marginEnd="16dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ivSubt"
+        app:layout_constraintTop_toBottomOf="@+id/ivMoreLink"
         app:srcCompat="@drawable/ic_screen_rotation" />
 
     <TextView
