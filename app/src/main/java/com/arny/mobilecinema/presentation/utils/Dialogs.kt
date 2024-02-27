@@ -74,29 +74,29 @@ fun Fragment.singleChoiceDialog(
     onSelect: (index: Int, dlg: MaterialDialog) -> Unit
 ): MaterialDialog {
     var id = 0
-    val dlg = MaterialDialog(requireContext())
+    return MaterialDialog(requireContext())
         .title(text = title)
-        .cancelable(cancelable ?: false)
+        .cancelable(cancelable)
         .listItemsSingleChoice(
             items = items,
+            waitForPositiveButton = false,
             initialSelection = selectedPosition
         ) { _, index, _ ->
             id = index
+        }.apply {
+            positiveButton(text = btnOk) {
+                if (autoDismiss) {
+                    it.dismiss()
+                }
+                onSelect(id, this)
+            }
+            negativeButton(text = btnCancel) {
+                if (autoDismiss) {
+                    it.dismiss()
+                }
+            }
+            show()
         }
-    dlg.positiveButton(text = btnOk) {
-        if (autoDismiss) {
-            it.dismiss()
-        }
-        onSelect(id, dlg)
-    }
-    dlg.negativeButton(text = btnCancel) {
-        if (autoDismiss) {
-            it.dismiss()
-        }
-        onSelect(id, dlg)
-    }
-    dlg.show()
-    return dlg
 }
 
 fun Fragment.multiChoiceDialog(

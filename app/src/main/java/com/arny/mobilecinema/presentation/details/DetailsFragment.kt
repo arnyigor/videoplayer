@@ -19,6 +19,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
@@ -63,7 +64,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import org.joda.time.DateTime
-import timber.log.Timber
 import java.util.Locale
 import javax.inject.Inject
 
@@ -333,15 +333,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun navigateToPlayer(movie: Movie, isTrailer: Boolean) {
-        val cinemaUrlData = movie.cinemaUrlData
-        val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
-        val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
-        val fullLinkList = (hdUrls + cinemaUrls).filter { it.isNotBlank() }
-        val popupItems = fullLinkList.mapIndexed { index, s ->
-            getString(R.string.link_format, "${index + 1}") to s
-        }
-        val notEmpty = fullLinkList.isNotEmpty()
-        if (notEmpty && fullLinkList.size > 1) {
+        val popupItems = getCinemaUrlsItems(movie)
+        if (popupItems.size > 1) {
             singleChoiceDialog(
                 title = getString(R.string.choose_play_link),
                 items = popupItems.map { it.first },
@@ -349,10 +342,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 btnOk = getString(android.R.string.ok),
                 btnCancel = getString(android.R.string.cancel),
                 onSelect = { i, dlg ->
-                    val path = popupItems[i].second
                     findNavController().navigate(
                         DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                            path = path,
+                            path = popupItems[i].second,
                             movie = movie,
                             isTrailer = false,
                         )
@@ -371,6 +363,18 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 )
             )
         }
+    }
+
+    private fun getCinemaUrlsItems(movie: Movie): List<Pair<String, String>> {
+        val cinemaUrlData = movie.cinemaUrlData
+        val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
+        val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
+        val fullLinkList = (hdUrls + cinemaUrls).filter { it.isNotBlank() }
+        return fullLinkList.mapIndexed { index, s ->
+            getString(R.string.link_format, "${index + 1} (${s.substringAfterLast(".")})") to s
+        }.takeIf {
+            movie.type == MovieType.CINEMA
+        }.orEmpty()
     }
 
     @OptIn(FlowPreview::class)
@@ -566,9 +570,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         tvDuration.isVisible = movie.type == MovieType.CINEMA
         tvDuration.text = getString(R.string.duration_format, getDuration(movie.info.durationSec))
         tvTitle.text = movie.title
-        tvTitle.setOnLongClickListener {
-            toast(movie.pageUrl)
-            false
+        if (BuildConfig.DEBUG) {
+            tvTitle.setOnLongClickListener {
+                toast(movie.pageUrl)
+                false
+            }
         }
         val info = movie.info
         tvDescription.text = info.description

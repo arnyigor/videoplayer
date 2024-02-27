@@ -118,7 +118,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         AspectRatioFrameLayout.RESIZE_MODE_FILL,
         AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     )
-    private var moreLinkPopUp: PopupMenu? = null
     private var qualityPopUp: PopupMenu? = null
     private var langPopUp: PopupMenu? = null
     private var player: ExoPlayer? = null
@@ -410,7 +409,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private fun initListener() = with(binding) {
         ivQuality.setOnClickListener { qualityPopUp?.show() }
-        ivMoreLink.setOnClickListener { moreLinkPopUp?.show() }
         ivLang.setOnClickListener { langPopUp?.show() }
         ivResizes.setOnClickListener { changeResize() }
         ivBack.setOnClickListener {
@@ -846,7 +844,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         if (visible) {
             tvTitle.isVisible = true
             ivQuality.isVisible = qualityVisible
-            ivMoreLink.isVisible = true
             ivResizes.isVisible = true
             ivScreenRotation.isVisible = true
             ivBack.isVisible = true
@@ -857,7 +854,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             ivResizes.isVisible = false
             ivScreenRotation.isVisible = false
             ivQuality.isVisible = false
-            ivMoreLink.isVisible = false
             ivBack.isVisible = false
             tvTitle.isVisible = false
             ivLang.isVisible = false
@@ -975,7 +971,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    private fun setSubTitles(trackSelectionOverride: TrackSelectionOverride) {
+    /*private fun setSubTitles(trackSelectionOverride: TrackSelectionOverride) {
         trackSelector?.let { selector ->
             selector.parameters = selector.parameters
                 .buildUpon()
@@ -986,7 +982,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 .setTunnelingEnabled(true)
                 .build()
         }
-    }
+    }*/
 
     private fun setLang(override: TrackSelectionOverride) {
         trackSelector?.let { selector ->
