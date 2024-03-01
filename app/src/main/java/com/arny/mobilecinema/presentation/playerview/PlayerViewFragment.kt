@@ -141,7 +141,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         if (old != newVolume) {
             volume = newVolume
             boost = 0
-            enhancer?.setTargetGain(boost)
+            updateGain()
             binding.tvVolume.visibility = View.VISIBLE
             audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
             updateUIByVolume()
@@ -233,13 +233,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     when {
                         isVolumeChanges && !isBoostChanges -> {
                             boost = 0
-                            enhancer?.setTargetGain(boost)
+                            updateGain()
                             audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
                             updateUIByVolume()
                         }
 
                         isBoostChanges -> {
-                            enhancer?.setTargetGain(boost)
+                            updateGain()
                             val volumeWithBoost = boost.toFloat() / 10
                             val boostVolume = volume + volumeWithBoost.toInt()
                             binding.tvVolume.text = boostVolume.toString()
@@ -275,6 +275,17 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             velocityX: Float,
             velocityY: Float
         ): Boolean = false
+    }
+
+    private fun updateGain() {
+        try {
+            val targetGain = enhancer?.targetGain
+            if (targetGain != null) {
+                enhancer?.setTargetGain(boost)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun hideControlsDelayed() {
@@ -785,10 +796,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private fun resetVolumeHandlerState() {
         volumeHandler.removeCallbacksAndMessages(null)
     }
-
-    fun changePlaybackSpeed(){
+    /*fun changePlaybackSpeed(){
        player?.playbackSpeed = 1.1f
-    }
+    }*/
 
     private fun initEnhancer() {
         val audioSessionId = player?.audioSessionId
@@ -796,7 +806,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             try {
                 enhancer = LoudnessEnhancer(audioSessionId)
                 enhancer?.enabled = true
-                val targetGain = enhancer?.targetGain
             } catch (e: RuntimeException) {
                 e.printStackTrace()
             }
