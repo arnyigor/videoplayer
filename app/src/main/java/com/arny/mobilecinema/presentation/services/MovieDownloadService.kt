@@ -4,13 +4,11 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.os.Build
-import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
@@ -27,9 +25,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import timber.log.Timber
-import java.io.FileInputStream
 import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
+import kotlin.properties.Delegates
 
 class MovieDownloadService : LifecycleService(), CoroutineScope {
     private companion object {
@@ -49,6 +47,11 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     private var downloadList = listOf<DownloadMovieItem>()
     private var currentState = -1
     private var stTitle = ""
+    private var st by Delegates.observable(-1) { _, old, new ->
+        if (old != new) {
+            Timber.d("State:${new.getStateString()}")
+        }
+    }
     private val progressListener: (
         percent: Float,
         bytes: Long,
@@ -57,6 +60,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         state: Int,
         size: Int
     ) -> Unit = { percent, bytes, _, _, state, stSize ->
+        st = state
         val isNoticeCanUpdate = !noticeStopped && percent >= 0.0f && bytes > 0L
         val currentDownloadListSize = downloadList.size
         val download = currentDownload
@@ -140,6 +144,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         }
         when (state) {
             Download.STATE_QUEUED, Download.STATE_DOWNLOADING, Download.STATE_STOPPED -> {
+                updateDownloadedCache(percent)
                 sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_UPDATE) {
                     putString(
                         AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL,
@@ -155,18 +160,26 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             }
 
             Download.STATE_COMPLETED -> {
+                updateDownloadedCache(percent)
                 sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE)
                 if (stSize == 0) {
                     startNextDownload()
                 }
             }
 
-            Download.STATE_REMOVING -> {}
+            Download.STATE_REMOVING -> {
+            }
             else -> {
                 if (stSize == 0) {
                     stopCurrentService()
                 }
             }
+        }
+    }
+
+    private fun updateDownloadedCache(percent: Float) {
+        if (percent > 0) {
+            playerSource.updateDownloadCache(currentDownload?.downloadUrl, percent)
         }
     }
 
@@ -227,7 +240,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                 ),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
             )
-        }else{
+        } else {
             startForeground(
                 NOTICE_ID,
                 getNotice(
@@ -289,6 +302,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     }
 
     private fun cancelDownload() {
+        Timber.d("cancelDownload nextPauseResumeAction:$nextPauseResumeAction")
         nextPauseResumeAction = AppConstants.ACTION_CACHE_MOVIE_RESUME
         playerSource.cancelDownload(currentDownload?.downloadUrl.orEmpty())
         downloadList = downloadList.toMutableList().apply {
@@ -300,6 +314,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     }
 
     private fun exitDownload() {
+        Timber.d("exitDownload nextPauseResumeAction:$nextPauseResumeAction")
         downloadList = downloadList.toMutableList().apply {
             clear()
         }
@@ -319,18 +334,24 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     }
 
     private fun skipDownload() {
+        Timber.d("skipDownload nextPauseResumeAction:$nextPauseResumeAction")
         val isCurrentActionPause = nextPauseResumeAction == AppConstants.ACTION_CACHE_MOVIE_RESUME
         val download = currentDownload?.copy()
         val hasDownloads = downloadList.isNotEmpty()
         nextPauseResumeAction = AppConstants.ACTION_CACHE_MOVIE_PAUSE
         playerSource.pauseDownload()
         if (!isCurrentActionPause) {
+            removeCachedDownload()
             playerSource.skipDownload(currentDownload?.downloadUrl.orEmpty())
         }
         startNextDownload()
         if (isCurrentActionPause && download != null && hasDownloads) {
             addToDownloadList(download)
         }
+    }
+
+    private fun removeCachedDownload() {
+        playerSource.removeDownloadCache(currentDownload?.downloadUrl)
     }
 
     private fun stopCurrentService() {

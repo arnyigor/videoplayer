@@ -80,7 +80,7 @@
     <string name="serial_episode_cache_attention_links_title">Вы хотите продолжить загрузку \"%s\" (%s сезон,%s серия)?</string>
     <string name="cache_attention_links_not_equals">Вы хотите загрузить фильм "%s" с другой ссылкой?</string>
     <string name="mobile_network_play">Вы не подключены к WIFI\nПродолжить?</string>
-    <string name="mobile_network_poor_play">Плохое интернет соединение\nПродолжить?</string>
+    <string name="connection_network_none_dialog_content">Отсутствует интернет соединение\nПродолжить?</string>
     <string name="cache_description">При отмене загруженные данные будут удалены\nПродолжить?</string>
     <string name="pref_player">Плеер</string>
     <string name="pref_common">Общее</string>
@@ -129,8 +129,10 @@
     <string name="in_films">В фильмах</string>
     <string name="in_serials">В сериалах</string>
     <string name="likes_priority">Приоритет по лайкам</string>
-    <string name="cinema_save_data">Сохранён:%s%%, занимает: %s</string>
-    <string name="cinema_save_data_only_bytes">Сохранён:нет данных, занимает: %s</string>
+    <string name="cinema_save_data_total_size_format">, из: %s</string>
+    <string name="cinema_save_data">Сохранён:%s%%, занимает: %s%s</string>
+    <string name="cinema_save_data_only_bytes">Сохранён:нет данных, занимает: %s%s</string>
+    <string name="cinema_save_data_only_percent">Сохранён:100%</string>
     <string name="cinema_save_data_invalidate">Проверяем кеш…</string>
     <string name="movie_save_error">Не сохранено в историю</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
@@ -158,7 +160,15 @@
     <string name="error_history_remove_movie_fail">Видео нельзя очистить из истории. Воспользуйтесь полной очисткой истории</string>
     <string name="download_manager_fail">Ошибка загрузки файла, повторите загрузку</string>
     <string name="movie_details_transition">movie_details_transition</string>
+    <string name="link">Ссылка</string>
     <string name="link_format">Ссылка %1$s</string>
+
+    <!--Feedback-->
+    <string name="feedback_dialog_title">Отчет об ошибке</string>
+    <string name="feedback_enter_message">Введите сообщение</string>
+    <string name="feedback_button_text">Отправить</string>
+    <string name="menu_send_feedback">Сообщить об ошибке</string>
+    <string name="feedback_dialog_result_ok">Сообщение отправлено!</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

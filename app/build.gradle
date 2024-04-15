@@ -8,6 +8,7 @@ apply plugin: "com.google.android.libraries.mapsplatform.secrets-gradle-plugin"
 apply from: "$rootProject.projectDir/dependencies.gradle"
 apply from: "$rootProject.projectDir/commonconfig.gradle"
 apply plugin: 'ru.ok.tracer'
+apply plugin: 'com.google.gms.google-services'
 
 android {
 }
@@ -44,6 +45,8 @@ dependencies {
     jsoup()
     roomDB()
     tracerLib()
+    firebase()
+    firebaseDatabase()
 }
 
 tracer {

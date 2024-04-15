@@ -2,6 +2,8 @@ package com.arny.mobilecinema.domain.di
 
 import android.content.Context
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
+import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
+import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractorImpl
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractorImpl
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
@@ -29,6 +31,10 @@ interface DomainModule {
     @Binds
     @Singleton
     fun bindUpdateInteractor(impl: DataUpdateInteractorImpl): DataUpdateInteractor
+
+    @Binds
+    @Singleton
+    fun bindFeedbackInteractor(impl: FeedbackInteractorImpl): FeedbackInteractor
 
 
     companion object {

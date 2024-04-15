@@ -14,4 +14,10 @@
         android:title="@string/menu_clear_file_view_history"
         android:icon="@drawable/ic_delete_cache_white"
         app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/menu_action_send_feedback"
+        android:title="@string/menu_send_feedback"
+        android:icon="@drawable/ic_info"
+        app:showAsAction="ifRoom" />
 </menu>

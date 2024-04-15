@@ -31,7 +31,7 @@ fun formatFileSize(size: Long, digits: Int = 3): String {
     for (i in 0 until digits) {
         digs.append("#")
     }
-    return (DecimalFormat("#,##0.$digs").format(size / 1024.0.pow(digitGroups.toDouble())) + " " + units[digitGroups])
+    return (DecimalFormat("#,##0.$digs").format(size / 1024.0.pow(digitGroups.toDouble())) + " " + units.getOrNull(digitGroups).orEmpty())
 }
 
 fun Context.unzipData(zipFile: File, extension: String): List<File> {

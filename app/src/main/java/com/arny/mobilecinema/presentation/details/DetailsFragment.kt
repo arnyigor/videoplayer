@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -28,6 +29,7 @@ import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.data.utils.getConnectionType
+import com.arny.mobilecinema.databinding.DFeedbackLayoutBinding
 import com.arny.mobilecinema.databinding.FDetailsBinding
 import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.Movie
@@ -40,15 +42,16 @@ import com.arny.mobilecinema.presentation.services.MovieDownloadService
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
+import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.getDP
 import com.arny.mobilecinema.presentation.utils.getDuration
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
+import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.printTime
 import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
-import com.arny.mobilecinema.presentation.utils.singleChoiceDialog
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
@@ -88,14 +91,17 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     lateinit var prefs: Prefs
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
+    private var linksAdapter: TrackSelectorSpinnerAdapter? = null
     private var currentMovie: Movie? = null
     private var currentSeasonPosition: Int = 0
     private var currentEpisodePosition: Int = 0
+    private var currentLinkPosition: Int = 0
     private var hasSavedData: Boolean = false
     private var downloadAll: Boolean = false
     private var canDownload: Boolean = false
     private var isUserTouchSeasons = false
     private var isUserTouchEpisodes = false
+    private var isUserTouchLinks = false
 
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(
@@ -114,6 +120,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
+            isUserTouchSeasons = false
         }
     }
     private val episodesChangeListener = object : AdapterView.OnItemSelectedListener {
@@ -131,6 +138,29 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
 
         override fun onNothingSelected(parent: AdapterView<*>?) {
+            isUserTouchEpisodes = false
+        }
+    }
+    private val linksChangeListener = object : AdapterView.OnItemSelectedListener {
+        override fun onItemSelected(
+            parent: AdapterView<*>?,
+            view: View?,
+            position: Int,
+            id: Long
+        ) {
+            if (isUserTouchLinks) {
+                currentLinkPosition = position
+                currentMovie?.let { curMovie ->
+                    val items = getCinemaUrlsItems(curMovie)
+                    val url = items.getOrNull(position)?.second
+                    viewModel.setSelectedUrl(url, true)
+                }
+                isUserTouchLinks = false
+            }
+        }
+
+        override fun onNothingSelected(parent: AdapterView<*>?) {
+            isUserTouchLinks = false
         }
     }
     private lateinit var binding: FDetailsBinding
@@ -184,7 +214,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         initListeners()
-        initTrackAdapters()
+        initSpinnerAdapters()
         observeData()
         initMenu()
     }
@@ -228,31 +258,53 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         viewModel.onClearCacheClick(currentSeasonPosition, currentEpisodePosition)
                         true
                     }
+                    R.id.menu_action_send_feedback -> {
+                        showFeedbackDialog()
+                        true
+                    }
 
                     else -> false
                 }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
 
+    private fun showFeedbackDialog() {
+        var text = ""
+        createCustomLayoutDialog(
+            title = getString(R.string.feedback_dialog_title),
+            layout = R.layout.d_feedback_layout,
+            cancelable = true,
+            btnOkText = getString(R.string.feedback_button_text),
+            btnCancelText = getString(android.R.string.cancel),
+            onConfirm = {
+                viewModel.sendFeedback(text)
+            },
+            initView = {
+                with(DFeedbackLayoutBinding.bind(this)) {
+                    tiedtFeedbackInput.doAfterTextChanged { editable ->
+                        text = editable.toString()
+                    }
+                }
+            }
+        )
+    }
+
     private fun initListeners() = with(binding) {
         btnPlay.setOnClickListener {
-            playMovie(false)
-        }
-        btnTrailer.setOnClickListener {
-            playMovie(true)
+            playMovie()
         }
     }
 
-    private fun playMovie(isTrailer: Boolean) {
+    private fun playMovie() {
         currentMovie?.let { movie ->
             val connectionType = getConnectionType(requireContext())
             when {
                 movie.type == MovieType.CINEMA && downloadAll -> {
-                    navigateToPlayer(movie, isTrailer)
+                    navigateToPlayer(movie)
                 }
 
                 connectionType is ConnectionType.WIFI -> {
-                    navigateToPlayer(movie, isTrailer)
+                    navigateToPlayer(movie)
                 }
 
                 connectionType is ConnectionType.MOBILE -> {
@@ -261,22 +313,22 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         content = getString(R.string.mobile_network_play),
                         btnOkText = getString(android.R.string.ok),
                         btnCancelText = getString(android.R.string.cancel),
-                        onConfirm = { navigateToPlayer(movie, isTrailer) }
+                        onConfirm = { navigateToPlayer(movie) }
                     )
                 }
 
                 connectionType is ConnectionType.NONE -> {
                     alertDialog(
                         title = getString(R.string.attention),
-                        content = getString(R.string.mobile_network_poor_play),
+                        content = getString(R.string.connection_network_none_dialog_content),
                         btnOkText = getString(android.R.string.ok),
                         btnCancelText = getString(android.R.string.cancel),
-                        onConfirm = { navigateToPlayer(movie, isTrailer) }
+                        onConfirm = { navigateToPlayer(movie) }
                     )
                 }
 
                 else -> {
-                    navigateToPlayer(movie, isTrailer)
+                    navigateToPlayer(movie)
                 }
             }
         }
@@ -332,34 +384,25 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
-    private fun navigateToPlayer(movie: Movie, isTrailer: Boolean) {
+    private fun navigateToPlayer(movie: Movie) {
         val popupItems = getCinemaUrlsItems(movie)
-        if (popupItems.size > 1) {
-            singleChoiceDialog(
-                title = getString(R.string.choose_play_link),
-                items = popupItems.map { it.first },
-                selectedPosition = 0,
-                btnOk = getString(android.R.string.ok),
-                btnCancel = getString(android.R.string.cancel),
-                onSelect = { i, dlg ->
-                    findNavController().navigate(
-                        DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                            path = popupItems[i].second,
-                            movie = movie,
-                            isTrailer = false,
-                        )
-                    )
-                    dlg.dismiss()
-                }
+        currentLinkPosition = binding.spinLinks.selectedItemPosition
+        if (movie.type == MovieType.CINEMA && popupItems.size > 1 && currentLinkPosition >= 0) {
+            findNavController().navigateSafely(
+                DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
+                    path = popupItems[currentLinkPosition].second,
+                    movie = movie,
+                    isTrailer = false,
+                )
             )
         } else {
-            findNavController().navigate(
+            findNavController().navigateSafely(
                 DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
                     path = null,
                     movie = movie,
                     seasonIndex = currentSeasonPosition,
                     episodeIndex = currentEpisodePosition,
-                    isTrailer = isTrailer,
+                    isTrailer = false,
                 )
             )
         }
@@ -494,13 +537,18 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
             is AlertType.ClearCache -> {
                 alert.show {
+                    val total = alertType.total
                     viewModel.clearViewHistory(
                         url = alertType.url,
                         seasonPosition = alertType.seasonPosition,
                         episodePosition = alertType.episodePosition,
-                        total = alertType.total
+                        total = total
                     )
-                    checkCache()
+                    if (total) {
+                        findNavController().popBackStack()
+                    } else {
+                        checkCache()
+                    }
                 }
             }
             else -> {}
@@ -518,18 +566,32 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 binding.tvSaveData.text = getString(
                     R.string.cinema_save_data,
                     "%.1f".format(Locale.getDefault(), data.downloadedPercent),
-                    formatFileSize(data.downloadedSize, 1)
+                    formatFileSize(data.downloadedSize, 1),
+                    getTotalSizeString(data)
                 )
             }
 
             data != null && data.downloadedSize > 0L -> {
                 binding.tvSaveData.text = getString(
                     R.string.cinema_save_data_only_bytes,
-                    formatFileSize(data.downloadedSize, 1)
+                    formatFileSize(data.downloadedSize, 1),
+                    getTotalSizeString(data)
+                )
+            }
+
+            data != null && data.downloadedPercent > 0.0f && data.downloadedSize == 0L -> {
+                binding.tvSaveData.text = getString(
+                    R.string.cinema_save_data_only_percent,
                 )
             }
         }
     }
+
+    private fun getTotalSizeString(data: MovieDownloadedData) =
+        if (data.total > 0L) getString(
+            R.string.cinema_save_data_total_size_format,
+            formatFileSize(data.total, 3)
+        ) else ""
 
     private fun onMovieLoaded(movie: Movie) {
         currentMovie = movie
@@ -540,8 +602,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun initButtons(movie: Movie, invalidate: Boolean = false) = with(binding) {
         viewModel.invalidateCache(invalidate)
-        btnTrailer.isVisible =
-            movie.cinemaUrlData?.trailerUrl?.urls?.filter { it.isNotBlank() }.orEmpty().isNotEmpty()
         if (movie.type == MovieType.CINEMA) {
             val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
             val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
@@ -639,7 +699,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             chip.isClickable = true
             chip.isCheckable = false
             chip.setOnClickListener {
-                findNavController().navigate(
+                findNavController().navigateSafely(
                     DetailsFragmentDirections.actionNavDetailsToNavHome(director = director)
                 )
             }
@@ -656,7 +716,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             chip.isClickable = true
             chip.isCheckable = false
             chip.setOnClickListener {
-                findNavController().navigate(
+                findNavController().navigateSafely(
                     DetailsFragmentDirections.actionNavDetailsToNavHome(genre = genre)
                 )
             }
@@ -677,7 +737,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             chip.isCheckable = false
             chip.setEnsureMinTouchTargetSize(false)
             chip.setOnClickListener {
-                findNavController().navigate(
+                findNavController().navigateSafely(
                     DetailsFragmentDirections.actionNavDetailsToNavHome(actor = actor)
                 )
             }
@@ -686,18 +746,25 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun initTrackAdapters() {
+    private fun initSpinnerAdapters() {
+        val context = requireContext()
         with(binding) {
-            seasonsTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
-            episodesTracksAdapter = TrackSelectorSpinnerAdapter(requireContext())
+            seasonsTracksAdapter = TrackSelectorSpinnerAdapter(context)
+            episodesTracksAdapter = TrackSelectorSpinnerAdapter(context)
+            linksAdapter = TrackSelectorSpinnerAdapter(context)
             spinSeasons.adapter = seasonsTracksAdapter
             spinEpisodes.adapter = episodesTracksAdapter
+            spinLinks.adapter = linksAdapter
             spinSeasons.setOnTouchListener { _, _ ->
                 isUserTouchSeasons = true
                 false
             }
             spinEpisodes.setOnTouchListener { _, _ ->
                 isUserTouchEpisodes = true
+                false
+            }
+            spinLinks.setOnTouchListener { _, _ ->
+                isUserTouchLinks = true
                 false
             }
         }
@@ -721,14 +788,26 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             spinEpisodes.isVisible = true
             spinSeasons.isVisible = true
             tvSeasons.isVisible = true
+        } else {
+            val popupItems = getCinemaUrlsItems(movie)
+            val sizeMoreOne = popupItems.size > 1
+            tvLinkTitle.isVisible = sizeMoreOne
+            spinLinks.isVisible = sizeMoreOne
+            spinLinks.updateSpinnerItems(linksChangeListener) {
+                linksAdapter?.clear()
+                linksAdapter?.addAll(popupItems.map { it.first })
+            }
+            if (popupItems.isNotEmpty()) {
+                viewModel.setSelectedUrl(popupItems[0].second, false)
+            }
         }
     }
 
     private fun fillSpinners(movie: Movie?) {
-        val seasons = movie?.seasons.orEmpty()
-        val seasonsList = sortSeasons(seasons)
-        if (seasonsList.isNotEmpty()) {
-            with(binding) {
+        with(binding) {
+            val seasons = movie?.seasons.orEmpty()
+            val seasonsList = sortSeasons(seasons)
+            if (seasonsList.isNotEmpty()) {
                 spinSeasons.updateSpinnerItems(seasonsChangeListener) {
                     seasonsTracksAdapter?.clear()
                     seasonsTracksAdapter?.addAll(seasonsList)
@@ -740,8 +819,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     episodesTracksAdapter?.addAll(sortEpisodes(episodes))
                     spinEpisodes.setSelection(currentEpisodePosition, false)
                 }
+                viewModel.initSerialDownloadedData()
             }
-            viewModel.initSerialDownloadedData()
         }
     }
 

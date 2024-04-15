@@ -28,6 +28,7 @@ import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.setupSearchView
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.updateTitle
@@ -244,7 +245,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
         itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
-            findNavController().navigate(
+            findNavController().navigateSafely(
                 HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId),
             )
         }

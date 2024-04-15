@@ -38,12 +38,12 @@ import com.google.android.exoplayer2.upstream.cache.Cache
 import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.upstream.cache.CacheSpan
+import com.google.android.exoplayer2.upstream.cache.ContentMetadata
 import com.google.android.exoplayer2.util.Util
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 import java.io.IOException
 import java.util.concurrent.Executors
 import javax.inject.Inject
@@ -263,10 +263,9 @@ class PlayerSource @Inject constructor(
             var isEquals = false
             var title = ""
             var downloadsEmpty = false
-            var downloadPercent = 0.0f
-            var downloadBytes = 0L
+            var downloadPercent: Float
+            var downloadBytes: Long
             val isMp4 = isMp4(url)
-//            Timber.d("getCurrentDownloadData isMp4:$isMp4")
             val factory = dataSourceFactory()
             val cache = getCache()
             val cacheKeys = cache.keys.toList()
@@ -289,34 +288,39 @@ class PlayerSource @Inject constructor(
                 segmentsData?.let { getCachedSpans(it) }.orEmpty()
             }
             val segments = segmentsData?.segments.orEmpty()
+            downloadPercent = if (isMp4) {
+                getDownloadedPercent(spans.size, segments.size)
+            } else {
+                getDownloadedPercent(cachedKeysList.size, segments.size)
+            }
+            downloadBytes = if (isMp4) {
+                spans.sumOf { it.length }
+            } else {
+                getDownloadedSize(cache, cachedKeysList)
+            }
             downloadManager?.let { dManager ->
                 initialized = dManager.isInitialized == true
                 val downloads = dManager.currentDownloads
                 downloadsEmpty = downloads.isEmpty()
                 if (!downloadsEmpty) {
                     val download = downloads.find { it.request.id == url }
+                    if (download != null) {
+                        downloadPercent = download.percentDownloaded
+                        downloadBytes = download.bytesDownloaded
+                    }
                     title = download?.request?.data?.toString(Charsets.UTF_8).orEmpty()
                 }
-                downloadPercent = if (isMp4) {
-                    getDownloadedPercent(spans.size, segments.size)
-                } else {
-                    getDownloadedPercent(cachedKeysList.size, segments.size)
-                }
-                downloadBytes = if (isMp4) {
-                    spans.sumOf { it.length }
-                } else {
-                    getDownloadedSize(cache, cachedKeysList)
-                }
                 isEquals = initialized && downloads.find { it.request.id == url } != null
-//                Timber.d("downloadPercent:$downloadPercent, downloadBytes:$downloadBytes")
             }
+            val totalSize = ((100 * downloadBytes) / downloadPercent).toLong()
             DownloadManagerData(
                 isInitValid = initialized,
                 downloadsEmpty = downloadsEmpty,
                 isEqualsLinks = isEquals,
                 movieTitle = title,
                 downloadPercent = downloadPercent,
-                downloadBytes = downloadBytes
+                downloadBytes = downloadBytes,
+                totalBytes = totalSize
             )
         }
     }
@@ -425,7 +429,7 @@ class PlayerSource @Inject constructor(
                             Result.success(
                                 when (val manifest = helper.manifest) {
                                     is HlsManifest -> getSegmentData(manifest)
-                                    //                                    is DashManifest -> getSegmentData(manifest)
+                                    is DashManifest -> getSegmentData(manifest)
                                     else -> SegmentsData()
                                 }
                             )
@@ -433,7 +437,6 @@ class PlayerSource @Inject constructor(
                     }
 
                     override fun onPrepareError(helper: DownloadHelper, e: IOException) {
-                        Timber.e("getSegmentsData error ${e.message}")
                         e.printStackTrace()
                         continuation.resumeWithException(e)
                     }
@@ -460,7 +463,8 @@ class PlayerSource @Inject constructor(
             for (j in 0 until period.adaptationSets.size) {
                 val adaptationSet = period.adaptationSets[j]
                 for (k in 0 until adaptationSet.representations.size) {
-//                    println(adaptationSet.representations[k])
+                    val representation = adaptationSet.representations[k]
+                    println(representation)
                 }
             }
         }
@@ -558,5 +562,13 @@ class PlayerSource @Inject constructor(
             .setCacheReadDataSourceFactory(FileDataSource.Factory())
             .setUpstreamDataSourceFactory(upstreamFactory)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    }
+
+    fun updateDownloadCache(downloadUrl: String?, percent: Float) {
+        updateRepository.updateDownloadCache(downloadUrl, percent)
+    }
+
+    fun removeDownloadCache(downloadUrl: String?) {
+        updateRepository.removeDownloadCache(downloadUrl)
     }
 }

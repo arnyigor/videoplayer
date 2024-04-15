@@ -254,14 +254,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             return true
         }
 
-        private fun getBoostDiff(boost: Int): Int {
-            return when {
-                boost < 100 -> 10
-                boost < 250 -> 20
-                boost < 500 -> 30
-                boost < 1000 -> 50
-                else -> 10
-            }
+        private fun getBoostDiff(boost: Int): Int = when {
+            boost < 100 -> 10
+            boost < 120 -> 20
+            boost < 150 -> 30
+            boost < 175 -> 50
+            boost < 200 -> 75
+            else -> 10
         }
 
         private fun getMaxVolume() =

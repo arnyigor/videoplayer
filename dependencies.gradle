@@ -60,8 +60,8 @@ ext {
         implementation "androidx.preference:preference:$version"
     }}
 
-    firebaseBom = { version = '26.3.0' -> Alias {
-        implementation platform('com.google.firebase:firebase-bom:26.3.0')
+    firebase = { version = '' -> Alias {
+        implementation platform('com.google.firebase:firebase-bom:32.8.0')
         implementation 'com.google.firebase:firebase-analytics-ktx'
     }}
 
@@ -69,7 +69,8 @@ ext {
         implementation "com.devbrackets.android:exomedia:$version"
     }}
 
-    exoplayer = { version = '2.18.2' -> Alias {
+    exoplayer = { version = '2.19.1' ->
+        Alias {
         implementation "com.google.android.exoplayer:exoplayer:$version"
         implementation "com.google.android.exoplayer:exoplayer-core:$version"
         implementation "com.google.android.exoplayer:exoplayer-common:$version"
@@ -104,9 +105,11 @@ ext {
         implementation "com.github.tbruyelle:rxpermissions:$version"
     }}
 
-    firebaseDatabase = { version = '19.2.1' -> Alias {
-        implementation "com.google.firebase:firebase-database-ktx:$version"
-    }}
+    firebaseDatabase = { version = '' ->
+        Alias {
+            implementation("com.google.firebase:firebase-database-ktx:20.3.1")
+        }
+    }
 
     ktor = { version = '2.2.2' -> Alias {
         implementation("io.ktor:ktor-client-okhttp:$version")

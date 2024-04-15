@@ -45,6 +45,7 @@ import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.inputDialog
 import com.arny.mobilecinema.presentation.utils.isNotificationsFullyEnabled
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.openAppSettings
 import com.arny.mobilecinema.presentation.utils.registerReceiver
 import com.arny.mobilecinema.presentation.utils.requestPermission
@@ -319,7 +320,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
         itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
-            findNavController().navigate(
+            findNavController().navigateSafely(
                 HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId),
             )
         }
@@ -460,7 +461,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                     }
 
                     R.id.action_extended_search_settings -> {
-                        findNavController().navigate(
+                        findNavController().navigateSafely(
                             HomeFragmentDirections.actionNavHomeToNavExtendedSearch()
                         )
                         true
@@ -639,7 +640,7 @@ class HomeFragment : Fragment(), OnSearchListener {
             prefill = "",
             btnOkText = getString(android.R.string.ok),
             dialogListener = { result ->
-                findNavController().navigate(
+                findNavController().navigateSafely(
                     HomeFragmentDirections.actionNavHomeToNavPlayerView(result, null)
                 )
             }

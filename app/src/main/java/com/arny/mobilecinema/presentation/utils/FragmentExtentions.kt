@@ -19,8 +19,15 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationManagerCompat
 import androidx.fragment.app.Fragment
+import androidx.navigation.NavController
+import androidx.navigation.NavDirections
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
+
+fun NavController.navigateSafely(directions: NavDirections) {
+    currentDestination?.getAction(directions.actionId)?.destinationId ?: return
+    navigate(directions.actionId, directions.arguments, null)
+}
 
 fun Fragment.isNotificationsFullyEnabled(): Boolean {
     val notificationManagerCompat = NotificationManagerCompat.from(requireContext())

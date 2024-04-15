@@ -115,3 +115,6 @@
     java.lang.Object writeReplace();
     java.lang.Object readResolve();
 }
+
+# Add this global rule
+-keepattributes Signature

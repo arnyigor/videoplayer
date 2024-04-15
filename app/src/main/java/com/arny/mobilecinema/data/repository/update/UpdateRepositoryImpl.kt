@@ -48,6 +48,18 @@ class UpdateRepositoryImpl @Inject constructor(
             prefs.put(PrefsConstants.BASE_URL, value)
         }
 
+    override fun updateDownloadCache(downloadUrl: String?, percent: Float) {
+        /*if (!downloadUrl.isNullOrBlank()) {
+            prefs.put(downloadUrl, percent) TODO fix
+        }*/
+    }
+
+    override fun removeDownloadCache(downloadUrl: String?) {
+        /*if (!downloadUrl.isNullOrBlank()) {
+            prefs.remove(downloadUrl) TODO fix
+        }*/
+    }
+
     override fun hasMovies(): Boolean = moviesDao.getCount() != 0
 
     override fun setLastUpdate() {

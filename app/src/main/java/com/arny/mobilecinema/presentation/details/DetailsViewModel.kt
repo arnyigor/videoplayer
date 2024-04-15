@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.CacheChangeType
@@ -34,18 +35,20 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.zip
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import kotlin.properties.Delegates
 
 class DetailsViewModel @AssistedInject constructor(
     @Assisted("id") private val id: Long,
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
+    private val feedbackInteractor: FeedbackInteractor,
     private val playerSource: PlayerSource
 ) : ViewModel() {
     private companion object {
         const val MB = 1024 * 1024
     }
+
+    private var selectedCinemaUrl: String? = null
     private var currentDownloadData: DownloadManagerData? = null
     private var seasonPosition = 0
     private var episodePosition = 0
@@ -237,7 +240,7 @@ class DetailsViewModel @AssistedInject constructor(
 
     private suspend fun getCinemaDownloadedData() {
         val currentMovie = _currentMovie.value
-        val url = currentMovie?.getCinemaUrl().orEmpty()
+        val url = selectedCinemaUrl ?: currentMovie?.getCinemaUrl().orEmpty()
         val downloadData = try {
             playerSource.getCurrentDownloadData(url)
         } catch (e: Exception) {
@@ -246,7 +249,9 @@ class DetailsViewModel @AssistedInject constructor(
         }
         val data = MovieDownloadedData(
             downloadData.downloadPercent,
-            downloadData.downloadBytes
+            downloadData.downloadBytes,
+            false,
+            downloadData.totalBytes
         )
         checkDownloadSize(data)
         val movieTitle = downloadData.movieTitle
@@ -461,9 +466,10 @@ class DetailsViewModel @AssistedInject constructor(
                 && bytes != null
                 && bytes > 0L
             ) {
+                val total = ((100 * bytes) / percent).toLong()
                 when {
                     movie.type == MovieType.CINEMA -> {
-                        _downloadedData.value = MovieDownloadedData(percent, bytes)
+                        _downloadedData.value = MovieDownloadedData(percent, bytes, false, total)
                     }
 
                     movie.type == MovieType.SERIAL && isCurrentSerialPositionEqualsDownload(
@@ -472,7 +478,7 @@ class DetailsViewModel @AssistedInject constructor(
                         episodePosition = updateEpisode,
                         currentEpisodePosition = episodePosition
                     ) -> {
-                        _downloadedData.value = MovieDownloadedData(percent, bytes)
+                        _downloadedData.value = MovieDownloadedData(percent, bytes, false, total)
                     }
                 }
             }
@@ -575,6 +581,36 @@ class DetailsViewModel @AssistedInject constructor(
             _downloadedData.value = MovieDownloadedData(loading = true)
             delay(1000)
             historyInteractor.setCacheChanged(invalidate)
+        }
+    }
+
+    fun setSelectedUrl(url: String?, updateCache: Boolean) {
+        this.selectedCinemaUrl = url
+        if (updateCache) {
+            updateCinemaDownloadedData()
+        }
+    }
+
+    fun sendFeedback(text: String) {
+        viewModelScope.launch {
+            feedbackInteractor.sendMessage(
+                content = text,
+                movie = currentMovie.value,
+                seasonPosition = seasonPosition,
+                episodePosition = episodePosition
+            )
+                .catch { _error.emit(ThrowableString(it)) }
+                .collectLatest {
+                    when (it) {
+                        is DataResult.Error -> {
+                            _error.emit(ThrowableString(it.throwable))
+                        }
+
+                        is DataResult.Success -> {
+                            _toast.emit(ResourceString(R.string.feedback_dialog_result_ok))
+                        }
+                    }
+                }
         }
     }
 }

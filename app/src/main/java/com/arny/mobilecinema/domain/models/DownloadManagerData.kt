@@ -7,4 +7,5 @@ data class DownloadManagerData(
     val movieTitle: String = "",
     val downloadPercent: Float = 0.0f,
     val downloadBytes: Long = 0L,
+    val totalBytes: Long = 0L,
 )

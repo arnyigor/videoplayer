@@ -17,4 +17,6 @@ interface UpdateRepository {
     fun hasLastUpdates(): Boolean
     fun hasMovies(): Boolean
     fun downloadUpdates(url: String, forceUpdate: Boolean)
+    fun updateDownloadCache(downloadUrl: String?, percent: Float)
+    fun removeDownloadCache(downloadUrl: String?)
 }

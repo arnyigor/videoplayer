@@ -215,6 +215,7 @@
                 android:id="@+id/tvDescriptionLabel"
                 style="@style/DetailsSubTitleStyle"
                 android:layout_width="0dp"
+                android:layout_marginTop="@dimen/margin_small"
                 android:layout_height="wrap_content"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -232,27 +233,39 @@
                 app:layout_constraintTop_toBottomOf="@+id/tvDescriptionLabel"
                 tools:text="@tools:sample/lorem/random" />
 
-            <Button
-                android:id="@+id/btnTrailer"
-                style="@style/PlayButton"
-                app:backgroundTint="@null"
-                android:layout_width="match_parent"
-                android:layout_marginVertical="8dp"
+            <TextView
+                android:id="@+id/tvLinkTitle"
+                style="@style/DetailsSubTitleStyle"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="@string/watch_trailer"
-                app:layout_constraintTop_toBottomOf="@+id/tvDescription"
+                android:layout_marginTop="@dimen/margin"
+                android:text="@string/link"
+                android:visibility="gone"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent" />
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tvDescription"
+                tools:visibility="visible" />
+
+            <Spinner
+                android:id="@+id/spinLinks"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tvLinkTitle"
+                tools:listitem="@layout/i_track_select_text"
+                tools:visibility="visible" />
 
             <Button
                 android:id="@+id/btnPlay"
                 style="@style/PlayButton"
                 app:backgroundTint="@null"
                 android:layout_width="match_parent"
-                android:layout_marginVertical="8dp"
+                android:layout_marginVertical="@dimen/margin"
                 android:layout_height="wrap_content"
                 android:text="@string/watch"
-                app:layout_constraintTop_toBottomOf="@+id/btnTrailer"
+                app:layout_constraintTop_toBottomOf="@+id/spinLinks"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
 
