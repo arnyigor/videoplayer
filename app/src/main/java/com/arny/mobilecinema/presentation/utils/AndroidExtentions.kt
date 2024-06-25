@@ -2,6 +2,7 @@ package com.arny.mobilecinema.presentation.utils
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.SearchManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -314,6 +315,13 @@ fun Context.shareFile(file: File, title: String?) {
         )
     }.also { intent ->
         startActivity(Intent.createChooser(intent, title))
+    }
+}
+
+fun Context.getAvailableMemory(): ActivityManager.MemoryInfo {
+    val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    return ActivityManager.MemoryInfo().also { memoryInfo ->
+        activityManager.getMemoryInfo(memoryInfo)
     }
 }
 

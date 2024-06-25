@@ -5,4 +5,5 @@ object PrefsConstants {
     const val BASE_URL = "anwap_base_url"
     const val ORDER = "movies_order"
     const val PREF_KEY_PIP_MODE = "pref_key_pip_mode"
+    const val DEVICE_UUID = "DEVICE_UUID"
 }

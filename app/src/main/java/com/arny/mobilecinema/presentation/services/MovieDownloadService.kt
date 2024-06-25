@@ -31,11 +31,13 @@ import com.google.android.exoplayer2.offline.Download
 import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.File
+import java.util.concurrent.CancellationException
 import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
 import kotlin.properties.Delegates
@@ -47,12 +49,13 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         const val NOTICE_CHANNEL_NAME = "NOTICE_CHANNEL_NAME"
     }
 
+    private var fileDownloadJob: Job? = null
+
     @Inject
     lateinit var playerSource: PlayerSource
 
     @Inject
     lateinit var updateRepository: UpdateRepository
-
     private var nextPauseResumeAction: String = ""
     private var noticeStopped = false
     private val supervisorJob = SupervisorJob()
@@ -304,7 +307,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         val url = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL).orEmpty()
         val fileName = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME).orEmpty()
         val title = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_TITLE).orEmpty()
-        lifecycleScope.launch(coroutineContext) {
+        fileDownloadJob = lifecycleScope.launch(coroutineContext) {
             updateNotification(
                 title = getString(R.string.downloading_filename, title),
                 text = getString(
@@ -314,7 +317,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                 silent = false,
                 false
             )
-          downloadHelper.reset()
+            downloadHelper.reset()
             updateRepository.downloadFileWithProgress(url, fileName).collectLatest { download ->
                 when (download) {
                     is DownloadFileResult.Error -> {
@@ -463,6 +466,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             stopSelf()
         }
         playerSource.removeListener()
+        fileDownloadJob?.cancel(CancellationException("Service Stopped"))
     }
 
     private fun updateNotification(
@@ -546,18 +550,18 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                     }
                 )
                 setContentIntent(contentIntent)
+                addAction(
+                    R.drawable.ic_stop_circle,
+                    getString(
+                        if (isNextPause) {
+                            android.R.string.cancel
+                        } else {
+                            R.string.exit
+                        }
+                    ),
+                    stopIntent
+                )
                 if (addUpdateActions) {
-                    addAction(
-                        R.drawable.ic_stop_circle,
-                        getString(
-                            if (isNextPause) {
-                                android.R.string.cancel
-                            } else {
-                                R.string.exit
-                            }
-                        ),
-                        stopIntent
-                    )
                     addAction(
                         R.drawable.ic_skip_next,
                         getString(R.string.download_skip),

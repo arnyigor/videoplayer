@@ -63,7 +63,6 @@ import com.google.android.exoplayer2.DefaultLoadControl
 import com.google.android.exoplayer2.DefaultRenderersFactory
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.PlaybackException
-import com.google.android.exoplayer2.PlaybackParameters
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.analytics.AnalyticsListener
@@ -132,11 +131,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var brightness: Int = 0
     private var volume: Int = -1
     private var boost: Int = -1
-    private var ExoPlayer?.playbackSpeed: Float
-        get() = this?.playbackParameters?.speed ?: 1f
-        set(speed) {
-            this?.playbackParameters = PlaybackParameters(speed)
-        }
     private var volumeObs: Int by Delegates.observable(-1) { _, old, newVolume ->
         if (old != newVolume) {
             volume = newVolume
@@ -297,14 +291,22 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private val listener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
             binding.progressBar.isVisible = false
+            var lastError = ""
             when (getConnectionType(requireContext())) {
                 ConnectionType.NONE -> {
-                    toast(getString(R.string.internet_connection_error))
+                    lastError = getString(R.string.internet_connection_error)
+                    toast(lastError)
                 }
 
-                else -> toast(getFullError(error))
+                else -> {
+                    lastError = getFullError(error)
+                    toast(lastError)
+                }
             }
+//            val s = " (${cause?.stackTraceToString()})"
+            viewModel.setLastPlayerError(lastError)
         }
+
         /*override fun onCues(cueGroup: CueGroup) {
             super.onCues(cueGroup)
 //            binding.sbtvSubtitles.setCues(cueGroup.cues)

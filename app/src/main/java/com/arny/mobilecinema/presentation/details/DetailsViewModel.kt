@@ -49,7 +49,6 @@ class DetailsViewModel @AssistedInject constructor(
         const val MB = 1024 * 1024
     }
 
-    private var selectedUrlPostion: Int = 0
     private var selectedCinemaUrl: String? = null
     private var currentDownloadData: DownloadManagerData? = null
     private var seasonPosition = 0
@@ -658,10 +657,6 @@ class DetailsViewModel @AssistedInject constructor(
                     }
                 }
         }
-    }
-
-    fun setSelectedUrlPosition(position: Int) {
-        this.selectedUrlPostion = position
     }
 
     fun downloadSelectedUrlToFile() {

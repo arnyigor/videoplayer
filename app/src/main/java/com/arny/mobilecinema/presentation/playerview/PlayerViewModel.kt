@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 class PlayerViewModel @AssistedInject constructor(
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
+    private val feedbackInteractor: FeedbackInteractor,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState = _uiState.asStateFlow()
@@ -131,5 +133,9 @@ class PlayerViewModel @AssistedInject constructor(
                 _pipMode.trySend(true)
             }
         }
+    }
+
+    fun setLastPlayerError(error: String) {
+        feedbackInteractor.setLastPlayerError(error)
     }
 }

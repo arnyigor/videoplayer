@@ -1,6 +1,5 @@
 package com.arny.mobilecinema.presentation.services
 
-import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -26,6 +25,7 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
+import com.arny.mobilecinema.presentation.utils.getAvailableMemory
 import com.arny.mobilecinema.presentation.utils.sendBroadcast
 import com.google.gson.GsonBuilder
 import com.google.gson.stream.JsonReader
@@ -226,14 +226,6 @@ class UpdateService : LifecycleService(), CoroutineScope {
             stopSelf()
         } else {
             stopSelf()
-        }
-    }
-
-    // Get a MemoryInfo object for the device's current memory status.
-    private fun getAvailableMemory(): ActivityManager.MemoryInfo {
-        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        return ActivityManager.MemoryInfo().also { memoryInfo ->
-            activityManager.getMemoryInfo(memoryInfo)
         }
     }
 

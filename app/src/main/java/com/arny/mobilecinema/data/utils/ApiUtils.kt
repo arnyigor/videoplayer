@@ -127,7 +127,7 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
             }
 
             is TimeoutCancellationException -> {
-                error = "Время ожидания истекло, повторите запрос позже"
+                error = "Время ожидания истекло"
             }
 
             is ExoPlaybackException -> {
@@ -139,7 +139,7 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
                             500 -> error = "Внутренняя ошибка сервера $url"
                             504 -> error = "Время ожидания истекло, повторите запрос позже $url"
                             503 -> error = "Сервис временно недоступен, повторите запрос позже $url"
-                            403 -> error = "Сервис заблокирован $url"
+                            403 -> error = "Доступ к запрошенному ресурсу запрещён $url"
                             404 -> error = "Страница не найдена $url"
                         }
                     }
@@ -148,7 +148,9 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
                         error = "${sourceException.uri} ${sourceException.message}"
                     }
 
-                    else -> {}
+                    else -> {
+                        error = sourceException.message.toString()
+                    }
                 }
             }
 

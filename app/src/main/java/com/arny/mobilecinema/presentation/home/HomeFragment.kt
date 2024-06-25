@@ -697,7 +697,8 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
 
     private fun requestStoragePermission() {
-        if (SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+        requestStorage()
+        /*if (SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
             alertDialog(
                 title = getString(R.string.need_permission_message),
                 btnOkText = getString(android.R.string.ok),
@@ -707,7 +708,7 @@ class HomeFragment : Fragment(), OnSearchListener {
             )
         } else {
             requestStorage()
-        }
+        }*/
     }
 
     @RequiresApi(Build.VERSION_CODES.R)

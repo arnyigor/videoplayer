@@ -93,7 +93,6 @@ interface DataModule {
         @Singleton
         fun provideFirebaseDatabase(firebaseApp: FirebaseApp): FirebaseDatabase {
             val firebaseDatabase = FirebaseDatabase.getInstance(firebaseApp)
-
             firebaseDatabase.setPersistenceEnabled(true)
             if (BuildConfig.DEBUG) firebaseDatabase.setLogLevel(Logger.Level.DEBUG)
 

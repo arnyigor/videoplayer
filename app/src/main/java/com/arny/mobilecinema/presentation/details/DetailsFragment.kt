@@ -157,7 +157,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     val items = getCinemaUrlsItems(curMovie)
                     val url = items.getOrNull(position)?.second
                     viewModel.setSelectedUrl(url, true)
-                    viewModel.setSelectedUrlPosition(position)
                 }
                 isUserTouchLinks = false
             }
