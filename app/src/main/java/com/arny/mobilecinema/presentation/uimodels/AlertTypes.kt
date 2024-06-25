@@ -10,6 +10,7 @@ sealed class AlertType {
         val episodePosition: Int,
         val total: Boolean
     ) : AlertType()
+
     data class Download(
         val complete: Boolean = false,
         val empty: Boolean = false,
@@ -17,6 +18,12 @@ sealed class AlertType {
         val equalsTitle: Boolean = false,
         val link: String = ""
     ) : AlertType()
+
+    data class DownloadFile(
+        val link: String = ""
+    ) : AlertType()
+
+    object SimpleAlert: AlertType()
 }
 
 data class Alert(

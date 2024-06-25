@@ -6,10 +6,12 @@ import android.net.NetworkCapabilities
 import android.net.NetworkInfo
 import android.os.Build
 import android.telephony.TelephonyManager
+import com.arny.mobilecinema.data.models.DataThrowable
 import com.google.android.exoplayer2.ExoPlaybackException
 import com.google.android.exoplayer2.source.UnrecognizedInputFormatException
 import com.google.android.exoplayer2.upstream.HttpDataSource
 import com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException
+import kotlinx.coroutines.TimeoutCancellationException
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -114,12 +116,20 @@ private fun getMaxSpeedKbps(it: NetworkInfo): Int = when (it.subtype) {
     else -> 0
 }
 
-fun getFullError(throwable: Throwable): String {
+fun getFullError(throwable: Throwable, context: Context? = null): String {
     throwable.printStackTrace()
     var error: String = throwable.message.orEmpty()
     val code: Int
     try {
         when (throwable) {
+            is DataThrowable -> {
+                error = context?.getString(throwable.errorRes).orEmpty()
+            }
+
+            is TimeoutCancellationException -> {
+                error = "Время ожидания истекло, повторите запрос позже"
+            }
+
             is ExoPlaybackException -> {
                 when (val sourceException = throwable.sourceException) {
                     is HttpDataSource.InvalidResponseCodeException -> {
@@ -145,6 +155,7 @@ fun getFullError(throwable: Throwable): String {
             is HttpDataSourceException -> {
                 error = throwable.message.orEmpty()
             }
+
             is SSLHandshakeException -> {
                 error = "Ошибка сертификата сервера"
             }
@@ -168,6 +179,7 @@ private fun getMessage(throwable: Throwable): String {
                     "failed to connect",
                     true
                 ) -> "Ошибка соединения, адрес недоступен"
+
         message.contains("timeout", true) -> "Время запроса истекло, попробуйте еще раз"
         else -> message
     }

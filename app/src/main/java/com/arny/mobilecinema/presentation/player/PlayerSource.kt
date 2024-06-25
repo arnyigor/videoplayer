@@ -38,7 +38,6 @@ import com.google.android.exoplayer2.upstream.cache.Cache
 import com.google.android.exoplayer2.upstream.cache.CacheDataSink
 import com.google.android.exoplayer2.upstream.cache.CacheDataSource
 import com.google.android.exoplayer2.upstream.cache.CacheSpan
-import com.google.android.exoplayer2.upstream.cache.ContentMetadata
 import com.google.android.exoplayer2.util.Util
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -429,7 +428,7 @@ class PlayerSource @Inject constructor(
                             Result.success(
                                 when (val manifest = helper.manifest) {
                                     is HlsManifest -> getSegmentData(manifest)
-                                    is DashManifest -> getSegmentData(manifest)
+//                                    is DashManifest -> getSegmentData(manifest)
                                     else -> SegmentsData()
                                 }
                             )
@@ -463,8 +462,8 @@ class PlayerSource @Inject constructor(
             for (j in 0 until period.adaptationSets.size) {
                 val adaptationSet = period.adaptationSets[j]
                 for (k in 0 until adaptationSet.representations.size) {
-                    val representation = adaptationSet.representations[k]
-                    println(representation)
+//                    val representation = adaptationSet.representations[k]
+//                    println(representation)
                 }
             }
         }

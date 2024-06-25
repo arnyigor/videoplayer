@@ -3,6 +3,7 @@
     <string name="next">Next</string>
     <string name="previous">Previous</string>
     <string name="movies_not_found">Список видео пуст</string>
+    <string name="update_list">Обновить список</string>
     <string name="home_search">Поиск</string>
     <string name="video_url_not_found">URL видео не найден</string>
     <string name="home_choose_source">Выбрать источник</string>
@@ -72,6 +73,8 @@
     <string name="cinema_cache_complete">Фильм полностью загружен</string>
     <string name="serial_episode_cache_complete">Эпизод полностью загружен</string>
     <string name="cinema_cache_attention">Вы хотите загрузить фильм?</string>
+    <string name="cinema_download_attention">Вы хотите сохранить фильм в файл?</string>
+    <string name="cinema_download_not_available">Неверная ссылка для загрузки</string>
     <string name="serial_episode_cache_attention">Вы хотите загрузить \"%s\"(%s сезон,%s серия)?</string>
     <string name="cinema_cache_attention_new">Вы хотите загрузить фильм и отменить предыдущую загрузку "%s"?</string>
     <string name="serial_episode_cache_attention_new">Вы хотите загрузить эпизод и отменить предыдущую загрузку "%s"?</string>
@@ -82,6 +85,8 @@
     <string name="mobile_network_play">Вы не подключены к WIFI\nПродолжить?</string>
     <string name="connection_network_none_dialog_content">Отсутствует интернет соединение\nПродолжить?</string>
     <string name="cache_description">При отмене загруженные данные будут удалены\nПродолжить?</string>
+    <string name="download_description">Файл будет сохранён на диск\nПродолжить?</string>
+    <string name="download_description_error">На данный момент доступны для скачивания только фильмы и ссылки mp4. Выберите ссылку mp4 в списке ссылок</string>
     <string name="pref_player">Плеер</string>
     <string name="pref_common">Общее</string>
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
@@ -105,6 +110,7 @@
     <string name="notification_channel_id">notification_channel_cache</string>
     <string name="notification_title">Загрузка фильма</string>
     <string name="cache">Сохранить фильм</string>
+    <string name="download">Загрузить файл</string>
     <string name="download_cinema_title_format">Загрузка \"%s\" - %.01f%%</string>
     <string name="download_cinema_state_state_updating">Обновление списка…</string>
     <string name="download_cinema_state_state_pause">Пауза</string>
@@ -136,6 +142,12 @@
     <string name="cinema_save_data_invalidate">Проверяем кеш…</string>
     <string name="movie_save_error">Не сохранено в историю</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
+    <string name="downloading_file">Загрузка файла…</string>
+    <string name="downloading_progress">%s из %s,%s%%,%s</string>
+    <string name="downloading_filename">Загрузка %s</string>
+    <string name="download_error_file_is_empty">Загружаемый файл пустой</string>
+    <string name="saving_to_download_file">Сохранение файла в папке загрузки…</string>
+    <string name="saved_downloaded_file">Файл сохранен в папке загрузки!</string>
     <string name="downloading_database_error_unsupport_path">Ошибка загрузки файла базы фильмов, установите разрешения для записи и попробуйте снова</string>
     <string name="search_extended_title">Расширенный поиск</string>
     <string name="search_extended_ok">Поиск</string>

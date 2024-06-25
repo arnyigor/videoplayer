@@ -2,7 +2,6 @@ package com.arny.mobilecinema.domain.interactors.update
 
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.models.DataUpdateResult
-import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import kotlinx.coroutines.flow.Flow
 
 interface DataUpdateInteractor {

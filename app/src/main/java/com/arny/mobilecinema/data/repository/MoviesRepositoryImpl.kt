@@ -88,6 +88,9 @@ class MoviesRepositoryImpl @Inject constructor(
     override fun getMovie(id: Long): Movie? =
         movieDao.getMovie(id)?.let { movieMapper.transform(it) }
 
+    override fun getMovie(pageUrl: String): Movie? =
+        movieDao.getMovie(pageUrl)?.let { movieMapper.transform(it) }
+
     override suspend fun getGenres(): List<String> =
         appResources.getStringArray(R.array.genres)
 

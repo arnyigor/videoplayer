@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.api.ApiService
+import com.arny.mobilecinema.data.api.DownloadFileResult
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.db.models.IMovieUpdate
 import com.arny.mobilecinema.data.db.models.MovieEntity
@@ -14,11 +15,13 @@ import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
+import com.arny.mobilecinema.data.utils.saveFileToDownloadFolder
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
+import kotlinx.coroutines.flow.Flow
 import org.joda.time.DateTime
 import org.joda.time.Duration
 import java.io.File
@@ -34,6 +37,7 @@ class UpdateRepositoryImpl @Inject constructor(
     private companion object {
         const val UPDATE_PERIOD = 182L
     }
+
     override var checkUpdate: Boolean = false
     override var newUpdate: String = ""
     override var updateDownloadId: Long = -1L
@@ -75,6 +79,20 @@ class UpdateRepositoryImpl @Inject constructor(
         return file
     }
 
+    override suspend fun downloadFileWithProgress(
+        url: String,
+        fileName: String
+    ): Flow<DownloadFileResult> {
+        val file = File(context.filesDir, fileName)
+        file.delete()
+        file.create()
+        return apiService.downloadFileWithProgress(file, url)
+    }
+
+    override fun copyFileToDownloadFolder(file: File, fileName: String): Boolean {
+        return context.saveFileToDownloadFolder(file, fileName)
+    }
+
     override suspend fun checkPath(url: String): Boolean {
         val checkPath = apiService.checkPath(url)
         return checkPath.value != 404
@@ -90,8 +108,12 @@ class UpdateRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun diffByGroup(list1: List<IMovieUpdate>, list2: List<IMovieUpdate>): List<IMovieUpdate> {
-        return (list1 + list2).groupBy { it.pageUrl }.filter { it.value.size == 1 }.flatMap { it.value }
+    private fun diffByGroup(
+        list1: List<IMovieUpdate>,
+        list2: List<IMovieUpdate>
+    ): List<IMovieUpdate> {
+        return (list1 + list2).groupBy { it.pageUrl }.filter { it.value.size == 1 }
+            .flatMap { it.value }
     }
 
     override fun downloadUpdates(url: String, forceUpdate: Boolean) {

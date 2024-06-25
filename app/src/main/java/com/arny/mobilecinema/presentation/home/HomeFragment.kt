@@ -5,10 +5,14 @@ import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
@@ -18,6 +22,7 @@ import android.view.ViewGroup
 import android.widget.SearchView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -82,7 +87,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private lateinit var binding: FHomeBinding
     private var searchMenuItem: MenuItem? = null
     private var searchView: SearchView? = null
-    private var request: Int = -1
+    private var requestId: Int = -1
     private var requestedNotice: Boolean = false
     private var likesPriority: Boolean = true
     private var currentOrder: String = ""
@@ -97,18 +102,19 @@ class HomeFragment : Fragment(), OnSearchListener {
     private var onQueryChangeSubmit = true
     private var itemsAdapter: VideoItemsAdapter? = null
     private var extendSearchResult: ExtendSearchResult? = null
+    private var permissionRequestId = 0
     private val startForResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result: ActivityResult ->
         if (result.resultCode == Activity.RESULT_OK) {
-            when (request) {
+            when (requestId) {
                 REQUEST_OPEN_FILE -> {
-                    request = -1
+                    requestId = -1
                     onOpenFile(result.data)
                 }
 
                 REQUEST_OPEN_FOLDER -> {
-                    request = -1
+                    requestId = -1
                     onOpenFolder(result.data)
                 }
             }
@@ -117,10 +123,12 @@ class HomeFragment : Fragment(), OnSearchListener {
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
-                request()
+                requestFiles()
             } else {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    request()
+                    requestFiles()
+                }else{
+                    requestPermissions()
                 }
             }
         }
@@ -143,11 +151,18 @@ class HomeFragment : Fragment(), OnSearchListener {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         updateTitle(getString(R.string.app_name))
+        initListeners()
         initMenu()
         initAdapters()
         observeData()
         observeResult()
         requestPermissions()
+    }
+
+    private fun initListeners() {
+        binding.btnUpdateList.setOnClickListener {
+            viewModel.loadMovies()
+        }
     }
 
     override fun onResume() {
@@ -162,8 +177,8 @@ class HomeFragment : Fragment(), OnSearchListener {
         unregisterReceiver(updateReceiver)
     }
 
-    private fun request() {
-        when (request) {
+    private fun requestFiles() {
+        when (requestId) {
             REQUEST_OPEN_FILE -> requestFile()
             REQUEST_LOAD -> downloadData()
         }
@@ -267,14 +282,15 @@ class HomeFragment : Fragment(), OnSearchListener {
     private fun getIntentString(param: String) = arguments?.getString(param)
 
     private fun requestPermissions() {
-        if (requestNotice()) {
-            requestPermission()
+        when (permissionRequestId) {
+            0 -> requestNotice()
+            1 -> requestStoragePermission()
         }
     }
 
-    private fun requestNotice(): Boolean {
-        val enabled = isNotificationsFullyEnabled()
-        if (!enabled) {
+    private fun requestNotice() {
+        val notificationsFullyEnabled = isNotificationsFullyEnabled()
+        if (!notificationsFullyEnabled) {
             alertDialog(
                 title = getString(R.string.need_notice_permission_message),
                 btnOkText = getString(android.R.string.ok),
@@ -283,25 +299,31 @@ class HomeFragment : Fragment(), OnSearchListener {
                     openAppSettings()
                 }
             )
+        } else {
+            permissionRequestId = 1
+            requestPermissions()
         }
-        return enabled
     }
 
-    private fun requestPermission() {
-        request = REQUEST_LOAD
+    private fun requestStorage() {
+        requestId = REQUEST_LOAD
         requestPermission(
             resultLauncher = requestPermissionLauncher,
             permission = Manifest.permission.WRITE_EXTERNAL_STORAGE,
             onNeverAskAgain = {
-                alertDialog(
-                    title = getString(R.string.need_permission_message),
-                    btnOkText = getString(android.R.string.ok),
-                    onConfirm = { openAppSettings() }
-                )
+                dialogRequestStoragePermission()
             },
             checkPermissionOk = {
                 downloadData()
             }
+        )
+    }
+
+    private fun dialogRequestStoragePermission(){
+        alertDialog(
+            title = getString(R.string.need_permission_message),
+            btnOkText = getString(android.R.string.ok),
+            onConfirm = { openAppSettings() }
         )
     }
 
@@ -326,7 +348,9 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
         itemsAdapter?.addLoadStateListener { loadState ->
             if (loadState.source.refresh is LoadState.NotLoading) {
-                binding.tvEmptyView.isVisible = (itemsAdapter?.itemCount ?: 0) < 1
+                val visibleEmpty = (itemsAdapter?.itemCount ?: 0) < 1
+                binding.tvEmptyView.isVisible = visibleEmpty
+                binding.btnUpdateList.isVisible = visibleEmpty
             }
         }
         binding.rcVideoList.apply {
@@ -474,6 +498,11 @@ class HomeFragment : Fragment(), OnSearchListener {
 
                     R.id.menu_action_from_path -> {
                         openPath()
+                        true
+                    }
+
+                    R.id.menu_action_update_list -> {
+                        viewModel.loadMovies()
                         true
                     }
 
@@ -659,13 +688,50 @@ class HomeFragment : Fragment(), OnSearchListener {
         println(path)
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
+    private val requestPermissionAndroidR =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (Environment.isExternalStorageManager()) {
+                requestStorage()
+            }
+        }
+
+    private fun requestStoragePermission() {
+        if (SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+            alertDialog(
+                title = getString(R.string.need_permission_message),
+                btnOkText = getString(android.R.string.ok),
+                onConfirm = {
+                    requestAccessAndroidR()
+                }
+            )
+        } else {
+            requestStorage()
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun requestAccessAndroidR() {
+        val intent = Intent().apply {
+            action = Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+            addCategory(Intent.CATEGORY_DEFAULT)
+            data = Uri.parse(
+                String.format(
+                    "package:%s",
+                    requireContext().applicationContext.packageName
+                )
+            )
+        }
+        requestPermissionAndroidR.launch(intent)
+    }
+
     private fun requestFile() {
-        request = REQUEST_OPEN_FILE
+        requestId = REQUEST_OPEN_FILE
         startForResult.launch(
             Intent().apply {
                 action = Intent.ACTION_GET_CONTENT
                 addCategory(Intent.CATEGORY_OPENABLE)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (SDK_INT >= Build.VERSION_CODES.Q) {
                     addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                 }
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

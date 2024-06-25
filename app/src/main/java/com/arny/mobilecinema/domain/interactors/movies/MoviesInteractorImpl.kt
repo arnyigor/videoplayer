@@ -7,6 +7,7 @@ import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -70,6 +71,10 @@ class MoviesInteractorImpl @Inject constructor(
 
     override fun getMovie(id: Long): Flow<DataResult<Movie>> = doAsync {
         repository.getMovie(id) ?: throw DataThrowable(R.string.movie_not_found)
+    }
+
+    override fun isAvailableToDownload(selectedCinemaUrl: String?, type: MovieType): Boolean {
+        return type == MovieType.CINEMA && selectedCinemaUrl?.endsWith("mp4") ?: false
     }
 
     override suspend fun saveOrder(order: String) {

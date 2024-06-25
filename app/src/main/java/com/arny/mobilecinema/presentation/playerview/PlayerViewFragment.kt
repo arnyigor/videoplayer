@@ -170,8 +170,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         override fun onSingleTapUp(e: MotionEvent): Boolean = false
 
         override fun onScroll(
+            e1: MotionEvent?,
             event: MotionEvent,
-            e2: MotionEvent,
             distanceX: Float,
             distanceY: Float
         ): Boolean {
@@ -267,9 +267,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 30
 
         override fun onLongPress(e: MotionEvent) {}
-
         override fun onFling(
-            e1: MotionEvent,
+            e1: MotionEvent?,
             e2: MotionEvent,
             velocityX: Float,
             velocityY: Float

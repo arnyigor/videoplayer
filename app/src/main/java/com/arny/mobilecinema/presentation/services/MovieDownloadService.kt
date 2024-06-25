@@ -1,5 +1,7 @@
 package com.arny.mobilecinema.presentation.services
 
+
+import android.app.DownloadManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,12 +11,18 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.api.DownloadFileResult
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.utils.formatFileSize
+import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.domain.models.DownloadMovieItem
+import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.utils.DownloadHelper
@@ -24,7 +32,10 @@ import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.io.File
 import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
 import kotlin.properties.Delegates
@@ -32,10 +43,15 @@ import kotlin.properties.Delegates
 class MovieDownloadService : LifecycleService(), CoroutineScope {
     private companion object {
         const val NOTICE_ID = 1002
+        const val NOTICE_CHANNEL_ID = "NOTICE_CHANNEL_ID"
+        const val NOTICE_CHANNEL_NAME = "NOTICE_CHANNEL_NAME"
     }
 
     @Inject
     lateinit var playerSource: PlayerSource
+
+    @Inject
+    lateinit var updateRepository: UpdateRepository
 
     private var nextPauseResumeAction: String = ""
     private var noticeStopped = false
@@ -43,6 +59,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
     private val downloadHelper = DownloadHelper()
+    private var downloadManager: DownloadManager? = null
     private var currentDownload: DownloadMovieItem? = null
     private var downloadList = listOf<DownloadMovieItem>()
     private var currentState = -1
@@ -169,6 +186,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
             Download.STATE_REMOVING -> {
             }
+
             else -> {
                 if (stSize == 0) {
                     stopCurrentService()
@@ -224,6 +242,12 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     override fun onCreate() {
         super.onCreate()
         AndroidInjection.inject(this)
+        initNotice()
+        playerSource.setListener(progressListener)
+        downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+    }
+
+    private fun initNotice() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTICE_ID,
@@ -236,7 +260,8 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                         0.0f
                     ),
                     text = getString(R.string.download_cinema_text_format_empty_downloads, ""),
-                    silent = false
+                    silent = false,
+                    addUpdateActions = false
                 ),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
             )
@@ -252,15 +277,16 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                         0.0f
                     ),
                     text = getString(R.string.download_cinema_text_format_empty_downloads, ""),
-                    silent = false
+                    silent = false,
+                    addUpdateActions = false
                 ),
             )
         }
-        playerSource.setListener(progressListener)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            AppConstants.ACTION_DOWNLOAD_FILE -> downloadFile(intent)
             AppConstants.ACTION_CACHE_MOVIE -> download(intent)
             AppConstants.ACTION_CACHE_MOVIE_CANCEL -> cancelDownload()
             AppConstants.ACTION_CACHE_MOVIE_EXIT -> exitDownload()
@@ -270,6 +296,84 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             else -> stopCurrentService()
         }
         return super.onStartCommand(intent, flags, startId)
+    }
+
+
+    private fun downloadFile(intent: Intent?) {
+        val extras = intent?.extras
+        val url = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL).orEmpty()
+        val fileName = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME).orEmpty()
+        val title = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_TITLE).orEmpty()
+        lifecycleScope.launch(coroutineContext) {
+            updateNotification(
+                title = getString(R.string.downloading_filename, title),
+                text = getString(
+                    R.string.downloading_filename,
+                    fileName
+                ),
+                silent = false,
+                false
+            )
+          downloadHelper.reset()
+            updateRepository.downloadFileWithProgress(url, fileName).collectLatest { download ->
+                when (download) {
+                    is DownloadFileResult.Error -> {
+                        download.cause?.printStackTrace()
+                        val message = download.message ?: download.cause?.let {
+                            getFullError(
+                                it,
+                                applicationContext
+                            )
+                        }.orEmpty()
+                        Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+                        stopCurrentService()
+                    }
+
+                    is DownloadFileResult.Progress -> {
+                        val progress = downloadHelper.getRemainTime(download.progress.toDouble())
+                        updateNotification(
+                            title = getString(R.string.downloading_filename, title),
+                            text = getString(
+                                R.string.downloading_progress,
+                                formatFileSize(download.size ?: 0L),
+                                formatFileSize(download.total ?: 0L),
+                                download.progress.toString(),
+                                getString(R.string.download_text_format, progress)
+                            ),
+                            silent = true,
+                            false
+                        )
+                    }
+
+                    is DownloadFileResult.Success -> {
+                        updateNotification(
+                            title = getString(R.string.saving_to_download_file),
+                            text = fileName,
+                            silent = false,
+                            false
+                        )
+                        saveAndClose(download.file)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun saveAndClose(file: File) {
+        val copy = updateRepository.copyFileToDownloadFolder(
+            file,
+            file.name
+        )
+        if (copy) {
+            file.delete()
+        }
+        Toast.makeText(
+            applicationContext,
+            getString(R.string.saved_downloaded_file),
+            Toast.LENGTH_LONG
+        ).show()
+        sendLocalBroadcast(AppConstants.ACTION_DOWNLOAD_FILE_COMPLETE)
+        stopCurrentService()
     }
 
     private fun download(intent: Intent?) {
@@ -302,7 +406,6 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     }
 
     private fun cancelDownload() {
-        Timber.d("cancelDownload nextPauseResumeAction:$nextPauseResumeAction")
         nextPauseResumeAction = AppConstants.ACTION_CACHE_MOVIE_RESUME
         playerSource.cancelDownload(currentDownload?.downloadUrl.orEmpty())
         downloadList = downloadList.toMutableList().apply {
@@ -314,7 +417,6 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     }
 
     private fun exitDownload() {
-        Timber.d("exitDownload nextPauseResumeAction:$nextPauseResumeAction")
         downloadList = downloadList.toMutableList().apply {
             clear()
         }
@@ -334,7 +436,6 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     }
 
     private fun skipDownload() {
-        Timber.d("skipDownload nextPauseResumeAction:$nextPauseResumeAction")
         val isCurrentActionPause = nextPauseResumeAction == AppConstants.ACTION_CACHE_MOVIE_RESUME
         val download = currentDownload?.copy()
         val hasDownloads = downloadList.isNotEmpty()
@@ -364,10 +465,15 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         playerSource.removeListener()
     }
 
-    private fun updateNotification(title: String, text: String, silent: Boolean) {
+    private fun updateNotification(
+        title: String,
+        text: String,
+        silent: Boolean,
+        addUpdateActions: Boolean = true
+    ) {
         (applicationContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(
             NOTICE_ID,
-            getNotice("channelId", "channelName", title, text, silent)
+            getNotice(NOTICE_CHANNEL_ID, NOTICE_CHANNEL_NAME, title, text, silent, addUpdateActions)
         )
     }
 
@@ -376,7 +482,8 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         channelName: String,
         title: String,
         text: String,
-        silent: Boolean
+        silent: Boolean,
+        addUpdateActions: Boolean = true
     ): Notification {
         val isNextPause = nextPauseResumeAction == AppConstants.ACTION_CACHE_MOVIE_PAUSE
         val pendingFlags: Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -439,27 +546,29 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                     }
                 )
                 setContentIntent(contentIntent)
-                addAction(
-                    R.drawable.ic_stop_circle,
-                    getString(
-                        if (isNextPause) {
-                            android.R.string.cancel
-                        } else {
-                            R.string.exit
-                        }
-                    ),
-                    stopIntent
-                )
-                addAction(
-                    R.drawable.ic_skip_next,
-                    getString(R.string.download_skip),
-                    skipIntent
-                )
-                addAction(
-                    getPauseResumeIcon(nextPauseResumeAction),
-                    getPauseResumeBtnTitle(nextPauseResumeAction),
-                    pauseResumeIntent
-                )
+                if (addUpdateActions) {
+                    addAction(
+                        R.drawable.ic_stop_circle,
+                        getString(
+                            if (isNextPause) {
+                                android.R.string.cancel
+                            } else {
+                                R.string.exit
+                            }
+                        ),
+                        stopIntent
+                    )
+                    addAction(
+                        R.drawable.ic_skip_next,
+                        getString(R.string.download_skip),
+                        skipIntent
+                    )
+                    addAction(
+                        getPauseResumeIcon(nextPauseResumeAction),
+                        getPauseResumeBtnTitle(nextPauseResumeAction),
+                        pauseResumeIntent
+                    )
+                }
                 setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             }.build()
     }

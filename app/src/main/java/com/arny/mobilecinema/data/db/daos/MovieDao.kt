@@ -5,7 +5,6 @@ import androidx.room.Query
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.db.models.MovieUpdate
 import com.arny.mobilecinema.domain.models.SimpleIntRange
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MovieDao : BaseDao<MovieEntity> {
@@ -25,6 +24,9 @@ interface MovieDao : BaseDao<MovieEntity> {
     @Query("SELECT * FROM movies WHERE dbId = :id")
     fun getMovie(id: Long): MovieEntity?
 
+    @Query("SELECT * FROM movies WHERE pageUrl = :pageUrl")
+    fun getMovie(pageUrl: String): MovieEntity?
+
     @Query("SELECT dbId FROM movies ORDER BY dbId DESC LIMIT 1")
     fun getLastId(): Long
 
@@ -33,4 +35,7 @@ interface MovieDao : BaseDao<MovieEntity> {
 
     @Query("SELECT MIN(year) as `from`, MAX(year) as `to` FROM movies WHERE year > 1900")
     fun getYearsMinMax(): SimpleIntRange
+
+    @Query("UPDATE movies SET customData=:customData WHERE pageUrl = :pageUrl")
+    fun updateCustomData(customData: String?, pageUrl: String): Int
 }

@@ -41,6 +41,7 @@ data class MovieEntity(
     @ColumnInfo(name = "trailerUrls") var trailerUrls: String = "",
     @ColumnInfo(name = "trailerUrlsPoster") var trailerUrlsPoster: String = "",
     @ColumnInfo(name = "addedToHistory") var addedToHistory: Long = 0L,
+    @ColumnInfo(name = "customData") var customData: String? = null,
 ) {
     fun clear() {
         movieId = 0

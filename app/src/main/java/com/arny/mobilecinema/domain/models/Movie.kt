@@ -20,4 +20,5 @@ data class Movie(
     val seasonPosition: Int? = null,
     val episodePosition: Int? = null,
     val time: Long? = null,
+    val customData: String? = null,
 ) : Parcelable, IMovieUpdate

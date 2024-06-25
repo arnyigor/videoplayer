@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.presentation.details
 
 import android.annotation.SuppressLint
+import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -35,6 +36,7 @@ import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.RequestDownloadFile
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.PlayerSource
@@ -91,6 +93,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     lateinit var prefs: Prefs
     private var seasonsTracksAdapter: TrackSelectorSpinnerAdapter? = null
     private var episodesTracksAdapter: TrackSelectorSpinnerAdapter? = null
+    private var downloadManager: DownloadManager? = null
     private var linksAdapter: TrackSelectorSpinnerAdapter? = null
     private var currentMovie: Movie? = null
     private var currentSeasonPosition: Int = 0
@@ -130,7 +133,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             position: Int,
             id: Long
         ) {
-            if(isUserTouchEpisodes){
+            if (isUserTouchEpisodes) {
                 updateCurrentSerialPosition()
                 viewModel.onSerialPositionChanged(currentSeasonPosition, currentEpisodePosition)
                 isUserTouchEpisodes = false
@@ -154,6 +157,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     val items = getCinemaUrlsItems(curMovie)
                     val url = items.getOrNull(position)?.second
                     viewModel.setSelectedUrl(url, true)
+                    viewModel.setSelectedUrlPosition(position)
                 }
                 isUserTouchLinks = false
             }
@@ -213,10 +217,16 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        initVariables()
         initListeners()
         initSpinnerAdapters()
         observeData()
         initMenu()
+    }
+
+    private fun initVariables() {
+        downloadManager =
+            requireContext().applicationContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
     }
 
     override fun onResume() {
@@ -249,6 +259,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         true
                     }
 
+                    R.id.menu_action_download_file -> {
+                        onDownloadFile()
+                        true
+                    }
+
                     R.id.menu_action_cache_movie -> {
                         onCache()
                         true
@@ -258,6 +273,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         viewModel.onClearCacheClick(currentSeasonPosition, currentEpisodePosition)
                         true
                     }
+
                     R.id.menu_action_send_feedback -> {
                         showFeedbackDialog()
                         true
@@ -361,8 +377,39 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
+    private fun onDownloadFile() {
+        when (getConnectionType(requireContext())) {
+            is ConnectionType.WIFI -> {
+                showDialogDownload()
+            }
+
+            is ConnectionType.MOBILE -> {
+                alertDialog(
+                    title = getString(R.string.attention),
+                    content = getString(R.string.mobile_network_play),
+                    btnOkText = getString(android.R.string.ok),
+                    btnCancelText = getString(android.R.string.cancel),
+                    onConfirm = {
+                        showDialogDownload()
+                    }
+                )
+            }
+
+            ConnectionType.NONE -> {
+                toast(getString(R.string.internet_connection_error))
+            }
+
+            else -> {
+            }
+        }
+    }
+
     private fun showDialogCache() {
         viewModel.showCacheDialog()
+    }
+
+    private fun showDialogDownload() {
+        viewModel.showDownloadDialog()
     }
 
     private fun requestCacheMovie(
@@ -459,6 +506,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         launchWhenCreated {
             viewModel.alert.collectLatest { alert -> showAlert(alert) }
         }
+        launchWhenCreated {
+            viewModel.downloadFile.collectLatest { file -> requestFile(file) }
+        }
         launchWhenCreated { viewModel.downloadAll.collectLatest { downloadAll = it } }
         launchWhenCreated {
             viewModel.hasSavedData.collectLatest {
@@ -482,6 +532,17 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             btnCancelText = btnCancel?.toString(requireContext()).orEmpty(),
             onConfirm = { onConfirm() }
         )
+    }
+
+    private fun requestFile(file: RequestDownloadFile) {
+        sendServiceMessage(
+            Intent(requireContext(), MovieDownloadService::class.java),
+            AppConstants.ACTION_DOWNLOAD_FILE,
+        ) {
+            putString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL, file.url)
+            putString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME, file.fileName)
+            putString(AppConstants.SERVICE_PARAM_DOWNLOAD_TITLE, file.title)
+        }
     }
 
     private fun showAlert(alert: Alert?) {
@@ -551,6 +612,17 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     }
                 }
             }
+
+            is AlertType.SimpleAlert -> {
+                alert.show()
+            }
+
+            is AlertType.DownloadFile -> {
+                alert.show {
+                    viewModel.downloadSelectedUrlToFile()
+                }
+            }
+
             else -> {}
         }
     }
@@ -558,7 +630,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun updateDownloadedData(data: MovieDownloadedData?) {
         binding.tvSaveData.isVisible = data != null
         when {
-            data != null && data.loading-> {
+            data != null && data.loading -> {
                 binding.tvSaveData.text = getString(R.string.cinema_save_data_invalidate)
             }
 

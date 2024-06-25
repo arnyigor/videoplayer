@@ -3,6 +3,12 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/menu_action_download_file"
+        android:title="@string/download"
+        android:icon="@drawable/outline_download_for_offline_24"
+        app:showAsAction="ifRoom" />
+
+    <item
         android:id="@+id/menu_action_cache_movie"
         android:title="@string/cache"
         android:icon="@drawable/ic_save"

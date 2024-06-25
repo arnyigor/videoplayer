@@ -1,6 +1,8 @@
 package com.arny.mobilecinema.domain.repository
 
+import com.arny.mobilecinema.data.api.DownloadFileResult
 import com.arny.mobilecinema.domain.models.Movie
+import kotlinx.coroutines.flow.Flow
 import java.io.File
 
 interface UpdateRepository {
@@ -19,4 +21,6 @@ interface UpdateRepository {
     fun downloadUpdates(url: String, forceUpdate: Boolean)
     fun updateDownloadCache(downloadUrl: String?, percent: Float)
     fun removeDownloadCache(downloadUrl: String?)
+    fun copyFileToDownloadFolder(file: File, fileName: String): Boolean
+    suspend fun downloadFileWithProgress(url: String, fileName: String): Flow<DownloadFileResult>
 }

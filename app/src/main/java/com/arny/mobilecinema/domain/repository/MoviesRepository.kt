@@ -23,6 +23,7 @@ interface MoviesRepository {
         likesPriority: Boolean,
     ): Pager<Int, ViewMovie>
     fun getMovie(id: Long): Movie?
+    fun getMovie(pageUrl: String): Movie?
     fun getSaveData(movieDbId: Long?): HistoryEntity?
     fun insertCinemaPosition(movieDbId: Long, position: Long): Boolean
     fun updateCinemaPosition(movieDbId: Long?, position: Long): Boolean

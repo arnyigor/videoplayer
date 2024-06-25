@@ -324,11 +324,7 @@ fun Fragment.requestPermission(
     onNeverAskAgain: () -> Unit = {}
 ) {
     when {
-        ContextCompat.checkSelfPermission(
-            requireContext(),
-            permission
-        ) == PackageManager.PERMISSION_GRANTED -> checkPermissionOk()
-
+        checkPermission(permission) -> checkPermissionOk()
         shouldShowRequestPermissionRationale(permission) -> onNeverAskAgain()
         else -> resultLauncher.launch(permission)
     }
@@ -455,15 +451,19 @@ fun Context.sendBroadcast(action: String, extras: Bundle.() -> Unit = {}) {
     applicationContext.sendBroadcast(intent)
 }
 
-fun getFreeMemoryMB(): Long {
-    val runtime = Runtime.getRuntime()
-    val usedMemInMB = (runtime.totalMemory() - runtime.freeMemory()) / 1048576L
-    val maxHeapSizeInMB = runtime.maxMemory() / 1048576L
-    return maxHeapSizeInMB - usedMemInMB
-}
-
 fun Fragment.registerReceiver(action: String, receiver: BroadcastReceiver) {
-    requireActivity().registerReceiver(receiver, IntentFilter(action))
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        requireActivity().registerReceiver(
+            receiver,
+            IntentFilter(action),
+            Context.RECEIVER_NOT_EXPORTED
+        )
+    } else {
+        requireActivity().registerReceiver(
+            receiver,
+            IntentFilter(action)
+        )
+    }
 }
 
 fun Fragment.unregisterReceiver(receiver: BroadcastReceiver) {

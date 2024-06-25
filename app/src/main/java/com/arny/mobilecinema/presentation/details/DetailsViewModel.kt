@@ -12,6 +12,7 @@ import com.arny.mobilecinema.domain.models.DownloadManagerData
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.RequestDownloadFile
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.uimodels.Alert
@@ -48,12 +49,14 @@ class DetailsViewModel @AssistedInject constructor(
         const val MB = 1024 * 1024
     }
 
+    private var selectedUrlPostion: Int = 0
     private var selectedCinemaUrl: String? = null
     private var currentDownloadData: DownloadManagerData? = null
     private var seasonPosition = 0
     private var episodePosition = 0
     private var movieTime = 0L
     private var currentCacheAlert: Alert? = null
+    private var downloadAlert: Alert? = null
     private var currentRemoveAlert: Alert? = null
     private val _error = MutableSharedFlow<IWrappedString>()
     val error = _error.asSharedFlow()
@@ -75,6 +78,8 @@ class DetailsViewModel @AssistedInject constructor(
     val addToHistory = _addToHistory.asSharedFlow()
     private val _alert = BufferedSharedFlow<Alert>()
     val alert = _alert.asSharedFlow()
+    private val _downloadFile = BufferedSharedFlow<RequestDownloadFile>()
+    val downloadFile = _downloadFile.asSharedFlow()
 
     init {
         loadVideo()
@@ -163,16 +168,44 @@ class DetailsViewModel @AssistedInject constructor(
         }
     }
 
+    private fun initDownloadFileAlert(movie: Movie) {
+        selectedCinemaUrl
+        val availableToDownload =
+            interactor.isAvailableToDownload(selectedCinemaUrl, movie.type)
+        if (availableToDownload) {
+            downloadAlert = Alert(
+                title = ResourceString(R.string.cinema_download_attention),
+                content = ResourceString(R.string.download_description),
+                btnOk = ResourceString(android.R.string.ok),
+                btnCancel = ResourceString(android.R.string.cancel),
+                type = AlertType.DownloadFile(link = selectedCinemaUrl.orEmpty())
+            )
+        } else {
+            downloadAlert = Alert(
+                title = ResourceString(R.string.cinema_download_not_available),
+                content = ResourceString(R.string.download_description_error),
+                btnOk = ResourceString(android.R.string.ok),
+                type = AlertType.SimpleAlert
+            )
+        }
+    }
+
     fun clearViewHistory(url: String, seasonPosition: Int, episodePosition: Int, total: Boolean) {
         viewModelScope.launch {
             val mMovie = _currentMovie.value
-            historyInteractor.clearViewHistory(movieDbId = mMovie?.dbId, type = mMovie?.type, total = total,url)
+            historyInteractor.clearViewHistory(
+                movieDbId = mMovie?.dbId,
+                type = mMovie?.type,
+                total = total,
+                url
+            )
                 .catch { _error.emit(ThrowableString(it)) }
                 .collectLatest {
                     when (it) {
                         is DataResult.Error -> {
                             _error.emit(ThrowableString(it.throwable))
                         }
+
                         is DataResult.Success -> {
                             val removed = it.result
                             if (removed) {
@@ -189,6 +222,7 @@ class DetailsViewModel @AssistedInject constructor(
                                             )
                                         }
                                     }
+
                                     MovieType.SERIAL -> {
                                         if (total) {
                                             _toast.emit(ResourceString(R.string.serial_history_cleared))
@@ -197,6 +231,7 @@ class DetailsViewModel @AssistedInject constructor(
                                             onClearCacheClick(seasonPosition, episodePosition, true)
                                         }
                                     }
+
                                     else -> {}
                                 }
                             }
@@ -267,6 +302,7 @@ class DetailsViewModel @AssistedInject constructor(
                         type = AlertType.Download(complete = true, link = url)
                     )
                 }
+
                 downloadData.downloadsEmpty -> {
                     currentCacheAlert = Alert(
                         title = ResourceString(R.string.cinema_cache_attention),
@@ -498,6 +534,16 @@ class DetailsViewModel @AssistedInject constructor(
         }
     }
 
+    fun showDownloadDialog() {
+        viewModelScope.launch {
+            val movie = _currentMovie.value
+            movie?.let {
+                initDownloadFileAlert(movie)
+                downloadAlert?.let { _alert.emit(it) }
+            }
+        }
+    }
+
     fun onClearCacheClick(
         currentSeasonPosition: Int,
         currentEpisodePosition: Int,
@@ -611,6 +657,22 @@ class DetailsViewModel @AssistedInject constructor(
                         }
                     }
                 }
+        }
+    }
+
+    fun setSelectedUrlPosition(position: Int) {
+        this.selectedUrlPostion = position
+    }
+
+    fun downloadSelectedUrlToFile() {
+        viewModelScope.launch {
+            _downloadFile.emit(
+                RequestDownloadFile(
+                    selectedCinemaUrl.orEmpty(),
+                    selectedCinemaUrl?.substringAfterLast("/").orEmpty(),
+                    _currentMovie.value?.title.orEmpty()
+                )
+            )
         }
     }
 }
