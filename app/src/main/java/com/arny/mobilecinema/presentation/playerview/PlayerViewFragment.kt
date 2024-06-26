@@ -74,6 +74,7 @@ import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
+import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.properties.Delegates
@@ -90,7 +91,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     @Inject
     internal lateinit var viewModelFactory: ViewModelFactory
-    private val viewModel: PlayerViewModel by viewModelFactory { viewModelFactory.create() }
 
     @Inject
     lateinit var prefs: Prefs
@@ -98,7 +98,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     @Inject
     lateinit var playerSource: PlayerSource
 
+    private val viewModel: PlayerViewModel by viewModelFactory { viewModelFactory.create() }
+
     private var title: String = ""
+    private var currentCinemaUrl: String? = null
     private var timePosition: Long = 0L
     private var season: Int = 0
     private var episode: Int = 0
@@ -305,6 +308,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
 //            val s = " (${cause?.stackTraceToString()})"
             viewModel.setLastPlayerError(lastError)
+            viewModel.retryOpenCinema(currentCinemaUrl)
         }
 
         /*override fun onCues(cueGroup: CueGroup) {
@@ -465,6 +469,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 if (isPipMode) {
                     requestPipMode()
                 }
+            }
+        }
+        launchWhenCreated {
+            viewModel.toast.collectLatest { toastRes ->
+                toast(toastRes.toString(requireContext()))
             }
         }
     }
@@ -640,6 +649,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     ) {
         val url = path ?: movie.getCinemaUrl()
         url.takeIf { it.isNotBlank() }?.let { cinemaUrl ->
+            this.currentCinemaUrl = cinemaUrl
             try {
                 setPlayerSource(
                     position, playerSource.getSource(

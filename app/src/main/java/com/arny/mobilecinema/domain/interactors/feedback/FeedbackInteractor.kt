@@ -6,5 +6,5 @@ import kotlinx.coroutines.flow.Flow
 
 interface FeedbackInteractor {
     fun sendMessage(content: String, movie: Movie?, seasonPosition: Int, episodePosition: Int): Flow<DataResult<Boolean>>
-    fun setLastPlayerError(error: String)
+    fun setLastError(error: String)
 }

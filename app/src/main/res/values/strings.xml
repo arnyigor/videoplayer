@@ -114,7 +114,7 @@
     <string name="download_cinema_title_format">Загрузка \"%s\" - %.01f%%</string>
     <string name="download_cinema_state_state_updating">Обновление списка…</string>
     <string name="download_cinema_state_state_pause">Пауза</string>
-    <string name="download_text_format">Осталось ~ %s</string>
+    <string name="download_text_format">~ %s</string>
     <string name="download_text_format_one_more">Осталось ~ %s, еще %s</string>
     <string name="download_cinema_text_format_empty_downloads">Осталось ~ %s</string>
     <string name="search_by_title">В названии</string>
@@ -141,9 +141,10 @@
     <string name="cinema_save_data_only_percent">Сохранён:100%</string>
     <string name="cinema_save_data_invalidate">Проверяем кеш…</string>
     <string name="movie_save_error">Не сохранено в историю</string>
+    <string name="try_open_next_link">Открываем следующую ссылку…</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
     <string name="downloading_file">Загрузка файла…</string>
-    <string name="downloading_progress">%s из %s,%s%%,%s</string>
+    <string name="downloading_progress">%s из %s, %s%%, %s</string>
     <string name="downloading_filename">Загрузка %s</string>
     <string name="download_error_file_is_empty">Загружаемый файл пустой</string>
     <string name="saving_to_download_file">Сохранение файла в папке загрузки…</string>

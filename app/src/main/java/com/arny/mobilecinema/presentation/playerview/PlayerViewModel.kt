@@ -10,6 +10,7 @@ import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SaveData
+import com.arny.mobilecinema.presentation.player.getAllCinemaUrls
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
@@ -35,6 +36,8 @@ class PlayerViewModel @AssistedInject constructor(
     val loading = _loading.asStateFlow()
     private val _error = BufferedChannel<IWrappedString>()
     val error = _error.receiveAsFlow()
+    private val _toast = BufferedChannel<IWrappedString>()
+    val toast = _toast.receiveAsFlow()
 
     fun saveMoviePosition(dbId: Long?, time: Long, season: Int, episode: Int) {
         viewModelScope.launch {
@@ -136,6 +139,26 @@ class PlayerViewModel @AssistedInject constructor(
     }
 
     fun setLastPlayerError(error: String) {
-        feedbackInteractor.setLastPlayerError(error)
+        feedbackInteractor.setLastError(error)
+    }
+
+    fun retryOpenCinema(currentCinemaUrl: String?) {
+        val state = _uiState.value
+        if (state.movie?.type == MovieType.CINEMA) {
+            val excludeCinemaUrls = state.excludeCinemaUrls.toMutableList()
+            if (currentCinemaUrl != null && !excludeCinemaUrls.contains(currentCinemaUrl)) {
+                excludeCinemaUrls.add(currentCinemaUrl)
+                val nextCinemaUrl = state.movie.getAllCinemaUrls().firstOrNull {
+                    it !in excludeCinemaUrls && it.isNotBlank()
+                }
+                if (!nextCinemaUrl.isNullOrBlank()) {
+                    _toast.trySend(ResourceString(R.string.try_open_next_link))
+                    _uiState.value = state.copy(
+                        path = nextCinemaUrl,
+                        excludeCinemaUrls = excludeCinemaUrls
+                    )
+                }
+            }
+        }
     }
 }

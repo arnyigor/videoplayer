@@ -9,4 +9,5 @@ data class PlayerUiState(
     val season: Int? = null,
     val episode: Int? = null,
     val isTrailer: Boolean = false,
+    val excludeCinemaUrls: List<String> = emptyList(),
 )

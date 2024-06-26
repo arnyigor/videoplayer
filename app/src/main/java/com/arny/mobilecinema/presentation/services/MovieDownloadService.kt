@@ -21,6 +21,7 @@ import com.arny.mobilecinema.data.api.DownloadFileResult
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.data.utils.getFullError
+import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
 import com.arny.mobilecinema.domain.models.DownloadMovieItem
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
@@ -56,6 +57,8 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     @Inject
     lateinit var updateRepository: UpdateRepository
+    @Inject
+    lateinit var feedbackInteractor: FeedbackInteractor
     private var nextPauseResumeAction: String = ""
     private var noticeStopped = false
     private val supervisorJob = SupervisorJob()
@@ -328,6 +331,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                                 applicationContext
                             )
                         }.orEmpty()
+                        feedbackInteractor.setLastError("$message; $title; $url")
                         Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
                         stopCurrentService()
                     }
@@ -368,7 +372,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             file.name
         )
         if (copy) {
-            file.delete()
+            updateRepository.removeOldMP4Downloads()
         }
         Toast.makeText(
             applicationContext,

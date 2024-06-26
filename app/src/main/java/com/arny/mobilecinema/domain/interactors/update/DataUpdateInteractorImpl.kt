@@ -1,6 +1,5 @@
 package com.arny.mobilecinema.domain.interactors.update
 
-import android.content.Context
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.doAsync
@@ -8,11 +7,9 @@ import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.DataUpdateResult
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import kotlinx.coroutines.flow.Flow
-import timber.log.Timber
 import javax.inject.Inject
 
 class DataUpdateInteractorImpl @Inject constructor(
-    private val context: Context,
     private val repository: UpdateRepository
 ) : DataUpdateInteractor {
     private var forceUpdate = false
@@ -23,13 +20,7 @@ class DataUpdateInteractorImpl @Inject constructor(
 
     override suspend fun requestFile(force: Boolean, hasPartUpdate: Boolean) {
         this.forceUpdate = force
-        val dataLink = when {
-            hasPartUpdate && BuildConfig.DEBUG -> BuildConfig.DATA_0_DEBUG_LINK
-            !hasPartUpdate && BuildConfig.DEBUG -> BuildConfig.DATA_DEBUG_LINK
-            hasPartUpdate -> BuildConfig.DATA_0_LINK
-            !hasPartUpdate -> BuildConfig.DATA_LINK
-            else -> BuildConfig.DATA_LINK
-        }
+        val dataLink = getDataLink(hasPartUpdate)
         repository.downloadUpdates(dataLink, forceUpdate)
     }
 
@@ -52,15 +43,13 @@ class DataUpdateInteractorImpl @Inject constructor(
             if (!repository.checkUpdate && repository.newUpdate.isBlank()) {
                 repository.checkUpdate = true
                 val updateFile = repository.downloadFile(
-                    if (BuildConfig.DEBUG) BuildConfig.UPDATE_DEBUG_LINK else BuildConfig.UPDATE_LINK,
+                    getUpdateLink(),
                     AppConstants.UPDATE_FILE
                 )
                 newUpdate = updateFile.readText()
                 updateFile.delete()
                 if (hasMovies && repository.hasLastUpdates()) {
-                    hasPartUpdateFile = repository.checkPath(
-                        if (BuildConfig.DEBUG) BuildConfig.DATA_0_DEBUG_LINK else BuildConfig.DATA_0_LINK,
-                    )
+                    hasPartUpdateFile = repository.checkPath(getDataLink())
                 }
             }
             if (repository.lastUpdate != newUpdate && newUpdate.isNotBlank()) {
@@ -70,4 +59,26 @@ class DataUpdateInteractorImpl @Inject constructor(
                 DataUpdateResult("")
             }
         }
+
+    private fun getDataLink(hasPartUpdate: Boolean): String {
+        val debug = BuildConfig.DEBUG
+        val dataLink = when {
+            hasPartUpdate && debug -> BuildConfig.DATA_0_DEBUG_LINK
+            !hasPartUpdate && debug -> BuildConfig.DATA_DEBUG_LINK
+            hasPartUpdate -> BuildConfig.DATA_0_LINK
+            !hasPartUpdate -> BuildConfig.DATA_LINK
+            else -> BuildConfig.DATA_LINK
+        }
+        return dataLink
+    }
+
+    private fun getDataLink(): String {
+        val debug = BuildConfig.DEBUG
+        return if (debug) BuildConfig.DATA_0_DEBUG_LINK else BuildConfig.DATA_0_LINK
+    }
+
+    private fun getUpdateLink(): String {
+        val debug = BuildConfig.DEBUG
+        return if (debug) BuildConfig.UPDATE_DEBUG_LINK else BuildConfig.UPDATE_LINK
+    }
 }

@@ -23,4 +23,5 @@ interface UpdateRepository {
     fun removeDownloadCache(downloadUrl: String?)
     fun copyFileToDownloadFolder(file: File, fileName: String): Boolean
     suspend fun downloadFileWithProgress(url: String, fileName: String): Flow<DownloadFileResult>
+    fun removeOldMP4Downloads()
 }

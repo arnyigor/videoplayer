@@ -56,7 +56,7 @@ class FeedbackInteractorImpl @Inject constructor(
         return deviceId
     }
 
-    override fun setLastPlayerError(error: String) {
+    override fun setLastError(error: String) {
         lastPlayerError = error
     }
 

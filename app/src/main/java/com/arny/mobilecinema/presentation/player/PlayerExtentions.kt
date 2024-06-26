@@ -19,7 +19,7 @@ fun Movie.getCinemaUrl(): String {
     }
 }
 
-fun Movie.getCinemaUrls(): List<String> {
+fun Movie.getAllCinemaUrls(): List<String> {
     val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
     val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
     return hdUrls + cinemaUrls

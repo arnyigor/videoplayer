@@ -143,9 +143,34 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
                             404 -> error = "Страница не найдена $url"
                         }
                     }
+                    is HttpDataSourceException->{
+                        val url = sourceException.dataSpec.key
+                        when (val cause = sourceException.cause) {
+                            is HttpDataSource.InvalidResponseCodeException -> {
+                                code = cause.responseCode
+                                when (code) {
+                                    500 -> error = "Внутренняя ошибка сервера $url"
+                                    504 -> error = "Время ожидания истекло, повторите запрос позже $url"
+                                    503 -> error = "Сервис временно недоступен, повторите запрос позже $url"
+                                    403 -> error = "Доступ к запрошенному ресурсу запрещён $url"
+                                    404 -> error = "Страница не найдена $url"
+                                }
+                            }
+                            is SSLHandshakeException -> {
+                                error = "Ошибка сертификата $url"
+                            }
+                            else -> {
+                                error = throwable.message.orEmpty()
+                            }
+                        }
+                    }
 
                     is UnrecognizedInputFormatException -> {
                         error = "${sourceException.uri} ${sourceException.message}"
+                    }
+
+                    is SSLHandshakeException -> {
+                        error = "Ошибка сертификата"
                     }
 
                     else -> {

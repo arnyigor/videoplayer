@@ -83,10 +83,19 @@ class UpdateRepositoryImpl @Inject constructor(
         url: String,
         fileName: String
     ): Flow<DownloadFileResult> {
-        val file = File(context.filesDir, fileName)
-        file.delete()
-        file.create()
+        removeOldMP4Downloads()
+        val file = File(context.filesDir, fileName).apply { create() }
         return apiService.downloadFileWithProgress(file, url)
+    }
+
+    override fun removeOldMP4Downloads() {
+        context.filesDir.listFiles()?.let {
+            for (file in it) {
+                if (file.path.endsWith("mp4")) {
+                    file.delete()
+                }
+            }
+        }
     }
 
     override fun copyFileToDownloadFolder(file: File, fileName: String): Boolean {
