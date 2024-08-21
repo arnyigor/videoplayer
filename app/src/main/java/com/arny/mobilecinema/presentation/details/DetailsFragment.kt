@@ -41,6 +41,7 @@ import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.services.MovieDownloadService
+import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
@@ -278,6 +279,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         true
                     }
 
+                    R.id.menu_action_update_data -> {
+                        viewModel.updateData()
+                        true
+                    }
+
                     else -> false
                 }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
@@ -508,6 +514,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         launchWhenCreated {
             viewModel.downloadFile.collectLatest { file -> requestFile(file) }
         }
+        launchWhenCreated {
+            viewModel.testFile.collectLatest { file -> testFile(file) }
+        }
         launchWhenCreated { viewModel.downloadAll.collectLatest { downloadAll = it } }
         launchWhenCreated {
             viewModel.hasSavedData.collectLatest {
@@ -519,6 +528,16 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             viewModel.downloadInit.collectLatest { init ->
                 canDownload = init
                 requireActivity().invalidateOptionsMenu()
+            }
+        }
+        launchWhenCreated {
+            viewModel.updateData.collectLatest { url ->
+                requireContext().sendServiceMessage(
+                    Intent(requireContext().applicationContext, UpdateService::class.java),
+                    AppConstants.ACTION_UPDATE_BY_URL
+                ) {
+                    putString(AppConstants.SERVICE_PARAM_UPDATE_URL, url)
+                }
             }
         }
     }
@@ -541,6 +560,16 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             putString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL, file.url)
             putString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME, file.fileName)
             putString(AppConstants.SERVICE_PARAM_DOWNLOAD_TITLE, file.title)
+        }
+    }
+
+    private fun testFile(file: RequestDownloadFile) {
+        sendServiceMessage(
+            Intent(requireContext(), MovieDownloadService::class.java),
+            AppConstants.ACTION_TEST_FILE,
+        ) {
+            putString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL, file.url)
+            putString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME, file.fileName)
         }
     }
 

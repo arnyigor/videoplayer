@@ -1,7 +1,9 @@
 package com.arny.mobilecinema.data.api
 
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.models.DataResultWithProgress
 import com.arny.mobilecinema.data.models.DataThrowable
+import com.arny.mobilecinema.data.models.DownloadFileResult
 import com.arny.mobilecinema.data.utils.getFullError
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -37,7 +39,10 @@ class ApiService @Inject constructor(
         }
     }
 
-    suspend fun downloadFileWithProgress(file: File, url: String): Flow<DownloadFileResult> {
+    suspend fun downloadFileWithProgress(
+        file: File,
+        url: String
+    ): Flow<DataResultWithProgress<DownloadFileResult>> {
         return callbackFlow {
             try {
                 httpClient.prepareGet(url) {
@@ -60,29 +65,36 @@ class ApiService @Inject constructor(
                                     val percent: Int =
                                         (length * 100 / contentLength).toInt()
                                     trySend(
-                                        DownloadFileResult.Progress(
-                                            percent,
-                                            length,
-                                            contentLength
+                                        DataResultWithProgress.Progress(
+                                            DownloadFileResult(
+                                                progress = percent,
+                                                size = length,
+                                                total = contentLength
+                                            )
                                         )
                                     )
                                 }
                             }
                             if (httpResponse.status.isSuccess()) {
-                                trySend(DownloadFileResult.Success(file))
+                                trySend(
+                                    DataResultWithProgress.Success(
+                                        DownloadFileResult(file = file)
+                                    )
+                                )
                             } else {
                                 trySend(
-                                    DownloadFileResult.Error(
-                                        getFullError(
-                                            httpResponse.body<Throwable>().fillInStackTrace()
+                                    DataResultWithProgress.Error(
+                                        Throwable(
+                                            getFullError(
+                                                httpResponse.body<Throwable>().fillInStackTrace()
+                                            )
                                         )
                                     )
                                 )
                             }
                         } else {
                             trySend(
-                                DownloadFileResult.Error(
-                                    null,
+                                DataResultWithProgress.Error(
                                     DataThrowable(R.string.download_error_file_is_empty)
                                 )
                             )
@@ -90,13 +102,12 @@ class ApiService @Inject constructor(
                     }
 
             } catch (e: TimeoutCancellationException) {
-                trySend(DownloadFileResult.Error(getFullError(e)))
+                trySend(DataResultWithProgress.Error(Throwable(getFullError(e))))
             } catch (t: Throwable) {
-                trySend(DownloadFileResult.Error(getFullError(t)))
+                trySend(DataResultWithProgress.Error(Throwable(getFullError(t))))
             }
             awaitClose()
         }
-
     }
 
     suspend fun checkPath(url: String): HttpStatusCode =

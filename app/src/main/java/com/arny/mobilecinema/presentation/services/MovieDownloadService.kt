@@ -17,7 +17,8 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.arny.mobilecinema.R
-import com.arny.mobilecinema.data.api.DownloadFileResult
+import com.arny.mobilecinema.data.models.DataResultWithProgress
+import com.arny.mobilecinema.data.models.FfmpegResult
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.data.utils.getFullError
@@ -28,6 +29,8 @@ import com.arny.mobilecinema.presentation.MainActivity
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.utils.DownloadHelper
 import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
+import com.arthenica.ffmpegkit.Log
+import com.arthenica.ffmpegkit.SessionState
 import com.google.android.exoplayer2.offline.Download
 import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +45,8 @@ import java.util.concurrent.CancellationException
 import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
 import kotlin.properties.Delegates
+import kotlin.time.DurationUnit
+import kotlin.time.toDuration
 
 class MovieDownloadService : LifecycleService(), CoroutineScope {
     private companion object {
@@ -57,6 +62,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     @Inject
     lateinit var updateRepository: UpdateRepository
+
     @Inject
     lateinit var feedbackInteractor: FeedbackInteractor
     private var nextPauseResumeAction: String = ""
@@ -68,6 +74,8 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     private var downloadManager: DownloadManager? = null
     private var currentDownload: DownloadMovieItem? = null
     private var downloadList = listOf<DownloadMovieItem>()
+    private var nextDuration = false
+    private var curDwnldDurationMs: Long = 0L
     private var currentState = -1
     private var stTitle = ""
     private var st by Delegates.observable(-1) { _, old, new ->
@@ -293,6 +301,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             AppConstants.ACTION_DOWNLOAD_FILE -> downloadFile(intent)
+            AppConstants.ACTION_TEST_FILE -> testFile(intent)
             AppConstants.ACTION_CACHE_MOVIE -> download(intent)
             AppConstants.ACTION_CACHE_MOVIE_CANCEL -> cancelDownload()
             AppConstants.ACTION_CACHE_MOVIE_EXIT -> exitDownload()
@@ -304,6 +313,148 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         return super.onStartCommand(intent, flags, startId)
     }
 
+    private fun testFile(intent: Intent?) {
+        val extras = intent?.extras
+        val url = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL).orEmpty()
+        val fileName = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME).orEmpty()
+        val title = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_TITLE).orEmpty()
+        fileDownloadJob = lifecycleScope.launch(coroutineContext) {
+            updateNotification(
+                title = getString(R.string.downloading_filename, title),
+                text = getString(
+                    R.string.downloading_filename,
+                    fileName
+                ),
+                silent = false,
+                false
+            )
+            downloadHelper.reset()
+            nextDuration = false
+            curDwnldDurationMs = 0L
+            val file = File(filesDir, fileName)
+            updateRepository.downloadLinkWithProgress(url, file).collectLatest { test ->
+                when (test) {
+                    is DataResultWithProgress.Error -> {
+                        val stackTraceToString = test.throwable.stackTraceToString()
+                        Timber.e("Error:$stackTraceToString")
+                        Toast.makeText(applicationContext, stackTraceToString, Toast.LENGTH_SHORT)
+                            .show()
+                        stopCurrentService()
+                    }
+
+                    is DataResultWithProgress.Progress -> {
+                        showFfmpegResult(test.result, title)
+                    }
+
+                    is DataResultWithProgress.Success -> {
+                        showFfmpegResult(test.result, title)
+                        updateNotification(
+                            title = getString(R.string.saving_to_download_file),
+                            text = fileName,
+                            silent = false,
+                            false
+                        )
+                        saveAndClose(file)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showFfmpegResult(result: FfmpegResult, title: String) {
+        when {
+            result.result != null -> {
+                Timber.d("result:${result.result}")
+            }
+
+            result.cmd != null -> {
+                Timber.d("cmd:$result")
+            }
+
+            result.log != null -> {
+                val log = result.log
+                when (log.level) {
+                    com.arthenica.ffmpegkit.Level.AV_LOG_INFO -> {
+                        initDuration(log)
+                    }
+
+                    else -> {}
+                }
+                Timber.d("Log: sessionId:${log.sessionId}, level:${log.level}, message:${log.message}")
+            }
+
+            result.session != null -> {
+                val session = result.session
+                val state = session.state
+                val returnCode = session.returnCode
+                val format = String.format(
+                    "FFmpeg process exited with state %s and rc %s.%s",
+                    state.getFfmpegSessionString(),
+                    returnCode,
+                    session.failStackTrace
+                )
+                Timber.d("Session: $format")
+            }
+
+            result.statistics != null -> {
+                val statistics = result.statistics
+                if (curDwnldDurationMs != 0L) {
+                    val percent = (statistics.time * 100f) / curDwnldDurationMs
+                    updateNotification(
+                        title = getString(R.string.downloading_filename, title),
+                        text = getString(
+                            R.string.downloading_progress_percent_only,
+                            getString(
+                                R.string.download_text_format,
+                                downloadHelper.getRemainTime(percent)
+                            )
+                        ),
+                        silent = true,
+                        false
+                    )
+                }
+                Timber.d(
+                    "Statistics: sessionId:${statistics.sessionId} size:${statistics.size}," +
+                            " time:${statistics.time}, speed:${statistics.speed}, bitrate:${statistics.bitrate}," +
+                            " frame:${statistics.videoFrameNumber}, fps:${statistics.videoFps}, quality:${statistics.videoQuality}"
+                )
+            }
+        }
+    }
+
+    private fun initDuration(log: Log) {
+        val message = log.message
+        when {
+            curDwnldDurationMs == 0L && !nextDuration && message.contains("Duration:") -> {
+                nextDuration = true
+            }
+
+            nextDuration && message.contains(":") -> {
+                // Log: sessionId:1, level:AV_LOG_INFO, message:  Duration:
+//                  Log: sessionId:1, level:AV_LOG_INFO, message:00:10:00.46
+                nextDuration = false
+                val durationArr = message.split(":")
+                val hrsMs =
+                    durationArr[0].toLong().toDuration(DurationUnit.HOURS).inWholeMilliseconds
+                val minsMs =
+                    durationArr[1].toLong().toDuration(DurationUnit.HOURS).inWholeMilliseconds
+                val secMs = (durationArr[2].toFloat() * 1000f).toLong()
+                    .toDuration(DurationUnit.MILLISECONDS).inWholeMilliseconds
+                curDwnldDurationMs = hrsMs + minsMs + secMs
+                Timber.d("curDwnldDurationMs:$curDwnldDurationMs")
+            }
+        }
+    }
+
+    private fun SessionState?.getFfmpegSessionString(): String {
+        return when (this) {
+            SessionState.CREATED -> "CREATED"
+            SessionState.RUNNING -> "RUNNING"
+            SessionState.FAILED -> "FAILED"
+            SessionState.COMPLETED -> "COMPLETED"
+            null -> "NULL"
+        }
+    }
 
     private fun downloadFile(intent: Intent?) {
         val extras = intent?.extras
@@ -323,9 +474,9 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             downloadHelper.reset()
             updateRepository.downloadFileWithProgress(url, fileName).collectLatest { download ->
                 when (download) {
-                    is DownloadFileResult.Error -> {
-                        download.cause?.printStackTrace()
-                        val message = download.message ?: download.cause?.let {
+                    is DataResultWithProgress.Error -> {
+                        download.throwable.cause?.printStackTrace()
+                        val message = download.throwable.message ?: download.throwable.cause?.let {
                             getFullError(
                                 it,
                                 applicationContext
@@ -336,15 +487,16 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                         stopCurrentService()
                     }
 
-                    is DownloadFileResult.Progress -> {
-                        val progress = downloadHelper.getRemainTime(download.progress.toDouble())
+                    is DataResultWithProgress.Progress -> {
+                        val progress =
+                            downloadHelper.getRemainTime(download.result.progress.toDouble())
                         updateNotification(
                             title = getString(R.string.downloading_filename, title),
                             text = getString(
                                 R.string.downloading_progress,
-                                formatFileSize(download.size ?: 0L),
-                                formatFileSize(download.total ?: 0L),
-                                download.progress.toString(),
+                                formatFileSize(download.result.size ?: 0L),
+                                formatFileSize(download.result.total ?: 0L),
+                                download.result.progress.toString(),
                                 getString(R.string.download_text_format, progress)
                             ),
                             silent = true,
@@ -352,33 +504,41 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                         )
                     }
 
-                    is DownloadFileResult.Success -> {
+                    is DataResultWithProgress.Success -> {
                         updateNotification(
                             title = getString(R.string.saving_to_download_file),
                             text = fileName,
                             silent = false,
                             false
                         )
-                        saveAndClose(download.file)
+                        saveAndClose(download.result.file)
                     }
                 }
             }
         }
     }
 
-    private fun saveAndClose(file: File) {
-        val copy = updateRepository.copyFileToDownloadFolder(
-            file,
-            file.name
-        )
-        if (copy) {
-            updateRepository.removeOldMP4Downloads()
+    private suspend fun saveAndClose(file: File?) {
+        if (file != null) {
+            val copy = updateRepository.copyFileToDownloadFolder(
+                file,
+                file.name
+            )
+            if (copy) {
+                updateRepository.removeOldMP4Downloads()
+            }
+            Toast.makeText(
+                applicationContext,
+                getString(R.string.saved_downloaded_file),
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            Toast.makeText(
+                applicationContext,
+                getString(R.string.download_error_file_is_empty),
+                Toast.LENGTH_SHORT
+            ).show()
         }
-        Toast.makeText(
-            applicationContext,
-            getString(R.string.saved_downloaded_file),
-            Toast.LENGTH_LONG
-        ).show()
         sendLocalBroadcast(AppConstants.ACTION_DOWNLOAD_FILE_COMPLETE)
         stopCurrentService()
     }

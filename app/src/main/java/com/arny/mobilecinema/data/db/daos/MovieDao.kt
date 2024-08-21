@@ -27,6 +27,9 @@ interface MovieDao : BaseDao<MovieEntity> {
     @Query("SELECT * FROM movies WHERE pageUrl = :pageUrl")
     fun getMovie(pageUrl: String): MovieEntity?
 
+    @Query("SELECT * FROM movies WHERE img = :imgUrl")
+    fun getMovieByImg(imgUrl: String): MovieEntity?
+
     @Query("SELECT dbId FROM movies ORDER BY dbId DESC LIMIT 1")
     fun getLastId(): Long
 

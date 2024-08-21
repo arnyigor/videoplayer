@@ -2,13 +2,13 @@ package com.arny.mobilecinema.data.models
 
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.utils.fromJsonToList
+import com.arny.mobilecinema.domain.models.AnwapUrl
 import com.arny.mobilecinema.domain.models.CinemaUrlData
 import com.arny.mobilecinema.domain.models.Mapper
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieInfo
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialSeason
-import com.arny.mobilecinema.domain.models.UrlData
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
 import javax.inject.Inject
@@ -48,18 +48,14 @@ class MovieMapper @Inject constructor() : Mapper<MovieEntity, Movie> {
             seasons = seasons,
             customData = data.customData,
             cinemaUrlData = CinemaUrlData(
-                hdUrl = UrlData(
+                hdUrl = AnwapUrl(
                     urls = data.hdUrls.split(","),
                     poster = data.hdUrlsPoster
                 ),
-                cinemaUrl = UrlData(
+                cinemaUrl = AnwapUrl(
                     urls = data.cinemaUrls.split(","),
                     poster = data.cinemaUrlsPoster
                 ),
-                trailerUrl = UrlData(
-                    urls = data.trailerUrls.split(","),
-                    poster = data.trailerUrlsPoster
-                )
             ),
         )
     }

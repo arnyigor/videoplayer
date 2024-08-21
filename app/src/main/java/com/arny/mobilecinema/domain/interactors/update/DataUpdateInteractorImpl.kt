@@ -61,7 +61,7 @@ class DataUpdateInteractorImpl @Inject constructor(
         }
 
     private fun getDataLink(hasPartUpdate: Boolean): String {
-        val debug = BuildConfig.DEBUG
+        val debug = false //BuildConfig.DEBUG
         val dataLink = when {
             hasPartUpdate && debug -> BuildConfig.DATA_0_DEBUG_LINK
             !hasPartUpdate && debug -> BuildConfig.DATA_DEBUG_LINK
@@ -73,12 +73,12 @@ class DataUpdateInteractorImpl @Inject constructor(
     }
 
     private fun getDataLink(): String {
-        val debug = BuildConfig.DEBUG
+        val debug = false//BuildConfig.DEBUG
         return if (debug) BuildConfig.DATA_0_DEBUG_LINK else BuildConfig.DATA_0_LINK
     }
 
     private fun getUpdateLink(): String {
-        val debug = BuildConfig.DEBUG
+        val debug = false//BuildConfig.DEBUG
         return if (debug) BuildConfig.UPDATE_DEBUG_LINK else BuildConfig.UPDATE_LINK
     }
 }

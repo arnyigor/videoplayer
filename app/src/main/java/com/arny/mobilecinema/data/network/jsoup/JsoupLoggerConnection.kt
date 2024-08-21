@@ -12,11 +12,20 @@ enum class LogLevel {
 class JsoupLoggerConnection private constructor(
     private val logLevel: LogLevel,
     private val resetCookie: Boolean,
+    private val helper: JsoupServiceHelper,
 ) : HttpConnection() {
 
     companion object {
-        fun connect(url: String, logLevel: LogLevel = LogLevel.NONE, resetCookie: Boolean): Connection {
-            val connection: Connection = JsoupLoggerConnection(logLevel, resetCookie)
+        fun connect(
+            url: String,
+            logLevel: LogLevel = LogLevel.NONE,
+            resetCookie: Boolean,
+            helper: JsoupServiceHelper
+        ): Connection {
+            val connection: Connection = JsoupLoggerConnection(logLevel, resetCookie, helper).apply {
+
+            }
+            connection.followRedirects(true)
             connection.url(url)
             return connection
         }
@@ -64,7 +73,7 @@ class JsoupLoggerConnection private constructor(
     }
 
     private fun log(response: Connection.Response): String {
-        var line = ""
+        var line: String
         var log = "\n== RESPONSE ==\n"
 
         println("== RESPONSE ==")
@@ -72,7 +81,7 @@ class JsoupLoggerConnection private constructor(
 
         if (resetCookie) {
             for (cookie in response.cookies()) {
-                JsoupServiceHelper.cookie[cookie.key] = cookie.value
+                helper.cookie[cookie.key] = cookie.value
             }
         }
         line = "[code] ${response.statusCode()}"
@@ -92,7 +101,7 @@ class JsoupLoggerConnection private constructor(
     }
 
     private fun logBase(base: Connection.Base<*>): String {
-        var line = ""
+        var line: String
         var log = ""
         for (header in base.headers()) {
             line = "[header] ${header.key}=${header.value}"

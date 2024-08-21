@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.presentation.services
 
+import com.arny.mobilecinema.domain.models.AnwapUrl
 import com.arny.mobilecinema.domain.models.CinemaUrlData
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieInfo
@@ -7,7 +8,6 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
-import com.arny.mobilecinema.domain.models.UrlData
 import com.google.gson.stream.JsonReader
 
 private fun readMovieData(reader: JsonReader): MoviesData {
@@ -100,9 +100,9 @@ private fun readMovie(reader: JsonReader): Movie {
 }
 
 private fun readCinemaUrlData(reader: JsonReader): CinemaUrlData? {
-    var hdUrl: UrlData? = null
-    var cinemaUrl: UrlData? = null
-    var trailerUrl: UrlData? = null
+    var hdUrl: AnwapUrl? = null
+    var cinemaUrl: AnwapUrl? = null
+    var trailerUrl: AnwapUrl? = null
 
     reader.beginObject()
     while (reader.hasNext()) {
@@ -126,11 +126,10 @@ private fun readCinemaUrlData(reader: JsonReader): CinemaUrlData? {
     return CinemaUrlData(
         hdUrl = hdUrl,
         cinemaUrl = cinemaUrl,
-        trailerUrl = trailerUrl
     )
 }
 
-private fun readUrlData(reader: JsonReader): UrlData {
+private fun readUrlData(reader: JsonReader): AnwapUrl {
     var duration: String? = null
     var file: String? = null
     var poster: String? = null
@@ -164,7 +163,7 @@ private fun readUrlData(reader: JsonReader): UrlData {
         }
     }
     reader.endObject()
-    return UrlData(
+    return AnwapUrl(
         duration = duration,
         file = file,
         poster = poster,

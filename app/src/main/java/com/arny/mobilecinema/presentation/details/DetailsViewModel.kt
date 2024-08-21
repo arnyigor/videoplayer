@@ -79,6 +79,10 @@ class DetailsViewModel @AssistedInject constructor(
     val alert = _alert.asSharedFlow()
     private val _downloadFile = BufferedSharedFlow<RequestDownloadFile>()
     val downloadFile = _downloadFile.asSharedFlow()
+    private val _testFile = BufferedSharedFlow<RequestDownloadFile>()
+    val testFile = _testFile.asSharedFlow()
+    private val _updateData = BufferedSharedFlow<String>()
+    val updateData = _updateData.asSharedFlow()
 
     init {
         loadVideo()
@@ -661,13 +665,39 @@ class DetailsViewModel @AssistedInject constructor(
 
     fun downloadSelectedUrlToFile() {
         viewModelScope.launch {
-            _downloadFile.emit(
+            if (selectedCinemaUrl?.endsWith("mpd") == true || selectedCinemaUrl?.endsWith("m3u8") == true) {
+                loadMpdOrM3u8()
+            } else {
+                _downloadFile.emit(
+                    RequestDownloadFile(
+                        selectedCinemaUrl.orEmpty(),
+                        selectedCinemaUrl?.substringAfterLast("/").orEmpty(),
+                        _currentMovie.value?.title.orEmpty()
+                    )
+                )
+            }
+        }
+    }
+
+    private fun loadMpdOrM3u8() {
+        viewModelScope.launch {
+            val movie = _currentMovie.value
+            _testFile.emit(
                 RequestDownloadFile(
-                    selectedCinemaUrl.orEmpty(),
-                    selectedCinemaUrl?.substringAfterLast("/").orEmpty(),
-                    _currentMovie.value?.title.orEmpty()
+                    url = selectedCinemaUrl.orEmpty(),
+                    fileName = "test.mp4",
+                    title = movie?.title.orEmpty()
                 )
             )
+        }
+    }
+
+    fun updateData() {
+        viewModelScope.launch {
+            val movie = _currentMovie.value
+            val pageUrl = movie?.pageUrl
+            val s = interactor.getBaseUrl() + "/" + pageUrl
+            _updateData.emit(s)
         }
     }
 }

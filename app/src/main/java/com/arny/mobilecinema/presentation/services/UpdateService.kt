@@ -14,15 +14,21 @@ import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.models.DataResultWithProgress
+import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.AppConstants.ACTION_DOWNLOAD_DATABASE
 import com.arny.mobilecinema.data.repository.AppConstants.ACTION_UPDATE
+import com.arny.mobilecinema.data.repository.AppConstants.ACTION_UPDATE_BY_URL
 import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_FILE
 import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_FORCE_ALL
+import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_UPDATE_URL
 import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_URL
 import com.arny.mobilecinema.data.utils.unzipData
+import com.arny.mobilecinema.domain.interactors.jsoupupdate.JsoupUpdateInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MoviesData
+import com.arny.mobilecinema.domain.models.UpdateType
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.MainActivity
 import com.arny.mobilecinema.presentation.utils.getAvailableMemory
@@ -54,6 +60,9 @@ class UpdateService : LifecycleService(), CoroutineScope {
 
     @Inject
     lateinit var repository: UpdateRepository
+
+    @Inject
+    lateinit var jsoupUpdateInteractor: JsoupUpdateInteractor
     private val supervisorJob = SupervisorJob()
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
@@ -88,11 +97,86 @@ class UpdateService : LifecycleService(), CoroutineScope {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_UPDATE -> actionUpdate(intent)
+            ACTION_UPDATE_BY_URL -> actionUpdateByUrl(intent)
             ACTION_DOWNLOAD_DATABASE -> actionDownload(intent)
             else -> {}
         }
         return super.onStartCommand(intent, flags, startId)
     }
+
+    private fun actionUpdateByUrl(intent: Intent?) {
+        lifecycleScope.launch(coroutineContext) {
+            try {
+                intent?.getStringExtra(SERVICE_PARAM_UPDATE_URL)
+                    .takeIf { !it.isNullOrBlank() }
+                    ?.let {
+                        jsoupUpdateInteractor.getPageData(it, true) { data ->
+                            when (data) {
+                                is DataResultWithProgress.Error -> {
+                                    Timber.e("DataResultWithProgress.Error ${data.throwable.message}")
+                                }
+
+                                is DataResultWithProgress.Progress -> {
+                                    val result = data.result
+                                    val progress = result.progress
+                                    Timber.d("DataResult $result")
+                                    for (progressItem in progress.keys) {
+                                        when (progressItem) {
+                                            UpdateType.MOVIE -> {
+                                                val movie = progress[UpdateType.MOVIE]
+                                                if (movie != null && result.complete) {
+                                                    updateComplete(result.success)
+                                                }
+                                            }
+
+                                            UpdateType.TITLE -> {
+                                                val title = progress[UpdateType.TITLE]
+                                                if (title != null) {
+                                                    updateNotification(
+                                                        title = getString(
+                                                            R.string.update_cinema_formatted,
+                                                            title
+                                                        ),
+                                                        silent = false
+                                                    )
+                                                }
+                                            }
+
+                                            else -> {}
+                                        }
+                                    }
+                                }
+
+                                is DataResultWithProgress.Success -> {
+                                    updateComplete(true)
+                                }
+                            }
+                        }
+                    } ?: {
+                    throw DataThrowable(R.string.url_is_empty)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                updateCompleteWithError()
+            }
+        }
+    }
+
+    private suspend fun updateComplete(success: Boolean) {
+        sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+            putString(
+                AppConstants.ACTION_UPDATE_STATUS,
+                if (success) {
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS
+                } else {
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
+                }
+            )
+        }
+        delay(1000)
+        stop()
+    }
+
 
     private fun actionDownload(intent: Intent?) {
         lifecycleScope.launch(coroutineContext) {
@@ -103,14 +187,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
-                sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
-                    putString(
-                        AppConstants.ACTION_UPDATE_STATUS,
-                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
-                    )
-                }
-                delay(1000)
-                stop()
+                updateCompleteWithError()
             }
         }
     }
@@ -142,16 +219,20 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
-                sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
-                    putString(
-                        AppConstants.ACTION_UPDATE_STATUS,
-                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
-                    )
-                }
-                delay(1000)
-                stop()
+                updateCompleteWithError()
             }
         }
+    }
+
+    private suspend fun updateCompleteWithError() {
+        sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+            putString(
+                AppConstants.ACTION_UPDATE_STATUS,
+                AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
+            )
+        }
+        delay(1000)
+        stop()
     }
 
     private suspend fun update(filePath: String?, forceAll: Boolean) {

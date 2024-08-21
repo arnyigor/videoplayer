@@ -44,7 +44,6 @@ import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
-import com.arny.mobilecinema.presentation.player.getTrailerUrl
 import com.arny.mobilecinema.presentation.utils.getOrientation
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.initAudioManager
@@ -523,7 +522,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 }
             }
 
-            movie != null && isTrailer -> setTrailerUrl(movie)
             movie != null && movie.type == MovieType.CINEMA && !path.isNullOrBlank() -> {
                 try {
                     setCinemaUrls(movie, time, path)
@@ -654,26 +652,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 setPlayerSource(
                     position, playerSource.getSource(
                         url = cinemaUrl,
-                        title = movie.title
-                    )
-                )
-            } catch (e: Exception) {
-                e.printStackTrace()
-                toast(e.message)
-            }
-        } ?: kotlin.run {
-            toast(getString(R.string.path_not_found))
-            findNavController().navigateUp()
-        }
-    }
-
-    private suspend fun setTrailerUrl(movie: Movie) {
-        movie.getTrailerUrl().takeIf { it.isNotBlank() }?.let { url ->
-            try {
-                setPlayerSource(
-                    time = 0,
-                    source = playerSource.getSource(
-                        url = url,
                         title = movie.title
                     )
                 )

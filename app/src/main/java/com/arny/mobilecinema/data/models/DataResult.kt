@@ -23,8 +23,7 @@ fun <T : Any> doAsync(
     request().also { data ->
         emit(DataResult.Success(data!!))
     }
-}
-    .flowOn(Dispatchers.IO)
+}.flowOn(Dispatchers.IO)
     .catch { exception ->
         exception.printStackTrace()
         emit(DataResult.Error(exception))

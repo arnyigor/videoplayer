@@ -13,12 +13,15 @@ import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.firebase.FeedbackDatabaseImpl
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
+import com.arny.mobilecinema.data.network.jsoup.JsoupServiceHelper
 import com.arny.mobilecinema.data.repository.MoviesRepositoryImpl
+import com.arny.mobilecinema.data.repository.jsoupupdate.JsoupUpdateRepositoryImpl
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProviderImpl
 import com.arny.mobilecinema.data.repository.update.UpdateRepositoryImpl
 import com.arny.mobilecinema.domain.interactors.feedback.FeedbackDatabase
+import com.arny.mobilecinema.domain.repository.JsoupUpdateRepository
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.google.firebase.FirebaseApp
@@ -55,6 +58,10 @@ interface DataModule {
         @Provides
         @Singleton
         fun provideJsoupService(): JsoupService = JsoupService.getInstance()
+
+        @Provides
+        @Singleton
+        fun provideJsoupHelperService(): JsoupServiceHelper = JsoupServiceHelper.getInstance()
 
         @Provides
         @Singleton
@@ -108,6 +115,9 @@ interface DataModule {
     @Binds
     @Singleton
     fun bindsMoviesRepository(impl: MoviesRepositoryImpl): MoviesRepository
+    @Binds
+    @Singleton
+    fun bindsJsoupUpdateRepository(impl: JsoupUpdateRepositoryImpl): JsoupUpdateRepository
 
     @Binds
     @Singleton

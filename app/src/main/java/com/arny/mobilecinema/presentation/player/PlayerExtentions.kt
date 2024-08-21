@@ -25,9 +25,6 @@ fun Movie.getAllCinemaUrls(): List<String> {
     return hdUrls + cinemaUrls
 }
 
-fun Movie.getTrailerUrl(): String = cinemaUrlData?.trailerUrl?.urls?.firstOrNull { it.isNotBlank() }
-    .orEmpty()
-
 fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<String, TrackSelectionOverride>> {
     val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
     val renderTrack = this.currentMappedTrackInfo

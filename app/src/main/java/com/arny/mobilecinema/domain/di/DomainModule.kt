@@ -6,6 +6,8 @@ import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
 import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractorImpl
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractorImpl
+import com.arny.mobilecinema.domain.interactors.jsoupupdate.JsoupUpdateInteractor
+import com.arny.mobilecinema.domain.interactors.jsoupupdate.JsoupUpdateInteractorImpl
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractorImpl
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
@@ -35,6 +37,10 @@ interface DomainModule {
     @Binds
     @Singleton
     fun bindFeedbackInteractor(impl: FeedbackInteractorImpl): FeedbackInteractor
+
+    @Binds
+    @Singleton
+    fun bindJsoupInteractor(impl: JsoupUpdateInteractorImpl): JsoupUpdateInteractor
 
 
     companion object {

@@ -4,11 +4,13 @@ import android.content.Context
 import android.content.Intent
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.api.ApiService
-import com.arny.mobilecinema.data.api.DownloadFileResult
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.db.models.IMovieUpdate
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.db.models.MovieUpdate
+import com.arny.mobilecinema.data.models.DataResultWithProgress
+import com.arny.mobilecinema.data.models.DownloadFileResult
+import com.arny.mobilecinema.data.models.FfmpegResult
 import com.arny.mobilecinema.data.models.setData
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.AppConstants
@@ -21,11 +23,20 @@ import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.FFmpegSession
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import org.joda.time.DateTime
 import org.joda.time.Duration
+import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
+
 
 class UpdateRepositoryImpl @Inject constructor(
     private val apiService: ApiService,
@@ -82,13 +93,46 @@ class UpdateRepositoryImpl @Inject constructor(
     override suspend fun downloadFileWithProgress(
         url: String,
         fileName: String
-    ): Flow<DownloadFileResult> {
+    ): Flow<DataResultWithProgress<DownloadFileResult>> {
         removeOldMP4Downloads()
         val file = File(context.filesDir, fileName).apply { create() }
         return apiService.downloadFileWithProgress(file, url)
     }
 
-    override fun removeOldMP4Downloads() {
+    override suspend fun downloadLinkWithProgress(
+        url: String,
+        file: File
+    ): Flow<DataResultWithProgress<FfmpegResult>> {
+        val cmd = "-i $url -c copy ${file.absolutePath}"
+//        val session: FFmpegSession = FFmpegKit.execute(cmd)
+//        emit(DataResultWithProgress.Success(FfmpegResult(session = session)))
+        return callbackFlow {
+            Timber.d("FFmpegKit cmd :$cmd, thread:${Thread.currentThread().name}")
+            FFmpegKit.executeAsync(cmd, { session ->
+                // CALLED WHEN SESSION IS EXECUTED
+                trySend(DataResultWithProgress.Progress(FfmpegResult(session = session)))
+            }, { log ->
+                // CALLED WHEN SESSION PRINTS LOGS
+                trySend(DataResultWithProgress.Progress(FfmpegResult(log = log)))
+            }, { statistics ->
+                // CALLED WHEN SESSION GENERATES STATISTICS
+                trySend(DataResultWithProgress.Progress(FfmpegResult(statistics = statistics)))
+            })
+            awaitClose()
+        }.flowOn(Dispatchers.IO)
+    }
+
+    private fun ffmpegResult(
+        url: String,
+        file: File
+    ) {
+        val cmd = "-i $url -c copy ${file.absolutePath}"
+        Timber.d("FFmpegKit cmd :$cmd, thread:${Thread.currentThread().name}")
+        val session: FFmpegSession = FFmpegKit.execute(cmd)
+        DataResultWithProgress.Success(FfmpegResult(session = session))
+    }
+
+    override suspend fun removeOldMP4Downloads(): Unit = withContext(Dispatchers.IO) {
         context.filesDir.listFiles()?.let {
             for (file in it) {
                 if (file.path.endsWith("mp4")) {
@@ -98,9 +142,10 @@ class UpdateRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun copyFileToDownloadFolder(file: File, fileName: String): Boolean {
-        return context.saveFileToDownloadFolder(file, fileName)
-    }
+    override suspend fun copyFileToDownloadFolder(file: File, fileName: String): Boolean =
+        withContext(Dispatchers.IO) {
+            context.saveFileToDownloadFolder(file, fileName)
+        }
 
     override suspend fun checkPath(url: String): Boolean {
         val checkPath = apiService.checkPath(url)

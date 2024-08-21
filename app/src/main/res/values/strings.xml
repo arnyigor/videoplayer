@@ -40,12 +40,14 @@
     <string name="need_notice_permission_message">Для работы приложения необходимо разрешить показ уведомлений</string>
     <string name="new_films_update">Доступно новое обновление фильмов</string>
     <string name="full_update">Полное</string>
+    <string name="update_data">Обновить данные</string>
     <string name="full_update_title">Полное обновление</string>
     <string name="full_update_description">Полное обновление фильмов и сериалов позволит получить исправленные ссылки, но время обновления больше</string>
     <string name="question_update_format">Вы хотите загрузить новые фильмы от %s?</string>
     <string name="downloading_update">Загружаем обновление фильмов</string>
     <string name="wating">Подождите…</string>
     <string name="update_started">Обновление началось</string>
+    <string name="update_cinema_formatted">Обновление %s</string>
     <string name="cinema">Фильм</string>
     <string name="serial">Сериал</string>
     <string name="imdb">IMDB</string>
@@ -145,8 +147,10 @@
     <string name="downloading_database">Загрузка базы фильмов…</string>
     <string name="downloading_file">Загрузка файла…</string>
     <string name="downloading_progress">%s из %s, %s%%, %s</string>
+    <string name="downloading_progress_percent_only">%s%%</string>
     <string name="downloading_filename">Загрузка %s</string>
     <string name="download_error_file_is_empty">Загружаемый файл пустой</string>
+    <string name="url_is_empty">Ссылка пустая</string>
     <string name="saving_to_download_file">Сохранение файла в папке загрузки…</string>
     <string name="saved_downloaded_file">Файл сохранен в папке загрузки!</string>
     <string name="downloading_database_error_unsupport_path">Ошибка загрузки файла базы фильмов, установите разрешения для записи и попробуйте снова</string>

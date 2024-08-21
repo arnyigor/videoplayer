@@ -9,6 +9,8 @@ apply from: "$rootProject.projectDir/dependencies.gradle"
 apply from: "$rootProject.projectDir/commonconfig.gradle"
 apply plugin: 'ru.ok.tracer'
 apply plugin: 'com.google.gms.google-services'
+apply plugin: 'kotlinx-serialization'
+
 
 android {
 }
@@ -47,6 +49,9 @@ dependencies {
     tracerLib()
     firebase()
     firebaseDatabase()
+    kotlinxSerialization()
+    bouncycastle()
+    ffmpeg()
 }
 
 tracer {

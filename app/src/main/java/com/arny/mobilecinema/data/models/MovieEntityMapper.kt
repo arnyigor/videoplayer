@@ -26,12 +26,12 @@ fun MovieEntity.setData(data: Movie): MovieEntity {
     description = data.info.description
     updated = data.info.updated
     origTitle = data.info.origTitle
-    seasons = data.seasons.takeIf { it.isNotEmpty() }?.let { it.toJson() }.orEmpty()
+    seasons = data.seasons.takeIf { it.isNotEmpty() }?.toJson().orEmpty()
     hdUrls = data.cinemaUrlData?.hdUrl?.urls?.joinToString(",").orEmpty()
     hdUrlsPoster = data.cinemaUrlData?.hdUrl?.poster.orEmpty()
     cinemaUrls = data.cinemaUrlData?.cinemaUrl?.urls?.joinToString(",").orEmpty()
     cinemaUrlsPoster = data.cinemaUrlData?.cinemaUrl?.poster.orEmpty()
-    trailerUrls = data.cinemaUrlData?.trailerUrl?.urls?.joinToString(",").orEmpty()
-    trailerUrlsPoster = data.cinemaUrlData?.trailerUrl?.poster.orEmpty()
+    trailerUrls = ""
+    trailerUrlsPoster = ""
     return this
 }
