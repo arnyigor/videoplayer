@@ -53,10 +53,10 @@ import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
 import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.printTime
-import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
+import com.arny.mobilecinema.presentation.utils.registerReceiver
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import com.arny.mobilecinema.presentation.utils.toast
-import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
+import com.arny.mobilecinema.presentation.utils.unregisterReceiver
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
@@ -173,6 +173,22 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             checkCache()
         }
     }
+
+    private val updateReceiver by lazy { makeBroadcastReceiver() }
+
+    private fun makeBroadcastReceiver(): BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent != null) {
+                when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+                        viewModel.reloadData()
+                    }
+                }
+            }
+        }
+
+    }
+
     private val downloadUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             viewModel.updateDownloadedData(
@@ -231,14 +247,16 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     override fun onResume() {
         super.onResume()
-        registerLocalReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
-        registerLocalReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
+        registerReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
+        registerReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
+        registerReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
     }
 
     override fun onPause() {
         super.onPause()
-        unregisterLocalReceiver(downloadReceiver)
-        unregisterLocalReceiver(downloadUpdateReceiver)
+        unregisterReceiver(downloadReceiver)
+        unregisterReceiver(downloadUpdateReceiver)
+        unregisterReceiver(updateReceiver)
     }
 
     private fun initMenu() {
@@ -280,7 +298,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     }
 
                     R.id.menu_action_update_data -> {
-                        viewModel.updateData()
+                        viewModel.showUpdateDialog()
                         true
                     }
 
@@ -444,7 +462,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
                     path = popupItems[currentLinkPosition].second,
                     movie = movie,
-                    isTrailer = false,
                 )
             )
         } else {
@@ -454,7 +471,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     movie = movie,
                     seasonIndex = currentSeasonPosition,
                     episodeIndex = currentEpisodePosition,
-                    isTrailer = false,
                 )
             )
         }
@@ -512,10 +528,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             viewModel.alert.collectLatest { alert -> showAlert(alert) }
         }
         launchWhenCreated {
-            viewModel.downloadFile.collectLatest { file -> requestFile(file) }
-        }
-        launchWhenCreated {
-            viewModel.testFile.collectLatest { file -> testFile(file) }
+            viewModel.downloadFile.collectLatest { file -> downloadFile(file) }
         }
         launchWhenCreated { viewModel.downloadAll.collectLatest { downloadAll = it } }
         launchWhenCreated {
@@ -552,24 +565,22 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         )
     }
 
-    private fun requestFile(file: RequestDownloadFile) {
+    private fun downloadFile(file: RequestDownloadFile) {
         sendServiceMessage(
             Intent(requireContext(), MovieDownloadService::class.java),
             AppConstants.ACTION_DOWNLOAD_FILE,
         ) {
+            putString(
+                AppConstants.SERVICE_PARAM_DOWNLOAD_TYPE,
+                if (file.isMp4) {
+                    AppConstants.SERVICE_PARAM_DOWNLOAD_TYPE_MP4
+                } else {
+                    AppConstants.SERVICE_PARAM_DOWNLOAD_TYPE_M3U8
+                }
+            )
             putString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL, file.url)
             putString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME, file.fileName)
             putString(AppConstants.SERVICE_PARAM_DOWNLOAD_TITLE, file.title)
-        }
-    }
-
-    private fun testFile(file: RequestDownloadFile) {
-        sendServiceMessage(
-            Intent(requireContext(), MovieDownloadService::class.java),
-            AppConstants.ACTION_TEST_FILE,
-        ) {
-            putString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL, file.url)
-            putString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME, file.fileName)
         }
     }
 
@@ -648,6 +659,12 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             is AlertType.DownloadFile -> {
                 alert.show {
                     viewModel.downloadSelectedUrlToFile()
+                }
+            }
+
+            is AlertType.UpdateDirect -> {
+                alert.show {
+                    viewModel.updateData()
                 }
             }
 

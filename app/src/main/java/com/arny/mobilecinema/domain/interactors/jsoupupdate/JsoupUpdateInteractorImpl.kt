@@ -29,25 +29,25 @@ import com.arny.mobilecinema.domain.repository.UpdateRepository
 import data.models.AnwapSeasonPlaylist
 import data.utils.isNumeric
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import timber.log.Timber
 import javax.inject.Inject
 import kotlin.math.abs
 
 class JsoupUpdateInteractorImpl @Inject constructor(
-    private val service: JsoupService,
+    private val jsoupService: JsoupService,
     private val repository: JsoupUpdateRepository,
     private val updateRepository: UpdateRepository,
     private val helper: JsoupServiceHelper,
 ) : JsoupUpdateInteractor {
     private companion object {
         const val MAX_TRYING = 3
+        const val IGNORE_COUNT_MAX = 30
     }
 
     private var loadPageTime = 0L
@@ -76,18 +76,16 @@ class JsoupUpdateInteractorImpl @Inject constructor(
     @Volatile
     private var isFullParsing = false
 
-    override suspend fun parsing(
-        pageStr: String,
-        parseType: String,
-    ): Flow<DataResultWithProgress<LoadingData>> = flow {
-        parsingAll(
-            pageStart = pageStr.toInt(),
-            parseType = parseType,
-            updateType = true,
-            flowCollector = this
-        )
-        emit(DataResultWithProgress.Success(LoadingData(complete = true)))
-    }.flowOn(Dispatchers.IO)
+    override suspend fun parsing(flowCollector: FlowCollector<DataResultWithProgress<LoadingData>>) {
+        withContext(Dispatchers.IO) {
+            parsingAll(
+                pageStart = 0,
+                parseType = Selectors.TYPE_ALL,
+                updateType = true,
+                flowCollector = flowCollector
+            )
+        }
+    }
 
     private suspend fun parsingAll(
         pageStart: Int,
@@ -200,6 +198,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         pageTimeStart: Long,
     ) {
         for ((linkId, filmLink) in filmLinks.withIndex()) {
+            yield()
             if (!isParsing) {
                 throw ParsingStopException("Парсинг завершен")
             }
@@ -273,12 +272,15 @@ class JsoupUpdateInteractorImpl @Inject constructor(
                 updateToNow = updateToNow,
                 flowCollector = flowCollector
             )
-            flowCollector.emit(loading(UpdateType.TITLE to anwapMovie.title))
+            flowCollector.emit(loading(UpdateType.TITLE to "\"${anwapMovie.title}\""))
             when {
                 code == 404 && dbMovie != null -> {
                     flowCollector.emit(loading(UpdateType.LINK to "Не найден результат - 404"))
                     flowCollector.emit(loading(UpdateType.MOVIE to dbMovie.toString()))
                     curTry = 1
+                    if (ignoreCount >= IGNORE_COUNT_MAX) {
+                        isParsing = false
+                    }
                     ignoreCount++
                 }
 
@@ -313,7 +315,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
 
                 !dbMovie.hasAllVideoData() -> {
                     val message =
-                        "Обновление видео c \"${dbMovie.title}\" ${dbMovie.pageUrl} на \"${anwapMovie.title}\" ${anwapMovie.pageUrl}"
+                        "Обновление c \"${dbMovie.title}\" ${dbMovie.pageUrl} на \"${anwapMovie.title}\" ${anwapMovie.pageUrl}"
                     flowCollector.emit(loading(UpdateType.LINK to message))
                     val movie = getAnwapMovie(
                         doc = doc,
@@ -355,6 +357,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
                     val oldTime = dbMovie.info.updated.printTime()
                     val newTime = anwapMovie.info.updated.printTime()
                     val time = "Обновление \"${anwapMovie.title}\" c $oldTime на $newTime"
+                    Timber.d(time)
                     flowCollector.emit(loading(UpdateType.LINK to time))
                     val movie = getAnwapMovie(
                         doc = doc,
@@ -372,10 +375,13 @@ class JsoupUpdateInteractorImpl @Inject constructor(
                 }
 
                 else -> {
-                    val oldTime = dbMovie.info.updated.printTime()
-                    flowCollector.emit(loading(UpdateType.LINK to "Уже имеется ${dbMovie.title} с датой $oldTime"))
-                    flowCollector.emit(loading(UpdateType.MOVIE to dbMovie.toString()))
+//                    val oldTime = dbMovie.info.updated.printTime()
+//                    flowCollector.emit(loading(UpdateType.LINK to "Уже имеется ${dbMovie.title} с датой $oldTime"))
+//                    flowCollector.emit(loading(UpdateType.MOVIE to dbMovie.toString()))
                     curTry = 1
+                    if (ignoreCount >= IGNORE_COUNT_MAX) {
+                        isParsing = false
+                    }
                     ignoreCount++
                 }
             }
@@ -384,18 +390,18 @@ class JsoupUpdateInteractorImpl @Inject constructor(
                 is ParsingRetryException -> {
                     if (curTry <= MAX_TRYING) {
                         curTry++
-                        println("Ошибка: не найдены ссылки ${filmLink}, пробуем еще раз, попыток $curTry из $MAX_TRYING")
+                        Timber.d("Ошибка: не найдены ссылки ${filmLink}, пробуем еще раз, попыток $curTry из $MAX_TRYING")
                         flowCollector.emit(loading(UpdateType.MOVIE to "Ошибка ${e.message}, пробуем еще раз, попыток $curTry из $MAX_TRYING"))
                         parseLink(flowCollector, filmLink, updateToNow)
                     } else {
                         e.printStackTrace()
-                        println("Ошибка: попыток $curTry из $MAX_TRYING\n ${e.message}")
+                        Timber.d("Ошибка: попыток $curTry из $MAX_TRYING\n ${e.message}")
                     }
                 }
 
                 is ParsingIgnoreException -> {
                     e.printStackTrace()
-                    println("Ошибка: не найдены ссылки для загрузки ${filmLink}, пропускаем")
+                    Timber.d("Ошибка: не найдены ссылки для загрузки ${filmLink}, пропускаем")
                 }
 
                 else -> {
@@ -422,15 +428,21 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         }
         curTry = 1
         ignoreCount = 0
-        flowCollector.emit(loading(UpdateType.TITLE to "Обновление $s"))
-        flowCollector.emit(loading(UpdateType.MOVIE to movie.toString(), success = updateMovie, complete = true))
+        flowCollector.emit(loading(UpdateType.TITLE to "\"${movie.title}\" $s"))
+        flowCollector.emit(
+            loading(
+                UpdateType.MOVIE to movie.toString(),
+                success = updateMovie,
+                complete = true
+            )
+        )
     }
 
     private fun checkDuplicates(filmLink: String, newMovie: Movie, strongCheck: Boolean): Boolean {
         val dbMovie = repository.selectMovieByImg(newMovie.img)
         return when {
             strongCheck && dbMovie != null -> {
-                println("Уже имеется $filmLink c названием ${dbMovie.title}")
+                Timber.d("Уже имеется $filmLink c названием ${dbMovie.title}")
                 false
             }
 
@@ -453,7 +465,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         ).joinToString(",")
         val duplicates = repository.getDuplicatesBy(group)
         val size = duplicates.size
-        println("duplicates:$size")
+        Timber.d("duplicates:$size")
         val fullList = mutableListOf<Movie>()
         for (duplicate in duplicates) {
             val allDuplicates = repository.getMoviesByQuery(
@@ -473,7 +485,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
                 dbRepository.insertError(movie.pageUrl, "Дублирование")
             }
             repository.removeMovie(movie.dbId)
-            println("${movie.title} -> ${movie.pageUrl}\n")
+            Timber.d("${movie.title} -> ${movie.pageUrl}\n")
         }
         isParsing = false
     }*/
@@ -492,7 +504,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
             val delayMin = 1500L
             val delayMax = 2500L
             val needDelay = loadPageTime in 1L..delayMax
-            val document = service.loadPage(
+            val document = jsoupService.loadPage(
                 url = url,
                 requestHeaders = JsoupServiceHelper.getInstance().headers,
                 currentProxy = null,
@@ -521,7 +533,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
             val delayMin = 1500L
             val delayMax = 2500L
             val needDelay = loadPageTime in 1L..delayMax
-            val document = service.loadUrl(
+            val document = jsoupService.loadUrl(
                 url = url,
                 requestHeaders = helper.headers,
                 needDelay = needDelay,
@@ -587,8 +599,8 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         url: String,
         updateToNow: Boolean,
         flowCollector: FlowCollector<DataResultWithProgress<LoadingData>>
-    )   {
-        withContext(Dispatchers.IO){
+    ) {
+        withContext(Dispatchers.IO) {
             parseLink(
                 flowCollector = flowCollector,
                 filmLink = url,
@@ -950,7 +962,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         return Json.decodeFromString(data)
     }
 
-    fun getAbsentEpisodesLinks(
+    private fun getAbsentEpisodesLinks(
         list: List<SerialEpisode>,
         links: List<String>
     ): Map<Int, String> {
@@ -975,7 +987,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
     }
 
 
-    fun getAbsentSeasonsLinks(
+    private fun getAbsentSeasonsLinks(
         seasons: List<SerialSeason>,
         links: List<String>
     ): Map<Int, String> {
@@ -987,29 +999,6 @@ class JsoupUpdateInteractorImpl @Inject constructor(
                 needSeasonsIds.add(id)
             }
         }
-        /*var index = 0
-        for (season in list) {
-            val episodeId = season.id!! - 1
-            if (episodeId < 0) error("неверный seasonId")
-            when {
-                index == 0 -> {
-                    index = episodeId
-                }
-
-                else -> {
-                    when {
-                        index + 1 != episodeId -> {
-                            needSeasonsIds.add(episodeId)
-                            index = episodeId
-                        }
-
-                        else -> {
-                            index = episodeId
-                        }
-                    }
-                }
-            }
-        }*/
         val needSeasons = mutableMapOf<Int, String>()
         for (needSeason in needSeasonsIds) {
             needSeasons[needSeason] = links[needSeason - 1]

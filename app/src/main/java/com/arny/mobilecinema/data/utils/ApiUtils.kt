@@ -116,6 +116,10 @@ private fun getMaxSpeedKbps(it: NetworkInfo): Int = when (it.subtype) {
     else -> 0
 }
 
+fun getErrorUrl(throwable: Throwable): String? {
+    return ((throwable as? ExoPlaybackException)?.sourceException as? HttpDataSourceException)?.dataSpec?.key
+}
+
 fun getFullError(throwable: Throwable, context: Context? = null): String {
     throwable.printStackTrace()
     var error: String = throwable.message.orEmpty()

@@ -132,6 +132,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                 }
             }
         }
+    private val handler = Handler(Looper.getMainLooper())
     private val updateReceiver by lazy { makeBroadcastReceiver() }
 
     override fun onAttach(context: Context) {
@@ -223,7 +224,7 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     private fun extendedSearch() {
         extendSearchResult?.let {
-            Handler(Looper.getMainLooper()).postDelayed({
+            handler.postDelayed({
                 extendSearch = true
                 viewModel.extendedSearch(it)
                 val search = it.search
@@ -503,6 +504,11 @@ class HomeFragment : Fragment(), OnSearchListener {
 
                     R.id.menu_action_update_list -> {
                         viewModel.loadMovies()
+                        true
+                    }
+
+                    R.id.menu_action_update_download_new -> {
+                        viewModel.onActionUpdateAll()
                         true
                     }
 

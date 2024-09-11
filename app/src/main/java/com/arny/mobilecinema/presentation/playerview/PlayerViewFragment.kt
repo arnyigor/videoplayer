@@ -32,6 +32,7 @@ import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getConnectionType
+import com.arny.mobilecinema.data.utils.getErrorUrl
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
 import com.arny.mobilecinema.di.viewModelFactory
@@ -98,7 +99,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     lateinit var playerSource: PlayerSource
 
     private val viewModel: PlayerViewModel by viewModelFactory { viewModelFactory.create() }
-
+    private var allEpisodes: List<SerialEpisode> = emptyList()
+    private var currentEpisodeIndex: Int = -1
     private var title: String = ""
     private var currentCinemaUrl: String? = null
     private var timePosition: Long = 0L
@@ -305,15 +307,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     toast(lastError)
                 }
             }
-//            val s = " (${cause?.stackTraceToString()})"
             viewModel.setLastPlayerError(lastError)
-            viewModel.retryOpenCinema(currentCinemaUrl)
+            val errorUrl = getErrorUrl(error)
+            val serialEpisode = allEpisodes.getOrNull(currentEpisodeIndex)
+            viewModel.retryOpenCinema(errorUrl, serialEpisode)
         }
 
-        /*override fun onCues(cueGroup: CueGroup) {
-            super.onCues(cueGroup)
-//            binding.sbtvSubtitles.setCues(cueGroup.cues)
-        }*/
         override fun onPlaybackStateChanged(playbackState: Int) {
             updateState(playbackState)
         }
@@ -458,7 +457,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                         movie = movie,
                         seasonIndex = season,
                         episodeIndex = episode,
-                        isTrailer = state.isTrailer
+                        excludeUrls = state.excludeUrls
                     )
                 }
             }
@@ -473,6 +472,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         launchWhenCreated {
             viewModel.toast.collectLatest { toastRes ->
                 toast(toastRes.toString(requireContext()))
+            }
+        }
+        launchWhenCreated {
+            viewModel.back.collectLatest {
+                findNavController().navigateUp()
             }
         }
     }
@@ -507,7 +511,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         movie: Movie?,
         seasonIndex: Int? = 0,
         episodeIndex: Int? = 0,
-        isTrailer: Boolean = false
+        excludeUrls: Set<String>
     ) {
         when {
             movie == null && !path.isNullOrBlank() -> {
@@ -546,7 +550,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                         movie = movie,
                         seasonIndex = seasonIndex,
                         episodeIndex = episodeIndex,
-                        position = time
+                        position = time,
+                        excludeUrls = excludeUrls
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -565,27 +570,29 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         movie: Movie,
         seasonIndex: Int?,
         episodeIndex: Int?,
-        position: Long
+        position: Long,
+        excludeUrls: Set<String>
     ) {
         val seasons = movie.seasons
         val serialSeasons = seasons.sortedBy { it.id }
-        val allEpisodes = serialSeasons.flatMap {
+        allEpisodes = serialSeasons.flatMap {
             it.episodes.sortedBy { episode ->
                 findByGroup(episode.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
             }
         }
         val size = allEpisodes.size
         if (allEpisodes.all { it.dash.isNotBlank() || it.hls.isNotBlank() }) {
-            val startEpisodeIndex = fillPlayerEpisodes(
+            currentEpisodeIndex = fillPlayerEpisodes(
                 serialSeasons = serialSeasons.toList(),
                 seasonIndex = seasonIndex,
                 episodeIndex = episodeIndex,
-                allEpisodes = allEpisodes
+                allEpisodes = allEpisodes,
+                excludeUrls = excludeUrls
             )
             binding.playerView.setShowNextButton(size > 0)
             binding.playerView.setShowPreviousButton(size > 0)
             player?.apply {
-                player?.seekTo(startEpisodeIndex, position)
+                player?.seekTo(currentEpisodeIndex, position)
                 addListener(listener)
                 prepare()
             }
@@ -599,9 +606,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         serialSeasons: List<SerialSeason>,
         seasonIndex: Int?,
         episodeIndex: Int?,
-        allEpisodes: List<SerialEpisode>
+        allEpisodes: List<SerialEpisode>,
+        excludeUrls: Set<String>
     ): Int {
         var currentIndexEpisode = 0
+        val mediaSources = mutableListOf<MediaSource>()
         for ((s, season) in serialSeasons.withIndex()) {
             val episodes = season.episodes.sortedBy { episode ->
                 findByGroup(episode.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
@@ -613,16 +622,23 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                         currentIndexEpisode = 0
                     }
                 }
+                val url = when {
+                    !excludeUrls.contains(episode.dash) -> episode.dash
+                    !excludeUrls.contains(episode.hls) -> episode.hls
+                    else -> null
+                }
                 playerSource.getSource(
-                    url = episode.dash.ifBlank { episode.hls },
+                    url = url,
                     title = episode.title,
                     season = s,
                     episode = e
-                )?.let { source ->
-                    player?.addMediaSource(source)
+                )?.let {
+                    mediaSources.add(it)
                 }
             }
         }
+        player?.clearMediaItems()
+        player?.setMediaSources(mediaSources)
         return currentIndexEpisode
     }
 
@@ -774,19 +790,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 movie = args.movie,
                 seasonIndex = args.seasonIndex,
                 episodeIndex = args.episodeIndex,
-                trailer = args.isTrailer
             )
-//            Timber.d("preparePlayer complete")
-//            changePlaybackSpeed()
         }
     }
 
     private fun resetVolumeHandlerState() {
         volumeHandler.removeCallbacksAndMessages(null)
     }
-    /*fun changePlaybackSpeed(){
-       player?.playbackSpeed = 1.1f
-    }*/
 
     private fun initEnhancer() {
         val audioSessionId = player?.audioSessionId
@@ -931,7 +941,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                             path = popupItems[menuItem.itemId].second,
                             time = getTimePosition(player?.currentPosition ?: 0),
                             movie = movie,
-                            isTrailer = false
                         )
                     }
                     true

@@ -10,13 +10,16 @@ import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SaveData
+import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.presentation.player.getAllCinemaUrls
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -38,6 +41,8 @@ class PlayerViewModel @AssistedInject constructor(
     val error = _error.receiveAsFlow()
     private val _toast = BufferedChannel<IWrappedString>()
     val toast = _toast.receiveAsFlow()
+    private val _back = MutableSharedFlow<Unit>()
+    val back = _back.asSharedFlow()
 
     fun saveMoviePosition(dbId: Long?, time: Long, season: Int, episode: Int) {
         viewModelScope.launch {
@@ -46,22 +51,15 @@ class PlayerViewModel @AssistedInject constructor(
 
             val playerUiState = _uiState.value
             if (dbId != null) {
-                when {
-                    playerUiState.movie?.type == MovieType.CINEMA && !playerUiState.isTrailer -> {
+                when (playerUiState.movie?.type) {
+                    MovieType.CINEMA -> {
                         val save = historyInteractor.saveCinemaPosition(dbId, time)
                         if (!save) {
                             _error.trySend(ResourceString(R.string.movie_save_error))
                         }
                     }
 
-                    (playerUiState.movie?.type == MovieType.CINEMA || playerUiState.movie?.type == MovieType.SERIAL)
-                            && playerUiState.isTrailer -> {
-                        _uiState.value = _uiState.value.copy(
-                            isTrailer = false
-                        )
-                    }
-
-                    playerUiState.movie?.type == MovieType.SERIAL && !playerUiState.isTrailer -> {
+                    MovieType.SERIAL -> {
                         val state = _uiState.value
                         val save = historyInteractor.saveSerialPosition(
                             movieDbId = dbId,
@@ -75,6 +73,8 @@ class PlayerViewModel @AssistedInject constructor(
                             _error.trySend(ResourceString(R.string.movie_save_error))
                         }
                     }
+
+                    else -> {}
                 }
             }
         }
@@ -85,7 +85,6 @@ class PlayerViewModel @AssistedInject constructor(
         movie: Movie?,
         seasonIndex: Int,
         episodeIndex: Int,
-        trailer: Boolean
     ) {
         viewModelScope.launch {
             historyInteractor.getSaveData(movie?.dbId)
@@ -104,7 +103,6 @@ class PlayerViewModel @AssistedInject constructor(
                                 time = getTime(movie, saveData, seasonIndex, episodeIndex),
                                 season = seasonIndex,
                                 episode = episodeIndex,
-                                isTrailer = trailer
                             )
                         }
                     }
@@ -142,22 +140,42 @@ class PlayerViewModel @AssistedInject constructor(
         feedbackInteractor.setLastError(error)
     }
 
-    fun retryOpenCinema(currentCinemaUrl: String?) {
+    fun retryOpenCinema(
+        errorUrl: String?,
+        serialEpisode: SerialEpisode?,
+    ) {
         val state = _uiState.value
-        if (state.movie?.type == MovieType.CINEMA) {
-            val excludeCinemaUrls = state.excludeCinemaUrls.toMutableList()
-            if (currentCinemaUrl != null && !excludeCinemaUrls.contains(currentCinemaUrl)) {
-                excludeCinemaUrls.add(currentCinemaUrl)
-                val nextCinemaUrl = state.movie.getAllCinemaUrls().firstOrNull {
-                    it !in excludeCinemaUrls && it.isNotBlank()
+        val excludeUrls = state.excludeUrls.toMutableSet()
+        if (!errorUrl.isNullOrBlank()) {
+            excludeUrls.add(errorUrl)
+        }
+        var nextCinemaUrl: String? = null
+        var hasAnyUrls = false
+        when (state.movie?.type) {
+            MovieType.CINEMA -> {
+                nextCinemaUrl = state.movie.getAllCinemaUrls().firstOrNull {
+                    it !in excludeUrls && it.isNotBlank()
                 }
-                if (!nextCinemaUrl.isNullOrBlank()) {
-                    _toast.trySend(ResourceString(R.string.try_open_next_link))
-                    _uiState.value = state.copy(
-                        path = nextCinemaUrl,
-                        excludeCinemaUrls = excludeCinemaUrls
-                    )
-                }
+                hasAnyUrls = !nextCinemaUrl.isNullOrBlank()
+            }
+
+            MovieType.SERIAL -> {
+                hasAnyUrls = !excludeUrls.contains(serialEpisode?.hls) ||
+                        !excludeUrls.contains(serialEpisode?.dash)
+            }
+
+            else -> {}
+        }
+        if (hasAnyUrls) {
+            _toast.trySend(ResourceString(R.string.try_open_next_link))
+            _uiState.value = state.copy(
+                path = nextCinemaUrl,
+                excludeUrls = excludeUrls
+            )
+        } else {
+            _toast.trySend(ResourceString(R.string.no_any_links_to_open))
+            viewModelScope.launch {
+                _back.emit(Unit)
             }
         }
     }

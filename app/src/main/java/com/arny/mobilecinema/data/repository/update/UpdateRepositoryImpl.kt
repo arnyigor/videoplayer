@@ -24,7 +24,6 @@ import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import com.arthenica.ffmpegkit.FFmpegKit
-import com.arthenica.ffmpegkit.FFmpegSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -103,7 +102,7 @@ class UpdateRepositoryImpl @Inject constructor(
         url: String,
         file: File
     ): Flow<DataResultWithProgress<FfmpegResult>> {
-        val cmd = "-i $url -c copy ${file.absolutePath}"
+        val cmd = "-y -i $url -c copy ${file.absolutePath}"
 //        val session: FFmpegSession = FFmpegKit.execute(cmd)
 //        emit(DataResultWithProgress.Success(FfmpegResult(session = session)))
         return callbackFlow {
@@ -120,16 +119,6 @@ class UpdateRepositoryImpl @Inject constructor(
             })
             awaitClose()
         }.flowOn(Dispatchers.IO)
-    }
-
-    private fun ffmpegResult(
-        url: String,
-        file: File
-    ) {
-        val cmd = "-i $url -c copy ${file.absolutePath}"
-        Timber.d("FFmpegKit cmd :$cmd, thread:${Thread.currentThread().name}")
-        val session: FFmpegSession = FFmpegKit.execute(cmd)
-        DataResultWithProgress.Success(FfmpegResult(session = session))
     }
 
     override suspend fun removeOldMP4Downloads(): Unit = withContext(Dispatchers.IO) {
@@ -178,6 +167,13 @@ class UpdateRepositoryImpl @Inject constructor(
             putString(AppConstants.SERVICE_PARAM_URL, url)
             putBoolean(AppConstants.SERVICE_PARAM_FORCE_ALL, forceUpdate)
         }
+    }
+
+    override fun updateAll() {
+        context.sendServiceMessage(
+            Intent(context.applicationContext, UpdateService::class.java),
+            AppConstants.ACTION_UPDATE_ALL
+        )
     }
 
     override fun updateMovies(

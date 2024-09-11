@@ -301,7 +301,6 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             AppConstants.ACTION_DOWNLOAD_FILE -> downloadFile(intent)
-            AppConstants.ACTION_TEST_FILE -> testFile(intent)
             AppConstants.ACTION_CACHE_MOVIE -> download(intent)
             AppConstants.ACTION_CACHE_MOVIE_CANCEL -> cancelDownload()
             AppConstants.ACTION_CACHE_MOVIE_EXIT -> exitDownload()
@@ -313,11 +312,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         return super.onStartCommand(intent, flags, startId)
     }
 
-    private fun testFile(intent: Intent?) {
-        val extras = intent?.extras
-        val url = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL).orEmpty()
-        val fileName = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME).orEmpty()
-        val title = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_TITLE).orEmpty()
+    private fun downloadM3u8Files(title: String, fileName: String, url: String) {
         fileDownloadJob = lifecycleScope.launch(coroutineContext) {
             updateNotification(
                 title = getString(R.string.downloading_filename, title),
@@ -332,10 +327,10 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             nextDuration = false
             curDwnldDurationMs = 0L
             val file = File(filesDir, fileName)
-            updateRepository.downloadLinkWithProgress(url, file).collectLatest { test ->
-                when (test) {
+            updateRepository.downloadLinkWithProgress(url, file).collectLatest { progress ->
+                when (progress) {
                     is DataResultWithProgress.Error -> {
-                        val stackTraceToString = test.throwable.stackTraceToString()
+                        val stackTraceToString = progress.throwable.stackTraceToString()
                         Timber.e("Error:$stackTraceToString")
                         Toast.makeText(applicationContext, stackTraceToString, Toast.LENGTH_SHORT)
                             .show()
@@ -343,11 +338,11 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                     }
 
                     is DataResultWithProgress.Progress -> {
-                        showFfmpegResult(test.result, title)
+                        showFfmpegResult(progress.result, title, file)
                     }
 
                     is DataResultWithProgress.Success -> {
-                        showFfmpegResult(test.result, title)
+                        showFfmpegResult(progress.result, title, file)
                         updateNotification(
                             title = getString(R.string.saving_to_download_file),
                             text = fileName,
@@ -361,7 +356,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         }
     }
 
-    private fun showFfmpegResult(result: FfmpegResult, title: String) {
+    private suspend fun showFfmpegResult(result: FfmpegResult, title: String, file: File) {
         when {
             result.result != null -> {
                 Timber.d("result:${result.result}")
@@ -394,6 +389,13 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                     session.failStackTrace
                 )
                 Timber.d("Session: $format")
+                if (state == SessionState.COMPLETED) {
+                    if (returnCode.isValueSuccess) {
+                        saveAndClose(file)
+                    } else {
+                        stopCurrentService()
+                    }
+                }
             }
 
             result.statistics != null -> {
@@ -410,7 +412,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                             )
                         ),
                         silent = true,
-                        false
+                        addUpdateActions = false
                     )
                 }
                 Timber.d(
@@ -461,6 +463,24 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         val url = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_URL).orEmpty()
         val fileName = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_FILENAME).orEmpty()
         val title = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_TITLE).orEmpty()
+        val type = extras?.getString(AppConstants.SERVICE_PARAM_DOWNLOAD_TYPE).orEmpty()
+        when (type) {
+            AppConstants.SERVICE_PARAM_DOWNLOAD_TYPE_MP4 -> {
+                downloadAndSaveMp4File(title, fileName, url)
+            }
+
+            AppConstants.SERVICE_PARAM_DOWNLOAD_TYPE_M3U8 -> {
+                downloadM3u8Files(title, fileName, url)
+            }
+
+            else -> {
+                stopCurrentService()
+            }
+        }
+
+    }
+
+    private fun downloadAndSaveMp4File(title: String, fileName: String, url: String) {
         fileDownloadJob = lifecycleScope.launch(coroutineContext) {
             updateNotification(
                 title = getString(R.string.downloading_filename, title),
@@ -623,14 +643,14 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     }
 
     private fun stopCurrentService() {
+        playerSource.removeListener()
+        fileDownloadJob?.cancel(CancellationException("Service Stopped"))
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         } else {
             stopSelf()
         }
-        playerSource.removeListener()
-        fileDownloadJob?.cancel(CancellationException("Service Stopped"))
     }
 
     private fun updateNotification(

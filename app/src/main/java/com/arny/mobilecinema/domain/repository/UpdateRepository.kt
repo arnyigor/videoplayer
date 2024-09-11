@@ -27,4 +27,5 @@ interface UpdateRepository {
     suspend fun downloadFileWithProgress(url: String, fileName: String): Flow<DataResultWithProgress<DownloadFileResult>>
     suspend fun removeOldMP4Downloads()
     suspend fun downloadLinkWithProgress(url: String, file: File): Flow<DataResultWithProgress<FfmpegResult>>
+    fun updateAll()
 }

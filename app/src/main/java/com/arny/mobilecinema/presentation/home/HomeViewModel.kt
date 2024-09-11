@@ -218,6 +218,10 @@ class HomeViewModel @AssistedInject constructor(
                     _toast.emit(ResourceString(R.string.update_started))
                     dataUpdateInteractor.requestFile(type.force, type.hasPartUpdate)
                 }
+                is AlertType.UpdateAll -> {
+                    _toast.emit(ResourceString(R.string.update_started))
+                    dataUpdateInteractor.updateAll()
+                }
                 else -> {}
             }
         }
@@ -323,5 +327,21 @@ class HomeViewModel @AssistedInject constructor(
         years = SimpleIntRange()
         imdbRange = SimpleFloatRange()
         kpRange = SimpleFloatRange()
+    }
+
+    fun onActionUpdateAll() {
+        viewModelScope.launch {
+            _alert.trySend(
+                Alert(
+                    title = ResourceString(R.string.update_all_cinem_title),
+                    content = ResourceString(
+                        R.string.question_update_all,
+                    ),
+                    btnOk = ResourceString(android.R.string.ok),
+                    btnCancel = ResourceString(android.R.string.cancel),
+                    type = AlertType.UpdateAll
+                )
+            )
+        }
     }
 }

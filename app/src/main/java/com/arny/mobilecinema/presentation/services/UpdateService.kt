@@ -19,6 +19,8 @@ import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.AppConstants.ACTION_DOWNLOAD_DATABASE
 import com.arny.mobilecinema.data.repository.AppConstants.ACTION_UPDATE
+import com.arny.mobilecinema.data.repository.AppConstants.ACTION_UPDATE_ALL
+import com.arny.mobilecinema.data.repository.AppConstants.ACTION_UPDATE_ALL_CANCEL
 import com.arny.mobilecinema.data.repository.AppConstants.ACTION_UPDATE_BY_URL
 import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_FILE
 import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_FORCE_ALL
@@ -38,8 +40,10 @@ import com.google.gson.stream.JsonReader
 import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -64,6 +68,8 @@ class UpdateService : LifecycleService(), CoroutineScope {
     @Inject
     lateinit var jsoupUpdateInteractor: JsoupUpdateInteractor
     private val supervisorJob = SupervisorJob()
+    private var canceled = false
+    private var downloadAllJob: Job? = null
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.Main + supervisorJob
 
@@ -74,10 +80,10 @@ class UpdateService : LifecycleService(), CoroutineScope {
             startForeground(
                 NOTICE_ID,
                 getNotice(
-                    channelId = "updating_channel_name",
-                    channelName = getString(R.string.updating_channel_name),
-                    title = getString(R.string.updating, 0),
-                    silent = false
+                    channelId = "channelId",
+                    channelName = "channelName",
+                    title = getString(R.string.updating_all),
+                    silent = true
                 ),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
             )
@@ -85,10 +91,10 @@ class UpdateService : LifecycleService(), CoroutineScope {
             startForeground(
                 NOTICE_ID,
                 getNotice(
-                    channelId = "updating_channel_name",
-                    channelName = getString(R.string.updating_channel_name),
-                    title = getString(R.string.updating, 0),
-                    silent = false
+                    channelId = "channelId",
+                    channelName = "channelName",
+                    title = getString(R.string.updating_all),
+                    silent = true
                 ),
             )
         }
@@ -99,66 +105,75 @@ class UpdateService : LifecycleService(), CoroutineScope {
             ACTION_UPDATE -> actionUpdate(intent)
             ACTION_UPDATE_BY_URL -> actionUpdateByUrl(intent)
             ACTION_DOWNLOAD_DATABASE -> actionDownload(intent)
+            ACTION_UPDATE_ALL -> actionDownloadAll()
+            ACTION_UPDATE_ALL_CANCEL -> cancelAllAndStop()
             else -> {}
         }
         return super.onStartCommand(intent, flags, startId)
     }
 
+    private fun cancelAllAndStop() {
+        downloadAllJob?.cancel()
+        getNoticeManager().cancel(NOTICE_ID)
+        stop()
+    }
+
     private fun actionUpdateByUrl(intent: Intent?) {
         lifecycleScope.launch(coroutineContext) {
             try {
-                intent?.getStringExtra(SERVICE_PARAM_UPDATE_URL)
-                    .takeIf { !it.isNullOrBlank() }
-                    ?.let {
-                        jsoupUpdateInteractor.getPageData(it, true) { data ->
-                            when (data) {
-                                is DataResultWithProgress.Error -> {
-                                    Timber.e("DataResultWithProgress.Error ${data.throwable.message}")
-                                }
-
-                                is DataResultWithProgress.Progress -> {
-                                    val result = data.result
-                                    val progress = result.progress
-                                    Timber.d("DataResult $result")
-                                    for (progressItem in progress.keys) {
-                                        when (progressItem) {
-                                            UpdateType.MOVIE -> {
-                                                val movie = progress[UpdateType.MOVIE]
-                                                if (movie != null && result.complete) {
-                                                    updateComplete(result.success)
-                                                }
-                                            }
-
-                                            UpdateType.TITLE -> {
-                                                val title = progress[UpdateType.TITLE]
-                                                if (title != null) {
-                                                    updateNotification(
-                                                        title = getString(
-                                                            R.string.update_cinema_formatted,
-                                                            title
-                                                        ),
-                                                        silent = false
-                                                    )
-                                                }
-                                            }
-
-                                            else -> {}
-                                        }
-                                    }
-                                }
-
-                                is DataResultWithProgress.Success -> {
-                                    updateComplete(true)
-                                }
-                            }
-                        }
-                    } ?: {
-                    throw DataThrowable(R.string.url_is_empty)
-                }
+                getPageData(intent?.getStringExtra(SERVICE_PARAM_UPDATE_URL))
             } catch (e: Exception) {
                 e.printStackTrace()
                 updateCompleteWithError()
             }
+        }
+    }
+
+    private suspend fun getPageData(url: String?) {
+        if (!url.isNullOrBlank()) {
+            jsoupUpdateInteractor.getPageData(url, true) { data ->
+                when (data) {
+                    is DataResultWithProgress.Error -> {
+                        Timber.e("DataResultWithProgress.Error ${data.throwable.message}")
+                    }
+
+                    is DataResultWithProgress.Progress -> {
+                        val result = data.result
+                        val progress = result.progress
+                        for (progressItem in progress.keys) {
+                            when (progressItem) {
+                                UpdateType.MOVIE -> {
+                                    val movie = progress[UpdateType.MOVIE]
+                                    if (movie != null && result.complete) {
+                                        updateComplete(result.success)
+                                    }
+                                }
+
+                                UpdateType.TITLE -> {
+                                    val title = progress[UpdateType.TITLE]
+                                    if (title != null) {
+                                        updateNotification(
+                                            title = getString(
+                                                R.string.update_cinema_formatted,
+                                                title
+                                            ),
+                                            silent = false
+                                        )
+                                    }
+                                }
+
+                                else -> {}
+                            }
+                        }
+                    }
+
+                    is DataResultWithProgress.Success -> {
+                        updateComplete(true)
+                    }
+                }
+            }
+        } else {
+            throw DataThrowable(R.string.url_is_empty)
         }
     }
 
@@ -177,7 +192,6 @@ class UpdateService : LifecycleService(), CoroutineScope {
         stop()
     }
 
-
     private fun actionDownload(intent: Intent?) {
         lifecycleScope.launch(coroutineContext) {
             try {
@@ -187,6 +201,19 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
+                updateCompleteWithError()
+            }
+        }
+    }
+
+    private fun actionDownloadAll() {
+        downloadAllJob?.cancel()
+        downloadAllJob = lifecycleScope.launch(coroutineContext) {
+            try {
+                downloadAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                ensureActive()
                 updateCompleteWithError()
             }
         }
@@ -206,6 +233,60 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 )
             } else {
                 stop()
+            }
+        }
+    }
+
+    private suspend fun downloadAll() {
+        updateNotification(
+            title = getString(R.string.updating_all),
+            addStopAction = true,
+            silent = false
+        )
+        jsoupUpdateInteractor.parsing { data ->
+            when (data) {
+                is DataResultWithProgress.Error -> {
+                    Timber.e("DataResultWithProgress.Error ${data.throwable.message}")
+                }
+
+                is DataResultWithProgress.Progress -> {
+                    val result = data.result
+                    val progress = result.progress
+                    for (progressItem in progress.keys) {
+                        when (progressItem) {
+                            UpdateType.TITLE -> {
+                                val title1 = UpdateType.TITLE
+                                val title = progress[title1]
+                                if (title != null) {
+                                    updateNotification(
+                                        title = getString(
+                                            R.string.update_cinema_formatted,
+                                            title
+                                        ),
+                                        addStopAction = true,
+                                        silent = true
+                                    )
+                                }
+                            }
+                            UpdateType.LINK -> {
+                                val link = progress[UpdateType.LINK]
+                                if (link != null) {
+                                    updateNotification(
+                                        title = link,
+                                        addStopAction = true,
+                                        silent = true
+                                    )
+                                }
+                            }
+
+                            else -> {}
+                        }
+                    }
+                }
+
+                is DataResultWithProgress.Success -> {
+                    updateComplete(true)
+                }
             }
         }
     }
@@ -244,64 +325,67 @@ class UpdateService : LifecycleService(), CoroutineScope {
                         AppConstants.ACTION_UPDATE_STATUS_STARTED
                     )
                 }
-                val file = File(filePath)
-//                Timber.d("has zip file:${formatFileSize(file.length())}")
-                val dataFiles = applicationContext.unzipData(file, extension = ".json")
-//                Timber.d("unzipData dataFiles:${dataFiles.map { "file:${it.name}:${formatFileSize(it.length())}" }}")
-                if (dataFiles.isNotEmpty()) {
-                    var success = false
-                    val hasUpdate = !forceAll && repository.hasLastUpdates()
-                    var anwapMovies: List<Movie> = emptyList()
-                    if (!getAvailableMemory().lowMemory) {
-                        anwapMovies = readData(dataFiles, hasUpdate)
-                    }
-//                    Timber.d("read files complete:${anwapMovies.size}")
-                    if (anwapMovies.isNotEmpty()) {
-                        file.delete()
-                        dataFiles.forEach {
-                            it.delete()
-                        }
-                        try {
-                            repository.updateMovies(
-                                anwapMovies,
-                                hasUpdate,
-                                forceAll
-                            ) { percent ->
-                                updateNotification(getString(R.string.updating, percent), true)
-                            }
-                            repository.setLastUpdate()
-                            updateNotification(
-                                title = getString(R.string.update_finished_success),
-                                silent = false
-                            )
-                            success = true
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                            updateNotification(
-                                title = getString(R.string.update_finished_error, e.message),
-                                silent = false
-                            )
-                            success = false
-                        }
-                    }
-                    val completeStatus = if (success) {
-                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS
-                    } else {
-                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
-                    }
-                    sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
-                        putString(AppConstants.ACTION_UPDATE_STATUS, completeStatus)
-                    }
-                    delay(3000) // wait for sending broadcast FIXME
-                    stop()
-                }
+                readFile(filePath, forceAll)
             } else {
                 stop()
             }
         }
     }
 
+    private suspend fun readFile(filePath: String, forceAll: Boolean) {
+        val file = File(filePath)
+        val dataFiles = applicationContext.unzipData(file, extension = ".json")
+        if (dataFiles.isNotEmpty()) {
+            var success = false
+            val hasUpdate = !forceAll && repository.hasLastUpdates()
+            var anwapMovies: List<Movie> = emptyList()
+            if (!getAvailableMemory().lowMemory) {
+                anwapMovies = readData(dataFiles, hasUpdate)
+            }
+            //                    Timber.d("read files complete:${anwapMovies.size}")
+            if (anwapMovies.isNotEmpty()) {
+                file.delete()
+                dataFiles.forEach {
+                    it.delete()
+                }
+                try {
+                    repository.updateMovies(
+                        anwapMovies,
+                        hasUpdate,
+                        forceAll
+                    ) { percent ->
+                        updateNotification(getString(R.string.updating, percent), true)
+                    }
+                    repository.setLastUpdate()
+                    updateNotification(
+                        title = getString(R.string.update_finished_success),
+                        silent = false
+                    )
+                    success = true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    updateNotification(
+                        title = getString(R.string.update_finished_error, e.message),
+                        silent = false
+                    )
+                    success = false
+                }
+            }
+            val completeStatus = if (success) {
+                AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS
+            } else {
+                AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
+            }
+            sendBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                putString(AppConstants.ACTION_UPDATE_STATUS, completeStatus)
+            }
+            delay(3000) // wait for sending broadcast FIXME
+            stop()
+        }
+    }
+
     private fun stop() {
+        canceled = true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -358,17 +442,27 @@ class UpdateService : LifecycleService(), CoroutineScope {
         emptyList()
     }
 
-    private fun updateNotification(title: String, silent: Boolean) {
-        (applicationContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(
-            NOTICE_ID,
-            getNotice("channelId", "channelName", title, silent)
-        )
+    private fun updateNotification(
+        title: String,
+        silent: Boolean,
+        addStopAction: Boolean = false,
+    ) {
+        if (!canceled) {
+            getNoticeManager().notify(
+                NOTICE_ID,
+                getNotice("channelId", "channelName", title, addStopAction, silent)
+            )
+        }
     }
+
+    private fun getNoticeManager() =
+        applicationContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
     private fun Context.getNotice(
         channelId: String,
         channelName: String,
         title: String,
+        addStopAction: Boolean = false,
         silent: Boolean
     ): Notification {
         val contentIntent = PendingIntent.getActivity(
@@ -376,6 +470,19 @@ class UpdateService : LifecycleService(), CoroutineScope {
             /* requestCode = */ 0,
             /* intent = */ Intent(this, MainActivity::class.java),
             /* flags = */  getFlag()
+        )
+        val pendingFlags: Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val stopIntent: PendingIntent = PendingIntent.getService(
+            /* context = */ this,
+            /* requestCode = */ 0,
+            /* intent = */ Intent(this, UpdateService::class.java).apply {
+                action = ACTION_UPDATE_ALL_CANCEL
+            },
+            /* flags = */ pendingFlags
         )
         return getNotificationBuilder(channelId, channelName)
             .apply {
@@ -385,6 +492,13 @@ class UpdateService : LifecycleService(), CoroutineScope {
                 priority = NotificationCompat.PRIORITY_DEFAULT
                 setSmallIcon(android.R.drawable.stat_sys_download)
                 setContentIntent(contentIntent)
+                if (addStopAction) {
+                    addAction(
+                        R.drawable.ic_stop_circle,
+                        getString(android.R.string.cancel),
+                        stopIntent
+                    )
+                }
                 setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             }.build()
     }

@@ -14,6 +14,7 @@ import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.RequestDownloadFile
 import com.arny.mobilecinema.presentation.player.PlayerSource
+import com.arny.mobilecinema.presentation.player.getAllCinemaUrls
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
@@ -79,12 +80,14 @@ class DetailsViewModel @AssistedInject constructor(
     val alert = _alert.asSharedFlow()
     private val _downloadFile = BufferedSharedFlow<RequestDownloadFile>()
     val downloadFile = _downloadFile.asSharedFlow()
-    private val _testFile = BufferedSharedFlow<RequestDownloadFile>()
-    val testFile = _testFile.asSharedFlow()
     private val _updateData = BufferedSharedFlow<String>()
     val updateData = _updateData.asSharedFlow()
 
     init {
+        reloadData()
+    }
+
+    fun reloadData() {
         loadVideo()
         observeChanges()
     }
@@ -153,7 +156,6 @@ class DetailsViewModel @AssistedInject constructor(
                             )
                         }
                     }
-//                    updateSerialTitle()
                 }
         }
     }
@@ -172,13 +174,13 @@ class DetailsViewModel @AssistedInject constructor(
     }
 
     private fun initDownloadFileAlert(movie: Movie) {
-        selectedCinemaUrl
         val availableToDownload =
             interactor.isAvailableToDownload(selectedCinemaUrl, movie.type)
+        val mp4Link = movie.getAllCinemaUrls().find { it.endsWith("mp4") }?.substringAfterLast("/").orEmpty()
         if (availableToDownload) {
             downloadAlert = Alert(
                 title = ResourceString(R.string.cinema_download_attention),
-                content = ResourceString(R.string.download_description),
+                content = ResourceString(R.string.download_description, mp4Link),
                 btnOk = ResourceString(android.R.string.ok),
                 btnCancel = ResourceString(android.R.string.cancel),
                 type = AlertType.DownloadFile(link = selectedCinemaUrl.orEmpty())
@@ -333,7 +335,7 @@ class DetailsViewModel @AssistedInject constructor(
                         )
                     )
                 }
-                // Текущий фильм,но ссылки разные(возможно сериал,но нужно будет привязаться к эпизодам)
+
                 titleEquals -> {
                     currentCacheAlert = Alert(
                         title = ResourceString(
@@ -537,6 +539,21 @@ class DetailsViewModel @AssistedInject constructor(
         }
     }
 
+    fun showUpdateDialog() {
+        viewModelScope.launch {
+            val movieType = _currentMovie.value?.type
+            val i = if (movieType == MovieType.SERIAL) R.string.serial else R.string.cinema
+            currentCacheAlert = Alert(
+                title = ResourceString(R.string.update_attention, i),
+                content = ResourceString(R.string.update_description),
+                btnOk = ResourceString(android.R.string.ok),
+                btnCancel = ResourceString(android.R.string.cancel),
+                type = AlertType.UpdateDirect
+            )
+            currentCacheAlert?.let { _alert.emit(it) }
+        }
+    }
+
     fun showDownloadDialog() {
         viewModelScope.launch {
             val movie = _currentMovie.value
@@ -665,30 +682,28 @@ class DetailsViewModel @AssistedInject constructor(
 
     fun downloadSelectedUrlToFile() {
         viewModelScope.launch {
+            val movie = _currentMovie.value
             if (selectedCinemaUrl?.endsWith("mpd") == true || selectedCinemaUrl?.endsWith("m3u8") == true) {
-                loadMpdOrM3u8()
+                val mp4Link = movie?.getAllCinemaUrls()?.find { it.endsWith("mp4") }
+                val fileName = mp4Link?.substringAfterLast("/").orEmpty()
+                _downloadFile.emit(
+                    RequestDownloadFile(
+                        url = selectedCinemaUrl.orEmpty(),
+                        fileName = fileName,
+                        title = movie?.title.orEmpty(),
+                        isMp4 = false
+                    )
+                )
             } else {
                 _downloadFile.emit(
                     RequestDownloadFile(
-                        selectedCinemaUrl.orEmpty(),
-                        selectedCinemaUrl?.substringAfterLast("/").orEmpty(),
-                        _currentMovie.value?.title.orEmpty()
+                        url = selectedCinemaUrl.orEmpty(),
+                        fileName = selectedCinemaUrl?.substringAfterLast("/").orEmpty(),
+                        title = movie?.title.orEmpty(),
+                        isMp4 = true
                     )
                 )
             }
-        }
-    }
-
-    private fun loadMpdOrM3u8() {
-        viewModelScope.launch {
-            val movie = _currentMovie.value
-            _testFile.emit(
-                RequestDownloadFile(
-                    url = selectedCinemaUrl.orEmpty(),
-                    fileName = "test.mp4",
-                    title = movie?.title.orEmpty()
-                )
-            )
         }
     }
 

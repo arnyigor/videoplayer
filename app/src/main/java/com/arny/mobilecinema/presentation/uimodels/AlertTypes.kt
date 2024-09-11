@@ -3,6 +3,7 @@ package com.arny.mobilecinema.presentation.uimodels
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 
 sealed class AlertType {
+    object UpdateAll : AlertType()
     data class Update(val force: Boolean, val hasPartUpdate: Boolean) : AlertType()
     data class ClearCache(
         val url: String,
@@ -24,6 +25,7 @@ sealed class AlertType {
     ) : AlertType()
 
     object SimpleAlert: AlertType()
+    object UpdateDirect: AlertType()
 }
 
 data class Alert(

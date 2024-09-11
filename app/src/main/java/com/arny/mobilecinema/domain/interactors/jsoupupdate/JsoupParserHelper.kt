@@ -1,8 +1,10 @@
 package com.arny.mobilecinema.domain.interactors.jsoupupdate
 
 import com.arny.mobilecinema.data.models.DataResultWithProgress
+import com.arny.mobilecinema.data.models.readSeasons
 import com.arny.mobilecinema.data.utils.cleanAnwapEncryptedData
 import com.arny.mobilecinema.data.utils.cleanEmptySymbols
+import com.arny.mobilecinema.data.utils.fromJsonToList
 import com.arny.mobilecinema.data.utils.getDecodedData
 import com.arny.mobilecinema.data.utils.getDomainName
 import com.arny.mobilecinema.data.utils.getDurationTimeSec
@@ -15,11 +17,14 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieInfo
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialSeason
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializer
 import kotlinx.serialization.json.Json
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import timber.log.Timber
 import java.math.BigDecimal
 
 fun String.removeDomain(): String =
@@ -111,6 +116,7 @@ fun getUpdateTime(dateInfo: String, updateToNow: Boolean): Long {
 
         else -> getTime("YYYY.MM.dd HH:mm", dateInfo).withZone(zone)
     }
+//    Timber.d("getUpdateTime dateInfo:$dateInfo dateTime:${dateTime.millis.printTime()}")
     return dateTime!!.millis
 }
 
@@ -469,9 +475,21 @@ fun getSeasons(page: Element): List<SerialSeason> {
         regex = Selectors.SERIAL_EPISODES_REGEXP.toRegex(),
         group = 1
     ).orEmpty()
-    val serialText = data.replace("\\$\\{(\\w+)}".toRegex(), "$1")
+    val serialText = try {
+        data.replace("\\$\\{(\\w+)}".toRegex(), "$1")
+    } catch (e: Exception) {
+        Timber.e(e)
+        data
+    }
     val seasons = try {
-        Json.decodeFromString<List<SerialSeason>>(serialText)
+        serialText.fromJsonToList<SerialSeason>(
+            GsonBuilder()
+                .setLenient()
+                .registerTypeAdapter(
+                    ArrayList::class.java,
+                    JsonDeserializer { json, _, _ -> readSeasons(json) }
+                )
+                .create())
     } catch (e: Exception) {
         println("data:$data")
         println("serialText:$serialText")

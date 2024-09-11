@@ -104,10 +104,6 @@
             android:name="episodeIndex"
             app:argType="integer"
             android:defaultValue="0" />
-        <argument
-            android:name="isTrailer"
-            app:argType="boolean"
-            android:defaultValue="false" />
     </fragment>
     <fragment
         android:id="@+id/nav_extended_search"

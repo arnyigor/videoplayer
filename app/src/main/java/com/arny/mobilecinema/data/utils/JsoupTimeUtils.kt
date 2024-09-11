@@ -4,16 +4,12 @@ import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
 import org.joda.time.format.DateTimeFormat
 import java.text.DecimalFormat
-import java.time.ZoneId
-import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 import kotlin.math.log10
 import kotlin.math.pow
 
 fun Long.printTime(pattern: String = "YYYY.MM.dd HH:mm"): String {
-    val zone = DateTimeZone.forTimeZone(
-        TimeZone.getTimeZone(ZoneId.of("Europe/Moscow"))
-    )
+    val zone = DateTimeZone.forID("Europe/Moscow")
     return DateTime(this, zone).printTime(pattern)
 }
 

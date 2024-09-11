@@ -24,6 +24,10 @@ class DataUpdateInteractorImpl @Inject constructor(
         repository.downloadUpdates(dataLink, forceUpdate)
     }
 
+    override fun updateAll() {
+        repository.updateAll()
+    }
+
     override fun resetUpdate() {
         repository.newUpdate = ""
         repository.checkUpdate = false

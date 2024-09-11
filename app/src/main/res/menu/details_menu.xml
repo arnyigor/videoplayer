@@ -3,6 +3,12 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
+        android:id="@+id/menu_action_update_data"
+        android:title="@string/update_data"
+        android:icon="@drawable/ic_cached"
+        app:showAsAction="ifRoom" />
+
+    <item
         android:id="@+id/menu_action_download_file"
         android:title="@string/download"
         android:icon="@drawable/outline_download_for_offline_24"
@@ -19,12 +25,6 @@
         android:visible="false"
         android:title="@string/menu_clear_file_view_history"
         android:icon="@drawable/ic_delete_cache_white"
-        app:showAsAction="ifRoom" />
-
-    <item
-        android:id="@+id/menu_action_update_data"
-        android:title="@string/update_data"
-        android:icon="@drawable/ic_cloud_download_24"
         app:showAsAction="ifRoom" />
 
     <item

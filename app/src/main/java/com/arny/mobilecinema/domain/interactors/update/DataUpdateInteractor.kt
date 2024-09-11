@@ -9,4 +9,5 @@ interface DataUpdateInteractor {
     suspend fun getUpdateDate(force: Boolean): Flow<DataResult<DataUpdateResult>>
     fun resetUpdate()
     suspend fun checkBaseUrl(): Flow<DataResult<Boolean>>
+    fun updateAll()
 }
