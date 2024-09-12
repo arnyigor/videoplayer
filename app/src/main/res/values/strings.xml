@@ -119,6 +119,7 @@
     <string name="cache">Кешировать</string>
     <string name="download">Загрузить</string>
     <string name="download_cinema_title_format">Загрузка \"%s\" - %.01f%%</string>
+    <string name="download_cinema_title_short_format">Загрузка ~ %.01f%%</string>
     <string name="download_cinema_state_state_updating">Обновление списка…</string>
     <string name="download_cinema_state_state_pause">Пауза</string>
     <string name="download_text_format">~ %s</string>

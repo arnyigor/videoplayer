@@ -44,9 +44,8 @@ import java.io.File
 import java.util.concurrent.CancellationException
 import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
+import kotlin.math.pow
 import kotlin.properties.Delegates
-import kotlin.time.DurationUnit
-import kotlin.time.toDuration
 
 class MovieDownloadService : LifecycleService(), CoroutineScope {
     private companion object {
@@ -80,7 +79,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     private var stTitle = ""
     private var st by Delegates.observable(-1) { _, old, new ->
         if (old != new) {
-            Timber.d("State:${new.getStateString()}")
+//            Timber.d("State:${new.getStateString()}")
         }
     }
     private val progressListener: (
@@ -359,11 +358,11 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
     private suspend fun showFfmpegResult(result: FfmpegResult, title: String, file: File) {
         when {
             result.result != null -> {
-                Timber.d("result:${result.result}")
+//                Timber.d("result:${result.result}")
             }
 
             result.cmd != null -> {
-                Timber.d("cmd:$result")
+//                Timber.d("cmd:$result")
             }
 
             result.log != null -> {
@@ -375,7 +374,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
                     else -> {}
                 }
-                Timber.d("Log: sessionId:${log.sessionId}, level:${log.level}, message:${log.message}")
+//                Timber.d("Log: sessionId:${log.sessionId}, level:${log.level}, message:${log.message}")
             }
 
             result.session != null -> {
@@ -388,7 +387,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                     returnCode,
                     session.failStackTrace
                 )
-                Timber.d("Session: $format")
+//                Timber.d("Session: $format")
                 if (state == SessionState.COMPLETED) {
                     if (returnCode.isValueSuccess) {
                         saveAndClose(file)
@@ -401,25 +400,19 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             result.statistics != null -> {
                 val statistics = result.statistics
                 if (curDwnldDurationMs != 0L) {
-                    val percent = (statistics.time * 100f) / curDwnldDurationMs
+                    val percent = statistics.time * 100f / curDwnldDurationMs.toDouble()
                     updateNotification(
                         title = getString(R.string.downloading_filename, title),
-                        text = getString(
-                            R.string.downloading_progress_percent_only,
-                            getString(
-                                R.string.download_text_format,
-                                downloadHelper.getRemainTime(percent)
-                            )
-                        ),
+                        text = getString(R.string.download_cinema_title_short_format, percent),
                         silent = true,
                         addUpdateActions = false
                     )
                 }
-                Timber.d(
+                /*Timber.d(
                     "Statistics: sessionId:${statistics.sessionId} size:${statistics.size}," +
                             " time:${statistics.time}, speed:${statistics.speed}, bitrate:${statistics.bitrate}," +
                             " frame:${statistics.videoFrameNumber}, fps:${statistics.videoFps}, quality:${statistics.videoQuality}"
-                )
+                )*/
             }
         }
     }
@@ -435,18 +428,28 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                 // Log: sessionId:1, level:AV_LOG_INFO, message:  Duration:
 //                  Log: sessionId:1, level:AV_LOG_INFO, message:00:10:00.46
                 nextDuration = false
-                val durationArr = message.split(":")
-                val hrsMs =
-                    durationArr[0].toLong().toDuration(DurationUnit.HOURS).inWholeMilliseconds
-                val minsMs =
-                    durationArr[1].toLong().toDuration(DurationUnit.HOURS).inWholeMilliseconds
-                val secMs = (durationArr[2].toFloat() * 1000f).toLong()
-                    .toDuration(DurationUnit.MILLISECONDS).inWholeMilliseconds
-                curDwnldDurationMs = hrsMs + minsMs + secMs
-                Timber.d("curDwnldDurationMs:$curDwnldDurationMs")
+                curDwnldDurationMs = getMs(message)
+//                Timber.d("curDwnldDurationMs:$curDwnldDurationMs")
             }
         }
     }
+
+    private fun getMs(str: String): Long {
+        val arr = str.split(":")
+        var ms = 0L
+        val lastIndex = arr.lastIndex
+        for (i in lastIndex downTo 0) {
+            val key = arr[i]
+            if (i == lastIndex && key.contains(".")) {
+                ms = (key.toFloat() * 1000).toLong()
+            } else {
+                ms += getMsInIter(key.toDouble(), lastIndex - i).toLong()
+            }
+        }
+        return ms
+    }
+
+    private fun getMsInIter(num: Double, iter: Int) = (num * 60.0.pow(iter.toDouble()) * 1000.0)
 
     private fun SessionState?.getFfmpegSessionString(): String {
         return when (this) {
