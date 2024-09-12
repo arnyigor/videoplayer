@@ -93,7 +93,7 @@
     <string name="cache_description">При отмене загруженные данные будут удалены\nПродолжить?</string>
     <string name="update_description">Данные и сылки будут автоматически обновлены\nПродолжить?</string>
     <string name="download_description">Файл %s будет сохранён в папку Downloads.\nПродолжить?</string>
-    <string name="download_description_error">На данный момент доступны для скачивания только фильмы и ссылки mp4. Выберите ссылку mp4 в списке ссылок</string>
+    <string name="download_description_error">На данный момент доступны для скачивания только фильмы. Выберите ссылку в списке ссылок</string>
     <string name="pref_player">Плеер</string>
     <string name="pref_common">Общее</string>
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
