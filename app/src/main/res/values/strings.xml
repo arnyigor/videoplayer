@@ -171,7 +171,14 @@
     <string name="pref_key_pip_mode">pref_key_pip_mode</string>
     <string name="pref_max_boost_size">pref_max_boost_size</string>
     <string name="pref_title_pip_mode">PIP Режим</string>
+    <string name="pref_key_update_periodic">pref_key_update_periodic</string>
+    <string name="pref_key_update_periodic_hour_start">pref_key_update_periodic_hour_start</string>
     <string name="pref_summary_pip_mode">Включить режим картинка в картинке по кнопке HOME</string>
+    <string name="pref_title_update_periodic">Автообновление медиа</string>
+    <string name="pref_summary_update_periodic">Обновления фильмов и сериалов будут запускаться автоматически</string>
+    <string name="pref_title_update_periodic_hours_dialog_title">Введите время (0–23)</string>
+    <string name="pref_title_update_periodic_hours_title">Время начала автообновления</string>
+    <string name="pref_title_update_periodic_hours_summary">Введите час начала автообновления (0–23)</string>
     <string name="pause_download">Приостановить</string>
     <string name="resume_download">Продолжить</string>
     <string name="volume_zero">0</string>

@@ -28,9 +28,17 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.map
 import androidx.navigation.fragment.findNavController
 import androidx.paging.LoadState
+import androidx.work.Constraints
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.WorkQuery
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.periodupdate.PeriodicUpdateWorker
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
@@ -50,6 +58,7 @@ import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.inputDialog
 import com.arny.mobilecinema.presentation.utils.isNotificationsFullyEnabled
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.launchWhenStarted
 import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.openAppSettings
 import com.arny.mobilecinema.presentation.utils.registerReceiver
@@ -64,7 +73,11 @@ import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
+import org.joda.time.DateTime
+import org.joda.time.Duration
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+
 
 class HomeFragment : Fragment(), OnSearchListener {
     private companion object {
@@ -125,9 +138,9 @@ class HomeFragment : Fragment(), OnSearchListener {
             if (granted) {
                 requestFiles()
             } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (SDK_INT >= Build.VERSION_CODES.R) {
                     requestFiles()
-                }else{
+                } else {
                     requestPermissions()
                 }
             }
@@ -158,6 +171,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         observeData()
         observeResult()
         requestPermissions()
+        observePeriodicUpdate()
     }
 
     private fun initListeners() {
@@ -177,6 +191,63 @@ class HomeFragment : Fragment(), OnSearchListener {
         super.onPause()
         unregisterReceiver(updateReceiver)
     }
+
+    private fun observePeriodicUpdate() {
+        launchWhenStarted {
+            WorkManager.getInstance(requireContext())
+                .getWorkInfosLiveData(WorkQuery.fromTags(AppConstants.ANWAP_TAG_PERIODIC_UPDATE))
+                .map { infos -> infos.filter { it.state != WorkInfo.State.CANCELLED } }
+                .observeForever { infos: List<WorkInfo> ->
+                    periodicUpdate(infos)
+                }
+        }
+    }
+
+    private fun periodicUpdate(infos: List<WorkInfo>) {
+        if (!isAdded) return
+        val autoUpdate = prefs.get<Boolean>(PrefsConstants.PREF_KEY_UPDATE_PERIODIC) ?: false
+        val hours = prefs.get<String>(PrefsConstants.PREF_KEY_UPDATE_PERIODIC_HOUR_START)?.toInt()
+            ?: AppConstants.PERIODIC_UPDATE_TIME_START
+        val workManager = WorkManager.getInstance(requireContext())
+        when {
+            !autoUpdate -> {
+                workManager
+                    .cancelAllWorkByTag(AppConstants.ANWAP_TAG_PERIODIC_UPDATE)
+            }
+
+            infos.none { it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.RUNNING } -> {
+                val delay = if (DateTime.now().hourOfDay < hours) {
+                    Duration(
+                        DateTime.now(),
+                        DateTime.now().withTimeAtStartOfDay().plusHours(hours)
+                    ).standardMinutes
+                } else {
+                    Duration(
+                        DateTime.now(),
+                        DateTime.now().withTimeAtStartOfDay().plusDays(1)
+                            .plusHours(hours)
+                    ).standardMinutes
+                }
+                val constraints = Constraints.Builder()
+//                    .setRequiresCharging(true)
+//                    .setRequiresBatteryNotLow(true)
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+//                    .setRequiresStorageNotLow(true)
+                    .build()
+
+                val myWorkRequest = PeriodicWorkRequestBuilder<PeriodicUpdateWorker>(
+                    repeatInterval = 24,
+                    repeatIntervalTimeUnit = TimeUnit.HOURS,
+                )
+                    .setInitialDelay(delay, TimeUnit.MINUTES)
+                    .setConstraints(constraints)
+                    .addTag(AppConstants.ANWAP_TAG_PERIODIC_UPDATE)
+                    .build()
+                workManager.enqueue(myWorkRequest)
+            }
+        }
+    }
+
 
     private fun requestFiles() {
         when (requestId) {
@@ -320,7 +391,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         )
     }
 
-    private fun dialogRequestStoragePermission(){
+    private fun dialogRequestStoragePermission() {
         alertDialog(
             title = getString(R.string.need_permission_message),
             btnOkText = getString(android.R.string.ok),
