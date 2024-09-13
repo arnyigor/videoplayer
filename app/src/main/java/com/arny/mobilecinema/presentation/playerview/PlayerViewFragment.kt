@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.support.v4.media.session.MediaSessionCompat
 import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -66,6 +67,7 @@ import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.Tracks
 import com.google.android.exoplayer2.analytics.AnalyticsListener
+import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
 import com.google.android.exoplayer2.source.MediaSource
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
@@ -272,7 +274,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             velocityY: Float
         ): Boolean = false
     }
-
+    private var mediaSession: MediaSessionCompat? = null
     private fun updateGain() {
         try {
             val targetGain = enhancer?.targetGain
@@ -346,6 +348,68 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         return view.root
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        binding.progressBar.isVisible = true
+        observeState()
+        initListener()
+        initSystemUI()
+        initPlayerTouchListener()
+        initAudioManager()
+        initVolumeObserver()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (Util.SDK_INT >= Build.VERSION_CODES.N) {
+            preparePlayer()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        registerVolumeObserver()
+        if (brightness != 0) {
+            setScreenBrightness(brightness)
+        }
+        viewModel.updatePipModeEnable()
+        with((requireActivity() as AppCompatActivity)) {
+            supportActionBar?.hide()
+        }
+        if (Util.SDK_INT < Build.VERSION_CODES.N) {
+            preparePlayer()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        volumeObserver?.let { unregisterContentResolver(it) }
+        with((requireActivity() as AppCompatActivity)) {
+            supportActionBar?.show()
+        }
+        player?.let { exoPlayer ->
+            saveMoviePosition(exoPlayer)
+        }
+        if (Util.SDK_INT < Build.VERSION_CODES.N) {
+            releasePlayer()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (Util.SDK_INT >= Build.VERSION_CODES.N) {
+            releasePlayer()
+        }
+        requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        releasePlayer()
+        audioManager?.abandonAudioFocus(focusChangeListener)
+        gestureDetectorCompat = null
+    }
+
     private fun hideVolumeBrightViews() {
         btnsHandler.removeCallbacksAndMessages(null)
         btnsHandler.postDelayed({
@@ -357,17 +421,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private fun updateUIByVolume() {
         binding.tvVolume.text = volume.toString()
         binding.tvVolume.setTextColorRes(R.color.textColorPrimary)
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        binding.progressBar.isVisible = true
-        observeState()
-        initListener()
-        initSystemUI()
-        initPlayerTouchListener()
-        initAudioManager()
-        initVolumeObserver()
     }
 
     private fun initVolumeObserver() {
@@ -681,59 +734,20 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    override fun onStart() {
-        super.onStart()
-        if (Util.SDK_INT >= Build.VERSION_CODES.N) {
-            preparePlayer()
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        registerVolumeObserver()
-        if (brightness != 0) {
-            setScreenBrightness(brightness)
-        }
-        viewModel.updatePipModeEnable()
-        with((requireActivity() as AppCompatActivity)) {
-            supportActionBar?.hide()
-        }
-        if (Util.SDK_INT < Build.VERSION_CODES.N) {
-            preparePlayer()
-        }
-    }
 
     private fun registerVolumeObserver() {
         volumeObserver?.let { registerContentResolver(it) }
     }
 
-    override fun onPause() {
-        super.onPause()
-        volumeObserver?.let { unregisterContentResolver(it) }
-        with((requireActivity() as AppCompatActivity)) {
-            supportActionBar?.show()
+    private fun initMediaSession() {
+        mediaSession = MediaSessionCompat(requireContext(), "Anwap")
+        mediaSession?.let {
+            it.setFlags(
+                MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS
+                        or MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
+            )
+            MediaSessionConnector(it).setPlayer(player)
         }
-        player?.let { exoPlayer ->
-            saveMoviePosition(exoPlayer)
-        }
-        if (Util.SDK_INT < Build.VERSION_CODES.N) {
-            releasePlayer()
-        }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        if (Util.SDK_INT >= Build.VERSION_CODES.N) {
-            releasePlayer()
-        }
-        requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        releasePlayer()
-        audioManager?.abandonAudioFocus(focusChangeListener)
-        gestureDetectorCompat = null
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -759,6 +773,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     playWhenReady = true
                     addAnalyticsListener(analytic)
                 }
+            initMediaSession()
             enhancer?.release()
             initEnhancer()
             youtubeOverlay.performListener(object : YouTubeOverlay.PerformListener {
@@ -1020,6 +1035,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun releasePlayer() {
+        mediaSession?.release()
         player?.let {
             it.removeListener(listener)
             it.stop()
