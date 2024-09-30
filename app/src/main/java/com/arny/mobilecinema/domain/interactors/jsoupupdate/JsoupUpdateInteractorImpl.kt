@@ -630,23 +630,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
             if (type == MovieType.CINEMA) {
                 flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные фильма $title"))
                 cinemaUrlData = getCinemaUrlData(page)
-                val hdPageUrl = getHdUrl(page)
-                if (hdPageUrl.isNotBlank()) {
-                    val hdPage = loadPage(hdPageUrl)
-                    val hdUrlData = getHDUrlData(hdPage)
-                    cinemaUrlData = cinemaUrlData.copy(
-                        hdUrl = hdUrlData.hdUrl
-                    )
-                }
-                val hasUrls = !cinemaUrlData.isNoCinemaUrls()
-                flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные фильма hdUrls -> $hasUrls"))
-                val mp4Link: String? =
-                    getMp4Link(page.getAllCinemaLinks().lastOrNull()?.getWithDomain(location))
-                if (!mp4Link.isNullOrBlank()) {
-                    val urls = cinemaUrlData.cinemaUrl?.urls.orEmpty().toMutableList()
-                    urls.add(mp4Link)
-                    cinemaUrlData = cinemaUrlData.copy(cinemaUrl = AnwapUrl(urls = urls))
-                }
+                cinemaUrlData = getMp4UrlData(page, location, cinemaUrlData)
                 if (cinemaUrlData.isNoCinemaUrls()) {
                     throw ParsingRetryException("Не найдены ссылки на $filmLink")
                 }
@@ -673,6 +657,37 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         )
     }
 
+    private fun getCinemaUrlData(
+        page: Element
+    ): CinemaUrlData {
+        val data = page.selectFirst(Selectors.PAGE_SCRIPT)?.data()
+        val scriptData = data.orEmpty().trimIndent().trim()
+        val cinemaUrl = getUrlsData(
+            scriptData = scriptData,
+            regex = Selectors.KINO_REGEXP.toRegex(),
+            simpleRegex = Selectors.SIMPLE_REGEXP.toRegex(),
+            require = true,
+        )
+        return CinemaUrlData(
+            cinemaUrl = cinemaUrl,
+        )
+    }
+
+    private suspend fun getMp4UrlData(
+        page: Element,
+        location: String,
+        cinemaUrlData: CinemaUrlData
+    ): CinemaUrlData {
+        var data = cinemaUrlData
+        val mp4Link: String? = getMp4Link(page.getAllCinemaLinks().lastOrNull()?.getWithDomain(location))
+        if (!mp4Link.isNullOrBlank()) {
+            val urls = data.cinemaUrl?.urls.orEmpty().toMutableList()
+            urls.add(mp4Link)
+            data = data.copy(cinemaUrl = AnwapUrl(urls = urls))
+        }
+        return data
+    }
+
     private suspend fun getMp4Link(link: String?): String? {
         var result = link
         if (!result.isNullOrBlank() && !result.endsWith("mp4") && result.startsWith("http")) {
@@ -693,38 +708,93 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         var seasons = listOf<SerialSeason>()
         val resultSeasons = mutableListOf<SerialSeason>()
         val seasonsLinks = getSeasonsLinks(page)
-        var hasAllEpisodes = false
-        flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала seasonsLinks->${seasonsLinks.isNotEmpty()}"))
+        var hasAllEpisodes: Boolean
         if (seasonsLinks.isNotEmpty()) {
             var episodesCount = getAllEpisodes(page)
-            val firstSeasonLink = seasonsLinks.first()
-            val seasonPage = loadPage(firstSeasonLink.getWithDomain(location))
-            val episodeLinks = getEpisodesLinks(seasonPage)
-            if (episodeLinks.isNotEmpty()) {
-                val firstEpisodeLink = episodeLinks.first()
-                val episodeHtml = loadPage(firstEpisodeLink.getWithDomain(location))
-                val serialIframeLink = getSerialIframeLink(episodeHtml)
-                val serialIframePage = loadPage(serialIframeLink.getWithDomain(location))
-                val seasonList = getSeasons(serialIframePage)
-                hasAllEpisodes = hasAllEpisodes(seasonList, episodesCount)
-                seasons = seasonList
-            }
-            flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала iframe hasAllEpisodes -> $hasAllEpisodes"))
-            if (!hasAllEpisodes) {
-                resultSeasons.addAll(seasons)
-                val serialSeasons = resultSeasons.sortedBy { it.id }
-                val absentSeasonsLinks = getAbsentSeasonsLinks(serialSeasons, seasonsLinks)
-                for ((seasonId, link) in absentSeasonsLinks) {
-                    val season = getSeasonFromFirstEpisode(
-                        loadPage(link.getWithDomain(location)),
-                        location,
-                        seasonId
+            resultSeasons.addAll(seasons)
+            val serialSeasons = resultSeasons.sortedBy { it.id }
+            val absentSeasonsLinks = getAbsentSeasonsLinks(serialSeasons, seasonsLinks)
+            for ((seasonId, link) in absentSeasonsLinks) {
+                val season = getSeasonFromFirstEpisode(
+                    loadPage(link.getWithDomain(location)),
+                    location,
+                    seasonId
+                )
+                if (season != null) {
+                    resultSeasons.add(season)
+                } else {
+                    getFullEpisodes(
+                        i = seasonId - 1,
+                        link = link,
+                        location = location,
+                        resultSeasons = resultSeasons,
+                        flowCollector = flowCollector
                     )
-                    if (season != null) {
-                        resultSeasons.add(season)
+                }
+            }
+            hasAllEpisodes = hasAllEpisodes(resultSeasons, episodesCount)
+            flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала first hasAllEpisodes -> $hasAllEpisodes"))
+            if (!hasAllEpisodes) {
+                for ((ind, url) in seasonsLinks.withIndex()) {
+                    val seasonId = ind + 1
+                    val season = serialSeasons.find { it.id == seasonId }
+                    val episodesList = season?.episodes.orEmpty()
+                    val seasonEpisodesSize = getSumEpisodesBySeason(page, ind)
+                    if (episodesList.size == seasonEpisodesSize) {
+                        if (season != null && resultSeasons.getOrNull(ind) == null) {
+                            resultSeasons.add(season)
+                        }
+                        continue
                     } else {
+                        val serialSeason = resultSeasons.find { it.id == seasonId }
+                        if (serialSeason == null) {
+                            val fullSeason = getSeasonFromFirstEpisode(
+                                page = loadPage(url.getWithDomain(location)),
+                                location = location,
+                                seasonId = seasonId
+                            )
+                            if (fullSeason != null) {
+                                resultSeasons.add(fullSeason)
+                            } else {
+                                val episodesLinks = getSeasonEpisodesLinks(url, location)
+                                val count = getRepeatedEpisodeCount(episodesLinks)
+                                val diff = episodesLinks.size - count
+                                if (episodesLinks.isNotEmpty() && episodesLinks.size > episodesList.size && diff == episodesList.size) {
+                                    episodesCount -= count
+                                }
+                                if (season != null) {
+                                    resultSeasons.add(season)
+                                }
+                            }
+                        } else {
+                            getAbsentEpisodes(
+                                i = ind,
+                                resultSeasons = resultSeasons,
+                                link = url,
+                                location = location,
+                                flowCollector = flowCollector
+                            )
+                        }
+                    }
+                }
+            }
+            hasAllEpisodes = hasAllEpisodes(resultSeasons, episodesCount)
+            flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала 2 hasAllEpisodes -> $hasAllEpisodes"))
+            if (!hasAllEpisodes) {
+                if (resultSeasons.size != 0) {
+                    for ((i, link) in seasonsLinks.withIndex()) {
+                        getAbsentEpisodes(
+                            i = i,
+                            resultSeasons = resultSeasons,
+                            link = link,
+                            location = location,
+                            flowCollector = flowCollector
+                        )
+                    }
+                } else {
+                    for ((i, link) in seasonsLinks.withIndex()) {
                         getFullEpisodes(
-                            i = seasonId - 1,
+                            i = i,
                             link = link,
                             location = location,
                             resultSeasons = resultSeasons,
@@ -732,89 +802,18 @@ class JsoupUpdateInteractorImpl @Inject constructor(
                         )
                     }
                 }
-                hasAllEpisodes = hasAllEpisodes(resultSeasons, episodesCount)
-                flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала first hasAllEpisodes -> $hasAllEpisodes"))
-                if (!hasAllEpisodes) {
-                    for ((ind, url) in seasonsLinks.withIndex()) {
-                        val seasonId = ind + 1
-                        val season = serialSeasons.find { it.id == seasonId }
-                        val episodesList = season?.episodes.orEmpty()
-                        val seasonEpisodesSize = getSumEpisodesBySeason(page, ind)
-                        if (episodesList.size == seasonEpisodesSize) {
-                            if (season != null && resultSeasons.getOrNull(ind) == null) {
-                                resultSeasons.add(season)
-                            }
-                            continue
-                        } else {
-                            val serialSeason = resultSeasons.find { it.id == seasonId }
-                            if (serialSeason == null) {
-                                val fullSeason = getSeasonFromFirstEpisode(
-                                    page = loadPage(url.getWithDomain(location)),
-                                    location = location,
-                                    seasonId = seasonId
-                                )
-                                if (fullSeason != null) {
-                                    resultSeasons.add(fullSeason)
-                                } else {
-                                    val episodesLinks = getSeasonEpisodesLinks(url, location)
-                                    val count = getRepeatedEpisodeCount(episodesLinks)
-                                    val diff = episodesLinks.size - count
-                                    if (episodesLinks.isNotEmpty() && episodesLinks.size > episodesList.size && diff == episodesList.size) {
-                                        episodesCount -= count
-                                    }
-                                    if (season != null) {
-                                        resultSeasons.add(season)
-                                    }
-                                }
-                            } else {
-                                getAbsentEpisodes(
-                                    i = ind,
-                                    resultSeasons = resultSeasons,
-                                    link = url,
-                                    location = location,
-                                    flowCollector = flowCollector
-                                )
-                            }
-                        }
-                    }
-                }
-                hasAllEpisodes = hasAllEpisodes(resultSeasons, episodesCount)
-                flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала 2 hasAllEpisodes -> $hasAllEpisodes"))
-                if (!hasAllEpisodes) {
-                    if (resultSeasons.size != 0) {
-                        for ((i, link) in seasonsLinks.withIndex()) {
-                            getAbsentEpisodes(
-                                i = i,
-                                resultSeasons = resultSeasons,
-                                link = link,
-                                location = location,
-                                flowCollector = flowCollector
-                            )
-                        }
-                    } else {
-                        for ((i, link) in seasonsLinks.withIndex()) {
-                            getFullEpisodes(
-                                i = i,
-                                link = link,
-                                location = location,
-                                resultSeasons = resultSeasons,
-                                flowCollector = flowCollector
-                            )
-                        }
-                    }
-                }
-                hasAllEpisodes = hasAllEpisodes(resultSeasons, episodesCount)
-                flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала full hasAllEpisodes -> $hasAllEpisodes"))
-                if (!hasAllEpisodes) {
-                    val sum = resultSeasons.sumOf { it.episodes.size }
-                    val abs = abs(episodesCount - sum)
-                    val diffOneOrZero = sum > episodesCount || abs <= 1
-                    if (!diffOneOrZero) {
-                        error("Не найдены все эпизоды $filmLink, $sum!=$episodesCount")
-                    }
-                }
-                seasons = resultSeasons.sortedBy { it.id }
             }
+            hasAllEpisodes = hasAllEpisodes(resultSeasons, episodesCount)
+            flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала full hasAllEpisodes -> $hasAllEpisodes"))
+            if (!hasAllEpisodes) {
+                val sum = resultSeasons.sumOf { it.episodes.size }
+                val abs = abs(episodesCount - sum)
+                val diffOneOrZero = sum > episodesCount || abs <= 1
+                if (!diffOneOrZero) {
+                    error("Не найдены все эпизоды $filmLink, $sum!=$episodesCount")
+                }
+            }
+            seasons = resultSeasons.sortedBy { it.id }
         }
         return seasons
     }

@@ -22,6 +22,7 @@ import com.google.gson.JsonDeserializer
 import kotlinx.serialization.json.Json
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
+import org.json.JSONObject
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import timber.log.Timber
@@ -345,7 +346,7 @@ fun getHDUrlData(
     )
 }
 
-private fun getUrlsData(
+fun getUrlsData(
     scriptData: String,
     regex: Regex,
     simpleRegex: Regex,
@@ -356,35 +357,32 @@ private fun getUrlsData(
     if (data.isBlank()) {
         data = findByGroup(scriptData.inlineText(), simpleRegex, 1).orEmpty()
     }
+    if (data.isBlank() && scriptData.isNotBlank()) {
+        val jsonObject = JSONObject(scriptData.substringAfter("PlayerjsPoster").substring(1).substringBefore(")"))
+        data = jsonObject["file"].toString()
+    }
     if (data.isNotBlank()) {
-        val decodedData = data.cleanAnwapEncryptedData().getDecodedData()
-        val urlData = try {
-            Json.decodeFromString(decodedData)
-        } catch (e: Exception) {
-            if (require) {
-                throw ParsingRetryException(
-                    StringBuilder().apply {
-                        append("data:$data")
-                        append("\ndecodedData:$decodedData\n")
-                        append("error:${e.stackTraceToString()}")
-                    }.toString()
-                )
-            } else {
-                println(
-                    StringBuilder().apply {
-                        append("error:${e.stackTraceToString()}")
-                    }.toString()
-                )
-                AnwapUrl()
-            }
+        val encryptedData = data.cleanAnwapEncryptedData()
+        val decodedData = encryptedData.getDecodedData()
+        var urls = if (decodedData.contains("m3u8") || decodedData.contains("mp4") || decodedData.contains("mpd")) {
+            getUrlsFromFile(decodedData, fileEnds)
+        } else {
+            val urlData = getUrlData(decodedData, require, data)
+            val file = urlData.file.orEmpty()
+            getUrlsFromFile(file, fileEnds)
         }
-        val file = urlData.file.orEmpty()
-        var urls = getUrlsFromFile(file, fileEnds)
         if (require) {
             urls = filterTrailer(urls)
         }
         val nonASCII = urls.find {
             "[^\\u0000-\\u007F]+".toRegex() in it
+        }
+        val incorrectUrls = urls.filter {
+            !it.endsWith("m3u8") && !it.endsWith("mp4") && !it.endsWith("mpd")
+        }
+        if (incorrectUrls.isNotEmpty()) {
+            println("fail decrypted data -> $data")
+            error("urls has fail format '$urls'")
         }
         if (nonASCII != null) {
             println("fail decrypted data -> $data")
@@ -397,9 +395,33 @@ private fun getUrlsData(
             }.toString()
             println("empty urls by data -> $s")
         }
-        return urlData.copy(urls = urls)
+        return AnwapUrl(urls = urls)
     }
     return AnwapUrl()
+}
+
+private fun getUrlData(decodedData: String, require: Boolean, data: String): AnwapUrl {
+    val urlData = try {
+        Json.decodeFromString(decodedData)
+    } catch (e: Exception) {
+        if (require) {
+            throw ParsingRetryException(
+                StringBuilder().apply {
+                    append("data:$data")
+                    append("\ndecodedData:$decodedData\n")
+                    append("error:${e.stackTraceToString()}")
+                }.toString()
+            )
+        } else {
+            println(
+                StringBuilder().apply {
+                    append("error:${e.stackTraceToString()}")
+                }.toString()
+            )
+            AnwapUrl()
+        }
+    }
+    return urlData
 }
 
 fun filterTrailer(urls: List<String>): List<String> {
