@@ -6,7 +6,6 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.isNotEmpty
-import timber.log.Timber
 
 fun getMoviesSQL(
     search: String,
@@ -172,9 +171,13 @@ private fun search(
 
 private fun order(order: String, sb: StringBuilder, likesPriority: Boolean) {
     if (order.isNotBlank()) {
+        var curOrder = order
         sb.append(" ORDER BY")
+        if (curOrder == AppConstants.Order.LAST_TIME) {
+            curOrder = AppConstants.Order.NONE
+        }
         sb.append(
-            when (order) {
+            when (curOrder) {
                 AppConstants.Order.NONE -> if (likesPriority) " updated DESC, likes DESC, ratingImdb DESC, ratingKp DESC" else " updated DESC, ratingImdb DESC, ratingKp DESC, likes DESC"
                 AppConstants.Order.RATINGS -> " ratingImdb DESC, ratingKp DESC, likes DESC"
                 AppConstants.Order.TITLE -> if (likesPriority) " title ASC, ratingImdb DESC, ratingKp DESC, likes DESC" else " title ASC, ratingImdb DESC, ratingKp DESC, likes DESC"
@@ -240,6 +243,7 @@ fun getHistorySQL(
         sb.append(
             when (order) {
                 AppConstants.Order.NONE -> " m.updated DESC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC"
+                AppConstants.Order.LAST_TIME -> " h.latest_time DESC, m.updated DESC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC"
                 AppConstants.Order.RATINGS -> " m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC"
                 AppConstants.Order.TITLE -> " m.title ASC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC"
                 AppConstants.Order.YEAR_DESC -> " m.year DESC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC"

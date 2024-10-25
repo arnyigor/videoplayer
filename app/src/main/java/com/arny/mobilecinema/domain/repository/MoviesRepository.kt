@@ -25,10 +25,22 @@ interface MoviesRepository {
     fun getMovie(id: Long): Movie?
     fun getMovie(pageUrl: String): Movie?
     fun getSaveData(movieDbId: Long?): HistoryEntity?
-    fun insertCinemaPosition(movieDbId: Long, position: Long): Boolean
-    fun updateCinemaPosition(movieDbId: Long?, position: Long): Boolean
-    fun insertSerialPosition(movieDbId: Long, season: Int, episode: Int, episodePosition: Long): Boolean
-    fun updateSerialPosition(movieDbId: Long?, season: Int, episode: Int, time: Long): Boolean
+    fun insertCinemaPosition(movieDbId: Long, position: Long, currentTimeMillis: Long): Boolean
+    fun updateCinemaPosition(movieDbId: Long?, position: Long, currentTimeMillis: Long): Boolean
+    fun insertSerialPosition(
+        movieDbId: Long,
+        season: Int,
+        episode: Int,
+        episodePosition: Long,
+        currentTimeMs: Long
+    ): Boolean
+    fun updateSerialPosition(
+        movieDbId: Long?,
+        season: Int,
+        episode: Int,
+        time: Long,
+        currentTimeMs: Long
+    ): Boolean
     fun getHistoryMovies(search: String, order: String, searchType: String): Pager<Int, ViewMovie>
     fun clearViewHistory(movieDbId: Long?): Boolean
     suspend fun isHistoryEmpty(): Boolean

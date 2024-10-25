@@ -74,8 +74,7 @@ class MoviesInteractorImpl @Inject constructor(
     }
 
     override fun isAvailableToDownload(selectedCinemaUrl: String?, type: MovieType): Boolean {
-        val endsWith = true//selectedCinemaUrl?.endsWith("mp4")
-        return type == MovieType.CINEMA && endsWith ?: false
+        return type == MovieType.CINEMA
     }
 
     override suspend fun saveOrder(order: String) {

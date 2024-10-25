@@ -40,6 +40,7 @@ class HistoryInteractorImpl @Inject constructor(
     override fun addToViewHistory(movieDbId: Long): Flow<DataResult<Boolean>> = doAsync {
         getResultAddToViewHistory(
             movieDbId = movieDbId,
+            currentTimeMs = System.currentTimeMillis(),
         )
     }
 
@@ -58,6 +59,7 @@ class HistoryInteractorImpl @Inject constructor(
         getResultAddToViewHistory(
             movieDbId = movieDbId,
             position = time,
+            currentTimeMs = System.currentTimeMillis(),
         )
     }
 
@@ -70,19 +72,22 @@ class HistoryInteractorImpl @Inject constructor(
         currentEpisodePosition: Int?
     ): Boolean = withContext(dispatcher) {
         val data = getHistoryData(movieDbId)
+        val currentTimeMs = System.currentTimeMillis()
         val result = if (data.movieDbId != null) {
             repository.updateSerialPosition(
-                data.movieDbId,
-                playerSeasonPosition,
-                playerEpisodePosition,
-                time
+                movieDbId = data.movieDbId,
+                season = playerSeasonPosition,
+                episode = playerEpisodePosition,
+                time = time,
+                currentTimeMs = currentTimeMs
             )
         } else {
             repository.insertSerialPosition(
-                movieDbId,
-                playerSeasonPosition,
-                playerEpisodePosition,
-                time
+                movieDbId = movieDbId,
+                season = playerSeasonPosition,
+                episode = playerEpisodePosition,
+                episodePosition = time,
+                currentTimeMs = currentTimeMs
             )
         }
         if (result) {
@@ -128,12 +133,13 @@ class HistoryInteractorImpl @Inject constructor(
     private fun getResultAddToViewHistory(
         movieDbId: Long,
         position: Long = 0,
+        currentTimeMs: Long,
     ): Boolean {
         val data = getHistoryData(movieDbId)
-        return  if (data.movieDbId != null) {
-            repository.updateCinemaPosition(data.movieDbId, position)
+        return if (data.movieDbId != null) {
+            repository.updateCinemaPosition(data.movieDbId, position, currentTimeMs)
         } else {
-            repository.insertCinemaPosition(movieDbId, position)
+            repository.insertCinemaPosition(movieDbId, position, currentTimeMs)
         }
     }
 
@@ -144,7 +150,8 @@ class HistoryInteractorImpl @Inject constructor(
                 movieDbId = data.movieDbId,
                 time = data.position,
                 seasonPosition = data.season,
-                episodePosition = data.episode
+                episodePosition = data.episode,
+                latestTime = data.latestTime
             )
         } else {
             SaveData()

@@ -39,6 +39,8 @@
     <string name="need_permission_message">Для работы приложения необходимо разрешить доступ на запись</string>
     <string name="need_notice_permission_message">Для работы приложения необходимо разрешить показ уведомлений</string>
     <string name="new_films_update">Доступно новое обновление фильмов</string>
+    <string name="new_films_update_not_found_title">Обновлений нет</string>
+    <string name="new_films_update_not_found_content">На данный момент новых обновлений по фильмам и сериалам не поступало. Вы можете проверить обновления позже.</string>
     <string name="update_all_cinem_title">Загрузить обновления?</string>
     <string name="full_update">Полное</string>
     <string name="update_data">Обновить данные</string>
@@ -74,6 +76,7 @@
     <string name="less">меньше</string>
     <string name="update_finished_success">Обновление завершено успешно</string>
     <string name="update_finished_error">Обновление не завершено %s</string>
+    <string name="update_error_simple">Обновление не завершено. Произошла ошибка.</string>
     <string name="attention">Внимание!</string>
     <string name="cinema_cache_complete">Фильм полностью загружен</string>
     <string name="serial_episode_cache_complete">Эпизод полностью загружен</string>
@@ -109,6 +112,7 @@
     <string name="search_settings_title">Где искать?</string>
     <string name="search_order_settings">Настройки сортировки</string>
     <string name="sort_updated">По дате обновления</string>
+    <string name="sort_last_time">По дате просмотра</string>
     <string name="sort_year_desc">По году убывание</string>
     <string name="sort_title">По названию</string>
     <string name="sort_ratings">По рейтингам IMDB и KP</string>

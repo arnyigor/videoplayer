@@ -43,6 +43,8 @@ class PlayerViewModel @AssistedInject constructor(
     val toast = _toast.receiveAsFlow()
     private val _back = MutableSharedFlow<Unit>()
     val back = _back.asSharedFlow()
+    private val _cachedResizeModeIndex = MutableStateFlow(0)
+    val cachedResizeModeIndex = _cachedResizeModeIndex.asStateFlow()
 
     fun saveMoviePosition(dbId: Long?, time: Long, season: Int, episode: Int) {
         viewModelScope.launch {
@@ -178,5 +180,9 @@ class PlayerViewModel @AssistedInject constructor(
                 _back.emit(Unit)
             }
         }
+    }
+
+    fun updateResizeModeIndex(resizeModeIndex: Int) {
+        _cachedResizeModeIndex.value = resizeModeIndex
     }
 }

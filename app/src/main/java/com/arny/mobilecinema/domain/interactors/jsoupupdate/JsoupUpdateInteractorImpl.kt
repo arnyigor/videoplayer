@@ -396,17 +396,19 @@ class JsoupUpdateInteractorImpl @Inject constructor(
                     } else {
                         e.printStackTrace()
                         Timber.d("Ошибка: попыток $curTry из $MAX_TRYING\n ${e.message}")
+                        flowCollector.emit(DataResultWithProgress.Error(e))
                     }
                 }
 
                 is ParsingIgnoreException -> {
                     e.printStackTrace()
                     Timber.d("Ошибка: не найдены ссылки для загрузки ${filmLink}, пропускаем")
+                    flowCollector.emit(DataResultWithProgress.Error(e))
                 }
 
                 else -> {
                     e.printStackTrace()
-//                    dbRepository.insertError(filmLink, e.stackTraceToString())
+                    flowCollector.emit(DataResultWithProgress.Error(e))
                 }
             }
         }
@@ -428,7 +430,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         }
         curTry = 1
         ignoreCount = 0
-        flowCollector.emit(loading(UpdateType.TITLE to "\"${movie.title}\" $s"))
+        flowCollector.emit(loading(params = UpdateType.TITLE to "\"${movie.title}\" $s",complete = true, success = true))
         flowCollector.emit(
             loading(
                 UpdateType.MOVIE to movie.toString(),
@@ -679,7 +681,8 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         cinemaUrlData: CinemaUrlData
     ): CinemaUrlData {
         var data = cinemaUrlData
-        val mp4Link: String? = getMp4Link(page.getAllCinemaLinks().lastOrNull()?.getWithDomain(location))
+        val mp4Link: String? =
+            getMp4Link(page.getAllCinemaLinks().lastOrNull()?.getWithDomain(location))
         if (!mp4Link.isNullOrBlank()) {
             val urls = data.cinemaUrl?.urls.orEmpty().toMutableList()
             urls.add(mp4Link)

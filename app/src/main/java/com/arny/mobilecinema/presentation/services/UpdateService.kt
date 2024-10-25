@@ -59,7 +59,7 @@ import kotlin.coroutines.CoroutineContext
 
 class UpdateService : LifecycleService(), CoroutineScope {
     private companion object {
-        const val NOTICE_ID = 1001
+        const val NOTICE_ID = 100001
     }
 
     @Inject
@@ -134,7 +134,11 @@ class UpdateService : LifecycleService(), CoroutineScope {
             jsoupUpdateInteractor.getPageData(url, true) { data ->
                 when (data) {
                     is DataResultWithProgress.Error -> {
-                        Timber.e("DataResultWithProgress.Error ${data.throwable.message}")
+                        updateNotification(
+                            title = getString(R.string.update_error_simple),
+                            silent = false
+                        )
+                        updateComplete(false)
                     }
 
                     is DataResultWithProgress.Progress -> {
@@ -157,7 +161,8 @@ class UpdateService : LifecycleService(), CoroutineScope {
                                                 R.string.update_cinema_formatted,
                                                 title
                                             ),
-                                            silent = false
+                                            silent = false,
+                                            addStopAction = true
                                         )
                                     }
                                 }
@@ -247,6 +252,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
             when (data) {
                 is DataResultWithProgress.Error -> {
                     Timber.e("DataResultWithProgress.Error ${data.throwable.message}")
+                    updateComplete(false)
                 }
 
                 is DataResultWithProgress.Progress -> {

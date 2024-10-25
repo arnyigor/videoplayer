@@ -15,4 +15,5 @@ data class HistoryEntity(
     @ColumnInfo(name = "position") var position: Long = 0,
     @ColumnInfo(name = "episode") var episode: Int = 0,
     @ColumnInfo(name = "season") var season: Int = 0,
+    @ColumnInfo(name = "latest_time", defaultValue = "0") var latestTime: Long = 0L,
 )

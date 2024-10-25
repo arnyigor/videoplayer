@@ -358,7 +358,7 @@ fun getUrlsData(
         data = findByGroup(scriptData.inlineText(), simpleRegex, 1).orEmpty()
     }
     if (data.isBlank() && scriptData.isNotBlank()) {
-        val jsonObject = JSONObject(scriptData.substringAfter("PlayerjsPoster").substring(1).substringBefore(")"))
+        val jsonObject = JSONObject(scriptData.substringAfter("PlayerjsPoster").substring(1).substringBefore("})")+"}")
         data = jsonObject["file"].toString()
     }
     if (data.isNotBlank()) {

@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="8dp"
-    android:layout_height="match_parent">
+    android:padding="8dp">
 
     <RadioGroup
         android:id="@+id/rgrSort"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
+
+        <RadioButton
+            android:id="@+id/rbLastTime"
+            style="@style/DetailsSubTitleStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/sort_last_time"
+            android:visibility="gone"
+            tools:visibility="visible" />
 
         <RadioButton
             android:id="@+id/rbNone"

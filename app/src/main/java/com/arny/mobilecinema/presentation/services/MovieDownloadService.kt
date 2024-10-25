@@ -49,7 +49,7 @@ import kotlin.properties.Delegates
 
 class MovieDownloadService : LifecycleService(), CoroutineScope {
     private companion object {
-        const val NOTICE_ID = 1002
+        const val NOTICE_ID = 100002
         const val NOTICE_CHANNEL_ID = "NOTICE_CHANNEL_ID"
         const val NOTICE_CHANNEL_NAME = "NOTICE_CHANNEL_NAME"
     }

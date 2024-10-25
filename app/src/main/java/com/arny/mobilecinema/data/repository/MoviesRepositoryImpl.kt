@@ -101,29 +101,44 @@ class MoviesRepositoryImpl @Inject constructor(
 
     override fun getSaveData(movieDbId: Long?): HistoryEntity? = historyDao.getHistory(movieDbId)
 
-    override fun insertCinemaPosition(movieDbId: Long, position: Long): Boolean =
+    override fun insertCinemaPosition(
+        movieDbId: Long,
+        position: Long,
+        currentTimeMillis: Long
+    ): Boolean =
         historyDao.insert(
             HistoryEntity(
                 movieDbId = movieDbId,
-                position = position
+                position = position,
+                latestTime = currentTimeMillis
             )
         ) > 0L
 
-    override fun updateCinemaPosition(movieDbId: Long?, position: Long): Boolean {
-        return historyDao.updateHistory(movieDbId = movieDbId, position = position) != 0
+    override fun updateCinemaPosition(
+        movieDbId: Long?,
+        position: Long,
+        currentTimeMillis: Long
+    ): Boolean {
+        return historyDao.updateHistory(
+            movieDbId = movieDbId,
+            position = position,
+            currentTimeMs = currentTimeMillis
+        ) != 0
     }
 
     override fun insertSerialPosition(
         movieDbId: Long,
         season: Int,
         episode: Int,
-        episodePosition: Long
+        episodePosition: Long,
+        currentTimeMs: Long
     ): Boolean = historyDao.insert(
         HistoryEntity(
             movieDbId = movieDbId,
             position = episodePosition,
             episode = episode,
-            season = season
+            season = season,
+            latestTime = currentTimeMs
         )
     ) > 0L
 
@@ -131,12 +146,14 @@ class MoviesRepositoryImpl @Inject constructor(
         movieDbId: Long?,
         season: Int,
         episode: Int,
-        time: Long
+        time: Long,
+        currentTimeMs: Long
     ): Boolean = historyDao.updateHistory(
         movieDbId = movieDbId,
         season = season,
         episode = episode,
-        position = time
+        position = time,
+        currentTimeMs = currentTimeMs
     ) != 0
 
     override suspend fun isHistoryEmpty(): Boolean {

@@ -30,7 +30,6 @@ import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.setupSearchView
-import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
@@ -171,7 +170,9 @@ class HistoryFragment : Fragment(), OnSearchListener {
             },
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
+                    rbLastTime.isVisible = true
                     val radioBtn = listOf(
+                        rbLastTime to AppConstants.Order.LAST_TIME,
                         rbNone to AppConstants.Order.NONE,
                         rbTitle to AppConstants.Order.TITLE,
                         rbRatings to AppConstants.Order.RATINGS,
@@ -180,14 +181,15 @@ class HistoryFragment : Fragment(), OnSearchListener {
                     )
                     currentOrder.takeIf { it.isNotBlank() }?.let {
                         when (it) {
+                            AppConstants.Order.LAST_TIME -> rbLastTime.isChecked = true
                             AppConstants.Order.TITLE -> rbTitle.isChecked = true
                             AppConstants.Order.RATINGS -> rbRatings.isChecked = true
                             AppConstants.Order.YEAR_DESC -> rbYearDesc.isChecked = true
                             AppConstants.Order.YEAR_ASC -> rbYearAsc.isChecked = true
-                            else -> rbNone.isChecked = true
+                            else -> rbLastTime.isChecked = true
                         }
                     } ?: kotlin.run {
-                        rbNone.isChecked = true
+                        rbLastTime.isChecked = true
                     }
                     radioBtn.forEach { (rb, orderString) ->
                         rb.setOnCheckedChangeListener { _, isChecked ->

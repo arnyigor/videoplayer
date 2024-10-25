@@ -161,6 +161,15 @@ class HomeViewModel @AssistedInject constructor(
                                         type = AlertType.Update(false, hasPartUpdate)
                                     )
                                 )
+                            } else {
+                                _alert.trySend(
+                                    Alert(
+                                        title = ResourceString(R.string.new_films_update_not_found_title),
+                                        content = ResourceString(R.string.new_films_update_not_found_content),
+                                        btnOk = ResourceString(android.R.string.ok),
+                                        type = AlertType.SimpleAlert
+                                    )
+                                )
                             }
                         }
                     }
@@ -218,10 +227,12 @@ class HomeViewModel @AssistedInject constructor(
                     _toast.emit(ResourceString(R.string.update_started))
                     dataUpdateInteractor.requestFile(type.force, type.hasPartUpdate)
                 }
+
                 is AlertType.UpdateAll -> {
                     _toast.emit(ResourceString(R.string.update_started))
                     dataUpdateInteractor.updateAll()
                 }
+
                 else -> {}
             }
         }

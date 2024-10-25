@@ -43,6 +43,7 @@ import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendSearchResult
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
+import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.getImgCompat
@@ -96,6 +97,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         AppConstants.SearchType.CINEMA,
         AppConstants.SearchType.SERIAL
     )
+    private var force = false
     private var emptySearch = true
     private var extendSearch = false
     private var hasQuery = false
@@ -127,7 +129,7 @@ class HomeFragment : Fragment(), OnSearchListener {
             } else {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     requestFiles()
-                }else{
+                } else {
                     requestPermissions()
                 }
             }
@@ -320,7 +322,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         )
     }
 
-    private fun dialogRequestStoragePermission(){
+    private fun dialogRequestStoragePermission() {
         alertDialog(
             title = getString(R.string.need_permission_message),
             btnOkText = getString(android.R.string.ok),
@@ -335,6 +337,7 @@ class HomeFragment : Fragment(), OnSearchListener {
             }
 
             else -> {
+                this.force = force
                 viewModel.downloadData(force)
             }
         }
@@ -406,24 +409,26 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
         launchWhenCreated {
             viewModel.alert.collectLatest { alert ->
-                alertDialog(
-                    title = alert.title.toString(requireContext()).orEmpty(),
-                    content = alert.content?.toString(requireContext()),
-                    btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
-                    btnCancelText = alert.btnCancel?.toString(requireContext()),
-                    btnNeutralText = alert.btnNeutral?.toString(requireContext()),
-                    cancelable = alert.cancelable,
-                    icon = alert.icon?.let { requireContext().getImgCompat(it) },
-                    onConfirm = {
-                        viewModel.onConfirmAlert(alert.type)
-                    },
-                    onCancel = {
-                        viewModel.onCancelAlert(alert.type)
-                    },
-                    onNeutral = {
-                        viewModel.onNeutralAlert(alert.type)
-                    }
-                )
+                if (alert.type != AlertType.SimpleAlert || force) {
+                    alertDialog(
+                        title = alert.title.toString(requireContext()).orEmpty(),
+                        content = alert.content?.toString(requireContext()),
+                        btnOkText = alert.btnOk?.toString(requireContext()).orEmpty(),
+                        btnCancelText = alert.btnCancel?.toString(requireContext()),
+                        btnNeutralText = alert.btnNeutral?.toString(requireContext()),
+                        cancelable = alert.cancelable,
+                        icon = alert.icon?.let { requireContext().getImgCompat(it) },
+                        onConfirm = {
+                            viewModel.onConfirmAlert(alert.type)
+                        },
+                        onCancel = {
+                            viewModel.onCancelAlert(alert.type)
+                        },
+                        onNeutral = {
+                            viewModel.onNeutralAlert(alert.type)
+                        }
+                    )
+                }
             }
         }
     }

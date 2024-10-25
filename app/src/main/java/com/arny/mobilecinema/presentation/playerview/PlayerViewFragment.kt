@@ -84,6 +84,7 @@ import kotlin.properties.Delegates
 class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
     private companion object {
         const val MAX_BOOST_DEFAULT = 1000
+        const val MEDIA_SESSION_TAG = "MEDIA_SESSION_ANWAP_TAG"
     }
 
     @AssistedFactory
@@ -127,7 +128,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var langPopUp: PopupMenu? = null
     private var player: ExoPlayer? = null
     private var trackSelector: DefaultTrackSelector? = null
-    private var resizeIndex = 0
+    private var resizeModeIndex = 0
     private var setupPopupMenus = true
     private var enhancer: LoudnessEnhancer? = null
     private lateinit var binding: FPlayerViewBinding
@@ -454,18 +455,24 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        setScreenRotIconVisible(newConfig.orientation)
+        setScreenRotIconVisible(newConfig.orientation, true)
     }
 
-    private fun setScreenRotIconVisible(orientation: Int) {
+    private fun setScreenRotIconVisible(orientation: Int, reset: Boolean) {
         when (orientation) {
             Configuration.ORIENTATION_PORTRAIT -> {
-                binding.playerView.resizeMode = resizeModes[0]
+                if (reset) {
+                    resizeModeIndex = 0
+                }
+                binding.playerView.resizeMode = resizeModes[resizeModeIndex]
                 binding.ivScreenRotation.isVisible = binding.playerView.isControllerVisible
             }
 
             Configuration.ORIENTATION_LANDSCAPE -> {
-                binding.playerView.resizeMode = resizeModes[4]
+                if (reset) {
+                    resizeModeIndex = 4
+                }
+                binding.playerView.resizeMode = resizeModes[resizeModeIndex]
                 binding.ivScreenRotation.isVisible = binding.playerView.isControllerVisible
             }
 
@@ -490,11 +497,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun changeResize() {
-        resizeIndex += 1
-        if (resizeIndex > resizeModes.size - 1) {
-            resizeIndex = 0
+        resizeModeIndex += 1
+        if (resizeModeIndex > resizeModes.size - 1) {
+            resizeModeIndex = 0
         }
-        binding.playerView.resizeMode = resizeModes[resizeIndex]
+        binding.playerView.resizeMode = resizeModes[resizeModeIndex]
+        viewModel.updateResizeModeIndex(resizeModeIndex)
     }
 
     private fun observeState() {
@@ -530,6 +538,14 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         launchWhenCreated {
             viewModel.back.collectLatest {
                 findNavController().navigateUp()
+            }
+        }
+        launchWhenCreated {
+            viewModel.cachedResizeModeIndex.collectLatest { cachedIndex ->
+                if (cachedIndex != resizeModeIndex) {
+                    resizeModeIndex = cachedIndex
+                    binding.playerView.resizeMode = resizeModes[resizeModeIndex]
+                }
             }
         }
     }
@@ -740,7 +756,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun initMediaSession() {
-        mediaSession = MediaSessionCompat(requireContext(), "Anwap")
+        mediaSession = MediaSessionCompat(requireContext(), MEDIA_SESSION_TAG)
         mediaSession?.let {
             it.setFlags(
                 MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS
@@ -790,7 +806,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             playerView.controller(youtubeOverlay)
             youtubeOverlay.player(player!!)
             playerView.player = player
-            playerView.resizeMode = resizeModes[resizeIndex]
+            playerView.resizeMode = resizeModes[resizeModeIndex]
             playerView.setControllerVisibilityListener { visibility ->
                 if (isVisible) {
                     changeVisible(visibility == View.VISIBLE)
@@ -871,7 +887,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             ivBack.isVisible = true
             ivLang.isVisible = langVisible
             activity?.window?.showSystemUI()
-            setScreenRotIconVisible(getOrientation())
+            setScreenRotIconVisible(getOrientation(), false)
         } else {
             ivResizes.isVisible = false
             ivScreenRotation.isVisible = false

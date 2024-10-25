@@ -14,7 +14,6 @@ object AppConstants {
     const val ACTION_DOWNLOAD_FILE_COMPLETE = "ACTION_DOWNLOAD_FILE_COMPLETE"
     const val ACTION_CACHE_VIDEO_UPDATE = "ACTION_CACHE_VIDEO_UPDATE"
     const val ACTION_DOWNLOAD_FILE = "ACTION_DOWNLOAD_FILE"
-    const val ACTION_TEST_FILE = "ACTION_TEST_FILE"
     const val ACTION_CACHE_MOVIE = "ACTION_CACHE_MOVIE"
     const val ACTION_CACHE_MOVIE_CANCEL = "ACTION_CACHE_MOVIE_CANCEL"
     const val ACTION_UPDATE_ALL_CANCEL = "ACTION_UPDATE_ALL_CANCEL"
@@ -53,6 +52,7 @@ object AppConstants {
         const val TITLE = "order_title"
         const val YEAR_DESC = "order_yearD"
         const val YEAR_ASC = "order_yearA"
+        const val LAST_TIME = "order_last"
     }
 
     object SearchType {
