@@ -692,17 +692,19 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     }
                 }
                 val url = when {
+                    excludeUrls.isEmpty() -> episode.hls
                     !excludeUrls.contains(episode.dash) -> episode.dash
                     !excludeUrls.contains(episode.hls) -> episode.hls
-                    else -> null
+                    else -> episode.hls
                 }
-                playerSource.getSource(
+                val source = playerSource.getSource(
                     url = url,
                     title = episode.title,
                     season = s,
                     episode = e
-                )?.let {
-                    mediaSources.add(it)
+                )
+                if (source != null) {
+                    mediaSources.add(source)
                 }
             }
         }

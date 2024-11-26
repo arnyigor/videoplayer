@@ -17,6 +17,7 @@ import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
+import com.arny.mobilecinema.data.utils.isFileExists
 import com.arny.mobilecinema.data.utils.saveFileToDownloadFolder
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
@@ -35,7 +36,6 @@ import org.joda.time.Duration
 import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
-
 
 class UpdateRepositoryImpl @Inject constructor(
     private val apiService: ApiService,
@@ -254,8 +254,20 @@ class UpdateRepositoryImpl @Inject constructor(
         movie: Movie
     ) = it.pageUrl == movie.pageUrl && !it.title.equals(movie.title, true)
 
+    private suspend fun getBaseLinkByFile(): String {
+        var baseLink = ""
+        val baseLinkFile = downloadFile(BuildConfig.BASE_LINK_FILE, "BASE_LINK_FILE")
+        if (baseLinkFile.isFileExists()) {
+            val baseLinkText = baseLinkFile.readText()
+            if (baseLinkText.isNotBlank()) {
+                baseLink = baseLinkText
+            }
+        }
+        return baseLink
+    }
+
     override suspend fun checkBaseUrl(): Boolean = try {
-        val baseLink = BuildConfig.BASE_LINK
+        val baseLink = getBaseLinkByFile()
         val page = jsoup.loadPage(
             url = baseLink,
             timeout = 3000

@@ -23,7 +23,6 @@ import java.util.zip.ZipFile
 import kotlin.math.log10
 import kotlin.math.pow
 
-
 fun File.isFileExists(): Boolean = isFile && exists()
 
 suspend fun File.create() {

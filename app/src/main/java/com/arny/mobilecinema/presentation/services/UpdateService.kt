@@ -348,7 +348,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
             if (!getAvailableMemory().lowMemory) {
                 anwapMovies = readData(dataFiles, hasUpdate)
             }
-            //                    Timber.d("read files complete:${anwapMovies.size}")
+            // Timber.d("read files complete:${anwapMovies.size}")
             if (anwapMovies.isNotEmpty()) {
                 file.delete()
                 dataFiles.forEach {
