@@ -80,9 +80,11 @@ class UpdateService : LifecycleService(), CoroutineScope {
             startForeground(
                 NOTICE_ID,
                 getNotice(
+                    addStopAction = true,
                     channelId = "channelId",
                     channelName = "channelName",
                     title = getString(R.string.updating_all),
+                    text = "",
                     silent = true
                 ),
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
@@ -91,9 +93,11 @@ class UpdateService : LifecycleService(), CoroutineScope {
             startForeground(
                 NOTICE_ID,
                 getNotice(
+                    addStopAction = true,
                     channelId = "channelId",
                     channelName = "channelName",
                     title = getString(R.string.updating_all),
+                    text = "",
                     silent = true
                 ),
             )
@@ -136,6 +140,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
                     is DataResultWithProgress.Error -> {
                         updateNotification(
                             title = getString(R.string.update_error_simple),
+                            text = "",
                             silent = false
                         )
                         updateComplete(false)
@@ -161,7 +166,20 @@ class UpdateService : LifecycleService(), CoroutineScope {
                                                 R.string.update_cinema_formatted,
                                                 title
                                             ),
+                                            text = "",
                                             silent = false,
+                                            addStopAction = true
+                                        )
+                                    }
+                                }
+
+                                UpdateType.PAGE_CURRENT_LINK -> {
+                                    val title = progress[UpdateType.PAGE_CURRENT_LINK]
+                                    if (title != null) {
+                                        updateNotification(
+                                            title = "",
+                                            text = title,
+                                            silent = true,
                                             addStopAction = true
                                         )
                                     }
@@ -229,6 +247,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
             if (!url.isNullOrBlank()) {
                 updateNotification(
                     title = getString(R.string.downloading_database),
+                    text = "",
                     silent = false
                 )
                 val file = repository.downloadFile(url, "tmp_${System.currentTimeMillis()}.zip")
@@ -245,6 +264,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
     private suspend fun downloadAll() {
         updateNotification(
             title = getString(R.string.updating_all),
+            text = "",
             addStopAction = true,
             silent = false
         )
@@ -270,15 +290,18 @@ class UpdateService : LifecycleService(), CoroutineScope {
                                             title
                                         ),
                                         addStopAction = true,
+                                        text = "",
                                         silent = true
                                     )
                                 }
                             }
+
                             UpdateType.LINK -> {
                                 val link = progress[UpdateType.LINK]
                                 if (link != null) {
                                     updateNotification(
                                         title = link,
+                                        text = "",
                                         addStopAction = true,
                                         silent = true
                                     )
@@ -360,19 +383,19 @@ class UpdateService : LifecycleService(), CoroutineScope {
                         hasUpdate,
                         forceAll
                     ) { percent ->
-                        updateNotification(getString(R.string.updating, percent), true)
+                        updateNotification(getString(R.string.updating, percent), text = "", true)
                     }
                     repository.setLastUpdate()
                     updateNotification(
                         title = getString(R.string.update_finished_success),
-                        silent = false
+                        text = "", silent = false
                     )
                     success = true
                 } catch (e: Exception) {
                     e.printStackTrace()
                     updateNotification(
                         title = getString(R.string.update_finished_error, e.message),
-                        silent = false
+                        text = "", silent = false
                     )
                     success = false
                 }
@@ -450,13 +473,14 @@ class UpdateService : LifecycleService(), CoroutineScope {
 
     private fun updateNotification(
         title: String,
+        text: String,
         silent: Boolean,
         addStopAction: Boolean = false,
     ) {
         if (!canceled) {
             getNoticeManager().notify(
                 NOTICE_ID,
-                getNotice("channelId", "channelName", title, addStopAction, silent)
+                getNotice("channelId", "channelName", title, text, addStopAction, silent)
             )
         }
     }
@@ -468,6 +492,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
         channelId: String,
         channelName: String,
         title: String,
+        text: String,
         addStopAction: Boolean = false,
         silent: Boolean
     ): Notification {
@@ -493,6 +518,10 @@ class UpdateService : LifecycleService(), CoroutineScope {
         return getNotificationBuilder(channelId, channelName)
             .apply {
                 setContentTitle(title)
+                if (text.isNotBlank()) {
+                    setContentText(text)
+                }
+                setContentText(text)
                 setAutoCancel(false)
                 setSilent(silent)
                 priority = NotificationCompat.PRIORITY_DEFAULT

@@ -536,14 +536,3 @@ fun getSeasons(page: Element): List<SerialSeason> {
     }
     return seasons.sortedBy { it.id }
 }
-
-fun getProxies(page: Element?, selector: String, regex: Regex): List<String> {
-    val text = page?.selectFirst(selector)?.text().orEmpty()
-    val stringList = findAllByGroup(text, regex, 1)
-    return stringList.map { it.replace(" ", ":") }
-}
-
-fun getProxies(text: String, regex: Regex): List<String> {
-    val stringList = findAllByGroup(text, regex, 1)
-    return stringList.map { it.replace(" ", ":") }
-}
