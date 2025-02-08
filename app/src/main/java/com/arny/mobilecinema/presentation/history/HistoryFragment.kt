@@ -171,6 +171,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
                     rbLastTime.isVisible = true
+                    swPriority.isVisible = false
                     val radioBtn = listOf(
                         rbLastTime to AppConstants.Order.LAST_TIME,
                         rbNone to AppConstants.Order.NONE,
@@ -273,6 +274,11 @@ class HistoryFragment : Fragment(), OnSearchListener {
         launchWhenCreated {
             viewModel.historyDataFlow.collectLatest { movies ->
                 itemsAdapter?.submitData(movies)
+            }
+        }
+        launchWhenCreated {
+            viewModel.order.collectLatest { order ->
+                currentOrder = order
             }
         }
     }

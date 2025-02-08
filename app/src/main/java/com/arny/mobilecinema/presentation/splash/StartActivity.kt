@@ -4,14 +4,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.ViewTreeObserver
-import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.lifecycle.ViewModelProvider
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.presentation.MainActivity
-import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
@@ -40,10 +37,11 @@ class StartActivity : AppCompatActivity(), HasAndroidInjector {
         super.onCreate(savedInstanceState)
         splashScreen.setKeepOnScreenCondition { true }
         val content: View = findViewById(android.R.id.content)
+        handleIntent(intent)
         content.viewTreeObserver.addOnPreDrawListener(
             object : ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
-                    return if (viewModel.ready.value) {
+                    return if (viewModel.readyComplete.value) {
                         // The content is ready; start drawing.
                         content.viewTreeObserver.removeOnPreDrawListener(this)
                         startActivity(Intent(this@StartActivity, MainActivity::class.java))
@@ -57,5 +55,23 @@ class StartActivity : AppCompatActivity(), HasAndroidInjector {
                 }
             }
         )
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        when (intent?.action) {
+            Intent.ACTION_SEND -> {
+                if (intent.getStringExtra(Intent.EXTRA_TEXT) != null) {
+                    val extra = intent.getStringExtra(Intent.EXTRA_TEXT)
+                    if (extra?.contains("anwap") == true) {
+                        viewModel.onIntentUrl(extra)
+                    }
+                }
+            }
+        }
     }
 }

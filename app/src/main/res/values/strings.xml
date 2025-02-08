@@ -148,6 +148,7 @@
     <string name="in_films">В фильмах</string>
     <string name="in_serials">В сериалах</string>
     <string name="likes_priority">Приоритет по лайкам</string>
+    <string name="rating_priority">Приоритет по рейтингам</string>
     <string name="cinema_save_data_total_size_format">, из: %s</string>
     <string name="cinema_save_data">Сохранён:%s%%, занимает: %s%s</string>
     <string name="cinema_save_data_only_bytes">Сохранён:нет данных, занимает: %s%s</string>

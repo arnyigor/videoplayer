@@ -8,8 +8,9 @@ import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 
 interface MoviesRepository {
-    var order: String
-    var prefPipMode: Boolean
+    var orderPref: String
+    var historyOrderPref: String
+    var pipModePref: Boolean
     fun getMovies(
         search: String,
         order: String,
@@ -45,6 +46,7 @@ interface MoviesRepository {
     fun clearViewHistory(movieDbId: Long?): Boolean
     suspend fun isHistoryEmpty(): Boolean
     fun saveOrder(order: String)
+    fun saveHistoryOrder(order: String)
     fun clearAllViewHistory():Boolean
     suspend fun isMoviesEmpty(): Boolean
     suspend fun getGenres(): List<String>

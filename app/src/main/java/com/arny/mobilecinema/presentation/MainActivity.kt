@@ -21,7 +21,6 @@ import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
 import dagger.android.HasAndroidInjector
-import timber.log.Timber
 import javax.inject.Inject
 
 class MainActivity : AppCompatActivity(), HasAndroidInjector {
@@ -46,13 +45,6 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         navView.setupWithNavController(navController)
         initOnBackPress(navController)
         initUI(navController)
-
-        handleIntent(intent)
-    }
-
-    override fun onNewIntent(intent: Intent?) {
-        super.onNewIntent(intent)
-        handleIntent(intent)
     }
 
     private fun initUI(navController: NavController) {
@@ -65,20 +57,6 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
                 )
             )
             showHome(destination.id !in listOf(R.id.nav_home, R.id.nav_prefs, R.id.nav_history))
-        }
-    }
-
-    private fun handleIntent(intent: Intent?) {
-        when (intent?.action) {
-            Intent.ACTION_SEND -> {
-                if (intent.getStringExtra(Intent.EXTRA_TEXT) != null) {
-                    val extra = intent.getStringExtra(Intent.EXTRA_TEXT)
-                    Timber.i("handleIntent:  url:$extra");
-                    if (extra?.contains("anwap") == true) {
-                        Timber.i("handleIntent: anwap url:$extra");
-                    }
-                }
-            }
         }
     }
 

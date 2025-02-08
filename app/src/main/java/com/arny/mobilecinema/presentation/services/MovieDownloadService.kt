@@ -174,7 +174,6 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         }
         when (state) {
             Download.STATE_QUEUED, Download.STATE_DOWNLOADING, Download.STATE_STOPPED -> {
-                updateDownloadedCache(percent)
                 sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_UPDATE) {
                     putString(
                         AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL,
@@ -190,7 +189,6 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             }
 
             Download.STATE_COMPLETED -> {
-                updateDownloadedCache(percent)
                 sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE)
                 if (stSize == 0) {
                     startNextDownload()
@@ -205,12 +203,6 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
                     stopCurrentService()
                 }
             }
-        }
-    }
-
-    private fun updateDownloadedCache(percent: Float) {
-        if (percent > 0) {
-            playerSource.updateDownloadCache(currentDownload?.downloadUrl, percent)
         }
     }
 
@@ -632,17 +624,12 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         nextPauseResumeAction = AppConstants.ACTION_CACHE_MOVIE_PAUSE
         playerSource.pauseDownload()
         if (!isCurrentActionPause) {
-            removeCachedDownload()
             playerSource.skipDownload(currentDownload?.downloadUrl.orEmpty())
         }
         startNextDownload()
         if (isCurrentActionPause && download != null && hasDownloads) {
             addToDownloadList(download)
         }
-    }
-
-    private fun removeCachedDownload() {
-        playerSource.removeDownloadCache(currentDownload?.downloadUrl)
     }
 
     private fun stopCurrentService() {

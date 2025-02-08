@@ -181,8 +181,8 @@ private fun order(order: String, sb: StringBuilder, likesPriority: Boolean) {
                 AppConstants.Order.NONE -> if (likesPriority) " updated DESC, likes DESC, ratingImdb DESC, ratingKp DESC" else " updated DESC, ratingImdb DESC, ratingKp DESC, likes DESC"
                 AppConstants.Order.RATINGS -> " ratingImdb DESC, ratingKp DESC, likes DESC"
                 AppConstants.Order.TITLE -> if (likesPriority) " title ASC, ratingImdb DESC, ratingKp DESC, likes DESC" else " title ASC, ratingImdb DESC, ratingKp DESC, likes DESC"
-                AppConstants.Order.YEAR_DESC -> if (likesPriority) " year DESC, likes DESC, ratingImdb DESC, ratingKp DESC" else " title ASC, ratingImdb DESC, ratingKp DESC, likes DESC"
-                AppConstants.Order.YEAR_ASC -> if (likesPriority) " year ASC, likes DESC, ratingImdb DESC, ratingKp DESC" else " title ASC, ratingImdb DESC, ratingKp DESC, likes DESC"
+                AppConstants.Order.YEAR_DESC -> if (likesPriority) " year DESC, likes DESC, ratingImdb DESC, ratingKp DESC" else " year DESC, ratingImdb DESC, ratingKp DESC, likes DESC"
+                AppConstants.Order.YEAR_ASC -> if (likesPriority) " year ASC, likes DESC, ratingImdb DESC, ratingKp DESC" else " year ASC, ratingImdb DESC, ratingKp DESC, likes DESC"
                 else -> ""
             }
         )

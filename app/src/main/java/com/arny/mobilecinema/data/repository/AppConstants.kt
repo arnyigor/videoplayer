@@ -61,10 +61,6 @@ object AppConstants {
         const val DIRECTORS = "directors"
         const val ACTORS = "actors"
         const val GENRES = "genres"
-        const val COUNTRIES = "countries"
-        const val YEARS = "years"
-        const val IMDBS = "imdbs"
-        const val KPS = "kps"
         const val CINEMA = "cinema"
         const val SERIAL = "serial"
     }

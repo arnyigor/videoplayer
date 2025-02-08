@@ -33,6 +33,12 @@ class DataUpdateInteractorImpl @Inject constructor(
         repository.checkUpdate = false
     }
 
+    override suspend fun setIntentUrl(url: String) {
+        repository.onNewUrl(url)
+    }
+
+    override suspend fun intentUrl(): Flow<String> = repository.newUrlFlow
+
     override suspend fun getUpdateDate(force: Boolean): Flow<DataResult<DataUpdateResult>> =
         doAsync {
             val hasMovies = repository.hasMovies()

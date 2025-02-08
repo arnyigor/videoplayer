@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class,FlowPreview::class)
 class HistoryViewModel @AssistedInject constructor(
@@ -49,12 +48,12 @@ class HistoryViewModel @AssistedInject constructor(
         .debounce(350)
         .onStart {
             started = true
-            val savedOrder = interactor.getOrder()
+            val savedOrder = interactor.getOrder(true)
             _order.value = savedOrder
             emit(
                 UiAction.Search(
                     order = savedOrder,
-                    searchType = searchType
+                    searchType = searchType,
                 )
             )
         }
@@ -63,7 +62,7 @@ class HistoryViewModel @AssistedInject constructor(
             historyInteractor.getHistoryMovies(
                 search = search.query,
                 order = search.order,
-                searchType = search.searchType
+                searchType = search.searchType,
             )
         }
         .onEach {
@@ -93,12 +92,12 @@ class HistoryViewModel @AssistedInject constructor(
 
     fun setOrder(order: String) {
         viewModelScope.launch {
-            interactor.saveOrder(order)
+            interactor.saveHistoryOrder(order)
             actionStateFlow.emit(
                 UiAction.Search(
                     searchType = searchType,
                     query = search.query,
-                    order = order
+                    order = order,
                 )
             )
         }
@@ -112,7 +111,7 @@ class HistoryViewModel @AssistedInject constructor(
                     UiAction.Search(
                         searchType = searchType,
                         query = search.query,
-                        order = _order.value
+                        order = _order.value,
                     )
                 )
             }

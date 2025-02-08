@@ -5,14 +5,11 @@ import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
@@ -22,7 +19,6 @@ import android.view.ViewGroup
 import android.widget.SearchView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresApi
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
@@ -43,6 +39,7 @@ import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendSearchResult
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
+import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
@@ -55,6 +52,7 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.openAppSettings
 import com.arny.mobilecinema.presentation.utils.registerReceiver
 import com.arny.mobilecinema.presentation.utils.requestPermission
+import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import com.arny.mobilecinema.presentation.utils.setupSearchView
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import com.arny.mobilecinema.presentation.utils.toast
@@ -65,6 +63,7 @@ import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
+import timber.log.Timber
 import javax.inject.Inject
 
 class HomeFragment : Fragment(), OnSearchListener {
@@ -287,7 +286,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private fun requestPermissions() {
         when (permissionRequestId) {
             0 -> requestNotice()
-            1 -> requestStoragePermission()
+            1 -> requestStorage()
         }
     }
 
@@ -339,6 +338,7 @@ class HomeFragment : Fragment(), OnSearchListener {
             else -> {
                 this.force = force
                 viewModel.downloadData(force)
+                viewModel.checkIntent()
             }
         }
     }
@@ -428,6 +428,17 @@ class HomeFragment : Fragment(), OnSearchListener {
                             viewModel.onNeutralAlert(alert.type)
                         }
                     )
+                }
+            }
+        }
+        launchWhenCreated {
+            viewModel.updateData.collectLatest { url ->
+                Timber.d("updateData url:$url")
+                requireContext().sendServiceMessage(
+                    Intent(requireContext().applicationContext, UpdateService::class.java),
+                    AppConstants.ACTION_UPDATE_BY_URL
+                ) {
+                    putString(AppConstants.SERVICE_PARAM_UPDATE_URL, url)
                 }
             }
         }
@@ -544,9 +555,17 @@ class HomeFragment : Fragment(), OnSearchListener {
             },
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
-                    chbLikesPriority.isChecked = likesPriority
-                    chbLikesPriority.setOnCheckedChangeListener { _, isChecked ->
+                    fun updatePriorityText(isChecked: Boolean) {
+                        swPriority.text = getString(
+                            if (isChecked) R.string.likes_priority else R.string.rating_priority
+                        )
+                    }
+                    rbLastTime.isVisible = false
+                    swPriority.isChecked = likesPriority
+                    updatePriorityText(likesPriority)
+                    swPriority.setOnCheckedChangeListener { _, isChecked ->
                         likesPriority = isChecked
+                        updatePriorityText(likesPriority)
                     }
                     val radioBtn = listOf(
                         rbNone to AppConstants.Order.NONE,
@@ -697,44 +716,6 @@ class HomeFragment : Fragment(), OnSearchListener {
         val uri = data?.data
         val path = FilePathUtils.getPath(uri, requireContext())
         println(path)
-    }
-
-    @RequiresApi(Build.VERSION_CODES.R)
-    private val requestPermissionAndroidR =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (Environment.isExternalStorageManager()) {
-                requestStorage()
-            }
-        }
-
-    private fun requestStoragePermission() {
-        requestStorage()
-        /*if (SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
-            alertDialog(
-                title = getString(R.string.need_permission_message),
-                btnOkText = getString(android.R.string.ok),
-                onConfirm = {
-                    requestAccessAndroidR()
-                }
-            )
-        } else {
-            requestStorage()
-        }*/
-    }
-
-    @RequiresApi(Build.VERSION_CODES.R)
-    private fun requestAccessAndroidR() {
-        val intent = Intent().apply {
-            action = Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
-            addCategory(Intent.CATEGORY_DEFAULT)
-            data = Uri.parse(
-                String.format(
-                    "package:%s",
-                    requireContext().applicationContext.packageName
-                )
-            )
-        }
-        requestPermissionAndroidR.launch(intent)
     }
 
     private fun requestFile() {

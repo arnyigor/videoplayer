@@ -27,7 +27,8 @@ interface MoviesInteractor {
 
     fun getMovie(id: Long): Flow<DataResult<Movie>>
     suspend fun saveOrder(order: String)
-    suspend fun getOrder(): String
+    suspend fun saveHistoryOrder(order: String)
+    suspend fun getOrder(isHistory: Boolean): String
     fun isMoviesEmpty(): Flow<DataResult<Boolean>>
     fun getBaseUrl(): String
     suspend fun loadDistinctGenres(): List<String>

@@ -84,6 +84,8 @@ import kotlin.properties.Delegates
 class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
     private companion object {
         const val MAX_BOOST_DEFAULT = 1000
+        const val DOUBLE_TAP_TIMEOUT = 300L // ms
+        const val SEEK_INCREMENT = 5000L // ms (5 секунд)
         const val MEDIA_SESSION_TAG = "MEDIA_SESSION_ANWAP_TAG"
     }
 
@@ -327,7 +329,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 player?.let {
                     val metadata = it.currentMediaItem?.mediaMetadata
                     this@PlayerViewFragment.title = metadata?.title.toString()
-                    setCurrentTitle(title)
+                    setCurrentTitle()
                 }
                 setupPopupMenus = true
             }
@@ -511,7 +513,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 if (state.path != null || state.movie != null) {
                     movie = state.movie
                     val (season, episode) = getSerialPosition(state.season, state.episode)
-                    setCurrentTitle(getTitle(movie?.title))
+                    setCurrentTitle()
                     setMediaSources(
                         path = state.path,
                         time = getTimePosition(state.time),
@@ -912,7 +914,19 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    private fun setCurrentTitle(title: String?) {
+    private fun setCurrentTitle() {
+        val title = if (movie?.type == MovieType.SERIAL) {
+            val bundle = player?.mediaMetadata?.extras
+            val newSeason = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
+            val newEpisode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
+            getString(
+                R.string.serial_title,
+                movie?.title,
+                (newSeason + 1).toString(),
+                (newEpisode + 1).toString()
+            )
+        } else movie?.title
+
         if (!title.isNullOrBlank() && title != "null") {
             binding.tvTitle.text = title.toString()
         } else {

@@ -16,6 +16,7 @@ import com.arny.mobilecinema.presentation.extendedsearch.ExtendSearchResult
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
+import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import dagger.assisted.AssistedInject
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -77,6 +79,8 @@ class HomeViewModel @AssistedInject constructor(
     private var search = UiAction.Search()
     private val trigger = MutableSharedFlow<Unit>()
     private val actionStateFlow = MutableSharedFlow<UiAction>()
+    private val _updateData = BufferedSharedFlow<String>()
+    val updateData = _updateData.asSharedFlow()
     var moviesDataFlow: Flow<PagingData<ViewMovie>> =
         listOf(
             trigger,
@@ -86,7 +90,7 @@ class HomeViewModel @AssistedInject constructor(
         )
             .merge()
             .onStart {
-                val savedOrder = moviesInteractor.getOrder()
+                val savedOrder = moviesInteractor.getOrder(false)
                 _order.value = savedOrder
                 emit(
                     UiAction.Search(
@@ -173,6 +177,18 @@ class HomeViewModel @AssistedInject constructor(
                             }
                         }
                     }
+                }
+        }
+    }
+
+    fun checkIntent() {
+        viewModelScope.launch {
+            dataUpdateInteractor.intentUrl()
+                .onStart { _loading.value = true }
+                .onCompletion { _loading.value = false }
+                .catch { it.printStackTrace() }
+                .collect { url ->
+                    _updateData.emit(url)
                 }
         }
     }

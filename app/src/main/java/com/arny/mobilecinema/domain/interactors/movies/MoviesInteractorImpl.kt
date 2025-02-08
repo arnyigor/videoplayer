@@ -25,7 +25,7 @@ class MoviesInteractorImpl @Inject constructor(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : MoviesInteractor {
 
-    override fun isPipModeEnable(): Boolean = repository.prefPipMode
+    override fun isPipModeEnable(): Boolean = repository.pipModePref
 
     override fun getMovies(
         search: String,
@@ -77,17 +77,17 @@ class MoviesInteractorImpl @Inject constructor(
         return type == MovieType.CINEMA
     }
 
-    override suspend fun saveOrder(order: String) {
-        withContext(dispatcher) {
-            repository.saveOrder(order)
-        }
+    override suspend fun saveOrder(order: String) = withContext(dispatcher) {
+        repository.saveOrder(order)
     }
 
-    override suspend fun getOrder(): String = withContext(dispatcher) {
-        var order = repository.order
-        if (order.isBlank()) {
-            order = AppConstants.Order.NONE
-        }
-        order
+    override suspend fun saveHistoryOrder(order: String) = withContext(dispatcher) {
+        repository.saveHistoryOrder(order)
+    }
+
+    override suspend fun getOrder(isHistory: Boolean): String = withContext(dispatcher) {
+        val defaultOrder = if (isHistory) AppConstants.Order.LAST_TIME else AppConstants.Order.YEAR_DESC
+        val orderPreference = if (isHistory) repository.historyOrderPref else repository.orderPref
+        orderPreference.ifBlank { defaultOrder }
     }
 }

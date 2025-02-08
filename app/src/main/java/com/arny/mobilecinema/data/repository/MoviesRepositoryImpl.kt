@@ -26,12 +26,20 @@ class MoviesRepositoryImpl @Inject constructor(
     private val prefs: Prefs,
     private val appResources: AppResourcesProvider
 ) : MoviesRepository {
-    override var order: String
+
+    override var orderPref: String
         get() = prefs.get<String>(PrefsConstants.ORDER).orEmpty()
         set(value) {
             prefs.put(PrefsConstants.ORDER, value)
         }
-    override var prefPipMode: Boolean
+
+    override var historyOrderPref: String
+        get() = prefs.get<String>(PrefsConstants.HISTORY_ORDER).orEmpty()
+        set(value) {
+            prefs.put(PrefsConstants.HISTORY_ORDER, value)
+        }
+
+    override var pipModePref: Boolean
         get() = prefs.get<Boolean>(PrefsConstants.PREF_KEY_PIP_MODE) ?: false
         set(value) {
             prefs.put(PrefsConstants.PREF_KEY_PIP_MODE, value)
@@ -166,6 +174,10 @@ class MoviesRepositoryImpl @Inject constructor(
     override fun clearAllViewHistory(): Boolean = historyDao.deleteAllHistory() > 0
 
     override fun saveOrder(order: String) {
-        this.order = order
+        this.orderPref = order
+    }
+
+    override fun saveHistoryOrder(order: String) {
+        this.historyOrderPref = order
     }
 }

@@ -22,12 +22,14 @@ import com.arny.mobilecinema.data.utils.saveFileToDownloadFolder
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.services.UpdateService
+import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import com.arthenica.ffmpegkit.FFmpegKit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
@@ -48,6 +50,9 @@ class UpdateRepositoryImpl @Inject constructor(
         const val UPDATE_PERIOD = 182L
     }
 
+    private val _newUrlFlow = BufferedSharedFlow<String>()
+    override val newUrlFlow = _newUrlFlow.asSharedFlow()
+
     override var checkUpdate: Boolean = false
     override var newUpdate: String = ""
     override var updateDownloadId: Long = -1L
@@ -62,16 +67,8 @@ class UpdateRepositoryImpl @Inject constructor(
             prefs.put(PrefsConstants.BASE_URL, value)
         }
 
-    override fun updateDownloadCache(downloadUrl: String?, percent: Float) {
-        /*if (!downloadUrl.isNullOrBlank()) {
-            prefs.put(downloadUrl, percent) TODO fix
-        }*/
-    }
-
-    override fun removeDownloadCache(downloadUrl: String?) {
-        /*if (!downloadUrl.isNullOrBlank()) {
-            prefs.remove(downloadUrl) TODO fix
-        }*/
+    override suspend fun onNewUrl(url: String) {
+        _newUrlFlow.emit(url)
     }
 
     override fun hasMovies(): Boolean = moviesDao.getCount() != 0

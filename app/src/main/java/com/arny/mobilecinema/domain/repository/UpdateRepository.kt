@@ -13,19 +13,33 @@ interface UpdateRepository {
     var updateDownloadId: Long
     var lastUpdate: String
     var baseUrl: String
+    val newUrlFlow: Flow<String>
+    suspend fun onNewUrl(url: String )
     suspend fun downloadFile(url: String, name: String): File
     fun setLastUpdate()
-    fun updateMovies(movies: List<Movie>,hasLastYearUpdate:Boolean, forceAll:Boolean, onUpdate: (ind: Int) -> Unit)
+    fun updateMovies(
+        movies: List<Movie>,
+        hasLastYearUpdate: Boolean,
+        forceAll: Boolean,
+        onUpdate: (ind: Int) -> Unit
+    )
+
     suspend fun checkBaseUrl(): Boolean
     suspend fun checkPath(url: String): Boolean
     fun hasLastUpdates(): Boolean
     fun hasMovies(): Boolean
     fun downloadUpdates(url: String, forceUpdate: Boolean)
-    fun updateDownloadCache(downloadUrl: String?, percent: Float)
-    fun removeDownloadCache(downloadUrl: String?)
     suspend fun copyFileToDownloadFolder(file: File, fileName: String): Boolean
-    suspend fun downloadFileWithProgress(url: String, fileName: String): Flow<DataResultWithProgress<DownloadFileResult>>
+    suspend fun downloadFileWithProgress(
+        url: String,
+        fileName: String
+    ): Flow<DataResultWithProgress<DownloadFileResult>>
+
     suspend fun removeOldMP4Downloads()
-    suspend fun downloadLinkWithProgress(url: String, file: File): Flow<DataResultWithProgress<FfmpegResult>>
+    suspend fun downloadLinkWithProgress(
+        url: String,
+        file: File
+    ): Flow<DataResultWithProgress<FfmpegResult>>
+
     fun updateAll()
 }

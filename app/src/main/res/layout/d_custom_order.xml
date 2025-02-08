@@ -9,7 +9,7 @@
     <RadioGroup
         android:id="@+id/rgrSort"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="wrap_content">
 
         <RadioButton
             android:id="@+id/rbLastTime"
@@ -54,13 +54,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/sort_year_asc" />
-
-        <CheckBox
-            android:id="@+id/chbLikesPriority"
-            style="@style/DetailsSubTitleStyle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/likes_priority" />
-
     </RadioGroup>
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/swPriority"
+        style="@style/DetailsSubTitleStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:checked="true"
+        android:text="@string/likes_priority" />
+
 </LinearLayout>

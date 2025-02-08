@@ -563,11 +563,4 @@ class PlayerSource @Inject constructor(
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
-    fun updateDownloadCache(downloadUrl: String?, percent: Float) {
-        updateRepository.updateDownloadCache(downloadUrl, percent)
-    }
-
-    fun removeDownloadCache(downloadUrl: String?) {
-        updateRepository.removeDownloadCache(downloadUrl)
-    }
 }
