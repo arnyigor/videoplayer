@@ -6,6 +6,7 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.isNotEmpty
+import timber.log.Timber
 
 fun getMoviesSQL(
     search: String,
@@ -47,13 +48,15 @@ private fun genres(
     sb: StringBuilder
 ) {
     if (genres.isNotEmpty()) {
+        val lowerCaseGenres = genres.map { it.lowercase() }
+
         if (!whereWrapper.hasWhere) {
             sb.append(" WHERE")
             whereWrapper.hasWhere = true
         } else {
             sb.append(" AND")
         }
-        sb.append(" genre in (${genres.joinToString(prefix = "'", postfix = "'")})")
+        sb.append(" LOWER(genre) IN (${lowerCaseGenres.joinToString(prefix = "'", postfix = "'")})")
     }
 }
 

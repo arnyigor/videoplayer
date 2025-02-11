@@ -3,9 +3,6 @@ buildscript {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url "https://artifactory-external.vkpartner.ru/artifactory/maven/"
-        }
         maven { url "https://kotlin.bintray.com/kotlinx" }
     }
     dependencies {
@@ -15,7 +12,6 @@ buildscript {
         def nav_version = "2.5.3"
         classpath "androidx.navigation:navigation-safe-args-gradle-plugin:$nav_version"
         classpath "com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin:2.0.1"
-        classpath 'ru.ok.tracer:tracer-plugin:0.2.8'
         classpath "com.google.gms:google-services:4.4.2"
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -27,7 +23,6 @@ allprojects {
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
-        maven { url "https://artifactory-external.vkpartner.ru/artifactory/maven/" }
     }
 }
 

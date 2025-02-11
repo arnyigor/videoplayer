@@ -1,158 +1,168 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string-array name="genres">
-        <item>авторский проект</item>
-        <item>автоспорт</item>
-        <item>анимационный боевик</item>
-        <item>анимация</item>
-        <item>аниме</item>
-        <item>арт-хаус</item>
-        <item>артхаус</item>
-        <item>биографическая</item>
-        <item>биография</item>
-        <item>боевик</item>
-        <item>боевые искусства</item>
-        <item>былины</item>
-        <item>вестерн</item>
-        <item>вов</item>
-        <item>военная драма</item>
-        <item>военно-историческое</item>
-        <item>военный парад</item>
-        <item>военный фильм</item>
-        <item>восточные единоборства</item>
-        <item>гей-комедия</item>
-        <item>гей-тема</item>
-        <item>гранж</item>
-        <item>детектив</item>
-        <item>детективная мелодрама</item>
-        <item>детский</item>
-        <item>джаз</item>
-        <item>для взрослых</item>
-        <item>документальное</item>
-        <item>документальные</item>
-        <item>документальный</item>
-        <item>драма</item>
-        <item>игра</item>
-        <item>индийский боевик</item>
-        <item>индийское кино</item>
-        <item>истерн</item>
-        <item>историческая драма</item>
-        <item>исторический</item>
-        <item>история</item>
-        <item>карате</item>
-        <item>катастрофа</item>
-        <item>киноповесть</item>
-        <item>классика</item>
-        <item>комедии</item>
-        <item>комедия</item>
-        <item>комикс</item>
-        <item>комическая фантасмагория</item>
-        <item>концерт</item>
-        <item>концерты</item>
-        <item>короткометражка</item>
-        <item>короткометражный</item>
-        <item>криминал</item>
-        <item>лесби</item>
-        <item>лирика</item>
-        <item>лирическая комедия</item>
-        <item>любительское видео</item>
-        <item>любовный роман</item>
-        <item>манга</item>
-        <item>махо-сёдзё</item>
-        <item>мелодрама</item>
-        <item>мелодрамы</item>
-        <item>меха</item>
-        <item>мистика</item>
-        <item>мистический</item>
-        <item>мифология</item>
-        <item>мокументалистика</item>
-        <item>молодёжная</item>
-        <item>музыка</item>
-        <item>музыкальная</item>
-        <item>музыкальный</item>
-        <item>мультипликационный</item>
-        <item>мультсериал</item>
-        <item>мультфильм</item>
-        <item>мюзикл</item>
-        <item>мюзикл</item>
-        <item>награждения</item>
-        <item>научная</item>
-        <item>немое</item>
-        <item>ниндзя</item>
-        <item>новейшая</item>
-        <item>новелла</item>
-        <item>новости</item>
-        <item>обучающее</item>
-        <item>обучающий</item>
-        <item>остросюжетная мелодрама</item>
-        <item>отечественный</item>
-        <item>парад</item>
-        <item>пародия</item>
-        <item>перевод</item>
-        <item>пиротехническое шоу</item>
-        <item>полнометражный</item>
-        <item>поп-рок</item>
-        <item>поп</item>
-        <item>поп</item>
-        <item>постапокалипсис</item>
-        <item>постапокалиптика</item>
-        <item>приключение</item>
-        <item>приключения</item>
-        <item>приключенческая</item>
-        <item>притча</item>
-        <item>реальное ТВ</item>
-        <item>рисованая</item>
-        <item>рисованная</item>
-        <item>рисованный</item>
-        <item>рок</item>
-        <item>роман</item>
-        <item>романтика</item>
-        <item>романтическая</item>
-        <item>рукопашный бой</item>
-        <item>с элементами черного юмора</item>
-        <item>самурайская</item>
-        <item>самурайский</item>
-        <item>саспенс</item>
-        <item>сатира</item>
-        <item>свинг</item>
-        <item>семейный.</item>
-        <item>семейный</item>
-        <item>семейный</item>
-        <item>сериал</item>
-        <item>сказка</item>
-        <item>скетч</item>
-        <item>смешной</item>
-        <item>спорт</item>
-        <item>сюрреализм</item>
-        <item>сёнэн</item>
-        <item>тв-шоу</item>
-        <item>трагикомедия</item>
-        <item>трагифарс</item>
-        <item>триллер</item>
-        <item>трэш-комедия</item>
-        <item>трэш</item>
-        <item>ужасы</item>
-        <item>фантастика</item>
-        <item>фантастический</item>
-        <item>фентези</item>
-        <item>философия</item>
-        <item>фильм ужасов</item>
-        <item>фильм-катастрофа</item>
-        <item>фильм-нуар</item>
-        <item>фильм-спектакль</item>
-        <item>футбол</item>
-        <item>фэнтази</item>
-        <item>фэнтези</item>
-        <item>фэнтэзи</item>
-        <item>художественно-документальный</item>
-        <item>церемония</item>
-        <item>черный юмор</item>
-        <item>чёрная комедия</item>
-        <item>экранизация</item>
-        <item>экшн</item>
-        <item>эротика</item>
-        <item>эротическая</item>
-        <item>юмористический</item>
+        <item>Cемейный</item>
+        <item>Mюзикл</item>
+        <item>Pop</item>
+        <item>Punk</item>
+        <item>Авторский проект</item>
+        <item>Автоспорт</item>
+        <item>Александра Леклер</item>
+        <item>Анимационный</item>
+        <item>Анимация</item>
+        <item>Аниме</item>
+        <item>Арт-хаус</item>
+        <item>Артхаус</item>
+        <item>Биографическая драма</item>
+        <item>Биография</item>
+        <item>Боевик</item>
+        <item>Боевик драма</item>
+        <item>Боевики</item>
+        <item>Боевые искусства</item>
+        <item>Былины</item>
+        <item>Вестерн</item>
+        <item>Вов</item>
+        <item>Военная драма</item>
+        <item>Военно-историческое</item>
+        <item>Военный</item>
+        <item>Военный фильм</item>
+        <item>Война</item>
+        <item>Восточные единоборства</item>
+        <item>Гей-комедия</item>
+        <item>Гей-тема</item>
+        <item>Гранж</item>
+        <item>Детектив</item>
+        <item>Детективная мелодрама</item>
+        <item>Детский</item>
+        <item>Джаз</item>
+        <item>Для взрослых</item>
+        <item>Документальное</item>
+        <item>Документальный</item>
+        <item>Драма</item>
+        <item>Единоборства</item>
+        <item>Игра</item>
+        <item>Индийский</item>
+        <item>Индийское кино</item>
+        <item>Истерн</item>
+        <item>Историческая драма</item>
+        <item>Исторический</item>
+        <item>История</item>
+        <item>Карате</item>
+        <item>Катастрофа</item>
+        <item>Кино</item>
+        <item>Киноповесть</item>
+        <item>Классика</item>
+        <item>Комедии</item>
+        <item>Комедия</item>
+        <item>Комедия (с элементами черного юмора)</item>
+        <item>Комикс</item>
+        <item>Комическая фантасмагория</item>
+        <item>Концерт</item>
+        <item>Концерты</item>
+        <item>Концерты документальные</item>
+        <item>Короткометражка</item>
+        <item>Короткометражный</item>
+        <item>Криминал</item>
+        <item>Криминальная драма</item>
+        <item>Криминальная комедия</item>
+        <item>Лесби</item>
+        <item>Лирика</item>
+        <item>Лирическая комедия</item>
+        <item>Любительское видео</item>
+        <item>Любовный роман</item>
+        <item>Манга</item>
+        <item>Мелодрама</item>
+        <item>Мелодрамма</item>
+        <item>Мелодрамы</item>
+        <item>Меха</item>
+        <item>Мистика</item>
+        <item>Мистический триллер</item>
+        <item>Мифология</item>
+        <item>Мокументалистика</item>
+        <item>Молодёжная комедия</item>
+        <item>Музыка</item>
+        <item>Музыкальный</item>
+        <item>Мультипликационный сериал</item>
+        <item>Мультсериал</item>
+        <item>Мультфильм</item>
+        <item>Мультфильмы</item>
+        <item>Мюзикл</item>
+        <item>Научная фантастика</item>
+        <item>Немое кино</item>
+        <item>Ниндзя</item>
+        <item>Новейшая история</item>
+        <item>Новелла</item>
+        <item>Новости</item>
+        <item>Обучающее</item>
+        <item>Обучающее видео</item>
+        <item>Обучающий</item>
+        <item>Остросюжетная мелодрама</item>
+        <item>Отечественный</item>
+        <item>Парад</item>
+        <item>Пародия</item>
+        <item>Пиротехническое шоу</item>
+        <item>Полнометражный мультфильм</item>
+        <item>Поп</item>
+        <item>Поп-рок</item>
+        <item>Постапокалипсис</item>
+        <item>Приключение</item>
+        <item>Приключения</item>
+        <item>Приключенческая мелодрама</item>
+        <item>Притча</item>
+        <item>Реальное ТВ</item>
+        <item>Рисованая</item>
+        <item>Рисованная анимация</item>
+        <item>Рисованный</item>
+        <item>Рок</item>
+        <item>Романтика</item>
+        <item>Романтическая комедия</item>
+        <item>Рукопашный бой</item>
+        <item>Самурайская</item>
+        <item>Самурайский боевик</item>
+        <item>Саспенс</item>
+        <item>Сатира</item>
+        <item>Свинг</item>
+        <item>Семейный</item>
+        <item>Сказка</item>
+        <item>Скетч</item>
+        <item>Смешной перевод</item>
+        <item>Спорт</item>
+        <item>Сюрреализм</item>
+        <item>Сёнэн</item>
+        <item>Тв - шоу</item>
+        <item>Тв-шоу</item>
+        <item>Трагикомедия</item>
+        <item>Трагифарс</item>
+        <item>Триллер</item>
+        <item>Трэш</item>
+        <item>Трэш-комедия</item>
+        <item>Ужасы</item>
+        <item>Ужасы (арт-хаус)</item>
+        <item>Фантастика</item>
+        <item>Фантастический</item>
+        <item>Фентези</item>
+        <item>Философия</item>
+        <item>Фильм ужасов</item>
+        <item>Фильм-катастрофа</item>
+        <item>Фильм-нуар</item>
+        <item>Фильм-спектакль</item>
+        <item>Фильмнуар</item>
+        <item>Футбол</item>
+        <item>Фэнтази</item>
+        <item>Фэнтези</item>
+        <item>Фэнтэзи</item>
+        <item>Художественно-документальный</item>
+        <item>Церемония награждения</item>
+        <item>Черный юмор</item>
+        <item>Чёрная</item>
+        <item>Шоу</item>
+        <item>Экранизация</item>
+        <item>Экшн</item>
+        <item>Эротика</item>
+        <item>Эротическая</item>
+        <item>Юмор</item>
+        <item>Юмористический</item>
+        <item>Юмористический перевод</item>
     </string-array>
     <string-array name="countries">
         <item>Австралия</item>

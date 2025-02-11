@@ -23,6 +23,7 @@ interface MoviesRepository {
         kps: SimpleFloatRange? = null,
         likesPriority: Boolean,
     ): Pager<Int, ViewMovie>
+
     fun getMovie(id: Long): Movie?
     fun getMovie(pageUrl: String): Movie?
     fun getSaveData(movieDbId: Long?): HistoryEntity?
@@ -35,6 +36,7 @@ interface MoviesRepository {
         episodePosition: Long,
         currentTimeMs: Long
     ): Boolean
+
     fun updateSerialPosition(
         movieDbId: Long?,
         season: Int,
@@ -42,14 +44,15 @@ interface MoviesRepository {
         time: Long,
         currentTimeMs: Long
     ): Boolean
+
     fun getHistoryMovies(search: String, order: String, searchType: String): Pager<Int, ViewMovie>
     fun clearViewHistory(movieDbId: Long?): Boolean
     suspend fun isHistoryEmpty(): Boolean
     fun saveOrder(order: String)
     fun saveHistoryOrder(order: String)
-    fun clearAllViewHistory():Boolean
+    fun clearAllViewHistory(): Boolean
     suspend fun isMoviesEmpty(): Boolean
-    suspend fun getGenres(): List<String>
+    fun getGenres(): List<String>
     fun getMinMaxYears(): SimpleIntRange
     fun getCountries(): List<String>
 }

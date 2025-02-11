@@ -7,8 +7,6 @@ import com.arny.mobilecinema.presentation.di.ExtendedSearchFragmentModule
 import com.arny.mobilecinema.presentation.di.HistoryFragmentModule
 import com.arny.mobilecinema.presentation.di.HomeFragmentModule
 import com.arny.mobilecinema.presentation.di.PlayerFragmentModule
-import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchFragment
-import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel
 import com.arny.mobilecinema.presentation.splash.StartActivity
 import dagger.Module
 import dagger.android.ContributesAndroidInjector

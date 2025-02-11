@@ -24,7 +24,7 @@ class MoviesRepositoryImpl @Inject constructor(
     private val movieDao: MovieDao,
     private val historyDao: HistoryDao,
     private val prefs: Prefs,
-    private val appResources: AppResourcesProvider
+    private val appResources: AppResourcesProvider,
 ) : MoviesRepository {
 
     override var orderPref: String
@@ -99,13 +99,11 @@ class MoviesRepositoryImpl @Inject constructor(
     override fun getMovie(pageUrl: String): Movie? =
         movieDao.getMovie(pageUrl)?.let { movieMapper.transform(it) }
 
-    override suspend fun getGenres(): List<String> =
-        appResources.getStringArray(R.array.genres)
+    override fun getGenres(): List<String> = appResources.getStringArray(R.array.genres)
 
     override fun getMinMaxYears(): SimpleIntRange = movieDao.getYearsMinMax()
 
-    override fun getCountries(): List<String> =
-        appResources.getStringArray(R.array.countries)
+    override fun getCountries(): List<String> = appResources.getStringArray(R.array.countries)
 
     override fun getSaveData(movieDbId: Long?): HistoryEntity? = historyDao.getHistory(movieDbId)
 
