@@ -383,7 +383,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
                         hasUpdate,
                         forceAll
                     ) { percent ->
-                        updateNotification(getString(R.string.updating, percent), text = "", true)
+                        updateNotification(getString(R.string.updating_format, percent), text = "", true)
                     }
                     repository.setLastUpdate()
                     updateNotification(

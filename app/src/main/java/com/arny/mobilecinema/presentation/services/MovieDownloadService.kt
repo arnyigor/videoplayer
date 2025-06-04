@@ -16,6 +16,8 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.offline.Download
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResultWithProgress
 import com.arny.mobilecinema.data.models.FfmpegResult
@@ -31,7 +33,6 @@ import com.arny.mobilecinema.presentation.utils.DownloadHelper
 import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
 import com.arthenica.ffmpegkit.Log
 import com.arthenica.ffmpegkit.SessionState
-import com.google.android.exoplayer2.offline.Download
 import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +48,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.math.pow
 import kotlin.properties.Delegates
 
+@UnstableApi
 class MovieDownloadService : LifecycleService(), CoroutineScope {
     private companion object {
         const val NOTICE_ID = 100002
@@ -249,7 +251,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
         AndroidInjection.inject(this)
         initNotice()
         playerSource.setListener(progressListener)
-        downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        downloadManager = getSystemService( DOWNLOAD_SERVICE) as DownloadManager
     }
 
     private fun initNotice() {

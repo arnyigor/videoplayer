@@ -1,14 +1,14 @@
 package com.arny.mobilecinema.data.player
 
 import android.content.Context
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.cache.NoOpCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
 import com.arny.mobilecinema.data.utils.SingletonHolder
-import com.google.android.exoplayer2.database.StandaloneDatabaseProvider
-import com.google.android.exoplayer2.upstream.cache.Cache
-import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor
-import com.google.android.exoplayer2.upstream.cache.NoOpCacheEvictor
-import com.google.android.exoplayer2.upstream.cache.SimpleCache
 import java.io.File
 
+@UnstableApi
 class VideoCache private constructor(private val context: Context) {
     private var downloadCache: SimpleCache? = null
     private val cacheTitle = "exoCache"

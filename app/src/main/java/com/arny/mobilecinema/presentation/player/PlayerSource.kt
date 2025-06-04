@@ -5,6 +5,33 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.core.os.bundleOf
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.FileDataSource
+import androidx.media3.datasource.cache.Cache
+import androidx.media3.datasource.cache.CacheDataSink
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.CacheSpan
+import androidx.media3.exoplayer.dash.DashMediaSource
+import androidx.media3.exoplayer.dash.DefaultDashChunkSource
+import androidx.media3.exoplayer.dash.manifest.DashManifest
+import androidx.media3.exoplayer.hls.HlsManifest
+import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.exoplayer.offline.Download
+import androidx.media3.exoplayer.offline.DownloadHelper
+import androidx.media3.exoplayer.offline.DownloadManager
+import androidx.media3.exoplayer.offline.DownloadRequest
+import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.extractor.DefaultExtractorsFactory
 import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.data.player.VideoCache
 import com.arny.mobilecinema.data.repository.AppConstants
@@ -13,32 +40,6 @@ import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getDomainName
 import com.arny.mobilecinema.domain.models.DownloadManagerData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
-import com.google.android.exoplayer2.C
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.MediaMetadata
-import com.google.android.exoplayer2.database.StandaloneDatabaseProvider
-import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory
-import com.google.android.exoplayer2.offline.Download
-import com.google.android.exoplayer2.offline.DownloadHelper
-import com.google.android.exoplayer2.offline.DownloadManager
-import com.google.android.exoplayer2.offline.DownloadRequest
-import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.source.ProgressiveMediaSource
-import com.google.android.exoplayer2.source.dash.DashMediaSource
-import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource
-import com.google.android.exoplayer2.source.dash.manifest.DashManifest
-import com.google.android.exoplayer2.source.hls.HlsManifest
-import com.google.android.exoplayer2.source.hls.HlsMediaSource
-import com.google.android.exoplayer2.upstream.DataSource
-import com.google.android.exoplayer2.upstream.DataSpec
-import com.google.android.exoplayer2.upstream.DefaultDataSource
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
-import com.google.android.exoplayer2.upstream.FileDataSource
-import com.google.android.exoplayer2.upstream.cache.Cache
-import com.google.android.exoplayer2.upstream.cache.CacheDataSink
-import com.google.android.exoplayer2.upstream.cache.CacheDataSource
-import com.google.android.exoplayer2.upstream.cache.CacheSpan
-import com.google.android.exoplayer2.util.Util
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -49,6 +50,7 @@ import javax.inject.Inject
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
+@UnstableApi
 class PlayerSource @Inject constructor(
     private val context: Context,
     private val updateRepository: UpdateRepository,
@@ -86,14 +88,15 @@ class PlayerSource @Inject constructor(
         }
     }
 
-    fun setListener(progressListener: (
-        percent: Float,
-        bytes: Long,
-        startTime: Long,
-        updateTime: Long,
-        state: Int,
-        size: Int
-    ) -> Unit
+    fun setListener(
+        progressListener: (
+            percent: Float,
+            bytes: Long,
+            startTime: Long,
+            updateTime: Long,
+            state: Int,
+            size: Int
+        ) -> Unit
     ) {
         onUpdate = progressListener
         downloadManager?.addListener(downloadListener)
@@ -121,9 +124,11 @@ class PlayerSource @Inject constructor(
                     uri.host?.contains(YOUTUBE_HOST) == true -> getYoutubeSource(url, factory)
                     uri.lastPathSegment.orEmpty().substringAfterLast('.') == "mp4" ->
                         getMp4MediaSource(factory, mediaItem)
+
                     else -> getMp4MediaSource(factory, mediaItem)
                 }
             }
+
             else -> error("Unsupported type: $type from url:$url")
         }
     }
@@ -373,7 +378,7 @@ class PlayerSource @Inject constructor(
                     it.indexOf("/index") == -1 && !it.endsWith("master.m3u8")
                 }
                 var filter = filterByIndex.filter { s ->
-                    getDomainName(s) in otherDomainName  && s.indexOf("seg-") != -1
+                    getDomainName(s) in otherDomainName && s.indexOf("seg-") != -1
                 }
                 if (filter.isEmpty()) {
                     filter = filterByIndex.filter { s ->
@@ -443,7 +448,7 @@ class PlayerSource @Inject constructor(
         } else {
             continuation.resumeWithException(Exception("no_internet_connection"))
         }
-        }
+    }
 
     private fun getCacheKey(url: String): String =
         dataSourceFactory().cacheKeyFactory.buildCacheKey(DataSpec(Uri.parse(url)))
@@ -538,6 +543,7 @@ class PlayerSource @Inject constructor(
             !url.isNullOrBlank() -> getMp4MediaSource(
                 factory, getMediaItem(url, title)
             )
+
             else -> error("Media source from Youtube link $link not found")
         }
     }

@@ -1,8 +1,8 @@
 ext {
     versions = [
-            minSdkVersion            : 21,
-            compileSdkVersion        : 34,
-            targetSdkVersion         : 34,
+            minSdkVersion            : 24,
+            compileSdkVersion        : 35,
+            targetSdkVersion         : 35,
             buildToolsVersion        : "34.0.0"
     ]
 }
@@ -42,6 +42,13 @@ android {
     testOptions {
         unitTests {
             includeAndroidResources = true
+        }
+    }
+
+    packaging {
+        resources {
+            excludes.add("META-INF/versions/9/OSGI-INF/MANIFEST.MF")
+            excludes.add("META-INF/versions/*/OSGI-INF/MANIFEST.MF")
         }
     }
 

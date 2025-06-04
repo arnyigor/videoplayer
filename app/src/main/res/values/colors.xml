@@ -9,4 +9,5 @@
     <color name="colorIcon">#FFFFFF</color>
     <color name="colorOverlay">#66000000</color>
     <color name="colorSeparator">#1E1E1E</color>
+    <color name="white">#FFFFFF</color>
 </resources>

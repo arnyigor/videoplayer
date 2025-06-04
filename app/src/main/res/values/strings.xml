@@ -57,7 +57,7 @@
     <string name="imdb">IMDB</string>
     <string name="kp">KP</string>
     <string name="updating_channel_name">Обновление</string>
-    <string name="updating">Обновление фильмов и сериалов %d%%</string>
+    <string name="updating_format">Обновление фильмов и сериалов %d%%</string>
     <string name="updating_all">Обновление фильмов и сериалов</string>
     <string name="no_movie_title">Нет названия</string>
     <string name="serial_title">%s (%s сезон,%s серия)</string>
@@ -158,7 +158,6 @@
     <string name="try_open_next_link">Открываем следующую ссылку…</string>
     <string name="no_any_links_to_open">Нет ссылок для просмотра, попробуйте обновить данные из меню деталей</string>
     <string name="downloading_database">Загрузка базы фильмов…</string>
-    <string name="notice_update_all">Обновление фильмов и сериалов</string>
     <string name="downloading_file">Загрузка файла…</string>
     <string name="downloading_progress">%s из %s, %s%%, %s</string>
     <string name="downloading_progress_percent_only">%s</string>

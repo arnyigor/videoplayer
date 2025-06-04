@@ -1,13 +1,14 @@
 package com.arny.mobilecinema.presentation.player
 
 import android.content.Context
+import androidx.media3.common.C
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.text.SubtitleDecoderFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.trackselection.MappingTrackSelector
 import com.arny.mobilecinema.domain.models.Movie
-import com.google.android.exoplayer2.C
-import com.google.android.exoplayer2.text.SubtitleDecoderFactory
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.trackselection.MappingTrackSelector.MappedTrackInfo
-import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
-import com.google.android.exoplayer2.trackselection.TrackSelectionParameters
 
 fun Movie.getCinemaUrl(): String {
     val hdUrl = cinemaUrlData?.hdUrl?.urls?.firstOrNull().orEmpty()
@@ -25,6 +26,7 @@ fun Movie.getAllCinemaUrls(): List<String> {
     return hdUrls + cinemaUrls
 }
 
+@UnstableApi
 fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<String, TrackSelectionOverride>> {
     val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
     val renderTrack = this.currentMappedTrackInfo
@@ -49,7 +51,8 @@ fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<Stri
                             if (track.getFormat(trackIndex).selectionFlags == C.SELECTION_FLAG_AUTOSELECT) {
                                 trackName.plus(" (Default)")
                             }
-                            val builder = TrackSelectionParameters.Builder(context).clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                            val builder = TrackSelectionParameters.Builder(context).clearOverridesOfType(
+                                C.TRACK_TYPE_AUDIO)
                             val override = TrackSelectionOverride(track, listOf(trackIndex)).apply {
                                 setParameters(builder.build())
                             }
@@ -65,6 +68,7 @@ fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<Stri
     return trackOverrideList.distinctBy { it.first }.sortedByDescending { it.first }
 }
 
+@UnstableApi
 fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String, TrackSelectionOverride>> {
     val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
     val renderTrack = this.currentMappedTrackInfo
@@ -107,6 +111,7 @@ fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String
     return trackOverrideList.distinctBy { it.first }.sortedByDescending { it.first }
 }
 
+@UnstableApi
 fun DefaultTrackSelector.generateSubTitlesList(context: Context): List<Pair<String, TrackSelectionOverride>> {
     val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
     val renderTrack = this.currentMappedTrackInfo
@@ -154,7 +159,8 @@ fun DefaultTrackSelector.generateSubTitlesList(context: Context): List<Pair<Stri
     return trackOverrideList.distinctBy { it.first }.sortedByDescending { it.first }
 }
 
-fun isSupportedFormat(mappedTrackInfo: MappedTrackInfo?, rendererIndex: Int): Boolean =
+@UnstableApi
+fun isSupportedFormat(mappedTrackInfo: MappingTrackSelector.MappedTrackInfo?, rendererIndex: Int): Boolean =
     when (mappedTrackInfo?.getTrackGroups(rendererIndex)?.length) {
         0 -> false
         else -> {

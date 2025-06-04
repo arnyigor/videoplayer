@@ -14,7 +14,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.support.v4.media.session.MediaSessionCompat
 import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -25,6 +24,22 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.media3.common.C
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.common.util.Util
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionCommands
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
@@ -46,6 +61,7 @@ import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
+import com.arny.mobilecinema.presentation.playerview.dtpv.YouTubeOverlay
 import com.arny.mobilecinema.presentation.utils.getOrientation
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.initAudioManager
@@ -58,22 +74,6 @@ import com.arny.mobilecinema.presentation.utils.setTextColorRes
 import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterContentResolver
-import com.github.vkay94.dtpv.youtube.YouTubeOverlay
-import com.google.android.exoplayer2.C
-import com.google.android.exoplayer2.DefaultLoadControl
-import com.google.android.exoplayer2.DefaultRenderersFactory
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.PlaybackException
-import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.Tracks
-import com.google.android.exoplayer2.analytics.AnalyticsListener
-import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
-import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
-import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
-import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
@@ -81,12 +81,10 @@ import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.properties.Delegates
 
+@UnstableApi
 class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
     private companion object {
         const val MAX_BOOST_DEFAULT = 1000
-        const val DOUBLE_TAP_TIMEOUT = 300L // ms
-        const val SEEK_INCREMENT = 5000L // ms (5 секунд)
-        const val MEDIA_SESSION_TAG = "MEDIA_SESSION_ANWAP_TAG"
     }
 
     @AssistedFactory
@@ -102,7 +100,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     @Inject
     lateinit var playerSource: PlayerSource
-
+    private var mediaSession: MediaSession? = null
     private val viewModel: PlayerViewModel by viewModelFactory { viewModelFactory.create() }
     private var allEpisodes: List<SerialEpisode> = emptyList()
     private var currentEpisodeIndex: Int = -1
@@ -277,7 +275,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             velocityY: Float
         ): Boolean = false
     }
-    private var mediaSession: MediaSessionCompat? = null
+
     private fun updateGain() {
         try {
             val targetGain = enhancer?.targetGain
@@ -467,7 +465,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     resizeModeIndex = 0
                 }
                 binding.playerView.resizeMode = resizeModes[resizeModeIndex]
-                binding.ivScreenRotation.isVisible = binding.playerView.isControllerVisible
+                binding.ivScreenRotation.isVisible = binding.playerView.isControllerFullyVisible
             }
 
             Configuration.ORIENTATION_LANDSCAPE -> {
@@ -475,7 +473,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     resizeModeIndex = 4
                 }
                 binding.playerView.resizeMode = resizeModes[resizeModeIndex]
-                binding.ivScreenRotation.isVisible = binding.playerView.isControllerVisible
+                binding.ivScreenRotation.isVisible = binding.playerView.isControllerFullyVisible
             }
 
             else -> {}
@@ -760,31 +758,34 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun initMediaSession() {
-        mediaSession = MediaSessionCompat(requireContext(), MEDIA_SESSION_TAG)
-        mediaSession?.let {
-            it.setFlags(
-                MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS
-                        or MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
-            )
-            MediaSessionConnector(it).setPlayer(player)
+        val sessionCallback = object : MediaSession.Callback {
+            override fun onConnect(
+                session: MediaSession,
+                controller: MediaSession.ControllerInfo
+            ): MediaSession.ConnectionResult {
+                // Разрешить подключение всем контроллерам
+                return MediaSession.ConnectionResult.accept(
+                    SessionCommands.EMPTY,
+                    Player.Commands.EMPTY
+                )
+            }
+        }
+        player?.let {
+            mediaSession = MediaSession.Builder(requireContext(), it)
+                .setCallback(sessionCallback)
+                .build()
         }
     }
+
 
     @SuppressLint("ClickableViewAccessibility")
     private fun preparePlayer() {
         with(binding) {
-            val loadControl =
-                DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
-                    .build()
             trackSelector =
                 DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory()).apply {
                     parameters.buildUpon().setPreferredAudioLanguage("rus")
                 }
             player = ExoPlayer.Builder(requireContext())
-                .setLoadControl(loadControl)
-//                .setBandwidthMeter(DefaultBandwidthMeter.Builder(requireContext()).build())
-                .setRenderersFactory(DefaultRenderersFactory(requireContext()))
                 .setTrackSelector(trackSelector!!)
                 .setSeekBackIncrementMs(secToMs(5))
                 .setSeekForwardIncrementMs(secToMs(5))
@@ -811,11 +812,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             youtubeOverlay.player(player!!)
             playerView.player = player
             playerView.resizeMode = resizeModes[resizeModeIndex]
-            playerView.setControllerVisibilityListener { visibility ->
-                if (isVisible) {
-                    changeVisible(visibility == View.VISIBLE)
+            playerView.setControllerVisibilityListener(
+                PlayerView.ControllerVisibilityListener { visibility ->
+                    if (isVisible) {
+                        changeVisible(visibility == View.VISIBLE)
+                    }
                 }
-            }
+            )
             playerView.setOnTouchListener { _, event ->
                 gestureDetectorCompat?.onTouchEvent(event)
                 false
@@ -873,9 +876,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     override fun isPiPAvailable(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
-            && requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-        ) {
+        if (requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
             pipMode()
             true
         } else {

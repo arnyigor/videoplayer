@@ -6,26 +6,16 @@
     android:keepScreenOn="true"
     android:layout_height="match_parent">
 
-    <com.github.vkay94.dtpv.DoubleTapPlayerView
+    <com.arny.mobilecinema.presentation.playerview.dtpv.DoubleTapPlayerView
         android:id="@+id/playerView"
         android:layout_width="0dp"
-        app:show_timeout="5000"
-        app:resize_mode="fit"
-        app:show_buffering="when_playing"
-        app:show_fastforward_button="true"
-        app:show_next_button="false"
-        app:show_previous_button="false"
-        app:show_rewind_button="true"
-        app:show_subtitle_button="false"
-        app:use_artwork="true"
         android:layout_height="0dp"
-        app:dtpv_controller="@+id/youtube_overlay"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <com.github.vkay94.dtpv.youtube.YouTubeOverlay
+    <com.arny.mobilecinema.presentation.playerview.dtpv.YouTubeOverlay
         android:id="@+id/youtube_overlay"
         android:layout_width="0dp"
         android:layout_height="match_parent"
@@ -33,8 +23,17 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:yt_playerView="@+id/playerView" />
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <com.arny.mobilecinema.presentation.playerview.dtpv.DoubleTapOverlay
+        android:id="@+id/double_tap_overlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <TextView
         android:id="@+id/tvTitle"
@@ -47,15 +46,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         tools:text="Название" />
-
-    <com.google.android.exoplayer2.ui.SubtitleView
-        android:id="@+id/sbtvSubtitles"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
 
     <ImageView
         android:id="@+id/ivQuality"

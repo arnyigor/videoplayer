@@ -6,11 +6,12 @@ import android.net.NetworkCapabilities
 import android.net.NetworkInfo
 import android.os.Build
 import android.telephony.TelephonyManager
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.ExoPlaybackException
+import androidx.media3.exoplayer.source.UnrecognizedInputFormatException
 import com.arny.mobilecinema.data.models.DataThrowable
-import com.google.android.exoplayer2.ExoPlaybackException
-import com.google.android.exoplayer2.source.UnrecognizedInputFormatException
-import com.google.android.exoplayer2.upstream.HttpDataSource
-import com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException
 import kotlinx.coroutines.TimeoutCancellationException
 import java.net.URI
 import java.net.URLEncoder
@@ -116,10 +117,12 @@ private fun getMaxSpeedKbps(it: NetworkInfo): Int = when (it.subtype) {
     else -> 0
 }
 
+@OptIn(UnstableApi::class)
 fun getErrorUrl(throwable: Throwable): String? {
-    return ((throwable as? ExoPlaybackException)?.sourceException as? HttpDataSourceException)?.dataSpec?.key
+    return ((throwable as? ExoPlaybackException)?.sourceException as? HttpDataSource.HttpDataSourceException)?.dataSpec?.key
 }
 
+@OptIn(UnstableApi::class)
 fun getFullError(throwable: Throwable, context: Context? = null): String {
     throwable.printStackTrace()
     var error: String = throwable.message.orEmpty()
@@ -147,7 +150,7 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
                             404 -> error = "Страница не найдена $url"
                         }
                     }
-                    is HttpDataSourceException->{
+                    is HttpDataSource.HttpDataSourceException ->{
                         val url = sourceException.dataSpec.key
                         when (val cause = sourceException.cause) {
                             is HttpDataSource.InvalidResponseCodeException -> {
@@ -183,7 +186,7 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
                 }
             }
 
-            is HttpDataSourceException -> {
+            is HttpDataSource.HttpDataSourceException -> {
                 error = throwable.message.orEmpty()
             }
 
