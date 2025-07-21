@@ -315,11 +315,12 @@ class YouTubeOverlay(context: Context, private val attrs: AttributeSet?) :
         get() = secondsView.textView
 
     override fun onDoubleTapStarted(posX: Float, posY: Float) {
-        if (player == null || playerView == null)
-            return
+        val currentPlayer = player ?: return
+        val currentPlayerView = playerView ?: return
 
-        if (performListener?.shouldForward(player!!, playerView!!, posX) == null)
+        if (performListener?.shouldForward(currentPlayer, currentPlayerView, posX) == null) {
             return
+        }
     }
 
     override fun onDoubleTapProgressUp(posX: Float, posY: Float) {

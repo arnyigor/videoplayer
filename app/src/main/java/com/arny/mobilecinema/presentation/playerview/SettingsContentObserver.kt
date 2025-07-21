@@ -9,11 +9,8 @@ class SettingsContentObserver(
     context: Context, handler: Handler,
     val onChange: (volume: Int) -> Unit
 ) : ContentObserver(handler) {
-    private var audioManager: AudioManager
-
-    init {
-        audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    }
+    private var audioManager: AudioManager = context.getSystemService(Context.AUDIO_SERVICE)
+            as AudioManager
 
     override fun deliverSelfNotifications(): Boolean = false
     override fun onChange(selfChange: Boolean) {

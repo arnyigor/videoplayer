@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.content.res.Resources
 import android.database.ContentObserver
 import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
@@ -14,16 +13,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.view.GestureDetector
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
-import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -76,9 +73,10 @@ import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterContentResolver
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.math.abs
 import kotlin.properties.Delegates
 
 @UnstableApi
@@ -114,8 +112,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var langVisible: Boolean = false
     private var mediaItemIndex: Int = 0
     private var movie: Movie? = null
-    private val btnsHandler = Handler(Looper.getMainLooper())
-    private val volumeHandler = Handler(Looper.getMainLooper())
     private val args: PlayerViewFragmentArgs by navArgs()
     private val resizeModes = arrayOf(
         AspectRatioFrameLayout.RESIZE_MODE_FIT,
@@ -124,6 +120,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         AspectRatioFrameLayout.RESIZE_MODE_FILL,
         AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     )
+    private val volumeHandlerState = Handler(Looper.getMainLooper())
     private var qualityPopUp: PopupMenu? = null
     private var langPopUp: PopupMenu? = null
     private var player: ExoPlayer? = null
@@ -132,165 +129,31 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var setupPopupMenus = true
     private var enhancer: LoudnessEnhancer? = null
     private lateinit var binding: FPlayerViewBinding
-    private var gestureDetectorCompat: GestureDetectorCompat? = null
+    private lateinit var gestureHandler: GestureHandler
+    private lateinit var volumeHandler: VolumeHandler
     private var audioManager: AudioManager? = null
-    private var minSwipeY: Float = 0f
     private var brightness: Int = 0
-    private var volume: Int = -1
-    private var boost: Int = -1
-    private var volumeObs: Int by Delegates.observable(-1) { _, old, newVolume ->
-        if (old != newVolume) {
-            volume = newVolume
-            boost = 0
-            updateGain()
-            binding.tvVolume.visibility = View.VISIBLE
-            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
-            updateUIByVolume()
-            hideVolumeBrightViews()
-        }
-    }
     private val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         if (focusChange <= 0) {
             player?.pause()
         }
     }
-    private val maxBoost by lazy {
-        prefs.get<String>(getString(R.string.pref_max_boost_size))?.toIntOrNull()
-            ?: MAX_BOOST_DEFAULT
-    }
-    private val gestureDetectListener: GestureDetector.OnGestureListener = object :
-        GestureDetector.OnGestureListener {
-        override fun onDown(e: MotionEvent): Boolean {
-            minSwipeY = 0f
-            return false
-        }
-
-        override fun onShowPress(e: MotionEvent) {
-        }
-
-        override fun onSingleTapUp(e: MotionEvent): Boolean = false
-
-        override fun onScroll(
-            e1: MotionEvent?,
-            event: MotionEvent,
-            distanceX: Float,
-            distanceY: Float
-        ): Boolean {
-            resetVolumeHandlerState()
-            minSwipeY += distanceY
-            val sWidth = Resources.getSystem().displayMetrics.widthPixels
-            val sHeight = Resources.getSystem().displayMetrics.heightPixels
-            val border = 100 * Resources.getSystem().displayMetrics.density.toInt()
-            if (event.x < border || event.y < border || event.x > sWidth - border || event.y > sHeight - border)
-                return false
-            //minSwipeY for slowly increasing brightness & volume on swipe --> try changing 50 (<50 --> quick swipe & > 50 --> slow swipe
-            // & test with your custom values
-            if (abs(distanceX) < abs(distanceY) && abs(minSwipeY) > 50) {
-                val increase = distanceY > 0
-                if (event.x < sWidth / 2) {
-                    //brightness
-                    binding.tvBrightness.text = brightness.toString()
-                    binding.tvBrightness.visibility = View.VISIBLE
-                    val newValue = if (increase) {
-                        brightness + 1
-                    } else {
-                        brightness - 1
-                    }
-                    val brightDiv = 30
-                    if (newValue in 0..brightDiv) {
-                        brightness = newValue
-                    }
-                    binding.tvVolume.visibility = View.GONE
-                    setScreenBrightness(brightness)
-                } else {
-                    //volume
-                    binding.tvBrightness.visibility = View.GONE
-                    binding.tvVolume.visibility = View.VISIBLE
-                    val curVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC)
-                    if (volume == -1 && curVolume != null) {
-                        volume = curVolume
-                    }
-                    val maxVolume = getMaxVolume()
-                    val targetGain = enhancer?.targetGain
-                    if (boost == -1 && targetGain != null) {
-                        boost = targetGain.toInt()
-                    }
-                    val newVolume = when {
-                        increase -> volume + 1
-                        else -> if (boost == 0) volume - 1 else volume
-                    }
-                    val isVolumeChanges = newVolume in 1..maxVolume
-                    if (isVolumeChanges) {
-                        volume = newVolume
-                    }
-                    val newBoost: Int = when {
-                        increase -> if (volume == maxVolume) boost + getBoostDiff(boost) else boost
-                        else -> if (volume == maxVolume) boost - getBoostDiff(boost) else boost
-                    }
-                    val isBoostChanges = newBoost in 1..maxBoost
-                    if (isBoostChanges) {
-                        boost = newBoost
-                    }
-                    when {
-                        isVolumeChanges && !isBoostChanges -> {
-                            boost = 0
-                            updateGain()
-                            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
-                            updateUIByVolume()
-                        }
-
-                        isBoostChanges -> {
-                            updateGain()
-                            val volumeWithBoost = boost.toFloat() / 10
-                            val boostVolume = volume + volumeWithBoost.toInt()
-                            binding.tvVolume.text = boostVolume.toString()
-                            binding.tvVolume.setTextColorRes(R.color.colorAccent)
-                        }
-                    }
-                }
-                hideVolumeBrightViews()
-                minSwipeY = 0f
-            }
-            hideControlsDelayed()
-            return true
-        }
-
-        private fun getBoostDiff(boost: Int): Int = when {
-            boost < 100 -> 10
-            boost < 120 -> 20
-            boost < 150 -> 30
-            boost < 175 -> 50
-            boost < 200 -> 75
-            else -> 10
-        }
-
-        private fun getMaxVolume() =
-            audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 30
-
-        override fun onLongPress(e: MotionEvent) {}
-        override fun onFling(
-            e1: MotionEvent?,
-            e2: MotionEvent,
-            velocityX: Float,
-            velocityY: Float
-        ): Boolean = false
-    }
-
-    private fun updateGain() {
-        try {
-            val targetGain = enhancer?.targetGain
-            if (targetGain != null) {
-                enhancer?.setTargetGain(boost)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+    private var volumeObs: Int by Delegates.observable(-1) { _, old, newVolume ->
+        if (old != newVolume) {
+            volumeHandler.handleVolumeChange(newVolume)
+            binding.tvVolume.visibility = View.VISIBLE
+            updateUIByVolume()
+            hideVolumeBrightViews()
         }
     }
 
     private fun hideControlsDelayed() {
-        volumeHandler.postDelayed({
-            binding.playerView.hideController()
-        }, 5000)
+        viewLifecycleOwner.lifecycleScope.launch {
+            delay(5000)
+            if (isAdded) {
+                binding.playerView.hideController()
+            }
+        }
     }
 
     private val analytic = object : AnalyticsListener {
@@ -355,9 +218,24 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         observeState()
         initListener()
         initSystemUI()
+        initGestureHandler()
+        initVolumeHandler()
         initPlayerTouchListener()
-        initAudioManager()
         initVolumeObserver()
+        savedInstanceState?.let {
+            timePosition = it.getLong("timePosition", 0L)
+            season = it.getInt("season", 0)
+            episode = it.getInt("episode", 0)
+            resizeModeIndex = it.getInt("resizeModeIndex", 0)
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putLong("timePosition", player?.currentPosition ?: 0L)
+        outState.putInt("season", season)
+        outState.putInt("episode", episode)
+        outState.putInt("resizeModeIndex", resizeModeIndex)
     }
 
     override fun onStart() {
@@ -408,19 +286,21 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         super.onDestroy()
         releasePlayer()
         audioManager?.abandonAudioFocus(focusChangeListener)
-        gestureDetectorCompat = null
     }
 
     private fun hideVolumeBrightViews() {
-        btnsHandler.removeCallbacksAndMessages(null)
-        btnsHandler.postDelayed({
-            binding.tvBrightness.isVisible = false
-            binding.tvVolume.isVisible = false
-        }, 1000)
+        viewLifecycleOwner.lifecycleScope.launch {
+            delay(1000)
+            // Проверяем, что view все еще существует
+            if (isAdded) {
+                binding.tvBrightness.isVisible = false
+                binding.tvVolume.isVisible = false
+            }
+        }
     }
 
     private fun updateUIByVolume() {
-        binding.tvVolume.text = volume.toString()
+        binding.tvVolume.text = volumeHandler.volume.toString()
         binding.tvVolume.setTextColorRes(R.color.textColorPrimary)
     }
 
@@ -435,12 +315,31 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         volumeObs = v
     }
 
-    private fun initAudioManager() {
-        audioManager = initAudioManager(audioManager, focusChangeListener)
+    private fun initGestureHandler() {
+        gestureHandler = GestureHandler(
+            requireContext(),
+            onVolumeChange = { delta -> volumeHandler.handleVolumeChange(delta.toInt()) },
+            onBrightnessChange = { delta -> handleBrightnessChange(delta) },
+            onSeekPlayback = { delta -> handleSeek(delta) }
+        )
     }
 
+    private fun initVolumeHandler() {
+        audioManager = initAudioManager(audioManager, focusChangeListener)
+        volumeHandler = VolumeHandler(
+            context = requireContext(),
+            prefs = prefs,
+            audioManager = audioManager!!,
+            onVolumeChanged = { volume, boost -> updateVolumeUI(volume, boost) }
+        )
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
     private fun initPlayerTouchListener() {
-        gestureDetectorCompat = GestureDetectorCompat(requireContext(), gestureDetectListener)
+        binding.playerView.setOnTouchListener { _, event ->
+            gestureHandler.onTouchEvent(event)
+            true
+        }
     }
 
     private fun initSystemUI() {
@@ -777,7 +676,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-
     @SuppressLint("ClickableViewAccessibility")
     private fun preparePlayer() {
         with(binding) {
@@ -819,10 +717,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     }
                 }
             )
-            playerView.setOnTouchListener { _, event ->
-                gestureDetectorCompat?.onTouchEvent(event)
-                false
-            }
             viewModel.setPlayData(
                 path = args.path,
                 movie = args.movie,
@@ -833,7 +727,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun resetVolumeHandlerState() {
-        volumeHandler.removeCallbacksAndMessages(null)
+        volumeHandlerState.removeCallbacksAndMessages(null)
     }
 
     private fun initEnhancer() {
@@ -969,51 +863,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
         }
     }
-    /*private fun initMoreLinksPopup() {
-        if (movie?.type == MovieType.CINEMA) {
-            val cinemaUrlData = movie?.cinemaUrlData
-            val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
-            val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
-            val fullLinkList = hdUrls + cinemaUrls
-            val popupItems = fullLinkList.mapIndexed { index, s -> "Ссылка ${index + 1}" to s }
-            val notEmpty = fullLinkList.isNotEmpty()
-            binding.ivMoreLink.isVisible = notEmpty
-            if (notEmpty) {
-                moreLinkPopUp = PopupMenu(requireContext(), binding.ivMoreLink)
-                for ((i, items) in popupItems.withIndex()) {
-                    moreLinkPopUp?.menu?.add(0, i, 0, items.first)
-                }
-                moreLinkPopUp?.setOnMenuItemClickListener { menuItem ->
-                    launchWhenCreated {
-                        setMediaSources(
-                            path = popupItems[menuItem.itemId].second,
-                            time = getTimePosition(player?.currentPosition ?: 0),
-                            movie = movie,
-                        )
-                    }
-                    true
-                }
-            }
-        }
-    }*/
 
-    /*    private fun setQualityByConnection(list: ArrayList<Pair<String, TrackSelectionOverride>>) {
-            val connectionType = getConnectionType(requireContext())
-            val groupList = list.map { it.second }.map { it.mediaTrackGroup }
-            val formats = groupList.mapIndexed { index, trackGroup -> trackGroup.getFormat(index) }
-            val bitratesKbps = formats.map { it.bitrate.div(1024) }
-            Timber.d("current QualityId:$qualityId")
-            val newId =
-                bitratesKbps.indexOfLast { it < connectionType.speedKbps }.takeIf { it >= 0 } ?: 0
-            Timber.d("connectionType:$connectionType")
-            Timber.d("bitrates:$bitratesKbps")
-            Timber.d("selected qualityId:$qualityId")
-            if (newId > qualityId) {// Check buufering time
-                qualityId = newId
-                Timber.d("set new qualityId:$qualityId")
-                list.getOrNull(qualityId)?.second?.let { setQuality(it) }
-            }
-        }*/
     private fun setQuality(trackSelectionOverride: TrackSelectionOverride) {
         trackSelector?.let { selector ->
             selector.parameters = selector.parameters
@@ -1024,19 +874,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 .build()
         }
     }
-
-    /*private fun setSubTitles(trackSelectionOverride: TrackSelectionOverride) {
-        trackSelector?.let { selector ->
-            selector.parameters = selector.parameters
-                .buildUpon()
-                .clearOverrides()
-                .setSelectUndeterminedTextLanguage(true)
-                .setRendererDisabled(C.TRACK_TYPE_TEXT, false)
-                .addOverride(trackSelectionOverride)
-                .setTunnelingEnabled(true)
-                .build()
-        }
-    }*/
 
     private fun setLang(override: TrackSelectionOverride) {
         trackSelector?.let { selector ->
@@ -1075,5 +912,35 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             it.release()
             player = null
         }
+        gestureHandler.release()
+        volumeHandler.release()
+    }
+
+    private fun handleBrightnessChange(delta: Float) {
+        val newValue = brightness + delta.toInt()
+        brightness = newValue.coerceIn(0, 30)
+        binding.tvBrightness.text = brightness.toString()
+        setScreenBrightness(brightness)
+    }
+
+    private fun handleSeek(delta: Float) {
+        player?.let {
+            val newPosition = it.currentPosition + delta.toLong()
+            it.seekTo(newPosition.coerceAtLeast(0))
+        }
+    }
+
+    private fun updateVolumeUI(volume: Int, boost: Int) {
+        this.volumeHandler.handleVolumeChange(volume)
+        this.volumeHandler.handleBoostChange(boost)
+        binding.tvVolume.text = if (boost > 0) {
+            val volumeWithBoost = volume + boost.toFloat() / 10
+            volumeWithBoost.toString()
+        } else {
+            volume.toString()
+        }
+        binding.tvVolume.setTextColorRes(
+            if (boost > 0) R.color.colorAccent else R.color.textColorPrimary
+        )
     }
 }

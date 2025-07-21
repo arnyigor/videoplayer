@@ -30,7 +30,7 @@ class PlayerViewModel @AssistedInject constructor(
     private val historyInteractor: HistoryInteractor,
     private val feedbackInteractor: FeedbackInteractor,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(PlayerUiState())
+    private val _uiState = MutableStateFlow(PlayerMovieUiState())
     val uiState = _uiState.asStateFlow()
     private val _isPipModeEnable = MutableStateFlow(false)
     private val _pipMode = BufferedChannel<Boolean>()

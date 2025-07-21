@@ -9,7 +9,17 @@
     <com.arny.mobilecinema.presentation.playerview.dtpv.DoubleTapPlayerView
         android:id="@+id/playerView"
         android:layout_width="0dp"
+        app:show_timeout="5000"
+        app:resize_mode="fit"
+        app:show_buffering="when_playing"
+        app:show_fastforward_button="true"
+        app:show_next_button="false"
+        app:show_previous_button="false"
+        app:show_rewind_button="true"
+        app:show_subtitle_button="false"
+        app:use_artwork="true"
         android:layout_height="0dp"
+        app:dtpv_controller="@+id/youtube_overlay"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -23,17 +33,8 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <com.arny.mobilecinema.presentation.playerview.dtpv.DoubleTapOverlay
-        android:id="@+id/double_tap_overlay"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:visibility="visible"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible" />
 
     <TextView
         android:id="@+id/tvTitle"
