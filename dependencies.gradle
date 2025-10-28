@@ -23,7 +23,7 @@ ext {
     }}
 
     ffmpeg = { version = ""  -> Alias {
-        implementation 'com.arthenica:ffmpeg-kit-full:6.0-2.LTS'
+        implementation 'com.antonkarpenko:ffmpeg-kit-min:2.1.0'
     }}
 
     core = { version = '1.9.0'  -> Alias {

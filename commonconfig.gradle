@@ -1,6 +1,6 @@
 ext {
     versions = [
-            minSdkVersion            : 21,
+            minSdkVersion            : 24,
             compileSdkVersion        : 34,
             targetSdkVersion         : 34,
             buildToolsVersion        : "34.0.0"
@@ -62,12 +62,12 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_18
-        targetCompatibility JavaVersion.VERSION_18
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_18
+        jvmTarget = JavaVersion.VERSION_17
     }
 
     buildFeatures {

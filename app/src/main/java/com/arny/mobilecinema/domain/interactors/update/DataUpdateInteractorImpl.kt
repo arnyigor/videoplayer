@@ -1,6 +1,8 @@
 package com.arny.mobilecinema.domain.interactors.update
 
 import com.arny.mobilecinema.BuildConfig
+import com.arny.mobilecinema.BuildConfig.DATA_0_LINK
+import com.arny.mobilecinema.BuildConfig.UPDATE_LINK
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
@@ -53,13 +55,13 @@ class DataUpdateInteractorImpl @Inject constructor(
             if (!repository.checkUpdate && repository.newUpdate.isBlank()) {
                 repository.checkUpdate = true
                 val updateFile = repository.downloadFile(
-                    getUpdateLink(),
+                    UPDATE_LINK,
                     AppConstants.UPDATE_FILE
                 )
                 newUpdate = updateFile.readText()
                 updateFile.delete()
                 if (hasMovies && repository.hasLastUpdates()) {
-                    hasPartUpdateFile = repository.checkPath(getDataLink())
+                    hasPartUpdateFile = repository.checkPath(DATA_0_LINK)
                 }
             }
             if (repository.lastUpdate != newUpdate && newUpdate.isNotBlank()) {
@@ -70,25 +72,9 @@ class DataUpdateInteractorImpl @Inject constructor(
             }
         }
 
-    private fun getDataLink(hasPartUpdate: Boolean): String {
-        val debug = false //BuildConfig.DEBUG
-        val dataLink = when {
-            hasPartUpdate && debug -> BuildConfig.DATA_0_DEBUG_LINK
-            !hasPartUpdate && debug -> BuildConfig.DATA_DEBUG_LINK
-            hasPartUpdate -> BuildConfig.DATA_0_LINK
-            !hasPartUpdate -> BuildConfig.DATA_LINK
-            else -> BuildConfig.DATA_LINK
-        }
-        return dataLink
-    }
-
-    private fun getDataLink(): String {
-        val debug = false//BuildConfig.DEBUG
-        return if (debug) BuildConfig.DATA_0_DEBUG_LINK else BuildConfig.DATA_0_LINK
-    }
-
-    private fun getUpdateLink(): String {
-        val debug = false//BuildConfig.DEBUG
-        return if (debug) BuildConfig.UPDATE_DEBUG_LINK else BuildConfig.UPDATE_LINK
+    private fun getDataLink(hasPartUpdate: Boolean): String = when {
+        hasPartUpdate -> DATA_0_LINK
+        !hasPartUpdate -> BuildConfig.DATA_LINK
+        else -> BuildConfig.DATA_LINK
     }
 }

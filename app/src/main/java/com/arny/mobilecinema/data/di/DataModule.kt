@@ -4,14 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.api.KtorClient
 import com.arny.mobilecinema.data.db.AppDatabase
 import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.data.db.daos.MovieDao
-import com.arny.mobilecinema.data.firebase.FeedbackDatabaseImpl
-import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.network.jsoup.JsoupServiceHelper
 import com.arny.mobilecinema.data.repository.MoviesRepositoryImpl
@@ -20,13 +17,9 @@ import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProviderImpl
 import com.arny.mobilecinema.data.repository.update.UpdateRepositoryImpl
-import com.arny.mobilecinema.domain.interactors.feedback.FeedbackDatabase
 import com.arny.mobilecinema.domain.repository.JsoupUpdateRepository
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
-import com.google.firebase.FirebaseApp
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.Logger
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -45,7 +38,6 @@ interface DataModule {
         @Provides
         @Singleton
         fun providesIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
-
 
         @Provides
         @Singleton
@@ -86,26 +78,6 @@ interface DataModule {
         @Singleton
         fun provideHistoryDao(db: AppDatabase): HistoryDao = db.historyDao()
 
-        @Provides
-        @Singleton
-        fun provideYouTubeVideoInfoRetriever(ktorClient: KtorClient) =
-            YouTubeVideoInfoRetriever(ktorClient.client)
-
-        @Provides
-        @Singleton
-        fun provideFirebaseApp(context: Context): FirebaseApp =
-            FirebaseApp.initializeApp(context) as FirebaseApp
-
-        @Provides
-        @Singleton
-        fun provideFirebaseDatabase(firebaseApp: FirebaseApp): FirebaseDatabase {
-            val firebaseDatabase = FirebaseDatabase.getInstance(firebaseApp)
-            firebaseDatabase.setPersistenceEnabled(true)
-            if (BuildConfig.DEBUG) firebaseDatabase.setLogLevel(Logger.Level.DEBUG)
-
-            return firebaseDatabase
-        }
-
     }
 
     @Binds
@@ -115,6 +87,7 @@ interface DataModule {
     @Binds
     @Singleton
     fun bindsMoviesRepository(impl: MoviesRepositoryImpl): MoviesRepository
+
     @Binds
     @Singleton
     fun bindsJsoupUpdateRepository(impl: JsoupUpdateRepositoryImpl): JsoupUpdateRepository
@@ -122,8 +95,4 @@ interface DataModule {
     @Binds
     @Singleton
     fun bindsAppResourcesProvider(impl: AppResourcesProviderImpl): AppResourcesProvider
-
-    @Binds
-    @Singleton
-    fun bindsFeedBackDatabase(impl: FeedbackDatabaseImpl): FeedbackDatabase
 }

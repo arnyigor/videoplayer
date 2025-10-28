@@ -1,8 +1,8 @@
 package com.arny.mobilecinema.data.models
 
-import com.arthenica.ffmpegkit.FFmpegSession
-import com.arthenica.ffmpegkit.Log
-import com.arthenica.ffmpegkit.Statistics
+import com.antonkarpenko.ffmpegkit.FFmpegSession
+import com.antonkarpenko.ffmpegkit.Log
+import com.antonkarpenko.ffmpegkit.Statistics
 
 data class FfmpegResult(
     val result: String? = null,

@@ -16,6 +16,9 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.antonkarpenko.ffmpegkit.Level
+import com.antonkarpenko.ffmpegkit.Log
+import com.antonkarpenko.ffmpegkit.SessionState
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResultWithProgress
 import com.arny.mobilecinema.data.models.FfmpegResult
@@ -29,8 +32,6 @@ import com.arny.mobilecinema.presentation.MainActivity
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.utils.DownloadHelper
 import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
-import com.arthenica.ffmpegkit.Log
-import com.arthenica.ffmpegkit.SessionState
 import com.google.android.exoplayer2.offline.Download
 import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
@@ -360,7 +361,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             result.log != null -> {
                 val log = result.log
                 when (log.level) {
-                    com.arthenica.ffmpegkit.Level.AV_LOG_INFO -> {
+                    Level.AV_LOG_INFO -> {
                         initDuration(log)
                     }
 

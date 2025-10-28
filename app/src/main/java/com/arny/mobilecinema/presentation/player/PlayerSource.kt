@@ -5,7 +5,6 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.core.os.bundleOf
-import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.data.player.VideoCache
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.ConnectionType
@@ -52,13 +51,8 @@ import kotlin.coroutines.suspendCoroutine
 class PlayerSource @Inject constructor(
     private val context: Context,
     private val updateRepository: UpdateRepository,
-    private val retriever: YouTubeVideoInfoRetriever,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    private companion object {
-        const val YOUTUBE_HOST = "youtube"
-        const val YOUTUBE_MAX_QUALITY_TAG = 22
-    }
 
     @get:Synchronized
     @set:Synchronized
@@ -118,7 +112,6 @@ class PlayerSource @Inject constructor(
             C.CONTENT_TYPE_HLS -> getHlsMedialSource(factory, mediaItem)
             C.CONTENT_TYPE_OTHER -> {
                 when {
-                    uri.host?.contains(YOUTUBE_HOST) == true -> getYoutubeSource(url, factory)
                     uri.lastPathSegment.orEmpty().substringAfterLast('.') == "mp4" ->
                         getMp4MediaSource(factory, mediaItem)
                     else -> getMp4MediaSource(factory, mediaItem)
@@ -525,22 +518,6 @@ class PlayerSource @Inject constructor(
         /* manifestDataSourceFactory = */ factory
     ).createMediaSource(item)
 
-    private suspend fun getYoutubeSource(
-        link: String,
-        factory: DataSource.Factory
-    ): MediaSource {
-        val result = "v=(.*?)(&|$)".toRegex().find(link)?.groupValues?.getOrNull(1).toString()
-        val data = retriever.retrieve(result)
-        val title = data.videoDetails?.title
-        val format = data.streamingData?.formats?.find { it?.itag == YOUTUBE_MAX_QUALITY_TAG }
-        val url = format?.url
-        return when {
-            !url.isNullOrBlank() -> getMp4MediaSource(
-                factory, getMediaItem(url, title)
-            )
-            else -> error("Media source from Youtube link $link not found")
-        }
-    }
 
     private fun dataSourceFactory(): CacheDataSource.Factory {
         if (cacheFactory == null) {

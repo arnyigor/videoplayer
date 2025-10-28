@@ -2,6 +2,7 @@ package com.arny.mobilecinema.data.repository.update
 
 import android.content.Context
 import android.content.Intent
+import com.antonkarpenko.ffmpegkit.FFmpegKit
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.db.daos.MovieDao
@@ -25,7 +26,6 @@ import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
-import com.arthenica.ffmpegkit.FFmpegKit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow

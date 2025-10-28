@@ -16,8 +16,6 @@ import java.util.UUID
 import javax.inject.Inject
 
 class FeedbackInteractorImpl @Inject constructor(
-    private val feedbackDatabase: FeedbackDatabase,
-    private val prefs: Prefs,
     private val context: Context
 ) : FeedbackInteractor {
 
@@ -29,31 +27,7 @@ class FeedbackInteractorImpl @Inject constructor(
         seasonPosition: Int,
         episodePosition: Int
     ): Flow<DataResult<Boolean>> = doAsync {
-        val feedback = StringBuilder().apply {
-            append("User:").append(initDeviceUUID()).append("; ")
-            append("PageUrl:").append(movie?.pageUrl).append("; ")
-            append("Title:").append(movie?.title).append("; ")
-            append("Type:").append(movie?.type).append("; ")
-            if (movie?.type == MovieType.SERIAL) {
-                append("Serial season:").append(seasonPosition)
-                append(" episode:").append(episodePosition).append("; ")
-            }
-            append("Comment:").append(content).append("; ")
-            append("AppInfo:").append(getAppDetail()).append("; ")
-            append("DeviceInfo:").append(getSystemDetail()).append("; ")
-            append("LastPlayerError:").append(lastPlayerError).append("; ")
-        }.toString()
-        val reference = "${movie?.pageUrl}/${initDeviceUUID()}"
-        feedbackDatabase.sendMessage(reference, feedback)
-    }
-
-    private fun initDeviceUUID(): String {
-        var deviceId = prefs.get<String>(PrefsConstants.DEVICE_UUID)
-        if (deviceId.isNullOrBlank()) {
-            deviceId = UUID.randomUUID().toString()
-            prefs.put(PrefsConstants.DEVICE_UUID, deviceId)
-        }
-        return deviceId
+        TODO("Поменять на телеграм фидбек,можно подключить новое приложение")
     }
 
     override fun setLastError(error: String) {

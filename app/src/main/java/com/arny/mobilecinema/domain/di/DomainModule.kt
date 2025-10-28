@@ -1,7 +1,6 @@
 package com.arny.mobilecinema.domain.di
 
 import android.content.Context
-import com.arny.mobilecinema.data.network.YouTubeVideoInfoRetriever
 import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
 import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractorImpl
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
@@ -42,15 +41,13 @@ interface DomainModule {
     @Singleton
     fun bindJsoupInteractor(impl: JsoupUpdateInteractorImpl): JsoupUpdateInteractor
 
-
     companion object {
         @Singleton
         @Provides
         fun providePlayerSource(
             context: Context,
-            retriever: YouTubeVideoInfoRetriever,
             updateRepository: UpdateRepository,
             dispatcher: CoroutineDispatcher
-        ) = PlayerSource(context, updateRepository, retriever, dispatcher)
+        ) = PlayerSource(context, updateRepository, dispatcher)
     }
 }
