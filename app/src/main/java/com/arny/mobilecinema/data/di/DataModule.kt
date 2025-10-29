@@ -67,7 +67,12 @@ interface DataModule {
                     super.onCreate(db)
                     db.execSQL("PRAGMA encoding='UTF-8';")
                 }
-            }).build()
+            })
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3
+            )
+            .build()
 
         @Provides
         @Singleton

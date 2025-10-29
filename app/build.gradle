@@ -44,8 +44,6 @@ dependencies {
     ktor()
     jsoup()
     roomDB()
-    firebase()
-    firebaseDatabase()
     kotlinxSerialization()
     bouncycastle()
     ffmpeg()

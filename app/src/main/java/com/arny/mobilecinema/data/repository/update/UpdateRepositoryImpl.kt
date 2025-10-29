@@ -264,7 +264,7 @@ class UpdateRepositoryImpl @Inject constructor(
     }
 
     override suspend fun checkBaseUrl(): Boolean = try {
-        val baseLink = getBaseLinkByFile()
+        val baseLink = BuildConfig.BASE_LINK
         val page = jsoup.loadPage(
             url = baseLink,
             timeout = 3000
@@ -275,6 +275,7 @@ class UpdateRepositoryImpl @Inject constructor(
         if (link.endsWith("/")) {
             link = link.dropLast(1)
         }
+        Timber.d("link:$link")
         this.baseUrl = link
         true
     } catch (e: Exception) {
