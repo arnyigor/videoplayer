@@ -88,7 +88,7 @@ class JsoupService @Inject constructor() {
                 }
             }
             if (domain.isNotBlank() && headers["Authority"] != domain) {
-                headers["Authority"] = "https://m.anwap.love/" //domain
+                headers["Authority"] = "https://my.anwap.love/" //domain
             }
             if (path.isNotBlank() && headers["path"] != path) {
                 headers["path"] = path
