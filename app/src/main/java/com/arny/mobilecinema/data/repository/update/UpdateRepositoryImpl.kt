@@ -18,7 +18,6 @@ import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
-import com.arny.mobilecinema.data.utils.isFileExists
 import com.arny.mobilecinema.data.utils.saveFileToDownloadFolder
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
