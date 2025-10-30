@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.data.network.jsoup
 
+import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.utils.getDomainName
 import kotlinx.coroutines.delay
 import org.jsoup.Connection
@@ -88,7 +89,7 @@ class JsoupService @Inject constructor() {
                 }
             }
             if (domain.isNotBlank() && headers["Authority"] != domain) {
-                headers["Authority"] = "https://my.anwap.love/" //domain
+                headers["Authority"] = BuildConfig.BASE_LINK
             }
             if (path.isNotBlank() && headers["path"] != path) {
                 headers["path"] = path
