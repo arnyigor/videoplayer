@@ -173,7 +173,7 @@ class UpdateRepositoryImpl @Inject constructor(
         )
     }
 
-    override fun updateMovies(
+    override suspend fun updateMovies(
         movies: List<Movie>,
         hasLastYearUpdate: Boolean,
         forceAll: Boolean,
@@ -195,21 +195,27 @@ class UpdateRepositoryImpl @Inject constructor(
                 removeNotInUpdates(movies)
             }
             val dbList = moviesDao.getUpdateMovies()
-
             movies.forEachIndexed { index, movie ->
                 val dbMovies = dbList.filter { it.pageUrl == movie.pageUrl }
                 val notCorrectDbMovies = dbMovies.filter { isEqualsUrlAndNotTitle(it, movie) }
-                notCorrectDbMovies.forEach { ncm ->
+                for (ncm in notCorrectDbMovies) {
                     entity.clear()
-                    movies.find { serverMovie -> ncm.title.equals(serverMovie.title, true) }
-                        ?.let { correctMovieByName ->
-                            entity = entity.setData(correctMovieByName).copy(dbId = ncm.dbId)
-                            try {
-                                moviesDao.update(entity)
-                            } catch (e: Exception) {
-                                error("Update error for $entity has error:${e.stackTraceToString()} with notCorrectedMovies:$notCorrectDbMovies")
-                            }
-                        }
+                    // Ищем в серверных данных фильм с тем же названием
+                    val correctMovie = movies.find { it.title.equals(ncm.title, true) }
+                        ?: continue
+
+                    // Создаём новую сущность из серверного DTO и сохраняем старый dbId
+                    entity = entity.setData(correctMovie).copy(dbId = ncm.dbId)
+
+                    // Проверяем, не существует ли уже строка с таким title+pageUrl
+                    val conflict =
+                        moviesDao.findByTitleAndPageUrl(entity.title, entity.pageUrl)
+
+                    if (conflict != null && conflict.dbId != entity.dbId) {
+                        moviesDao.safeUpsert(entity)
+                    } else {
+                        moviesDao.insert(entity)
+                    }
                 }
                 val dbMovie = dbMovies.find { isEqualsUrlAndTitle(it, movie) }
                 entity.clear()

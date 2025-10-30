@@ -17,7 +17,7 @@ interface UpdateRepository {
     suspend fun onNewUrl(url: String )
     suspend fun downloadFile(url: String, name: String): File
     fun setLastUpdate()
-    fun updateMovies(
+    suspend fun updateMovies(
         movies: List<Movie>,
         hasLastYearUpdate: Boolean,
         forceAll: Boolean,

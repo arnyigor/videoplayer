@@ -2,6 +2,8 @@ package com.arny.mobilecinema.data.db.daos
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
+import androidx.room.Upsert
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.db.models.MovieUpdate
 import com.arny.mobilecinema.domain.models.SimpleIntRange
@@ -11,6 +13,27 @@ interface MovieDao : BaseDao<MovieEntity> {
 
     @Query("SELECT COUNT(*) FROM movies")
     fun getCount(): Int
+
+    /** Удаляем все строки, у которых совпадают title+pageUrl,
+    но PK отличается от переданного. */
+    @Query(
+        """
+        DELETE FROM movies 
+        WHERE title = :title AND pageUrl = :url AND dbId != :excludeId
+        """
+    )
+    suspend fun deleteConflicts(title: String, url: String, excludeId: Long)
+
+    /** Объединённый метод – атомарно удаляем конфликт и вставляем/обновляем. */
+    @Transaction
+    suspend fun safeUpsert(movie: MovieEntity) {
+        deleteConflicts(movie.title, movie.pageUrl, movie.dbId)
+        // Если запись уже есть (по PK), делаем update, иначе insert.
+        val rowsUpdated = update(movie)
+        if (rowsUpdated == 0) {
+            insert(movie)
+        }
+    }
 
     @Query("DELETE FROM movies")
     fun deleteAll(): Int
@@ -41,4 +64,16 @@ interface MovieDao : BaseDao<MovieEntity> {
 
     @Query("UPDATE movies SET customData=:customData WHERE pageUrl = :pageUrl")
     fun updateCustomData(customData: String?, pageUrl: String): Int
+
+    /**
+     * Поиск строки, которая могла бы нарушить уникальный индекс.
+     * Возвращает null, если такой строки нет.
+     */
+    @Query("""
+        SELECT *
+        FROM movies
+        WHERE title = :title AND pageUrl = :pageUrl
+        LIMIT 1
+    """)
+    suspend fun findByTitleAndPageUrl(title: String, pageUrl: String): MovieEntity?
 }
