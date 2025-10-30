@@ -257,18 +257,6 @@ class UpdateRepositoryImpl @Inject constructor(
         movie: Movie
     ) = it.pageUrl == movie.pageUrl && !it.title.equals(movie.title, true)
 
-    private suspend fun getBaseLinkByFile(): String {
-        var baseLink = ""
-        val baseLinkFile = downloadFile(BuildConfig.BASE_LINK_FILE, "BASE_LINK_FILE")
-        if (baseLinkFile.isFileExists()) {
-            val baseLinkText = baseLinkFile.readText()
-            if (baseLinkText.isNotBlank()) {
-                baseLink = baseLinkText
-            }
-        }
-        return baseLink
-    }
-
     override suspend fun checkBaseUrl(): Boolean = try {
         val baseLink = BuildConfig.BASE_LINK
         val page = jsoup.loadPage(
