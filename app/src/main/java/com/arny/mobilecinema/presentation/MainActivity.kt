@@ -56,7 +56,7 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
                     R.id.nav_extended_search
                 )
             )
-            showHome(destination.id !in listOf(R.id.nav_home, R.id.nav_prefs, R.id.nav_history))
+            showHome(destination.id !in listOf(R.id.nav_home, R.id.nav_prefs, R.id.nav_history, R.id.nav_favorite))
         }
     }
 

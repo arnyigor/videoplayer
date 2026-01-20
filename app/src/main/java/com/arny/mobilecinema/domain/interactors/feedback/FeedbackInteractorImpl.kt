@@ -6,7 +6,7 @@ import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.prefs.Prefs
-import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
+import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType

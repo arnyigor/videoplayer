@@ -4,19 +4,22 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.arny.mobilecinema.data.db.daos.FavoritesDao
 import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.data.db.daos.MovieDao
+import com.arny.mobilecinema.data.db.models.FavoriteEntity
 import com.arny.mobilecinema.data.db.models.HistoryEntity
 import com.arny.mobilecinema.data.db.models.MovieEntity
 
 @Database(
-    entities = [MovieEntity::class, HistoryEntity::class],
-    version = 3,
+    entities = [MovieEntity::class, HistoryEntity::class, FavoriteEntity::class],
+    version = 4,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun movieDao(): MovieDao
     abstract fun historyDao(): HistoryDao
+    abstract fun favoritesDao(): FavoritesDao
 
     companion object {
         const val DBNAME = "Movies"
@@ -57,6 +60,32 @@ abstract class AppDatabase : RoomDatabase() {
                 // Добавляем колонку latestTime в history с дефолтным значением
                 db.execSQL(
                     "ALTER TABLE `history` ADD COLUMN `latest_time` INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
+        /**
+         *  Миграция 3 → 4
+         * новая миграция – добавляем таблицу favorites -
+         */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `favorites` (
+                        `dbId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `movie_dbid` INTEGER NOT NULL,
+                        `latest_time` INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+                // уникальный индекс на movie_dbid
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_favorites_movie_dbid` ON `favorites` (`movie_dbid`)"
+                )
+                // индекс для сортировки по latest_time
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_favorites_latest_time` ON `favorites` (`latest_time`)"
                 )
             }
         }

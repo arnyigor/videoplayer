@@ -4,6 +4,7 @@ import com.arny.mobilecinema.di.scopes.ActivityScope
 import com.arny.mobilecinema.presentation.MainActivity
 import com.arny.mobilecinema.presentation.di.DetailsFragmentModule
 import com.arny.mobilecinema.presentation.di.ExtendedSearchFragmentModule
+import com.arny.mobilecinema.presentation.di.FavoritesFragmentModule
 import com.arny.mobilecinema.presentation.di.HistoryFragmentModule
 import com.arny.mobilecinema.presentation.di.HomeFragmentModule
 import com.arny.mobilecinema.presentation.di.PlayerFragmentModule
@@ -20,6 +21,7 @@ abstract class ActivitiesModule {
             HomeFragmentModule::class,
             DetailsFragmentModule::class,
             HistoryFragmentModule::class,
+            FavoritesFragmentModule::class,
             ExtendedSearchFragmentModule::class,
         ]
     )

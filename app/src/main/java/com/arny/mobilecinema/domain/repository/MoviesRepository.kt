@@ -3,6 +3,7 @@ package com.arny.mobilecinema.domain.repository
 import androidx.paging.Pager
 import com.arny.mobilecinema.data.db.models.HistoryEntity
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.OrderKey
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -55,4 +56,16 @@ interface MoviesRepository {
     fun getGenres(): List<String>
     fun getMinMaxYears(): SimpleIntRange
     fun getCountries(): List<String>
+    fun getFavoriteMoviesPager(
+        search: String,
+        order: String,
+        searchType: String
+    ): Pager<Int, ViewMovie>
+
+    fun getOrder(key: OrderKey): String
+    fun setOrder(key: OrderKey, value: String)
+    suspend fun isFavoriteEmpty(): Boolean
+    fun clearAllFavorites()
+    fun toggleFavorite(movieId: Long): Boolean
+    fun isFavorite(movieId: Long): Boolean
 }

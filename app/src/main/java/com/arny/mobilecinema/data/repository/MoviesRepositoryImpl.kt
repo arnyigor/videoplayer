@@ -3,29 +3,40 @@ package com.arny.mobilecinema.data.repository
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.db.daos.FavoritesDao
 import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.data.db.daos.MovieDao
+import com.arny.mobilecinema.data.db.models.FavoriteEntity
 import com.arny.mobilecinema.data.db.models.HistoryEntity
+import com.arny.mobilecinema.data.db.sources.FavoritesPagingSource
 import com.arny.mobilecinema.data.db.sources.HistoryPagingSource
 import com.arny.mobilecinema.data.db.sources.MainPagingSource
 import com.arny.mobilecinema.data.models.MovieMapper
 import com.arny.mobilecinema.data.repository.prefs.Prefs
-import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.OrderKey
+import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
 class MoviesRepositoryImpl @Inject constructor(
     private val movieMapper: MovieMapper,
     private val movieDao: MovieDao,
     private val historyDao: HistoryDao,
+    private val favoritesDao: FavoritesDao,
     private val prefs: Prefs,
     private val appResources: AppResourcesProvider,
 ) : MoviesRepository {
+
+    override fun setOrder(key: OrderKey, value: String) =
+        prefs.put(key.pref, value)
+
+    override fun getOrder(key: OrderKey): String = prefs.get<String>(key.pref).orEmpty()
 
     override var orderPref: String
         get() = prefs.get<String>(PrefsConstants.ORDER).orEmpty()
@@ -78,6 +89,21 @@ class MoviesRepositoryImpl @Inject constructor(
         )
     }
 
+    override fun clearAllFavorites() {
+        favoritesDao.deleteAllFavorites()
+    }
+
+    override fun toggleFavorite(movieId: Long): Boolean =
+        if (favoritesDao.getCountForMovie(movieId) > 0) {
+            favoritesDao.deleteFavorite(movieId)
+            false
+        } else {
+            favoritesDao.insert(FavoriteEntity(movieDbId = movieId))
+            true
+        }
+
+    override fun isFavorite(movieId: Long): Boolean = favoritesDao.getCountForMovie(movieId) > 0
+
     override suspend fun isMoviesEmpty(): Boolean = movieDao.getCount() == 0
 
     override fun getHistoryMovies(
@@ -92,6 +118,16 @@ class MoviesRepositoryImpl @Inject constructor(
                 initialLoadSize = 20
             ),
         ) { HistoryPagingSource(historyDao, search, order, searchType) }
+
+
+    override fun getFavoriteMoviesPager(
+        search: String,
+        order: String,
+        searchType: String
+    ): Pager<Int, ViewMovie> =
+        Pager(PagingConfig(pageSize = 20)) {
+            FavoritesPagingSource(favoritesDao, search, order, searchType)
+        }
 
     override fun getMovie(id: Long): Movie? =
         movieDao.getMovie(id)?.let { movieMapper.transform(it) }
@@ -178,4 +214,6 @@ class MoviesRepositoryImpl @Inject constructor(
     override fun saveHistoryOrder(order: String) {
         this.historyOrderPref = order
     }
+
+    override suspend fun isFavoriteEmpty(): Boolean = favoritesDao.getFavoritesCount() == 0
 }

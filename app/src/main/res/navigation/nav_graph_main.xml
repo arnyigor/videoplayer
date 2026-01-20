@@ -109,4 +109,12 @@
         android:id="@+id/nav_extended_search"
         android:name="com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchFragment"
         android:label="ExtendedSearchFragment" />
+    <fragment
+            android:id="@+id/nav_favorite"
+            android:name="com.arny.mobilecinema.presentation.favorite.FavoritesFragment"
+            android:label="FavoritesFragment" >
+        <action
+                android:id="@+id/action_favoritesFragment_to_nav_details"
+                app:destination="@id/nav_details" />
+    </fragment>
 </navigation>

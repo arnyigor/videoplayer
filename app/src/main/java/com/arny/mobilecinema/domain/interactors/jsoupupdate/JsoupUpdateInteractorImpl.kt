@@ -354,7 +354,7 @@ class JsoupUpdateInteractorImpl @Inject constructor(
                     updateComplete(movie, dbMovie, flowCollector)
                 }
 
-                isUpdateByUpdateTime(anwapMovie, dbMovie) -> {
+                isUpdateByUpdateTime(anwapMovie, dbMovie, updateToNow) -> {
                     val oldTime = dbMovie.info.updated.printTime()
                     val newTime = anwapMovie.info.updated.printTime()
                     val time = "Обновление \"${anwapMovie.title}\" c $oldTime на $newTime"
@@ -377,8 +377,8 @@ class JsoupUpdateInteractorImpl @Inject constructor(
 
                 else -> {
 //                    val oldTime = dbMovie.info.updated.printTime()
-//                    flowCollector.emit(loading(UpdateType.LINK to "Уже имеется ${dbMovie.title} с датой $oldTime"))
-//                    flowCollector.emit(loading(UpdateType.MOVIE to dbMovie.toString()))
+//                    flowCollector.emit(isInitValid(UpdateType.LINK to "Уже имеется ${dbMovie.title} с датой $oldTime"))
+//                    flowCollector.emit(isInitValid(UpdateType.MOVIE to dbMovie.toString()))
                     curTry = 1
                     if (ignoreCount >= IGNORE_COUNT_MAX) {
                         isParsing = false
@@ -415,10 +415,15 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         }
     }
 
-    private fun isUpdateByUpdateTime(anwapMovie: Movie, dbMovie: Movie?): Boolean {
+    private fun isUpdateByUpdateTime(
+        anwapMovie: Movie,
+        dbMovie: Movie?,
+        updateToNow: Boolean
+    ): Boolean {
         val newTime = anwapMovie.info.updated
         val dbTime = dbMovie?.info?.updated ?: 0L
-        return TimeUnit.MILLISECONDS.toHours(newTime - dbTime) > 1
+        return updateToNow ||
+                TimeUnit.MILLISECONDS.toHours(newTime - dbTime) > 1
     }
 
     private suspend fun updateComplete(
@@ -752,7 +757,11 @@ class JsoupUpdateInteractorImpl @Inject constructor(
 
             for ((seasonId, link) in absentSeasonsLinks) {
                 // Пробуем получить сезон из первого эпизода
-                val season = getSeasonFromFirstEpisode(loadPage(link.getWithDomain(location)), location, seasonId)
+                val season = getSeasonFromFirstEpisode(
+                    loadPage(link.getWithDomain(location)),
+                    location,
+                    seasonId
+                )
                 if (season != null) {
                     resultSeasons.add(season)
                 } else {

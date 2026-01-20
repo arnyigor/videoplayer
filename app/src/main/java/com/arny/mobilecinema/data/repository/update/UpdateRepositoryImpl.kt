@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import com.antonkarpenko.ffmpegkit.FFmpegKit
 import com.arny.mobilecinema.BuildConfig
+import com.arny.mobilecinema.BuildConfig.BASE_LINK_FILE
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.db.models.IMovieUpdate
@@ -16,7 +17,7 @@ import com.arny.mobilecinema.data.models.setData
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
-import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
+import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
 import com.arny.mobilecinema.data.utils.saveFileToDownloadFolder
 import com.arny.mobilecinema.domain.models.Movie
@@ -25,6 +26,7 @@ import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -256,24 +258,101 @@ class UpdateRepositoryImpl @Inject constructor(
         movie: Movie
     ) = it.pageUrl == movie.pageUrl && !it.title.equals(movie.title, true)
 
-    override suspend fun checkBaseUrl(): Boolean = try {
+    override suspend fun checkBaseUrl(): Boolean = withContext(Dispatchers.IO) {
         val baseLink = BuildConfig.BASE_LINK
-        val page = jsoup.loadPage(
-            url = baseLink,
-            timeout = 3000
-        )
-        var link = page.select("ul.tl li")
-            .select("a:contains(Фильмы)")
-            .attr("href")
-        if (link.endsWith("/")) {
-            link = link.dropLast(1)
+        Timber.tag("BaseUrlChecker").d("Starting BaseUrl check. Configured link: %s", baseLink)
+
+        // ========================================================================
+        // STRATEGY 1: Try to parse from the HTML page defined in BuildConfig
+        // ========================================================================
+        if (baseLink.isNotBlank()) {
+            try {
+                // 1. Verify accessibility (HTTP 200 OK)
+                val status = apiService.checkPath(baseLink)
+                if (status == HttpStatusCode.OK) {
+                    // 2. Parse HTML to find the link
+                    val extractedUrl = tryParseFromPage(baseLink)
+
+                    // Success: Save and return
+                    baseUrl = extractedUrl
+                    Timber.tag("BaseUrlChecker").i("Success: URL parsed from page: %s", baseUrl)
+                    return@withContext true
+                } else {
+                    Timber.tag("BaseUrlChecker").w("Page reachable but status is %s", status)
+                }
+            } catch (e: Exception) {
+                Timber.tag("BaseUrlChecker").w(e, "Strategy 1 failed: Could not extract from page.")
+                // Swallow exception and proceed to Strategy 2
+            }
         }
-        Timber.d("link:$link")
-        this.baseUrl = link
-        true
-    } catch (e: Exception) {
-        e.printStackTrace()
-        false
+
+        // ========================================================================
+        // STRATEGY 2: Fallback - Download text file and parse
+        // ========================================================================
+        try {
+            Timber.tag("BaseUrlChecker").d("Attempting Strategy 2: Fallback file %s", BASE_LINK_FILE)
+
+            // 1. Download and parse the text file
+            val extractedUrlFromFile = tryParseFromFile(BASE_LINK_FILE)
+
+            // 2. Verify the EXTRACTED URL is actually alive (HTTP 200 OK)
+            val status = apiService.checkPath(extractedUrlFromFile)
+
+            if (status == HttpStatusCode.OK) {
+                baseUrl = extractedUrlFromFile
+                Timber.tag("BaseUrlChecker").i("Success: URL parsed from fallback file: %s", baseUrl)
+                return@withContext true
+            } else {
+                Timber.tag("BaseUrlChecker").w("Fallback URL parsed but unreachable. Status: %s", status)
+            }
+        } catch (e: Exception) {
+            Timber.tag("BaseUrlChecker").e(e, "Strategy 2 failed: Could not extract/verify from file.")
+        }
+
+        // ========================================================================
+        // FAILURE: Both strategies failed
+        // ========================================================================
+        return@withContext false
+    }
+
+    /* ------------------------------------------------------------ */
+    /*  Helper Functions                                            */
+    /* ------------------------------------------------------------ */
+
+    private fun tryParseFromPage(url: String): String {
+        val doc = jsoup.loadPage(url = url, timeout = 3000)
+        return doc.select("ul.tl li a:contains(Фильмы)")
+            .firstOrNull()?.attr("href")?.trimEnd('/')
+            ?: throw IllegalStateException("Anchor with text 'Фильмы' not found on $url")
+    }
+
+    private suspend fun tryParseFromFile(fileUrl: String): String {
+        val tempFile = File(context.cacheDir, "base_link.txt")
+
+        // Ensure clean state
+        if (tempFile.exists()) tempFile.delete()
+        tempFile.createNewFile()
+
+        try {
+            apiService.downloadFile(tempFile, fileUrl)
+
+            val line = tempFile.bufferedReader().use { reader ->
+                reader.lineSequence().firstOrNull { it.startsWith("base_url=") }
+            } ?: throw IllegalStateException("File $fileUrl does not contain 'base_url='")
+
+            val resultUrl = line.substringAfter('=').trimEnd('/')
+
+            if (resultUrl.isBlank()) {
+                throw IllegalStateException("Found 'base_url=' but value is empty")
+            }
+
+            return resultUrl
+        } finally {
+            // CLEANUP: Always delete the file, success or failure
+            if (tempFile.exists()) {
+                tempFile.delete()
+            }
+        }
     }
 
     private fun getPercent(ind: Int, size: Int) =

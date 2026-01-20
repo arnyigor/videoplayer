@@ -8,6 +8,7 @@ import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.OrderKey
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -51,6 +52,10 @@ class MoviesInteractorImpl @Inject constructor(
         likesPriority = likesPriority,
     ).flow
 
+    override fun isFavorite(movieId: Long): Flow<DataResult<Boolean>> = doAsync {
+        repository.isFavorite(movieId)
+    }
+
     override suspend fun loadDistinctGenres(): List<String> = withContext(dispatcher) {
         repository.getGenres()
     }
@@ -73,21 +78,49 @@ class MoviesInteractorImpl @Inject constructor(
         repository.getMovie(id) ?: throw DataThrowable(R.string.movie_not_found)
     }
 
+    override fun getMovieByPageUrl(pageUrl: String): Flow<DataResult<Movie>> = doAsync {
+        repository.getMovie(pageUrl) ?: throw DataThrowable(R.string.movie_not_found)
+    }
+
     override fun isAvailableToDownload(selectedCinemaUrl: String?, type: MovieType): Boolean {
         return type == MovieType.CINEMA
     }
 
     override suspend fun saveOrder(order: String) = withContext(dispatcher) {
-        repository.saveOrder(order)
+        repository.setOrder(OrderKey.NORMAL, order)
     }
 
     override suspend fun saveHistoryOrder(order: String) = withContext(dispatcher) {
-        repository.saveHistoryOrder(order)
+        repository.setOrder(OrderKey.HISTORY, order)
+    }
+
+    override suspend fun saveFavoriteOrder(order: String) {
+        repository.setOrder(OrderKey.FAVORITE, order)
     }
 
     override suspend fun getOrder(isHistory: Boolean): String = withContext(dispatcher) {
-        val defaultOrder = if (isHistory) AppConstants.Order.LAST_TIME else AppConstants.Order.YEAR_DESC
+        val defaultOrder =
+            if (isHistory) AppConstants.Order.LAST_TIME else AppConstants.Order.YEAR_DESC
         val orderPreference = if (isHistory) repository.historyOrderPref else repository.orderPref
         orderPreference.ifBlank { defaultOrder }
+    }
+
+    override fun getFavoriteMovies(
+        search: String,
+        order: String,
+        searchType: String
+    ): Flow<PagingData<ViewMovie>> =
+        repository.getFavoriteMoviesPager(search, order, searchType).flow
+
+    override fun isFavoriteEmpty(): Flow<DataResult<Boolean>> = doAsync(dispatcher) {
+        repository.isFavoriteEmpty()
+    }
+
+    override fun clearAllFavorites(): Flow<DataResult<Unit>> = doAsync(dispatcher) {
+        repository.clearAllFavorites()
+    }
+
+    override fun onFavoriteToggle(movieId: Long): Flow<DataResult<Boolean>> = doAsync(dispatcher) {
+        repository.toggleFavorite(movieId)
     }
 }

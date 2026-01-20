@@ -29,7 +29,6 @@ import androidx.paging.LoadState
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
-import com.arny.mobilecinema.data.repository.prefs.PrefsConstants
 import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.data.utils.getConnectionType
@@ -37,12 +36,14 @@ import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.di.viewModelFactory
+import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendSearchResult
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
+import com.arny.mobilecinema.presentation.utils.dump
 import com.arny.mobilecinema.presentation.utils.getImgCompat
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.inputDialog
@@ -50,7 +51,7 @@ import com.arny.mobilecinema.presentation.utils.isNotificationsFullyEnabled
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.openAppSettings
-import com.arny.mobilecinema.presentation.utils.registerReceiver
+import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
 import com.arny.mobilecinema.presentation.utils.requestPermission
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import com.arny.mobilecinema.presentation.utils.setupSearchView
@@ -58,7 +59,7 @@ import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.unlockOrientation
-import com.arny.mobilecinema.presentation.utils.unregisterReceiver
+import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
@@ -66,7 +67,13 @@ import kotlinx.coroutines.flow.collectLatest
 import timber.log.Timber
 import javax.inject.Inject
 
+/**
+ * HomeFragment handles the primary UI for browsing videos.
+ * It coordinates with [HomeViewModel] to fetch and display data,
+ * manages search state, user permissions, and interactions with other app components.
+ */
 class HomeFragment : Fragment(), OnSearchListener {
+    /** Companion object holding request codes for activity results. */
     private companion object {
         const val REQUEST_LOAD: Int = 99
         const val REQUEST_OPEN_FILE: Int = 100
@@ -76,6 +83,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     @Inject
     lateinit var prefs: Prefs
 
+    /** Factory for creating the associated ViewModel via assisted injection. */
     @AssistedFactory
     internal interface ViewModelFactory {
         fun create(): HomeViewModel
@@ -83,6 +91,7 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     @Inject
     internal lateinit var viewModelFactory: ViewModelFactory
+
     private val viewModel: HomeViewModel by viewModelFactory { viewModelFactory.create() }
     private lateinit var binding: FHomeBinding
     private var searchMenuItem: MenuItem? = null
@@ -104,6 +113,9 @@ class HomeFragment : Fragment(), OnSearchListener {
     private var itemsAdapter: VideoItemsAdapter? = null
     private var extendSearchResult: ExtendSearchResult? = null
     private var permissionRequestId = 0
+    private var lastImportedMovieId: Long? = null
+
+    /** Handles activity result callbacks for file/folder selection. */
     private val startForResult = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result: ActivityResult ->
@@ -121,12 +133,14 @@ class HomeFragment : Fragment(), OnSearchListener {
             }
         }
     }
+
+    /** Launches permission request for WRITE_EXTERNAL_STORAGE. */
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
                 requestFiles()
             } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (SDK_INT >= Build.VERSION_CODES.R) {
                     requestFiles()
                 } else {
                     requestPermissions()
@@ -141,6 +155,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         super.onAttach(context)
     }
 
+    /** Inflates the fragment layout and returns the root view. */
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -150,6 +165,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         return binding.root
     }
 
+    /** Initializes UI listeners and starts data loading. */
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         updateTitle(getString(R.string.app_name))
@@ -161,6 +177,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         requestPermissions()
     }
 
+    /** Sets up button listeners. */
     private fun initListeners() {
         binding.btnUpdateList.setOnClickListener {
             viewModel.loadMovies()
@@ -170,15 +187,16 @@ class HomeFragment : Fragment(), OnSearchListener {
     override fun onResume() {
         super.onResume()
         requireActivity().unlockOrientation()
-        registerReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
+        registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
         checkPermission()
     }
 
     override fun onPause() {
         super.onPause()
-        unregisterReceiver(updateReceiver)
+        unregisterLocalReceiver(updateReceiver)
     }
 
+    /** Delegates file or data requests based on [requestId]. */
     private fun requestFiles() {
         when (requestId) {
             REQUEST_OPEN_FILE -> requestFile()
@@ -186,29 +204,67 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
+    /**
+     * BroadcastReceiver for update status events.
+     *
+     * @return a fully configured receiver that logs everything it receives.
+     */
     private fun makeBroadcastReceiver(): BroadcastReceiver = object : BroadcastReceiver() {
+
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent != null) {
-                when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
-                    AppConstants.ACTION_UPDATE_STATUS_STARTED -> {
-                        binding.tvEmptyView.setText(R.string.update_started)
-                    }
+            // 1️⃣  Печатаем сам объект Intent (если он не null)
+            Timber.d("Intent dump: %s", intent?.dump())
 
-                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
-                        toast(getString(R.string.update_finished_success))
+            if (intent == null) {                      // 2️⃣ Никакого сообщения, логим и выходим
+                Timber.w("Received null Intent")
+                return
+            }
+
+            val action = intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)
+            Timber.d("Broadcast received – action: %s", action ?: "<null>")
+
+            when (action) {
+                AppConstants.ACTION_UPDATE_STATUS_STARTED -> {
+                    toast(getString(R.string.update_started))
+                }
+
+                AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+                    toast(getString(R.string.update_finished_success))
+
+                    // 3️⃣ Получаем id и логируем, если он отсутствует
+                    val movieId = intent.getLongExtra("EXTRA_MOVIE_ID", -1L)
+                    if (movieId > 0) {
+                        Timber.i("Found movie id: %d – loading details.", movieId)
+                        viewModel.findMovieByImportedUrl(movieId)
+                    } else {
+                        Timber.w(
+                            "No valid movie id in success broadcast. "
+                                    + "Fallback to list reload."
+                        )
+                        // fallback – reload list
                         viewModel.loadMovies()
                     }
+                }
 
-                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
-                        binding.tvEmptyView.setText(R.string.update_finished_error)
-                        toast(getString(R.string.update_finished_error))
-                        viewModel.loadMovies()
-                    }
+                AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
+                    toast(getString(R.string.update_finished_error))
+                    Timber.e("Update finished with error.")
+                    viewModel.loadMovies()
+                }
+
+                else -> {                                 // 4️⃣ Неизвестный action
+                    Timber.w(
+                        "Unknown update status: %s. "
+                                + "Intent extras: %s",
+                        action, intent.extras?.keySet()?.joinToString(", ")
+                    )
                 }
             }
         }
     }
 
+
+    /** Handles pending notification permission request. */
     private fun checkPermission() {
         if (requestedNotice) {
             requestedNotice = false
@@ -216,6 +272,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
+    /** Listener for extended search results from other fragments. */
     private fun observeResult() {
         setFragmentResultListener(AppConstants.FRAGMENTS.RESULTS) { _, bundle ->
             extendSearchResult = bundle.getParcelable(AppConstants.SearchType.SEARCH_RESULT)
@@ -223,6 +280,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
+    /** Triggers an extended search once the result is ready. */
     private fun extendedSearch() {
         extendSearchResult?.let {
             handler.postDelayed({
@@ -240,6 +298,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
+    /** Extracts intent parameters (director/actor/genre) and initiates a search. */
     private fun getIntentParams() {
         if (arguments?.isEmpty == false) {
             var query = ""
@@ -266,6 +325,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
+    /** Applies a pre‑determined search query to the UI and triggers data load. */
     private fun setMenuSearchQuery(query: String) {
         if (query.isNotBlank() && searchType.isNotBlank()) {
             viewModel.setSearchType(
@@ -283,6 +343,7 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     private fun getIntentString(param: String) = arguments?.getString(param)
 
+    /** Orchestrates permission requests for notifications and storage. */
     private fun requestPermissions() {
         when (permissionRequestId) {
             0 -> requestNotice()
@@ -290,6 +351,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
+    /** Requests notification settings; if denied, prompts user to open app settings. */
     private fun requestNotice() {
         val notificationsFullyEnabled = isNotificationsFullyEnabled()
         if (!notificationsFullyEnabled) {
@@ -307,6 +369,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
+    /** Requests WRITE_EXTERNAL_STORAGE permission. */
     private fun requestStorage() {
         requestId = REQUEST_LOAD
         requestPermission(
@@ -329,6 +392,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         )
     }
 
+    /** Initiates data download, handling connectivity checks. */
     private fun downloadData(force: Boolean = false) {
         when (getConnectionType(requireContext())) {
             ConnectionType.NONE -> {
@@ -343,6 +407,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
+    /** Sets up the RecyclerView adapter and its load state listener. */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
         itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
@@ -363,6 +428,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         }
     }
 
+    /** Collects flows from the ViewModel and updates UI accordingly. */
     private fun observeData() {
         launchWhenCreated {
             viewModel.loading.collectLatest { loading ->
@@ -442,10 +508,23 @@ class HomeFragment : Fragment(), OnSearchListener {
                 }
             }
         }
+        launchWhenCreated {
+            viewModel.navigate.collectLatest { event ->
+                when (event) {
+                    is NavigationEvent.ToDetails -> {
+                        findNavController().navigateSafely(
+                            HomeFragmentDirections.actionNavHomeToNavDetails(event.movieDbId)
+                        )
+                        lastImportedMovieId = null
+                    }
+                }
+            }
+        }
     }
 
     override fun isSearchComplete(): Boolean = emptySearch && !extendSearch
 
+    /** Resets search state and UI when the user collapses the search view. */
     override fun collapseSearch() {
         viewModel.loadMovies(resetAll = true)
         emptySearch = true
@@ -454,6 +533,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         requireActivity().invalidateOptionsMenu()
     }
 
+    /** Builds and handles menu items for the home screen. */
     private fun initMenu() {
         requireActivity().addMenuProvider(object : MenuProvider {
             override fun onPrepareMenu(menu: Menu) {
@@ -515,6 +595,11 @@ class HomeFragment : Fragment(), OnSearchListener {
 
                     R.id.menu_action_from_path -> {
                         openPath()
+                        true
+                    }
+
+                    R.id.menu_action_import_link -> {
+                        showImportLinkDialog()
                         true
                     }
 
@@ -704,6 +789,47 @@ class HomeFragment : Fragment(), OnSearchListener {
                 )
             }
         )
+    }
+
+    private var lastImportedUrl: String? = null
+
+    private fun showImportLinkDialog() {
+        inputDialog(
+            title = getString(R.string.import_link_dialog_title),
+            prefill = "",
+            hint = getString(R.string.enter_video_url_hint),
+            btnOkText = getString(android.R.string.ok),
+            btnCancelText = getString(android.R.string.cancel),
+            dialogListener = { url ->
+                if (url.isNotBlank()) {
+                    importVideoByUrl(url.trim())
+                }
+            }
+        )
+    }
+
+    private fun importVideoByUrl(url: String) {
+        val movieId = extractMovieIdFromUrl(url)
+        if (movieId == null) {
+            toast("Неверный формат URL: $url")
+            return
+        }
+
+        lastImportedUrl = url
+        lastImportedMovieId = movieId // ← Сохраняем ID для последующего использования!
+
+        requireContext().sendServiceMessage(
+            Intent(requireContext().applicationContext, UpdateService::class.java),
+            AppConstants.ACTION_UPDATE_BY_URL
+        ) {
+            putString(AppConstants.SERVICE_PARAM_UPDATE_URL, url)
+        }
+    }
+
+    private fun extractMovieIdFromUrl(url: String): Long? {
+        val regex = Regex("""(?:films|serials)/(\d+)$""")
+        val matchResult = regex.find(url)
+        return matchResult?.groupValues?.get(1)?.toLongOrNull()
     }
 
     private fun onOpenFolder(data: Intent?) {

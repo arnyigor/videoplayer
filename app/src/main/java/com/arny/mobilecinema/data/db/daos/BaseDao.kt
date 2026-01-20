@@ -19,4 +19,7 @@ interface BaseDao<T> {
 
     @RawQuery
     suspend fun getMovies(query: SupportSQLiteQuery): List<ViewMovie>
+
+    @RawQuery
+    suspend fun getFavoriteMovies(query: SupportSQLiteQuery): List<ViewMovie>
 }

@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlin.coroutines.CoroutineContext
 
 sealed class DataResult<out T : Any> {
     data class Success<out T : Any>(val result: T) : DataResult<T>()
@@ -18,19 +19,14 @@ sealed class DataResult<out T : Any> {
 }
 
 fun <T : Any> doAsync(
+    context: CoroutineContext = Dispatchers.IO,
     request: suspend () -> T?
 ) = flow<DataResult<T>> {
     request().also { data ->
         emit(DataResult.Success(data!!))
     }
-}.flowOn(Dispatchers.IO)
+}.flowOn(context)
     .catch { exception ->
         exception.printStackTrace()
         emit(DataResult.Error(exception))
     }
-
-suspend fun <T : Any> getDataResult(request: suspend () -> T?) = try {
-    DataResult.Success(request()!!)
-} catch (e: Exception) {
-    DataResult.Error(e)
-}

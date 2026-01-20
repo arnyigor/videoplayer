@@ -2,6 +2,7 @@ package com.arny.mobilecinema.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.fragment.findNavController
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.arny.mobilecinema.R
@@ -9,6 +10,7 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
+import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -17,6 +19,7 @@ import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
+import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import dagger.assisted.AssistedInject
@@ -26,6 +29,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -33,6 +37,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
@@ -40,6 +45,15 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
+
+
+/**
+ * Represents one‑off UI actions that the ViewModel wants the Fragment to perform.
+ */
+sealed class NavigationEvent {
+    data class ToDetails(val movieDbId: Long) : NavigationEvent()
+}
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class HomeViewModel @AssistedInject constructor(
@@ -81,6 +95,12 @@ class HomeViewModel @AssistedInject constructor(
     private val actionStateFlow = MutableSharedFlow<UiAction>()
     private val _updateData = BufferedSharedFlow<String>()
     val updateData = _updateData.asSharedFlow()
+
+    // Inside HomeViewModel.kt – add near the top, after other flows
+    private val _navigate = MutableSharedFlow<NavigationEvent>(replay = 0)
+    val navigate: SharedFlow<NavigationEvent> get() = _navigate.asSharedFlow()
+
+
     var moviesDataFlow: Flow<PagingData<ViewMovie>> =
         listOf(
             trigger,
@@ -233,6 +253,31 @@ class HomeViewModel @AssistedInject constructor(
                     }
                 }
             }
+        }
+    }
+
+    fun findMovieByImportedUrl(movieId: Long) {
+        viewModelScope.launch {
+            val pageUrl = "films/$movieId"   // формат, совпадающий с полем pageUrl в БД для фильма TODO исправить для сериала
+            moviesInteractor.getMovieByPageUrl(pageUrl)
+                .collect { result ->
+                    when (result) {
+                        is DataResult.Error -> {
+                            Timber.e(result.throwable, "Failed to load movie with ID: $movieId") // 👈 Log error
+                            // Optional: Show toast or UI feedback here if needed
+                            // _toast.emit(ResourceString(R.string.movie_load_failed))
+                        }
+
+                        is DataResult.Success -> {
+                            val movie = result.result
+                            loadMovies(resetAll = true)
+                            Timber.d("Movie found successfully: ID=${movie.dbId}, Title='${movie.title}'") // 👈 Log success
+                            _navigate.emit(NavigationEvent.ToDetails(movie.dbId)) // 👈 Navigate to details
+                        }
+                    }
+                }
+
+            Timber.d("Movie lookup completed for ID: $movieId") // 👈 Log completion (even if error)
         }
     }
 

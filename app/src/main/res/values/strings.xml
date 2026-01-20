@@ -10,6 +10,7 @@
     <string name="video_link_not_found">Ссылка на видео не найдена</string>
     <string name="menu_preferences">Настройки</string>
     <string name="menu_history">История</string>
+    <string name="menu_favorite">Избранное</string>
     <string name="menu_get_file">Выбрать файл</string>
     <string name="menu_from_path">Открыть ссылку</string>
     <string name="menu_get_folder">Выбрать папку</string>
@@ -193,6 +194,9 @@
     <string name="movie_details_transition">movie_details_transition</string>
     <string name="link">Ссылка</string>
     <string name="link_format">Ссылка %1$s</string>
+    <string name="import_link">Импорт ссылки</string>
+    <string name="import_link_dialog_title">Импорт видео по ссылке</string>
+    <string name="enter_video_url_hint">Введите URL видео</string>
 
     <!--Feedback-->
     <string name="feedback_dialog_title">Отчет об ошибке</string>
@@ -200,6 +204,8 @@
     <string name="feedback_button_text">Отправить</string>
     <string name="menu_send_feedback">Сообщить об ошибке</string>
     <string name="feedback_dialog_result_ok">Сообщение отправлено!</string>
+    <string name="f_favorites_title">Избранное</string>
+    <string name="history_empty_title">История просмотра пуста</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>

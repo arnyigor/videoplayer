@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.api.KtorClient
 import com.arny.mobilecinema.data.db.AppDatabase
+import com.arny.mobilecinema.data.db.daos.FavoritesDao
 import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
@@ -70,7 +71,8 @@ interface DataModule {
             })
             .addMigrations(
                 AppDatabase.MIGRATION_1_2,
-                AppDatabase.MIGRATION_2_3
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
             )
             .build()
 
@@ -78,10 +80,13 @@ interface DataModule {
         @Singleton
         fun provideMoviesDao(db: AppDatabase): MovieDao = db.movieDao()
 
-
         @Provides
         @Singleton
         fun provideHistoryDao(db: AppDatabase): HistoryDao = db.historyDao()
+
+        @Provides
+        @Singleton
+        fun provideFavoritesDao(db: AppDatabase): FavoritesDao = db.favoritesDao()
 
     }
 

@@ -36,6 +36,10 @@
         android:icon="@android:drawable/stat_sys_download"
         android:title="@string/menu_download_new" />
     <item
+        android:id="@+id/menu_action_import_link"
+        app:showAsAction="never"
+        android:title="@string/import_link" />
+    <item
         android:id="@+id/menu_action_update_list"
         app:showAsAction="never"
         android:title="@string/update_list" />
