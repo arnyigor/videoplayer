@@ -25,7 +25,8 @@ fun getMoviesSQL(
     val whereWrapper = WhereWrapper()
     val sb = StringBuilder()
     val args = mutableListOf<Any?>()
-    sb.append("SELECT dbId, title, type, img, year, likes, dislikes FROM movies")
+    // Изменено: добавлен алиас 'm' и JOIN с favorites, добавлено поле isFavorite
+    sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, CASE WHEN f.movie_dbid IS NOT NULL THEN 1 ELSE 0 END AS isFavorite FROM movies m LEFT JOIN favorites f ON m.dbId = f.movie_dbid ")
     search(search, sb, whereWrapper, searchType, args)
     movieTypes(movieTypes, whereWrapper, sb)
     years(years, whereWrapper, sb, args)
@@ -56,7 +57,7 @@ private fun genres(
         } else {
             sb.append(" AND")
         }
-        sb.append(" LOWER(genre) IN (${lowerCaseGenres.joinToString(prefix = "'", postfix = "'")})")
+        sb.append(" LOWER(m.genre) IN (${lowerCaseGenres.joinToString(prefix = "'", postfix = "'")}) ")
     }
 }
 
@@ -68,12 +69,12 @@ private fun imdbs(
 ) {
     if (imdbRange != null && imdbRange.isNotEmpty()) {
         if (!whereWrapper.hasWhere) {
-            sb.append(" WHERE")
+            sb.append(" WHERE ")
             whereWrapper.hasWhere = true
         } else {
-            sb.append(" AND")
+            sb.append(" AND ")
         }
-        sb.append(" ratingImdb >= ? AND ratingImdb <= ?")
+        sb.append(" m.ratingImdb >= ? AND m.ratingImdb <= ? ")
         args.add(imdbRange.from)
         args.add(imdbRange.to)
     }
@@ -92,7 +93,7 @@ private fun kps(
         } else {
             sb.append(" AND")
         }
-        sb.append(" ratingKp >= ? AND ratingKp <= ?")
+        sb.append(" m.ratingKp >= ? AND m.ratingKp <= ? ")
         args.add(kpRange.from)
         args.add(kpRange.to)
     }
@@ -110,7 +111,7 @@ private fun countries(
         } else {
             sb.append(" AND")
         }
-        sb.append(" countries in (${countries.joinToString(prefix = "'", postfix = "'")})")
+        sb.append(" m.countries IN (${countries.joinToString(prefix = "'", postfix = "'")}) ")
     }
 }
 
@@ -127,7 +128,7 @@ private fun years(
         } else {
             sb.append(" AND")
         }
-        sb.append(" year >= ? AND year <= ?")
+        sb.append(" m.year >= ? AND m.year <= ? ")
         args.add(years.from)
         args.add(years.to)
     }
@@ -145,7 +146,7 @@ private fun movieTypes(
         } else {
             sb.append(" AND")
         }
-        sb.append(" type IN (${movieTypes.joinToString { "'${it.value}'" }})")
+        sb.append(" m.type IN (${movieTypes.joinToString { "'${it.value}'" }}) ")
     }
 }
 
@@ -157,15 +158,19 @@ private fun search(
     args: MutableList<Any?>
 ) {
     if (search.isNotBlank()) {
-        sb.append(" WHERE")
-        whereWrapper.hasWhere = true
+        if (!whereWrapper.hasWhere) {
+            sb.append(" WHERE ")
+            whereWrapper.hasWhere = true
+        } else {
+            sb.append(" AND ")
+        }
         sb.append(
             when (searchType) {
-                AppConstants.SearchType.TITLE -> " title LIKE '%' || ? || '%'"
-                AppConstants.SearchType.DIRECTORS -> " directors LIKE '%' || ? || '%'"
-                AppConstants.SearchType.ACTORS -> " actors LIKE '%' || ? || '%'"
-                AppConstants.SearchType.GENRES -> " genre LIKE '%' || ? || '%'"
-                else -> ""
+                AppConstants.SearchType.TITLE -> " m.title LIKE '%' || ? || '%' "
+                AppConstants.SearchType.DIRECTORS -> " m.directors LIKE '%' || ? || '%' "
+                AppConstants.SearchType.ACTORS -> " m.actors LIKE '%' || ? || '%' "
+                AppConstants.SearchType.GENRES -> " m.genre LIKE '%' || ? || '%' "
+                else -> " "
             }
         )
         extendedSearch(searchType, args, search, sb)
@@ -175,18 +180,18 @@ private fun search(
 private fun order(order: String, sb: StringBuilder, likesPriority: Boolean) {
     if (order.isNotBlank()) {
         var curOrder = order
-        sb.append(" ORDER BY")
+        sb.append(" ORDER BY ")
         if (curOrder == AppConstants.Order.LAST_TIME) {
             curOrder = AppConstants.Order.NONE
         }
         sb.append(
             when (curOrder) {
-                AppConstants.Order.NONE -> if (likesPriority) " updated DESC, likes DESC, ratingImdb DESC, ratingKp DESC" else " updated DESC, ratingImdb DESC, ratingKp DESC, likes DESC"
-                AppConstants.Order.RATINGS -> " ratingImdb DESC, ratingKp DESC, likes DESC"
-                AppConstants.Order.TITLE -> if (likesPriority) " title ASC, ratingImdb DESC, ratingKp DESC, likes DESC" else " title ASC, ratingImdb DESC, ratingKp DESC, likes DESC"
-                AppConstants.Order.YEAR_DESC -> if (likesPriority) " year DESC, likes DESC, ratingImdb DESC, ratingKp DESC" else " year DESC, ratingImdb DESC, ratingKp DESC, likes DESC"
-                AppConstants.Order.YEAR_ASC -> if (likesPriority) " year ASC, likes DESC, ratingImdb DESC, ratingKp DESC" else " year ASC, ratingImdb DESC, ratingKp DESC, likes DESC"
-                else -> ""
+                AppConstants.Order.NONE -> if (likesPriority) " m.updated DESC, m.likes DESC, m.ratingImdb DESC, m.ratingKp DESC " else " m.updated DESC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
+                AppConstants.Order.RATINGS -> " m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
+                AppConstants.Order.TITLE -> if (likesPriority) " m.title ASC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC " else " m.title ASC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
+                AppConstants.Order.YEAR_DESC -> if (likesPriority) " m.year DESC, m.likes DESC, m.ratingImdb DESC, m.ratingKp DESC " else " m.year DESC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
+                AppConstants.Order.YEAR_ASC -> if (likesPriority) " m.year ASC, m.likes DESC, m.ratingImdb DESC, m.ratingKp DESC " else " m.year ASC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
+                else -> " "
             }
         )
     }
@@ -227,7 +232,7 @@ fun getHistorySQL(
 ): SimpleSQLiteQuery {
     val sb = StringBuilder()
     val args = mutableListOf<Any?>()
-    sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes FROM movies m INNER JOIN history h ON m.dbId=h.movie_dbid")
+    sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, CASE WHEN f.movie_dbid IS NOT NULL THEN 1 ELSE 0 END AS isFavorite FROM movies m INNER JOIN history h ON m.dbId=h.movie_dbid LEFT JOIN favorites f ON m.dbId = f.movie_dbid ")
     if (search.isNotBlank()) {
         sb.append(" WHERE")
         sb.append(

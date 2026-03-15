@@ -3,6 +3,7 @@ package com.arny.mobilecinema.presentation.home
 import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.arny.mobilecinema.R
@@ -12,9 +13,10 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.utils.diffItemCallback
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.bumptech.glide.Glide
+import java.util.Locale
 
 class VideoItemsAdapter(
-    private val baseUrl:String,
+    private val baseUrl: String,
     private val onItemClick: (item: ViewMovie) -> Unit
 ) : PagingDataAdapter<ViewMovie, VideoItemsAdapter.VideosViewHolder>(
     diffItemCallback(
@@ -30,7 +32,7 @@ class VideoItemsAdapter(
             )
         )
 
-    inner class VideosViewHolder(val binding: IHomeVideoBinding) :
+    class VideosViewHolder(val binding: IHomeVideoBinding) :
         RecyclerView.ViewHolder(binding.root)
 
     override fun onBindViewHolder(holder: VideosViewHolder, position: Int) {
@@ -50,7 +52,13 @@ class VideoItemsAdapter(
                 val year = if (item.year > 0) "${item.year} " else ""
                 tvTypeYear.text = String.format("%s%s", year, type)
                 tvInfo.text =
-                    String.format("%d\uD83D\uDC4D %d\uD83D\uDC4E", item.likes, item.dislikes)
+                    String.format(
+                        Locale.getDefault(),
+                        "%d\uD83D\uDC4D %d\uD83D\uDC4E",
+                        item.likes,
+                        item.dislikes
+                    )
+                ivFavorite.isVisible = item.isFavorite
             }
         }
     }

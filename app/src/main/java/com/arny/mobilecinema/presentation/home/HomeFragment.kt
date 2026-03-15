@@ -188,6 +188,7 @@ class HomeFragment : Fragment(), OnSearchListener {
         requireActivity().unlockOrientation()
         registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
         checkPermission()
+        viewModel.reloadList()
     }
 
     override fun onPause() {
@@ -261,7 +262,6 @@ class HomeFragment : Fragment(), OnSearchListener {
             }
         }
     }
-
 
     /** Handles pending notification permission request. */
     private fun checkPermission() {

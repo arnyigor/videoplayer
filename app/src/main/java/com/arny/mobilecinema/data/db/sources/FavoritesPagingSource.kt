@@ -47,7 +47,7 @@ class FavoritesPagingSource(
     ): SimpleSQLiteQuery {
 
         val sb = StringBuilder()
-        sb.append("SELECT m.* FROM movies m INNER JOIN favorites f ON m.dbId=f.movie_dbid")
+        sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, 1 AS isFavorite FROM movies m INNER JOIN favorites f ON m.dbId=f.movie_dbid ")
 
         // фильтр по поиску
         if (search.isNotBlank()) {

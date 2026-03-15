@@ -52,7 +52,8 @@
                         android:background="?attr/selectableItemBackgroundBorderless"
                         app:layout_constraintTop_toTopOf="parent"
                         app:layout_constraintEnd_toEndOf="parent"
-                        app:srcCompat="@drawable/outline_favorite_24" />
+                        app:tint="@color/colorAccent"
+                        app:srcCompat="@drawable/baseline_favorite_24_filled" />
 
                 <TextView
                         android:id="@+id/tvRating"

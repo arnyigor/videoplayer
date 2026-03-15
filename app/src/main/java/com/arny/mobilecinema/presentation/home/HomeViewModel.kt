@@ -227,7 +227,8 @@ class HomeViewModel @AssistedInject constructor(
                         actionStateFlow.emit(
                             UiAction.Search(
                                 order = _order.value,
-                                searchAddTypes = searchAddTypes
+                                searchAddTypes = searchAddTypes,
+                                triggerId = System.currentTimeMillis()
                             )
                         )
                     }
@@ -408,6 +409,17 @@ class HomeViewModel @AssistedInject constructor(
                     btnOk = ResourceString(android.R.string.ok),
                     btnCancel = ResourceString(android.R.string.cancel),
                     type = AlertType.UpdateAll
+                )
+            )
+        }
+    }
+
+    fun reloadList() {
+        viewModelScope.launch {
+            actionStateFlow.emit(
+                UiAction.Search(
+                    order = _order.value,
+                    triggerId = System.currentTimeMillis()
                 )
             )
         }
