@@ -2,7 +2,6 @@ package com.arny.mobilecinema.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.fragment.findNavController
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import com.arny.mobilecinema.R
@@ -10,7 +9,6 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
-import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -19,7 +17,6 @@ import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
-import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import dagger.assisted.AssistedInject
@@ -37,7 +34,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
@@ -93,8 +89,8 @@ class HomeViewModel @AssistedInject constructor(
     private var search = UiAction.Search()
     private val trigger = MutableSharedFlow<Unit>()
     private val actionStateFlow = MutableSharedFlow<UiAction>()
-    private val _updateData = BufferedSharedFlow<String>()
-    val updateData = _updateData.asSharedFlow()
+    private val _urlData = BufferedSharedFlow<String>()
+    val urlData = _urlData.asSharedFlow()
 
     // Inside HomeViewModel.kt – add near the top, after other flows
     private val _navigate = MutableSharedFlow<NavigationEvent>(replay = 0)
@@ -208,7 +204,7 @@ class HomeViewModel @AssistedInject constructor(
                 .onCompletion { _loading.value = false }
                 .catch { it.printStackTrace() }
                 .collect { url ->
-                    _updateData.emit(url)
+                    _urlData.emit(url)
                 }
         }
     }

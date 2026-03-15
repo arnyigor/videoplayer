@@ -32,4 +32,10 @@
         android:title="@string/menu_send_feedback"
         android:icon="@drawable/ic_info"
         app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/menu_action_copy_mp4_link"
+        android:title="@string/menu_copy_mp4_link"
+        android:icon="@drawable/outline_content_copy_24"
+        app:showAsAction="ifRoom" />
 </menu>

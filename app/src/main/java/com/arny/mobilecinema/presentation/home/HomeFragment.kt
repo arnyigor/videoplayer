@@ -43,7 +43,6 @@ import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
-import com.arny.mobilecinema.presentation.utils.dump
 import com.arny.mobilecinema.presentation.utils.getImgCompat
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.inputDialog
@@ -213,9 +212,9 @@ class HomeFragment : Fragment(), OnSearchListener {
 
         override fun onReceive(context: Context?, intent: Intent?) {
             // 1️⃣  Печатаем сам объект Intent (если он не null)
-            Timber.d("Intent dump: %s", intent?.dump())
+//            Timber.d("Intent dump: %s", intent?.dump())
 
-            if (intent == null) {                      // 2️⃣ Никакого сообщения, логим и выходим
+            if (intent == null) {
                 Timber.w("Received null Intent")
                 return
             }
@@ -498,8 +497,7 @@ class HomeFragment : Fragment(), OnSearchListener {
             }
         }
         launchWhenCreated {
-            viewModel.updateData.collectLatest { url ->
-                Timber.d("updateData url:$url")
+            viewModel.urlData.collectLatest { url ->
                 requireContext().sendServiceMessage(
                     Intent(requireContext().applicationContext, UpdateService::class.java),
                     AppConstants.ACTION_UPDATE_BY_URL

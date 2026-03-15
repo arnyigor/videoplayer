@@ -5,6 +5,8 @@ import android.app.Activity
 import android.app.ActivityManager
 import android.app.SearchManager
 import android.content.BroadcastReceiver
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Context.POWER_SERVICE
 import android.content.Intent
@@ -69,6 +71,12 @@ fun Cursor.getStringOrDefault(
     return if (index >= 0) {
         this.getStringOrNull(index) ?: default
     } else default
+}
+
+fun Context.copyToClipboard(text: CharSequence, label: String = "text") {
+    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = ClipData.newPlainText(label, text)
+    clipboard.setPrimaryClip(clip)
 }
 
 fun Context.getDrawableCompat(@DrawableRes drawableRes: Int): Drawable? =

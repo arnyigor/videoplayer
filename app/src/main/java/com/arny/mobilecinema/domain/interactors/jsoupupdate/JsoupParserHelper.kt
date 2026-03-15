@@ -285,20 +285,6 @@ fun getImg(
     return url.removeDomain()
 }
 
-fun getCinemaUrlData(
-    page: Element
-): CinemaUrlData {
-    val scriptData =
-        page.selectFirst(Selectors.PAGE_SCRIPT)?.data().orEmpty().trimIndent().trim()
-    val cinemaUrl = getUrlsData(
-        scriptData = scriptData,
-        regex = Selectors.KINO_REGEXP.toRegex(),
-        simpleRegex = Selectors.SIMPLE_REGEXP.toRegex(),
-        require = true,
-    )
-    return CinemaUrlData(cinemaUrl = cinemaUrl)
-}
-
 fun getSeriyaUrlData(
     page: Element
 ): List<String> {
@@ -311,39 +297,6 @@ fun getSeriyaUrlData(
         require = true,
         fileEnds = "(.txt)"
     ).urls
-}
-
-fun getHdUrl(
-    page: Element
-): String {
-    val data = page.selectFirst(Selectors.KINO_HD_SCRIPT)?.data().orEmpty().trimIndent().trim()
-    val url = if (data.isNotBlank()) {
-        findByGroup(data, Selectors.IFRAME_SRC_REGEXP.toRegex(), 1).orEmpty()
-    } else {
-        page.selectFirst(Selectors.KINO_HD_IFRAME)?.attr(Selectors.SRC_ATTR).orEmpty()
-    }
-    return url
-}
-
-fun getHDUrlData(
-    page: Element
-): CinemaUrlData {
-    val scripts =
-        page.select(Selectors.KINO_HD_SCRIPT + "," + Selectors.KINO_HD_SCRIPT2).map { it.data() }
-    val script = scripts
-        .map { it.inlineText() }
-        .filter { it.isNotBlank() }
-        .find {
-            val dash = findByGroup(it, Selectors.DASH_REGEXP.toRegex(), 1).orEmpty()
-            val hls = findByGroup(it, Selectors.HLS_REGEXP.toRegex(), 1).orEmpty()
-            dash.isNotEmpty() || hls.isNotEmpty()
-        }.orEmpty()
-    val dash = findByGroup(script, Selectors.DASH_REGEXP.toRegex(), 1).orEmpty()
-    val hls = findByGroup(script, Selectors.HLS_REGEXP.toRegex(), 1).orEmpty()
-    val hdUrls = listOf(dash, hls).filter { it.isNotBlank() }
-    return CinemaUrlData(
-        hdUrl = AnwapUrl(urls = hdUrls)
-    )
 }
 
 fun getUrlsData(

@@ -108,6 +108,9 @@
     <string name="updated_format">Обновлен: %s</string>
     <string name="movie_viewhistory_cleared">Фильм удален из истории</string>
     <string name="movie_cache_cleared">Фильм удален из кеша</string>
+    <string name="movie_mp4_links_no_found">Ссылки на mp4 не найдены</string>
+    <string name="movie_mp4_links_copied">Ссылки на mp4 скопированы в буфер</string>
+    <string name="movie_mp4_links_label">Ссылки на mp4</string>
     <string name="serial_history_cleared">Сериал удален из истории</string>
     <string name="serial_episode_cache_cleared">Эпизод удален из кеша</string>
     <string name="search_settings">Настройки поиска</string>
@@ -197,14 +200,15 @@
     <string name="link">Ссылка</string>
     <string name="link_format">Ссылка %1$s</string>
     <string name="import_link">Импорт ссылки</string>
-    <string name="import_link_dialog_title">Импорт видео по ссылке</string>
-    <string name="enter_video_url_hint">Введите URL видео</string>
+    <string name="import_link_dialog_title">Импорт по ссылке</string>
+    <string name="enter_video_url_hint">Введите URL страницы</string>
 
     <!--Feedback-->
     <string name="feedback_dialog_title">Отчет об ошибке</string>
     <string name="feedback_enter_message">Введите сообщение</string>
     <string name="feedback_button_text">Отправить</string>
     <string name="menu_send_feedback">Сообщить об ошибке</string>
+    <string name="menu_copy_mp4_link">Ссылка на mp4</string>
     <string name="feedback_dialog_result_ok">Сообщение отправлено!</string>
     <string name="f_favorites_title">Избранное</string>
     <string name="history_empty_title">История просмотра пуста</string>

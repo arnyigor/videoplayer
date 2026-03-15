@@ -30,13 +30,34 @@ import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.DFeedbackLayoutBinding
 import com.arny.mobilecinema.databinding.FDetailsBinding
 import com.arny.mobilecinema.di.viewModelFactory
-import com.arny.mobilecinema.domain.models.*
+import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieDownloadedData
+import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.PrefsConstants
+import com.arny.mobilecinema.domain.models.RequestDownloadFile
+import com.arny.mobilecinema.domain.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.services.MovieDownloadService
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
-import com.arny.mobilecinema.presentation.utils.*
+import com.arny.mobilecinema.presentation.utils.alertDialog
+import com.arny.mobilecinema.presentation.utils.copyToClipboard
+import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
+import com.arny.mobilecinema.presentation.utils.getDP
+import com.arny.mobilecinema.presentation.utils.getDuration
+import com.arny.mobilecinema.presentation.utils.getWithDomain
+import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
+import com.arny.mobilecinema.presentation.utils.navigateSafely
+import com.arny.mobilecinema.presentation.utils.printTime
+import com.arny.mobilecinema.presentation.utils.registerReceiver
+import com.arny.mobilecinema.presentation.utils.sendServiceMessage
+import com.arny.mobilecinema.presentation.utils.toast
+import com.arny.mobilecinema.presentation.utils.unregisterReceiver
+import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
+import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
@@ -87,6 +108,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private var hasSavedData: Boolean = false
     private var downloadAll: Boolean = false
     private var canDownload: Boolean = false
+    private var feedbackText = ""
 
     // Touch flags для Spinners
     private var isUserTouchSeasons = false
@@ -306,6 +328,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         true
                     }
 
+                    R.id.menu_action_copy_mp4_link -> {
+                        showCopyMp4LinkDialog()
+                        true
+                    }
+
                     R.id.menu_action_update_data -> {
                         viewModel.handleEvent(DetailsEvent.ShowUpdateDialog)
                         true
@@ -392,6 +419,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
             is DetailsAction.NavigateBack -> {
                 findNavController().popBackStack()
+            }
+
+            is DetailsAction.CopyMp4Links -> {
+                requireContext().copyToClipboard(
+                    action.text,
+                    getString(R.string.movie_mp4_links_label)
+                )
             }
         }
     }
@@ -858,7 +892,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun showFeedbackDialog() {
-        var text = ""
         createCustomLayoutDialog(
             title = getString(R.string.feedback_dialog_title),
             layout = R.layout.d_feedback_layout,
@@ -866,16 +899,20 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             btnOkText = getString(R.string.feedback_button_text),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                viewModel.handleEvent(DetailsEvent.SendFeedback(text))
+                viewModel.handleEvent(DetailsEvent.SendFeedback(feedbackText))
             },
             initView = {
                 with(DFeedbackLayoutBinding.bind(this)) {
                     tiedtFeedbackInput.doAfterTextChanged { editable ->
-                        text = editable.toString()
+                        feedbackText = editable.toString()
                     }
                 }
             }
         )
+    }
+
+    private fun showCopyMp4LinkDialog() {
+        viewModel.handleEvent(DetailsEvent.CopyMp4Link)
     }
 
     private fun playMovie() {

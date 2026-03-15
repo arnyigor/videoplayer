@@ -64,6 +64,7 @@ sealed interface DetailsEvent {
     data class SelectedUrlChanged(val url: String?, val updateCache: Boolean) : DetailsEvent
     object ShowCacheDialog : DetailsEvent
     object ShowDownloadDialog : DetailsEvent
+    object CopyMp4Link : DetailsEvent
     object ShowUpdateDialog : DetailsEvent
     data class ClearCache(
         val seasonPosition: Int,
@@ -101,6 +102,7 @@ sealed interface DetailsAction {
     data class ShowAlert(val alert: Alert) : DetailsAction
     data class NavigateToUpdate(val url: String) : DetailsAction
     data class RequestDownload(val file: RequestDownloadFile) : DetailsAction
+    data class CopyMp4Links(val text: String) : DetailsAction
     object HistoryAdded : DetailsAction
     object NavigateBack : DetailsAction
 }
@@ -153,6 +155,7 @@ class DetailsViewModel @AssistedInject constructor(
             is DetailsEvent.ClearViewHistory -> clearViewHistory(event)
             is DetailsEvent.InvalidateCache -> invalidateCache()
             is DetailsEvent.ToggleFavorite -> onToggleFavorite()
+            is DetailsEvent.CopyMp4Link -> onCopyMp4Link()
         }
     }
 
@@ -173,6 +176,19 @@ class DetailsViewModel @AssistedInject constructor(
                         }
                     }
                 }
+        }
+    }
+
+    private fun onCopyMp4Link() {
+        viewModelScope.launch {
+            val mp4Urls = _uiState.value.movie?.getAllCinemaUrls()?.filter { it.endsWith(".mp4") }
+            if (mp4Urls.isNullOrEmpty()) {
+                _actions.send(DetailsAction.ShowError(ResourceString(R.string.movie_mp4_links_no_found)))
+            } else {
+                val text = mp4Urls.joinToString()
+                _actions.send(DetailsAction.CopyMp4Links(text))
+                _actions.send(DetailsAction.ShowToast(ResourceString(R.string.movie_mp4_links_copied)))
+            }
         }
     }
 
@@ -652,6 +668,7 @@ class DetailsViewModel @AssistedInject constructor(
                         )
                     }
                 }
+
                 MovieType.CINEMA -> {
                     if (event.clearViewHistory || isNotCached) {
                         total = true
@@ -660,6 +677,7 @@ class DetailsViewModel @AssistedInject constructor(
                         ResourceString(R.string.question_remove_cinema_from_cache, movie.title)
                     }
                 }
+
                 else -> {
                     total = true
                     ResourceString(R.string.question_remove_from_history_total, movie.title)
