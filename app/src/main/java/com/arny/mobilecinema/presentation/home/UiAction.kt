@@ -15,5 +15,6 @@ sealed class UiAction {
         val imdbs: SimpleFloatRange? = null,
         val kps: SimpleFloatRange? = null,
         val likesPriority: Boolean = false,
+        val triggerId: Long = 0L
     ) : UiAction()
 }

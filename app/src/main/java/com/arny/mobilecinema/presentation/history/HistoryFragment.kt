@@ -78,6 +78,10 @@ class HistoryFragment : Fragment(), OnSearchListener {
         initAdapters()
         observeData()
         initMenu()
+    }
+
+    override fun onResume() {
+        super.onResume()
         viewModel.reloadHistory()
     }
 

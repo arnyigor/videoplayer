@@ -90,20 +90,19 @@ class FavoritesFragment : Fragment(), OnSearchListener {
         initAdapters()
         observeData()
         initMenu()
+    }
 
-        /* Загружаем избранное сразу после создания экрана */
+    override fun onResume() {
+        super.onResume()
         viewModel.reloadFavorites()
     }
 
-    /* ------------------------------------------------------------------ */
-    /** OnSearchListener ------------------------------------------------- */
     override fun isSearchComplete(): Boolean = emptySearch
 
     override fun collapseSearch() {
         viewModel.loadFavorites()
         emptySearch = true
     }
-    /* ------------------------------------------------------------------ */
 
     private fun initMenu() {
         requireActivity().addMenuProvider(object : MenuProvider {
@@ -114,7 +113,7 @@ class FavoritesFragment : Fragment(), OnSearchListener {
                 menu.findItem(R.id.action_search_settings).isVisible =
                     hasSavedData && !emptySearch
                 menu.findItem(R.id.action_order_settings).isVisible = hasSavedData
-                menu.findItem(R.id.menu_action_clear_cache).isVisible = hasSavedData
+                menu.findItem(R.id.menu_action_clear_favorites).isVisible = hasSavedData
             }
 
             /** Создаём меню и SearchView */
@@ -161,10 +160,10 @@ class FavoritesFragment : Fragment(), OnSearchListener {
                         true
                     }
 
-                    R.id.menu_action_clear_cache -> {
+                    R.id.menu_action_clear_favorites -> {
                         alertDialog(
                             getString(R.string.question_remove),
-                            getString(R.string.question_remove_all_history),
+                            getString(R.string.question_remove_all_favorites),
                             getString(android.R.string.ok),
                             getString(android.R.string.cancel),
                             onConfirm = {

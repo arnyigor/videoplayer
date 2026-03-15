@@ -75,9 +75,6 @@ class FavoritesViewModel @AssistedInject constructor(
             }
             .cachedIn(viewModelScope)
 
-    /* ---------- Публичные API ---------- */
-
-    /** Запускает поиск. Если submit==true, будет выполнен запрос в БД. */
     fun loadFavorites(query: String = "", submit: Boolean = true, delay: Boolean = false) {
         viewModelScope.launch {
             this@FavoritesViewModel.query = query
@@ -94,7 +91,6 @@ class FavoritesViewModel @AssistedInject constructor(
         }
     }
 
-    /** Сохраняет выбранный порядок сортировки. */
     fun setOrder(order: String) {
         viewModelScope.launch {
             interactor.saveFavoriteOrder(order)
@@ -108,7 +104,6 @@ class FavoritesViewModel @AssistedInject constructor(
         }
     }
 
-    /** Устанавливает тип поиска (TITLE, DIRECTORS и т.д.). */
     fun setSearchType(type: String, submit: Boolean = true) {
         viewModelScope.launch {
             searchType = type
@@ -124,7 +119,6 @@ class FavoritesViewModel @AssistedInject constructor(
         }
     }
 
-    /** Проверяем, пуста ли коллекция избранного. */
     private fun checkEmpty() {
         viewModelScope.launch {
             interactor.isFavoriteEmpty()
@@ -137,7 +131,6 @@ class FavoritesViewModel @AssistedInject constructor(
         }
     }
 
-    /** Удаляем все элементы из избранного. */
     fun clearAllFavoriteHistory() {
         viewModelScope.launch {
             interactor.clearAllFavorites()
@@ -145,19 +138,25 @@ class FavoritesViewModel @AssistedInject constructor(
                     when (data) {
                         is DataResult.Error -> {}
                         is DataResult.Success -> {
-                            // Перезагружаем список, чтобы обновить UI
-                            loadFavorites("newsearch")
-                            loadFavorites()
+                            reloadFavorites()
                         }
                     }
                 }
         }
     }
 
-    /** Перезапускает загрузку после инициализации ViewModel. */
     fun reloadFavorites() {
         if (started) {
-            loadFavorites("", submit = true)
+            viewModelScope.launch {
+                actionStateFlow.emit(
+                    UiAction.Search(
+                        searchType = searchType,
+                        query = query,
+                        order = _order.value,
+                        triggerId = System.currentTimeMillis()
+                    )
+                )
+            }
         }
     }
 }

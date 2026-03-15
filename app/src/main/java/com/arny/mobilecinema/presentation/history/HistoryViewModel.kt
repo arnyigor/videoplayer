@@ -137,8 +137,7 @@ class HistoryViewModel @AssistedInject constructor(
                     when (data) {
                         is DataResult.Error -> {}
                         is DataResult.Success -> {
-                            loadHistory("newsearch")
-                            loadHistory()
+                            reloadHistory()
                         }
                     }
                 }
@@ -147,8 +146,16 @@ class HistoryViewModel @AssistedInject constructor(
 
     fun reloadHistory() {
         if (started) {
-            loadHistory("newsearch")
-            loadHistory()
+            viewModelScope.launch {
+                actionStateFlow.emit(
+                    UiAction.Search(
+                        searchType = searchType,
+                        query = query,
+                        order = _order.value,
+                        triggerId = System.currentTimeMillis() // Гарантированно новый хэш объекта
+                    )
+                )
+            }
         }
     }
 }

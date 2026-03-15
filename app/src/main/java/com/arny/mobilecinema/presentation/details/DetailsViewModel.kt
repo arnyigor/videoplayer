@@ -127,7 +127,6 @@ class DetailsViewModel @AssistedInject constructor(
     val actions: Flow<DetailsAction> = _actions.receiveAsFlow()
 
     // Внутреннее состояние для кеширования
-    private var currentDownloadData: DownloadManagerData? = null
     private var currentCacheAlert: Alert? = null
     private var downloadAlert: Alert? = null
     private var currentRemoveAlert: Alert? = null
@@ -429,12 +428,11 @@ class DetailsViewModel @AssistedInject constructor(
             if (url.isNullOrBlank()) return@launch
 
             val downloadData = playerSource.getCurrentDownloadData(url)
-            currentDownloadData = downloadData
-
             val data = MovieDownloadedData(
                 downloadData.downloadPercent,
                 downloadData.downloadBytes
             )
+            _uiState.update { it.copy(downloadedData = data) }
 
             checkDownloadSize(data)
             val initValid = downloadData.isInitValid
@@ -628,42 +626,47 @@ class DetailsViewModel @AssistedInject constructor(
         }
     }
 
-    // ============ History & Cache Management ============
-
     private fun handleClearCache(event: DetailsEvent.ClearCache) {
         viewModelScope.launch {
             val state = _uiState.value
             val movie = state.movie ?: return@launch
+
+            // 1. Берем процент из единого источника истины. Нет данных = 0.0f
+            val downloadedPercent = state.downloadedData?.downloadedPercent ?: 0.0f
+            val isNotCached = downloadedPercent <= 0.0f
+
             var total = false
 
-            val downloadPercent = currentDownloadData?.downloadPercent
-            val content = when {
-                movie.type == MovieType.SERIAL && (event.clearViewHistory || (downloadPercent != null && downloadPercent == 0.0f)) -> {
+            // 2. Упрощаем логику ветвления
+            val content = when (movie.type) {
+                MovieType.SERIAL -> {
+                    if (event.clearViewHistory || isNotCached) {
+                        total = true
+                        ResourceString(R.string.question_remove_serial_from_history, movie.title)
+                    } else {
+                        ResourceString(
+                            R.string.question_remove_episodes_from_cache,
+                            movie.title,
+                            event.seasonPosition + 1,
+                            event.episodePosition + 1
+                        )
+                    }
+                }
+                MovieType.CINEMA -> {
+                    if (event.clearViewHistory || isNotCached) {
+                        total = true
+                        ResourceString(R.string.question_remove_from_history_title, movie.title)
+                    } else {
+                        ResourceString(R.string.question_remove_cinema_from_cache, movie.title)
+                    }
+                }
+                else -> {
                     total = true
-                    ResourceString(R.string.question_remove_serial_from_history, movie.title)
+                    ResourceString(R.string.question_remove_from_history_total, movie.title)
                 }
-
-                movie.type == MovieType.SERIAL -> {
-                    ResourceString(
-                        R.string.question_remove_episodes_from_cache,
-                        movie.title,
-                        event.seasonPosition + 1,
-                        event.episodePosition + 1
-                    )
-                }
-
-                movie.type == MovieType.CINEMA && (event.clearViewHistory || (downloadPercent != null && downloadPercent == 0.0f)) -> {
-                    total = true
-                    ResourceString(R.string.question_remove_from_history_title, movie.title)
-                }
-
-                movie.type == MovieType.CINEMA -> {
-                    ResourceString(R.string.question_remove_cinema_from_cache, movie.title)
-                }
-
-                else -> ResourceString(R.string.question_remove_from_history_total, movie.title)
             }
 
+            // 3. Формируем URL безопасно
             val url = if (movie.type == MovieType.SERIAL) {
                 val episode = movie.seasons
                     .getOrNull(event.seasonPosition)
@@ -693,7 +696,7 @@ class DetailsViewModel @AssistedInject constructor(
                 movieDbId = movie?.dbId,
                 type = movie?.type,
                 total = event.total,
-                event.url
+                url = event.url
             )
                 .catch { _actions.send(DetailsAction.ShowError(ThrowableString(it))) }
                 .collectLatest { result ->

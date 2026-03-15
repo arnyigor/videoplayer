@@ -58,7 +58,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     @Inject
     internal lateinit var viewModelFactory: ViewModelFactory
-
     private val args: DetailsFragmentArgs by navArgs()
 
     private val viewModel: DetailsViewModel by viewModelFactory {
@@ -152,8 +151,30 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
+    private val downloadReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            viewModel.handleEvent(DetailsEvent.InvalidateCache)
+        }
+    }
 
-    // ============ Lifecycle ============
+    private val downloadUpdateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            viewModel.handleEvent(
+                DetailsEvent.UpdateDownloadProgress(
+                    pageUrl = intent?.getStringExtra(AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL)
+                        .orEmpty(),
+                    percent = intent?.getFloatExtra(AppConstants.SERVICE_PARAM_PERCENT, 0.0f),
+                    bytes = intent?.getLongExtra(AppConstants.SERVICE_PARAM_BYTES, 0L),
+                    updateSeason = intent?.getIntExtra(AppConstants.SERVICE_PARAM_CACHE_SEASON, 0)
+                        ?: 0,
+                    updateEpisode = intent?.getIntExtra(AppConstants.SERVICE_PARAM_CACHE_EPISODE, 0)
+                        ?: 0
+                )
+            )
+        }
+    }
+
+    private val updateReceiver by lazy { makeBroadcastReceiver() }
 
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
@@ -198,8 +219,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         super.onDestroyView()
         _binding = null
     }
-
-    // ============ Init Methods ============
 
     private fun initVariables() {
         // Инициализация системных сервисов
@@ -274,8 +293,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     R.id.menu_action_clear_cache -> {
                         viewModel.handleEvent(
                             DetailsEvent.ClearCache(
-                                currentSeasonPosition,
-                                currentEpisodePosition
+                                seasonPosition = currentSeasonPosition,
+                                episodePosition = currentEpisodePosition,
+                                clearViewHistory = true
                             )
                         )
                         true
@@ -291,13 +311,13 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         true
                     }
 
-                    else -> false
+                    else -> {
+                        false
+                    }
                 }
             }
         }, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
-
-    // ============ State & Actions Observers ============
 
     private fun observeState() {
         launchWhenCreated {
@@ -375,8 +395,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             }
         }
     }
-
-    // ============ UI Update Methods ============
 
     private fun onMovieLoaded(movie: Movie) {
         currentMovie = movie
@@ -608,8 +626,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
-    // ============ Spinners Logic ============
-
     private fun updateCurrentSerialPosition() {
         currentSeasonPosition = binding.spinSeasons.selectedItemPosition
         currentEpisodePosition = binding.spinEpisodes.selectedItemPosition
@@ -703,8 +719,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             movie.type == MovieType.CINEMA
         }.orEmpty()
     }
-
-    // ============ Dialogs ============
 
     private fun onCache() {
         when (getConnectionType(requireContext())) {
@@ -864,8 +878,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         )
     }
 
-    // ============ Navigation & Services ============
-
     private fun playMovie() {
         currentMovie?.let { movie ->
             val connectionType = getConnectionType(requireContext())
@@ -966,33 +978,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             putString(AppConstants.SERVICE_PARAM_DOWNLOAD_TITLE, file.title)
         }
     }
-
-    // ============ Broadcast Receivers ============
-
-    private val downloadReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            viewModel.handleEvent(DetailsEvent.InvalidateCache)
-        }
-    }
-
-    private val downloadUpdateReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            viewModel.handleEvent(
-                DetailsEvent.UpdateDownloadProgress(
-                    pageUrl = intent?.getStringExtra(AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL)
-                        .orEmpty(),
-                    percent = intent?.getFloatExtra(AppConstants.SERVICE_PARAM_PERCENT, 0.0f),
-                    bytes = intent?.getLongExtra(AppConstants.SERVICE_PARAM_BYTES, 0L),
-                    updateSeason = intent?.getIntExtra(AppConstants.SERVICE_PARAM_CACHE_SEASON, 0)
-                        ?: 0,
-                    updateEpisode = intent?.getIntExtra(AppConstants.SERVICE_PARAM_CACHE_EPISODE, 0)
-                        ?: 0
-                )
-            )
-        }
-    }
-
-    private val updateReceiver by lazy { makeBroadcastReceiver() }
 
     private fun makeBroadcastReceiver() = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {

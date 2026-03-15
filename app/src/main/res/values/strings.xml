@@ -22,6 +22,7 @@
     <string name="video_quality">Качество</string>
     <string name="f_history_title">История просмотров</string>
     <string name="menu_clear_file_view_history">Очистить историю просмотра</string>
+    <string name="menu_clear_favorites">Очистить избранное</string>
     <string name="movie_cleared">Видео удалено из кеша</string>
     <string name="question_remove">Удалить?</string>
     <string name="question_remove_from_history_total">Хотите удалить \"%s\" из истории просмотра и очистить кеш?</string>
@@ -119,6 +120,7 @@
     <string name="sort_ratings">По рейтингам IMDB и KP</string>
     <string name="sort_year_asc">По году возрастание</string>
     <string name="question_remove_all_history">Удалить всю историю просмотра и весь кеш?</string>
+    <string name="question_remove_all_favorites">Удалить всё избранное?</string>
     <string name="notification_channel_id">notification_channel_cache</string>
     <string name="notification_title">Загрузка фильма</string>
     <string name="cache">Кешировать</string>
