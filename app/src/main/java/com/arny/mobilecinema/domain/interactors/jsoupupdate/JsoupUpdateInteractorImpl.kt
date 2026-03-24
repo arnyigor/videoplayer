@@ -1080,12 +1080,6 @@ class JsoupUpdateInteractorImpl @Inject constructor(
         return linkAll
     }
 
-    fun getRepeatedEpisodeCount(episodesLinks: List<EpisodeLink>) = episodesLinks
-        .groupingBy { it.name }
-        .eachCount()
-        .filter { it.value > 1 }
-        .map { it.value }.sumOf { it - 1 }
-
     private fun getRepeatedSeasonCount(seasons: List<SerialSeason>) = seasons
         .groupingBy { it.id!! }
         .eachCount()

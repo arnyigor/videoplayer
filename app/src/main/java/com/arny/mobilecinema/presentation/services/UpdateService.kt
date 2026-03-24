@@ -187,9 +187,9 @@ class UpdateService : LifecycleService(), CoroutineScope {
 
         if (!url.isNullOrBlank()) {
             // --- 1. Парсим movieId из URL ------------------------------------
-            val movieId = Regex("""/films/(\d+)""")
+            val movieId = Regex("""/(films|serials)/(\d+)""")
                 .find(url)
-                ?.groups?.get(1)
+                ?.groups?.get(2)
                 ?.value
                 ?.toLongOrNull()
                 ?: throw DataThrowable(R.string.url_is_empty)
