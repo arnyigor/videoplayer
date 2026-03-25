@@ -1,39 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+        xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto"
         xmlns:tools="http://schemas.android.com/tools"
         android:id="@+id/cvContainer"
         android:layout_width="match_parent"
-        android:background="?attr/colorPrimaryDark"
-        app:cardUseCompatPadding="true"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        app:cardBackgroundColor="?attr/colorPrimaryDark"
         app:cardCornerRadius="@dimen/cardview_radius"
-        android:layout_height="wrap_content">
+        app:cardElevation="4dp">
+    <!-- Убрано app:cardUseCompatPadding="true" -->
 
     <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:padding="8dp"
-            android:background="?attr/colorPrimaryDark"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:paddingBottom="8dp"> <!-- Убран background, чтобы избежать Overdraw -->
 
+        <!-- Используем DimensionRatio для сохранения пропорций постера (2:3) -->
         <ImageView
                 android:id="@+id/ivVideoIcon"
                 android:layout_width="0dp"
-                android:layout_height="200dp"
-                android:adjustViewBounds="true"
+                android:layout_height="0dp"
+                android:scaleType="centerCrop"
+                app:layout_constraintDimensionRatio="2:3"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 tools:src="@tools:sample/backgrounds/scenic" />
 
+        <!-- Иконка избранного (без изменений) -->
         <ImageView
                 android:id="@+id/ivFavorite"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/bg_circle_dark"
+                android:padding="4dp"
                 android:src="@drawable/baseline_favorite_24_filled"
                 android:visibility="gone"
-                app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                android:layout_margin="@dimen/margin"
+                app:layout_constraintTop_toTopOf="parent"
                 app:tint="@color/colorAccent" />
 
         <TextView
@@ -41,29 +48,34 @@
                 style="@style/HomeCardTitleStyle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                app:layout_constraintEnd_toEndOf="@+id/ivVideoIcon"
-                app:layout_constraintStart_toStartOf="@+id/ivVideoIcon"
+                android:layout_marginHorizontal="8dp"
+                android:layout_marginTop="8dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/ivVideoIcon"
-                tools:text="Очень очень очень длинный Заголовок" />
+                tools:text="Название фильма" />
 
         <TextView
                 android:id="@+id/tvTypeYear"
                 style="@style/HomeCardSubTitleStyle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tvVideoTitle"
-                tools:text="2021 Сериал" />
+                tools:text="2021 • Сериал" />
 
         <TextView
                 android:id="@+id/tvInfo"
                 style="@style/HomeCardSubTitleStyle"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tvTypeYear"
-                tools:text="IMDB:6.4 KP:3.2 150👍 30👎" />
+                tools:text="150👍 30👎" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>
