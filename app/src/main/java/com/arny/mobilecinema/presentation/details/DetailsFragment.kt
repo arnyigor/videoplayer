@@ -12,6 +12,8 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
@@ -219,6 +221,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         super.onViewCreated(view, savedInstanceState)
         // View пересоздано - нужно обновить UI
         needsUIRefresh = true
+
+        initToolbar()
         initVariables()
         initListeners()
         initSpinnerAdapters()
@@ -226,6 +230,27 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         observeActions()
         initMenu()
         // Загрузка происходит в init ViewModel
+    }
+
+    private fun initToolbar() {
+        // Убеждаемся что Activity toolbar скрыт
+        (activity as? AppCompatActivity)?.supportActionBar?.hide()
+
+        // Настраиваем свой toolbar
+        binding.toolbar.setNavigationOnClickListener {
+            findNavController().popBackStack()
+        }
+
+        binding.appBarLayout.addOnOffsetChangedListener { appBarLayout, verticalOffset ->
+            val scrollRange = appBarLayout.totalScrollRange
+            val percentage = kotlin.math.abs(verticalOffset).toFloat() / scrollRange
+
+            if (percentage > 0.8f) {
+                binding.collapsingToolbar.title = currentMovie?.title ?: ""
+            } else {
+                binding.collapsingToolbar.title = " "
+            }
+        }
     }
 
     override fun onResume() {
@@ -293,65 +318,52 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun initMenu() {
-        requireActivity().addMenuProvider(object : MenuProvider {
-            override fun onPrepareMenu(menu: Menu) {
-                menu.findItem(R.id.menu_action_cache_movie).isVisible = canDownload
-                menu.findItem(R.id.menu_action_clear_cache).isVisible = hasSavedData
-            }
+        // БЫЛО: requireActivity().addMenuProvider(...)
+        // СТАЛО: используем свой toolbar
+        binding.toolbar.inflateMenu(R.menu.details_menu)
 
-            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
-                menuInflater.inflate(R.menu.details_menu, menu)
-            }
-
-            override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
-                return when (menuItem.itemId) {
-                    android.R.id.home -> {
-                        findNavController().popBackStack()
-                        true
-                    }
-
-                    R.id.menu_action_download_file -> {
-                        onDownloadFile()
-                        true
-                    }
-
-                    R.id.menu_action_cache_movie -> {
-                        onCache()
-                        true
-                    }
-
-                    R.id.menu_action_clear_cache -> {
-                        viewModel.handleEvent(
-                            DetailsEvent.ClearCache(
-                                seasonPosition = currentSeasonPosition,
-                                episodePosition = currentEpisodePosition,
-                                clearViewHistory = true
-                            )
-                        )
-                        true
-                    }
-
-                    R.id.menu_action_send_feedback -> {
-                        showFeedbackDialog()
-                        true
-                    }
-
-                    R.id.menu_action_copy_mp4_link -> {
-                        showCopyMp4LinkDialog()
-                        true
-                    }
-
-                    R.id.menu_action_update_data -> {
-                        viewModel.handleEvent(DetailsEvent.ShowUpdateDialog)
-                        true
-                    }
-
-                    else -> {
-                        false
-                    }
+        binding.toolbar.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.menu_action_download_file -> {
+                    onDownloadFile()
+                    true
                 }
+                R.id.menu_action_cache_movie -> {
+                    onCache()
+                    true
+                }
+                R.id.menu_action_clear_cache -> {
+                    viewModel.handleEvent(
+                        DetailsEvent.ClearCache(
+                            seasonPosition = currentSeasonPosition,
+                            episodePosition = currentEpisodePosition,
+                            clearViewHistory = true
+                        )
+                    )
+                    true
+                }
+                R.id.menu_action_send_feedback -> {
+                    showFeedbackDialog()
+                    true
+                }
+                R.id.menu_action_copy_mp4_link -> {
+                    showCopyMp4LinkDialog()
+                    true
+                }
+                R.id.menu_action_update_data -> {
+                    viewModel.handleEvent(DetailsEvent.ShowUpdateDialog)
+                    true
+                }
+                else -> false
             }
-        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+        }
+    }
+
+    // Обновление видимости пунктов меню
+    private fun updateMenuVisibility() {
+        val menu = binding.toolbar.menu
+        menu.findItem(R.id.menu_action_cache_movie)?.isVisible = canDownload
+        menu.findItem(R.id.menu_action_clear_cache)?.isVisible = hasSavedData
     }
 
     private fun observeState() {
@@ -397,7 +409,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             if (state.isInFavorite) R.drawable.baseline_favorite_24_filled else R.drawable.outline_favorite_24
         )
 
-        requireActivity().invalidateOptionsMenu()
+        updateMenuVisibility()
     }
 
     /**
@@ -449,23 +461,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             // Возвращаем listeners
             spinSeasons.onItemSelectedListener = seasonsChangeListener
             spinEpisodes.onItemSelectedListener = episodesChangeListener
-        }
-    }
-
-    private fun updateSpinnerSelections() {
-        with(binding) {
-            if (spinSeasons.selectedItemPosition != currentSeasonPosition) {
-                spinSeasons.setSelection(currentSeasonPosition, false)
-            }
-            if (spinEpisodes.selectedItemPosition != currentEpisodePosition) {
-                // Обновляем список эпизодов для текущего сезона
-                val episodes = currentMovie?.seasons
-                    ?.getOrNull(currentSeasonPosition)
-                    ?.episodes.orEmpty()
-                episodesTracksAdapter?.clear()
-                episodesTracksAdapter?.addAll(sortEpisodes(episodes))
-                spinEpisodes.setSelection(currentEpisodePosition, false)
-            }
         }
     }
 
@@ -523,22 +518,37 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun initUI(movie: Movie) {
         with(binding) {
             val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
+
+            // Загрузка изображения с placeholder
             Glide.with(requireContext())
                 .load(movie.img.getWithDomain(baseUrl))
-                .fitCenter()
+                .placeholder(R.drawable.placeholder_movie)
+                .error(R.drawable.placeholder_movie)
+                .centerCrop()
                 .into(ivBanner)
 
             updateTitle(movie.title)
 
-            tvUpdated.text = getString(
-                R.string.updated_format,
-                DateTime(movie.info.updated).printTime("dd MMM YYYY HH:mm")
-            )
+            val info = movie.info
 
-            tvDuration.isVisible = movie.type == MovieType.CINEMA
-            tvDuration.text =
-                getString(R.string.duration_format, getDuration(movie.info.durationSec))
+            // Рейтинги в виде бейджей
+            if (info.ratingImdb > 0) {
+                llImdb.isVisible = true
+                tvImdbRating.text = "%.1f".format(Locale.US, info.ratingImdb)
+            } else {
+                llImdb.isVisible = false
+            }
 
+            if (info.ratingKP > 0) {
+                llKp.isVisible = true
+                tvKpRating.text = "%.1f".format(Locale.US, info.ratingKP)
+            } else {
+                llKp.isVisible = false
+            }
+
+            tvLikes.text = "👍 ${info.likes}  👎 ${info.dislikes}"
+
+            // Название
             tvTitle.text = movie.title
             if (BuildConfig.DEBUG) {
                 tvTitle.setOnLongClickListener {
@@ -547,77 +557,26 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
             }
 
-            val info = movie.info
+            // Год, тип, страна - одной строкой
+            tvTypeYear.text = buildTypeYearString(movie)
+
+            // Быстрые чипы
+            tvDuration.isVisible = movie.type == MovieType.CINEMA && info.durationSec > 0
+            if (tvDuration.isVisible) {
+                tvDuration.text = getDuration(info.durationSec)
+            }
+
+            tvQuality.isVisible = movie.type == MovieType.CINEMA && info.quality.isNotBlank()
+            if (tvQuality.isVisible) {
+                tvQuality.text = info.quality
+            }
+
+            // Используем более короткий формат даты
+            tvUpdated.text = DateTime(info.updated).printTime("dd.MM.yy")
+
+            // Описание
             tvDescription.text = info.description
             tvDescription.makeTextViewResizable()
-
-            tvRating.text = StringBuilder().apply {
-                if (info.ratingImdb > 0) {
-                    append(
-                        "%s %.2f".format(
-                            Locale.getDefault(),
-                            getString(R.string.imdb),
-                            info.ratingImdb
-                        ).replace(",", ".")
-                    )
-                    append(" ")
-                }
-                if (info.ratingKP > 0) {
-                    append(
-                        "%s %.2f".format(
-                            Locale.getDefault(),
-                            getString(R.string.kp),
-                            info.ratingKP
-                        ).replace(",", ".")
-                    )
-                    append(" ")
-                }
-                append(
-                    "\uD83D\uDC4D %d \uD83D\uDC4E %d".format(
-                        Locale.getDefault(),
-                        info.likes,
-                        info.dislikes
-                    )
-                )
-            }.toString()
-
-            val seasons = movie.seasons
-            val episodesSize = seasons.sumOf { it.episodes.size }
-
-            tvTypeYear.text = StringBuilder().apply {
-                if (info.year > 0) {
-                    append(info.year)
-                    append(" ")
-                }
-                if (movie.type == MovieType.SERIAL) {
-                    append(" ")
-                    append(getString(R.string.serial))
-                    append(" ")
-                    append(
-                        resources.getQuantityString(
-                            R.plurals.sezons,
-                            seasons.size,
-                            seasons.size
-                        )
-                    )
-                    append(" ")
-                    append(
-                        resources.getQuantityString(
-                            R.plurals.episods,
-                            episodesSize,
-                            episodesSize
-                        )
-                    )
-                    append(" ")
-                } else {
-                    append(getString(R.string.cinema))
-                    append(" ")
-                }
-                append(movie.info.countries.joinToString())
-            }.toString()
-
-            tvQuality.isVisible = movie.type == MovieType.CINEMA
-            tvQuality.text = getString(R.string.quality_format, info.quality)
 
             initGenres(info.genres)
             initDirectors(info.directors)
@@ -625,14 +584,37 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
+    private fun buildTypeYearString(movie: Movie): String {
+        val info = movie.info
+        val parts = mutableListOf<String>()
+
+        if (info.year > 0) {
+            parts.add(info.year.toString())
+        }
+
+        if (movie.type == MovieType.SERIAL) {
+            val seasons = movie.seasons
+            val episodesSize = seasons.sumOf { it.episodes.size }
+            parts.add(getString(R.string.serial))
+            parts.add(resources.getQuantityString(R.plurals.sezons, seasons.size, seasons.size))
+            parts.add(resources.getQuantityString(R.plurals.episods, episodesSize, episodesSize))
+        } else {
+            parts.add(getString(R.string.cinema))
+        }
+
+        if (info.countries.isNotEmpty()) {
+            parts.add(info.countries.joinToString(", "))
+        }
+
+        return parts.joinToString(" • ")
+    }
+
     private fun FDetailsBinding.initDirectors(directors: List<String>) {
         chgrDirectors.removeAllViews()
+        tvDirectors.isVisible = directors.any { it.isNotBlank() }
+
         for (director in directors.filter { it.isNotBlank() }) {
-            val chip = getCustomChip(chgrDirectors)
-            chip.text = director
-            chip.isClickable = true
-            chip.isCheckable = false
-            chip.setOnClickListener {
+            val chip = createFilterChip(director) {
                 findNavController().navigateSafely(
                     DetailsFragmentDirections.actionNavDetailsToNavHome(director = director)
                 )
@@ -643,15 +625,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun FDetailsBinding.initGenres(genres: List<String>) {
         chgrGenres.removeAllViews()
-        val genresMap = genres.flatMap { it.split(",") }.filter { it.isNotBlank() }
-        binding.tvGenres.isVisible = genresMap.isNotEmpty()
+        val genresMap = genres.flatMap { it.split(",") }.map { it.trim() }.filter { it.isNotBlank() }
+        tvGenres.isVisible = genresMap.isNotEmpty()
 
         for (genre in genresMap) {
-            val chip = getCustomChip(chgrGenres)
-            chip.text = genre
-            chip.isClickable = true
-            chip.isCheckable = false
-            chip.setOnClickListener {
+            val chip = createFilterChip(genre) {
                 findNavController().navigateSafely(
                     DetailsFragmentDirections.actionNavDetailsToNavHome(genre = genre)
                 )
@@ -660,21 +638,36 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
-    private fun getCustomChip(chipGroup: ChipGroup): Chip {
-        return layoutInflater.inflate(R.layout.i_custom_chip_choise, chipGroup, false) as Chip
+    /**
+     * Создаёт кликабельный чип для фильтрации
+     */
+    private fun createFilterChip(text: String, onClick: () -> Unit): Chip {
+        return Chip(requireContext()).apply {
+            this.text = text
+            isClickable = true
+            isCheckable = false
+
+            // Светлый фон и текст для лучшей видимости
+            setChipBackgroundColorResource(R.color.chip_bg)
+            setTextColor(ContextCompat.getColor(context, R.color.chip_text))
+
+            // Убираем stroke
+            chipStrokeWidth = 0f
+
+            // Компактный размер
+            setEnsureMinTouchTargetSize(false)
+            chipMinHeight = resources.getDimension(R.dimen.chip_min_height)
+
+            setOnClickListener { onClick() }
+        }
     }
 
     private fun FDetailsBinding.initActors(actors: List<String>) {
         chgrActors.removeAllViews()
+        tvActors.isVisible = actors.any { it.isNotBlank() }
+
         for (actor in actors.filter { it.isNotBlank() }) {
-            val chip = getCustomChip(chgrActors)
-            val paddingDp = requireContext().getDP(10)
-            chip.setPadding(paddingDp.toInt(), 0, paddingDp.toInt(), 0)
-            chip.text = actor
-            chip.isClickable = true
-            chip.isCheckable = false
-            chip.setEnsureMinTouchTargetSize(false)
-            chip.setOnClickListener {
+            val chip = createFilterChip(actor) {
                 findNavController().navigateSafely(
                     DetailsFragmentDirections.actionNavDetailsToNavHome(actor = actor)
                 )
@@ -705,41 +698,29 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun updateDownloadedData(data: MovieDownloadedData?) {
-        binding.tvSaveData.isVisible = data != null
+        with(binding) {
+            val shouldShow = data != null && (data.loading || data.downloadedSize > 0L)
+            cardSaveData.isVisible = shouldShow
 
-        when {
-            data != null && data.loading -> {
-                binding.tvSaveData.text = getString(R.string.cinema_save_data_invalidate)
+            when {
+                data == null -> {
+                    cardSaveData.isVisible = false
+                }
+                data.loading -> {
+                    tvSaveData.text = getString(R.string.cinema_save_data_invalidate)
+                }
+                data.downloadedPercent > 0.0f && data.downloadedSize > 0L -> {
+                    val percentStr = "%.1f%%".format(Locale.getDefault(), data.downloadedPercent)
+                    val sizeStr = formatFileSize(data.downloadedSize, 1)
+                    val totalStr = if (data.total > 0L) {
+                        " / ${formatFileSize(data.total, 1)}"
+                    } else ""
+                    tvSaveData.text = "Сохранён: $percentStr • $sizeStr$totalStr"
+                }
+                data.downloadedSize > 0L -> {
+                    tvSaveData.text = "Сохранён: ${formatFileSize(data.downloadedSize, 1)}"
+                }
             }
-
-            data != null && data.downloadedPercent > 0.0f && data.downloadedSize > 0L -> {
-                binding.tvSaveData.text = getString(
-                    R.string.cinema_save_data,
-                    "%.1f".format(Locale.getDefault(), data.downloadedPercent),
-                    formatFileSize(data.downloadedSize, 1),
-                    getTotalSizeString(data)
-                )
-            }
-
-            data != null && data.downloadedSize > 0L -> {
-                binding.tvSaveData.text = getString(
-                    R.string.cinema_save_data_only_bytes,
-                    formatFileSize(data.downloadedSize, 1),
-                    getTotalSizeString(data)
-                )
-            }
-
-            data != null && data.downloadedPercent > 0.0f && data.downloadedSize == 0L -> {
-                binding.tvSaveData.text = getString(R.string.cinema_save_data_only_percent)
-            }
-        }
-    }
-
-    private fun getTotalSizeString(data: MovieDownloadedData): String {
-        return if (data.total > 0L) {
-            getString(R.string.cinema_save_data_total_size_format, formatFileSize(data.total, 3))
-        } else {
-            ""
         }
     }
 
@@ -762,19 +743,18 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 }
 
                 fillSpinners(movie)
-                spinEpisodes.isVisible = true
-                spinSeasons.isVisible = true
-                tvSeasons.isVisible = true
+                cardSeasons.isVisible = true
             } else {
                 val popupItems = getCinemaUrlsItems(movie)
                 val sizeMoreOne = popupItems.size > 1
 
-                tvLinkTitle.isVisible = sizeMoreOne
-                spinLinks.isVisible = sizeMoreOne
+                cardLinks.isVisible = sizeMoreOne
 
-                spinLinks.updateSpinnerItems(linksChangeListener)
-                linksAdapter?.clear()
-                linksAdapter?.addAll(popupItems.map { it.first })
+                if (sizeMoreOne) {
+                    spinLinks.updateSpinnerItems(linksChangeListener)
+                    linksAdapter?.clear()
+                    linksAdapter?.addAll(popupItems.map { it.first })
+                }
 
                 if (popupItems.isNotEmpty()) {
                     viewModel.handleEvent(

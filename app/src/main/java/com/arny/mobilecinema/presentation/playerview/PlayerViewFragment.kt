@@ -720,23 +720,26 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     /**
-     * Показывает системный UI
+     * Показывает системный UI - ПОЛНОЕ восстановление
      */
     private fun showSystemUIImmediately() {
         val window = activity?.window ?: return
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.insetsController?.show(
-                android.view.WindowInsets.Type.statusBars() or
-                        android.view.WindowInsets.Type.navigationBars()
-            )
+            // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: возвращаем decorFitsSystemWindows
+            window.setDecorFitsSystemWindows(true)
+
+            window.insetsController?.apply {
+                show(
+                    android.view.WindowInsets.Type.statusBars() or
+                            android.view.WindowInsets.Type.navigationBars()
+                )
+                // Сбрасываем поведение на дефолтное
+                systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_DEFAULT
+            }
         } else {
             @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            )
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
         }
         isSystemUIHidden = false
     }

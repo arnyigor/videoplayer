@@ -1,22 +1,21 @@
 package com.arny.mobilecinema.presentation
 
-import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.navigation.NavController
-import androidx.navigation.findNavController
+import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.AMainBinding
 import com.arny.mobilecinema.presentation.listeners.OnPictureInPictureListener
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.showSnackBar
-import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.android.AndroidInjection
 import dagger.android.AndroidInjector
 import dagger.android.DispatchingAndroidInjector
@@ -24,7 +23,9 @@ import dagger.android.HasAndroidInjector
 import javax.inject.Inject
 
 class MainActivity : AppCompatActivity(), HasAndroidInjector {
+
     private lateinit var binding: AMainBinding
+    private lateinit var navController: NavController
     private var backPressedTime: Long = 0
 
     @Inject
@@ -38,17 +39,22 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         binding = AMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
-        val navController = findNavController(R.id.nav_host_fragment)
-        // Find reference to bottom navigation view
-        val navView: BottomNavigationView = findViewById(R.id.bottom_nav_view)
+
+        // Получаем NavController через NavHostFragment
+        val navHostFragment = supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+        navController = navHostFragment.navController
+
         // Hook your navigation controller to bottom navigation view
-        navView.setupWithNavController(navController)
-        initOnBackPress(navController)
-        initUI(navController)
+        binding.bottomNavView.setupWithNavController(navController)
+
+        initOnBackPress()
+        initUI()
     }
 
-    private fun initUI(navController: NavController) {
+    private fun initUI() {
         navController.addOnDestinationChangedListener { _, destination, _ ->
+            // Bottom navigation - скрываем для PlayerView, Details, ExtendedSearch
             showBottomNav(
                 destination.id !in listOf(
                     R.id.nav_player_view,
@@ -56,7 +62,24 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
                     R.id.nav_extended_search
                 )
             )
-            showHome(destination.id !in listOf(R.id.nav_home, R.id.nav_prefs, R.id.nav_history, R.id.nav_favorite))
+
+            // Скрываем Activity toolbar для экранов со своим toolbar
+            showActivityToolbar(
+                destination.id !in listOf(
+                    R.id.nav_player_view,
+                    R.id.nav_details
+                )
+            )
+
+            // Кнопка "назад"
+            showHome(
+                destination.id !in listOf(
+                    R.id.nav_home,
+                    R.id.nav_prefs,
+                    R.id.nav_history,
+                    R.id.nav_favorite
+                )
+            )
         }
     }
 
@@ -64,14 +87,28 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         binding.bottomNavView.isVisible = show
     }
 
+    /**
+     * Показывает/скрывает Activity Toolbar
+     */
+    private fun showActivityToolbar(show: Boolean) {
+        binding.toolbar.isVisible = show
+        if (show) {
+            supportActionBar?.show()
+        } else {
+            supportActionBar?.hide()
+        }
+    }
+
     private fun showHome(show: Boolean) {
         supportActionBar?.setDisplayHomeAsUpEnabled(show)
     }
 
     private fun getCurrentFragment() =
-        supportFragmentManager.primaryNavigationFragment?.childFragmentManager?.fragments?.getOrNull(
-            0
-        )
+        supportFragmentManager
+            .primaryNavigationFragment
+            ?.childFragmentManager
+            ?.fragments
+            ?.getOrNull(0)
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
@@ -106,7 +143,7 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         }
     }
 
-    private fun initOnBackPress(navController: NavController) {
+    private fun initOnBackPress() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val isLastFragment = navController.currentDestination?.id == R.id.nav_home
