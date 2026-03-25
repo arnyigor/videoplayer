@@ -13,15 +13,17 @@ import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
+import androidx.navigation.fragment.FragmentNavigatorExtras
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
-import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FFavoritesBinding
 import com.arny.mobilecinema.di.viewModelFactory
+import com.arny.mobilecinema.domain.models.PrefsConstants
+import com.arny.mobilecinema.presentation.home.HomeFragmentDirections
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
@@ -262,10 +264,12 @@ class FavoritesFragment : Fragment(), OnSearchListener {
     /** Создаём адаптер и привязываем к RecyclerView */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
-            findNavController().navigateSafely(
-                FavoritesFragmentDirections.actionFavoritesFragmentToNavDetails(item.dbId)
+        itemsAdapter = VideoItemsAdapter(baseUrl) {  item, sharedView ->
+            val extras = FragmentNavigatorExtras(
+                sharedView to sharedView.transitionName
             )
+            val action = FavoritesFragmentDirections.actionFavoritesFragmentToNavDetails(item.dbId)
+            findNavController().navigate(action, extras)
         }
 
         binding.rvFavoritesList.apply {

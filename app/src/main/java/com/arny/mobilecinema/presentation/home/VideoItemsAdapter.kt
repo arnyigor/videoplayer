@@ -2,6 +2,7 @@ package com.arny.mobilecinema.presentation.home
 
 import android.content.Context
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.paging.PagingDataAdapter
@@ -17,7 +18,7 @@ import java.util.Locale
 
 class VideoItemsAdapter(
     private val baseUrl: String,
-    private val onItemClick: (item: ViewMovie) -> Unit
+    private val onItemClick: (item: ViewMovie, sharedView: View) -> Unit
 ) : PagingDataAdapter<ViewMovie, VideoItemsAdapter.VideosViewHolder>(
     diffItemCallback(
         itemsTheSame = { m1, m2 -> m1.dbId == m2.dbId },
@@ -40,13 +41,15 @@ class VideoItemsAdapter(
         if (item != null) {
             val context = holder.binding.root.context
             holder.binding.apply {
+                ivVideoIcon.transitionName = "poster_${item.dbId}"
                 root.setOnClickListener {
-                    onItemClick(item)
+                    onItemClick(item, ivVideoIcon)
                 }
                 tvVideoTitle.text = item.title
                 Glide.with(ivVideoIcon)
                     .load(item.img.getWithDomain(baseUrl))
                     .placeholder(R.drawable.play_circle_outline)
+                    .dontAnimate() // Раскомментируй, если транзиция будет мерцать
                     .into(ivVideoIcon)
                 val type = getType(item, context)
                 val year = if (item.year > 0) "${item.year} " else ""

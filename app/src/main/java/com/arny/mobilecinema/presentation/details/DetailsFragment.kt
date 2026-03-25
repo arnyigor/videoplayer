@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
@@ -21,6 +22,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.transition.TransitionInflater
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
@@ -61,6 +63,9 @@ import com.arny.mobilecinema.presentation.utils.unregisterReceiver
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import dagger.android.support.AndroidSupportInjection
@@ -208,6 +213,14 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         super.onAttach(context)
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Назначаем анимацию для общего элемента
+        sharedElementEnterTransition = TransitionInflater.from(requireContext())
+            .inflateTransition(R.transition.shared_image_transform)
+        // Если не создавал файл из Шага 3, используй: android.R.transition.move
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -221,7 +234,10 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         super.onViewCreated(view, savedInstanceState)
         // View пересоздано - нужно обновить UI
         needsUIRefresh = true
-
+        // 1. Присваиваем ТО ЖЕ САМОЕ имя
+        binding.ivBanner.transitionName = "poster_${args.id}"
+        // 2. Останавливаем анимацию отрисовки фрагмента
+        postponeEnterTransition()
         initToolbar()
         initVariables()
         initListeners()
@@ -519,13 +535,37 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         with(binding) {
             val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
 
-            // Загрузка изображения с placeholder
-            Glide.with(requireContext())
+            // 3. Загружаем картинку и ждем готовности
+            Glide.with(requireContext()) // Используй this (Fragment) вместо requireContext() для привязки к Lifecycle
                 .load(movie.img.getWithDomain(baseUrl))
                 .placeholder(R.drawable.placeholder_movie)
                 .error(R.drawable.placeholder_movie)
-                .centerCrop()
-                .into(ivBanner)
+                .dontAnimate() // ВАЖНО: Отключаем кроссфейд глайда, он ломает Shared Transition
+                .listener(object : RequestListener<Drawable> {
+                    override fun onLoadFailed(
+                        p0: GlideException?,
+                        p1: Any?,
+                        p2: com.bumptech.glide.request.target.Target<Drawable?>?,
+                        p3: Boolean
+                    ): Boolean {
+                        // Картинка не скачалась, но фрагмент надо показать
+                        startPostponedEnterTransition()
+                        return false
+                    }
+
+                    override fun onResourceReady(
+                        p0: Drawable?,
+                        p1: Any?,
+                        p2: com.bumptech.glide.request.target.Target<Drawable?>?,
+                        p3: DataSource?,
+                        p4: Boolean
+                    ): Boolean {
+                        // Картинка готова — запускаем магию анимации!
+                        startPostponedEnterTransition()
+                        return false
+                    }
+                })
+                .into(binding.ivBanner)
 
             updateTitle(movie.title)
 
