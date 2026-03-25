@@ -202,6 +202,12 @@
     <string name="import_link">Импорт ссылки</string>
     <string name="import_link_dialog_title">Импорт по ссылке</string>
     <string name="enter_video_url_hint">Введите URL страницы</string>
+    <string name="seek_seconds">%d сек</string>
+    <string name="back">Назад</string>
+    <string name="resize">Размер</string>
+    <string name="screen_rotation">Поворот</string>
+    <string name="quality">Качество</string>
+    <string name="language">Язык</string>
 
     <!--Feedback-->
     <string name="feedback_dialog_title">Отчет об ошибке</string>

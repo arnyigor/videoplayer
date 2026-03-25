@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.database.ContentObserver
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
 import android.os.Build
@@ -25,6 +27,9 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.GestureDetectorCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
@@ -50,7 +55,6 @@ import com.arny.mobilecinema.presentation.utils.getOrientation
 import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.initAudioManager
 import com.arny.mobilecinema.presentation.utils.isPiPAvailable
-import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.registerContentResolver
 import com.arny.mobilecinema.presentation.utils.secToMs
 import com.arny.mobilecinema.presentation.utils.setScreenBrightness
@@ -77,6 +81,7 @@ import com.google.android.exoplayer2.util.Util
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.properties.Delegates
@@ -87,6 +92,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         const val DOUBLE_TAP_TIMEOUT = 300L // ms
         const val SEEK_INCREMENT = 5000L // ms (5 секунд)
         const val MEDIA_SESSION_TAG = "MEDIA_SESSION_ANWAP_TAG"
+        const val CONTROLS_ANIMATION_DURATION = 250L
     }
 
     @AssistedFactory
@@ -104,21 +110,24 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     lateinit var playerSource: PlayerSource
 
     private val viewModel: PlayerViewModel by viewModelFactory { viewModelFactory.create() }
+
+    // Убраны дублирующие поля - теперь хранятся в ViewModel
     private var allEpisodes: List<SerialEpisode> = emptyList()
     private var currentEpisodeIndex: Int = -1
     private var title: String = ""
     private var currentCinemaUrl: String? = null
-    private var timePosition: Long = 0L
-    private var season: Int = 0
-    private var episode: Int = 0
+
+    // Убраны: season, episode, timePosition - теперь в ViewModel
     private var qualityVisible: Boolean = false
     private var volumeObserver: ContentObserver? = null
     private var langVisible: Boolean = false
     private var mediaItemIndex: Int = 0
     private var movie: Movie? = null
+
     private val btnsHandler = Handler(Looper.getMainLooper())
     private val volumeHandler = Handler(Looper.getMainLooper())
     private val args: PlayerViewFragmentArgs by navArgs()
+
     private val resizeModes = arrayOf(
         AspectRatioFrameLayout.RESIZE_MODE_FIT,
         AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH,
@@ -126,40 +135,62 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         AspectRatioFrameLayout.RESIZE_MODE_FILL,
         AspectRatioFrameLayout.RESIZE_MODE_ZOOM
     )
+
     private var qualityPopUp: PopupMenu? = null
     private var langPopUp: PopupMenu? = null
     private var player: ExoPlayer? = null
     private var trackSelector: DefaultTrackSelector? = null
     private var resizeModeIndex = 0
+
     private var setupPopupMenus = true
     private var enhancer: LoudnessEnhancer? = null
-    private lateinit var binding: FPlayerViewBinding
+
+    //private lateinit var binding: FPlayerViewBinding
+    private var _binding: FPlayerViewBinding? = null
+    private val binding get() = _binding!!
+
+    // Сохраняем listener чтобы потом удалить
+    private var windowInsetsListener: View.OnApplyWindowInsetsListener? = null
+
+    // Для отслеживания что UI скрыт
+    private var isSystemUIHidden = false
+
     private var gestureDetectorCompat: GestureDetectorCompat? = null
     private var audioManager: AudioManager? = null
     private var minSwipeY: Float = 0f
     private var brightness: Int = 0
     private var volume: Int = -1
     private var boost: Int = -1
+
+    // Флаг для предотвращения повторной инициализации
+    private var isPlayerPrepared = false
+
+    // Версия state для предотвращения повторной обработки
+    private var lastProcessedVersion: Long = -1
+
     private var volumeObs: Int by Delegates.observable(-1) { _, old, newVolume ->
         if (old != newVolume) {
             volume = newVolume
             boost = 0
             updateGain()
-            binding.tvVolume.visibility = View.VISIBLE
+            showVolumeIndicator()
             audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
             updateUIByVolume()
             hideVolumeBrightViews()
         }
     }
+
     private val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         if (focusChange <= 0) {
             player?.pause()
         }
     }
+
     private val maxBoost by lazy {
         prefs.get<String>(getString(R.string.pref_max_boost_size))?.toIntOrNull()
             ?: MAX_BOOST_DEFAULT
     }
+
     private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         GestureDetector.OnGestureListener {
         override fun onDown(e: MotionEvent): Boolean {
@@ -185,14 +216,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             val border = 100 * Resources.getSystem().displayMetrics.density.toInt()
             if (event.x < border || event.y < border || event.x > sWidth - border || event.y > sHeight - border)
                 return false
-            //minSwipeY for slowly increasing brightness & volume on swipe --> try changing 50 (<50 --> quick swipe & > 50 --> slow swipe
-            // & test with your custom values
+
             if (abs(distanceX) < abs(distanceY) && abs(minSwipeY) > 50) {
                 val increase = distanceY > 0
                 if (event.x < sWidth / 2) {
                     //brightness
                     binding.tvBrightness.text = brightness.toString()
-                    binding.tvBrightness.visibility = View.VISIBLE
+                    showBrightnessIndicator()
                     val newValue = if (increase) {
                         brightness + 1
                     } else {
@@ -207,7 +237,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 } else {
                     //volume
                     binding.tvBrightness.visibility = View.GONE
-                    binding.tvVolume.visibility = View.VISIBLE
+                    showVolumeIndicator()
                     val curVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC)
                     if (volume == -1 && curVolume != null) {
                         volume = curVolume
@@ -277,7 +307,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             velocityY: Float
         ): Boolean = false
     }
+
     private var mediaSession: MediaSessionCompat? = null
+
     private fun updateGain() {
         try {
             val targetGain = enhancer?.targetGain
@@ -297,6 +329,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private val analytic = object : AnalyticsListener {
     }
+
     private val listener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
             binding.progressBar.isVisible = false
@@ -326,9 +359,20 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             val index = player?.currentMediaItemIndex ?: 0
             if (index != mediaItemIndex) {
                 mediaItemIndex = index
-                player?.let {
-                    val metadata = it.currentMediaItem?.mediaMetadata
+                player?.let { exoPlayer ->
+                    val metadata = exoPlayer.currentMediaItem?.mediaMetadata
+                    val bundle = metadata?.extras
+                    val newSeason = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
+                    val newEpisode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
+
                     this@PlayerViewFragment.title = metadata?.title.toString()
+
+                    // Ключевое исправление: обновляем позицию в ViewModel
+                    viewModel.updateCurrentEpisode(newSeason, newEpisode)
+
+                    // Обновляем индекс в allEpisodes
+                    currentEpisodeIndex = index
+
                     setCurrentTitle()
                 }
                 setupPopupMenus = true
@@ -346,9 +390,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        val view = FPlayerViewBinding.inflate(inflater, container, false)
-        binding = view
-        return view.root
+        _binding = FPlayerViewBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -379,6 +422,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         with((requireActivity() as AppCompatActivity)) {
             supportActionBar?.hide()
         }
+        // Скрываем системный UI
+        hideSystemUIImmediately()
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
             preparePlayer()
         }
@@ -393,6 +438,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         player?.let { exoPlayer ->
             saveMoviePosition(exoPlayer)
         }
+        // Показываем системный UI обратно
+        showSystemUIImmediately()
         if (Util.SDK_INT < Build.VERSION_CODES.N) {
             releasePlayer()
         }
@@ -406,18 +453,87 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // Очистка Handlers
+        btnsHandler.removeCallbacksAndMessages(null)
+        volumeHandler.removeCallbacksAndMessages(null)
+
+        // ВАЖНО: Удаляем listener с decorView
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            activity?.window?.decorView?.setOnApplyWindowInsetsListener(null)
+        } else {
+            @Suppress("DEPRECATION")
+            activity?.window?.decorView?.setOnSystemUiVisibilityChangeListener(null)
+        }
+        windowInsetsListener = null
+
+        // Показываем системный UI обратно при уходе
+        showSystemUIImmediately()
+
+        // Обнуляем binding в конце
+        _binding = null
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         releasePlayer()
-        audioManager?.abandonAudioFocus(focusChangeListener)
+        // AudioFocus с учётом версии API
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.abandonAudioFocus(focusChangeListener)
+        }
         gestureDetectorCompat = null
+    }
+
+    // AudioFocusRequest для API 26+
+    private val audioFocusRequest by lazy {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setOnAudioFocusChangeListener(focusChangeListener)
+                .setAudioAttributes(
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MOVIE)
+                        .build()
+                )
+                .build()
+        } else null
+    }
+
+    private fun showVolumeIndicator() {
+        binding.tvVolume.alpha = 0f
+        binding.tvVolume.isVisible = true
+        binding.tvVolume.animate()
+            .alpha(1f)
+            .setDuration(150)
+            .start()
+    }
+
+    private fun showBrightnessIndicator() {
+        binding.tvBrightness.alpha = 0f
+        binding.tvBrightness.isVisible = true
+        binding.tvBrightness.animate()
+            .alpha(1f)
+            .setDuration(150)
+            .start()
     }
 
     private fun hideVolumeBrightViews() {
         btnsHandler.removeCallbacksAndMessages(null)
         btnsHandler.postDelayed({
-            binding.tvBrightness.isVisible = false
-            binding.tvVolume.isVisible = false
+            binding.tvBrightness.animate()
+                .alpha(0f)
+                .setDuration(200)
+                .withEndAction { binding.tvBrightness.isVisible = false }
+                .start()
+            binding.tvVolume.animate()
+                .alpha(0f)
+                .setDuration(200)
+                .withEndAction { binding.tvVolume.isVisible = false }
+                .start()
         }, 1000)
     }
 
@@ -446,18 +562,104 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun initSystemUI() {
-        requireActivity().window.decorView.setOnSystemUiVisibilityChangeListener { visibility ->
-            if (visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0) {
-                binding.playerView.showController()
-            } else {
-                binding.playerView.hideController()
+        // Скрываем системный UI сразу при старте
+        hideSystemUIImmediately()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            windowInsetsListener = View.OnApplyWindowInsetsListener { _, insets ->
+                // Проверяем что binding ещё существует
+                val currentBinding = _binding ?: return@OnApplyWindowInsetsListener insets
+
+                val isVisible = insets.isVisible(
+                    android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.navigationBars()
+                )
+                if (isVisible && !currentBinding.playerView.isControllerVisible) {
+                    // Системные бары появились, но контроллер скрыт - скрываем снова
+                    hideSystemUIImmediately()
+                } else if (isVisible) {
+                    currentBinding.playerView.showController()
+                }
+                // Важно: возвращаем insets для правильной работы
+                insets
+            }
+            requireActivity().window.decorView.setOnApplyWindowInsetsListener(windowInsetsListener)
+        } else {
+            @Suppress("DEPRECATION")
+            requireActivity().window.decorView.setOnSystemUiVisibilityChangeListener { visibility ->
+                val currentBinding = _binding ?: return@setOnSystemUiVisibilityChangeListener
+
+                if (visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0) {
+                    if (currentBinding.playerView.isControllerVisible) {
+                        currentBinding.playerView.showController()
+                    } else {
+                        hideSystemUIImmediately()
+                    }
+                } else {
+                    currentBinding.playerView.hideController()
+                }
             }
         }
+    }
+
+    /**
+     * Немедленно скрывает системный UI
+     */
+    private fun hideSystemUIImmediately() {
+        val window = activity?.window ?: return
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+            window.insetsController?.let { controller ->
+                controller.hide(
+                    android.view.WindowInsets.Type.statusBars() or
+                            android.view.WindowInsets.Type.navigationBars()
+                )
+                controller.systemBarsBehavior =
+                    android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+            )
+        }
+        isSystemUIHidden = true
+    }
+
+    /**
+     * Показывает системный UI
+     */
+    private fun showSystemUIImmediately() {
+        val window = activity?.window ?: return
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.insetsController?.show(
+                android.view.WindowInsets.Type.statusBars() or
+                        android.view.WindowInsets.Type.navigationBars()
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            )
+        }
+        isSystemUIHidden = false
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         setScreenRotIconVisible(newConfig.orientation, true)
+        // Перескрываем UI при изменении конфигурации
+        if (isSystemUIHidden) {
+            hideSystemUIImmediately()
+        }
     }
 
     private fun setScreenRotIconVisible(orientation: Int, reset: Boolean) {
@@ -482,20 +684,39 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    private fun initListener() = with(binding) {
-        ivQuality.setOnClickListener { qualityPopUp?.show() }
-        ivLang.setOnClickListener { langPopUp?.show() }
-        ivResizes.setOnClickListener { changeResize() }
-        ivBack.setOnClickListener {
-            findNavController().popBackStack()
-        }
-        ivScreenRotation.setOnClickListener {
-            if (getOrientation() == Configuration.ORIENTATION_LANDSCAPE) {
-                requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            } else {
-                requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+    private fun initListener() {
+        // Проверяем binding перед использованием
+        val currentBinding = _binding ?: return
+
+        with(currentBinding) {
+            ivQuality.setOnClickListener { qualityPopUp?.show() }
+            ivLang.setOnClickListener { langPopUp?.show() }
+            ivResizes.setOnClickListener { changeResize() }
+            ivBack.setOnClickListener {
+                findNavController().popBackStack()
+            }
+            ivScreenRotation.setOnClickListener {
+                toggleScreenOrientation()
             }
         }
+    }
+
+    /**
+     * Переключение ориентации экрана
+     */
+    private fun toggleScreenOrientation() {
+        val currentOrientation = resources.configuration.orientation
+        requireActivity().requestedOrientation = if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+
+        // Через небольшую задержку сбрасываем на автоматическую ориентацию
+        // чтобы автоповорот продолжал работать
+        btnsHandler.postDelayed({
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        }, 1500)
     }
 
     private fun changeResize() {
@@ -508,59 +729,55 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun observeState() {
-        launchWhenCreated {
-            viewModel.uiState.collect { state ->
-                if (state.path != null || state.movie != null) {
-                    movie = state.movie
-                    val (season, episode) = getSerialPosition(state.season, state.episode)
-                    setCurrentTitle()
-                    setMediaSources(
-                        path = state.path,
-                        time = getTimePosition(state.time),
-                        movie = movie,
-                        seasonIndex = season,
-                        episodeIndex = episode,
-                        excludeUrls = state.excludeUrls
-                    )
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.uiState.collect { state ->
+                        // Проверяем version чтобы не пересоздавать MediaSources без необходимости
+                        if (state.version > lastProcessedVersion
+                            && (state.path != null || state.movie != null)
+                        ) {
+                            lastProcessedVersion = state.version
+                            movie = state.movie
+                            setCurrentTitle()
+                            setMediaSources(
+                                path = state.path,
+                                time = state.time,
+                                movie = state.movie,
+                                seasonIndex = state.season ?: 0,
+                                episodeIndex = state.episode ?: 0,
+                                excludeUrls = state.excludeUrls
+                            )
+                        }
+                    }
+                }
+                launch {
+                    viewModel.pipMode.collect { isPipMode ->
+                        if (isPipMode) {
+                            requestPipMode()
+                        }
+                    }
+                }
+                launch {
+                    viewModel.toast.collectLatest { toastRes ->
+                        toast(toastRes.toString(requireContext()))
+                    }
+                }
+                launch {
+                    viewModel.back.collectLatest {
+                        findNavController().navigateUp()
+                    }
+                }
+                launch {
+                    viewModel.cachedResizeModeIndex.collectLatest { cachedIndex ->
+                        if (cachedIndex != resizeModeIndex) {
+                            resizeModeIndex = cachedIndex
+                            binding.playerView.resizeMode = resizeModes[resizeModeIndex]
+                        }
+                    }
                 }
             }
         }
-        launchWhenCreated {
-            viewModel.pipMode.collect { isPipMode ->
-                if (isPipMode) {
-                    requestPipMode()
-                }
-            }
-        }
-        launchWhenCreated {
-            viewModel.toast.collectLatest { toastRes ->
-                toast(toastRes.toString(requireContext()))
-            }
-        }
-        launchWhenCreated {
-            viewModel.back.collectLatest {
-                findNavController().navigateUp()
-            }
-        }
-        launchWhenCreated {
-            viewModel.cachedResizeModeIndex.collectLatest { cachedIndex ->
-                if (cachedIndex != resizeModeIndex) {
-                    resizeModeIndex = cachedIndex
-                    binding.playerView.resizeMode = resizeModes[resizeModeIndex]
-                }
-            }
-        }
-    }
-
-    private fun getTimePosition(stateTimePosition: Long) =
-        if (stateTimePosition >= timePosition) stateTimePosition else timePosition
-
-    private fun getSerialPosition(stateSeason: Int?, stateEpisode: Int?): Pair<Int, Int> {
-        val cSeason: Int = if (stateSeason != null && stateSeason > season)
-            stateSeason else season
-        val cEpisode: Int = if (stateEpisode != null && stateEpisode > episode)
-            stateEpisode else episode
-        return cSeason to cEpisode
     }
 
     private fun getTitle(movieTitle: String?): String {
@@ -716,17 +933,20 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun saveMoviePosition(exoPlayer: ExoPlayer) {
-        this.timePosition = exoPlayer.currentPosition
+        val currentPosition = exoPlayer.currentPosition
+        if (currentPosition <= 0L) return
+
         val metadata = exoPlayer.currentMediaItem?.mediaMetadata
         val bundle = metadata?.extras
-        val newSeason = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
-        val newEpisode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
-//        Timber.d("saveMoviePosition: dbId:${args.movie?.dbId}, time:$timePosition, season:$season->$newSeason, episode:$episode->$newEpisode")
-        if (timePosition != 0L) {
-            this.season = newSeason
-            this.episode = newEpisode
-            viewModel.saveMoviePosition(args.movie?.dbId, timePosition, season, episode)
-        }
+        val currentSeason = bundle?.getInt(AppConstants.Player.SEASON) ?: return
+        val currentEpisode = bundle?.getInt(AppConstants.Player.EPISODE) ?: return
+
+        viewModel.saveMoviePosition(
+            dbId = args.movie?.dbId,
+            time = currentPosition,
+            season = currentSeason,
+            episode = currentEpisode
+        )
     }
 
     private suspend fun setCinemaUrls(
@@ -754,7 +974,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-
     private fun registerVolumeObserver() {
         volumeObserver?.let { registerContentResolver(it) }
     }
@@ -772,18 +991,27 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     @SuppressLint("ClickableViewAccessibility")
     private fun preparePlayer() {
-        with(binding) {
+        // Проверяем binding
+        val currentBinding = _binding ?: return
+
+        // Предотвращаем повторную инициализацию при lifecycle
+        if (isPlayerPrepared && player != null) return
+        isPlayerPrepared = true
+
+        with(currentBinding) {
             val loadControl =
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
                     .build()
             trackSelector =
                 DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory()).apply {
-                    parameters.buildUpon().setPreferredAudioLanguage("rus")
+                    // Исправление: присваиваем результат buildUpon()
+                    parameters = parameters.buildUpon()
+                        .setPreferredAudioLanguage("rus")
+                        .build()
                 }
             player = ExoPlayer.Builder(requireContext())
                 .setLoadControl(loadControl)
-//                .setBandwidthMeter(DefaultBandwidthMeter.Builder(requireContext()).build())
                 .setRenderersFactory(DefaultRenderersFactory(requireContext()))
                 .setTrackSelector(trackSelector!!)
                 .setSeekBackIncrementMs(secToMs(5))
@@ -794,7 +1022,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     addAnalyticsListener(analytic)
                 }
             initMediaSession()
-            enhancer?.release()
+            releaseEnhancer()
             initEnhancer()
             youtubeOverlay.performListener(object : YouTubeOverlay.PerformListener {
                 override fun onAnimationStart() {
@@ -845,6 +1073,17 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
+    // Безопасное освобождение LoudnessEnhancer
+    private fun releaseEnhancer() {
+        try {
+            enhancer?.release()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            enhancer = null
+        }
+    }
+
     private fun pipMode() {
         viewModel.requestPipMode()
     }
@@ -883,22 +1122,51 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
 
     private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
+        // Дополнительная проверка
+        if (_binding == null) return
+
+        val targetAlpha = if (visible) 1f else 0f
+        val views = listOf(
+            tvTitle, ivQuality, ivResizes, ivScreenRotation,
+            ivBack, ivLang
+        )
+
         if (visible) {
-            tvTitle.isVisible = true
-            ivQuality.isVisible = qualityVisible
-            ivResizes.isVisible = true
-            ivScreenRotation.isVisible = true
-            ivBack.isVisible = true
-            ivLang.isVisible = langVisible
+            // Показать — сначала делаем visible, потом анимируем alpha
+            views.forEach { view ->
+                val shouldBeVisible = when (view) {
+                    ivQuality -> qualityVisible
+                    ivLang -> langVisible
+                    else -> true
+                }
+                if (shouldBeVisible) {
+                    view.alpha = 0f
+                    view.isVisible = true
+                    view.animate()
+                        .alpha(1f)
+                        .setDuration(CONTROLS_ANIMATION_DURATION)
+                        .start()
+                }
+            }
+            // Анимация градиентов
+            topGradient.animate().alpha(1f)
+                .setDuration(CONTROLS_ANIMATION_DURATION).start()
+            bottomGradient.animate().alpha(1f)
+                .setDuration(CONTROLS_ANIMATION_DURATION).start()
             activity?.window?.showSystemUI()
             setScreenRotIconVisible(getOrientation(), false)
         } else {
-            ivResizes.isVisible = false
-            ivScreenRotation.isVisible = false
-            ivQuality.isVisible = false
-            ivBack.isVisible = false
-            tvTitle.isVisible = false
-            ivLang.isVisible = false
+            views.forEach { view ->
+                view.animate()
+                    .alpha(0f)
+                    .setDuration(CONTROLS_ANIMATION_DURATION)
+                    .withEndAction { view.isVisible = false }
+                    .start()
+            }
+            topGradient.animate().alpha(0f)
+                .setDuration(CONTROLS_ANIMATION_DURATION).start()
+            bottomGradient.animate().alpha(0f)
+                .setDuration(CONTROLS_ANIMATION_DURATION).start()
             activity?.window?.hideSystemUI()
         }
     }
@@ -914,21 +1182,22 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
+    // setCurrentTitle теперь берёт данные из ViewModel state
     private fun setCurrentTitle() {
+        val state = viewModel.uiState.value
         val title = if (movie?.type == MovieType.SERIAL) {
-            val bundle = player?.mediaMetadata?.extras
-            val newSeason = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
-            val newEpisode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
+            val currentSeason = state.season ?: 0
+            val currentEpisode = state.episode ?: 0
             getString(
                 R.string.serial_title,
                 movie?.title,
-                (newSeason + 1).toString(),
-                (newEpisode + 1).toString()
+                (currentSeason + 1).toString(),
+                (currentEpisode + 1).toString()
             )
         } else movie?.title
 
         if (!title.isNullOrBlank() && title != "null") {
-            binding.tvTitle.text = title.toString()
+            binding.tvTitle.text = title
         } else {
             binding.tvTitle.text = getString(R.string.no_movie_title)
         }
@@ -968,51 +1237,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
         }
     }
-    /*private fun initMoreLinksPopup() {
-        if (movie?.type == MovieType.CINEMA) {
-            val cinemaUrlData = movie?.cinemaUrlData
-            val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
-            val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
-            val fullLinkList = hdUrls + cinemaUrls
-            val popupItems = fullLinkList.mapIndexed { index, s -> "Ссылка ${index + 1}" to s }
-            val notEmpty = fullLinkList.isNotEmpty()
-            binding.ivMoreLink.isVisible = notEmpty
-            if (notEmpty) {
-                moreLinkPopUp = PopupMenu(requireContext(), binding.ivMoreLink)
-                for ((i, items) in popupItems.withIndex()) {
-                    moreLinkPopUp?.menu?.add(0, i, 0, items.first)
-                }
-                moreLinkPopUp?.setOnMenuItemClickListener { menuItem ->
-                    launchWhenCreated {
-                        setMediaSources(
-                            path = popupItems[menuItem.itemId].second,
-                            time = getTimePosition(player?.currentPosition ?: 0),
-                            movie = movie,
-                        )
-                    }
-                    true
-                }
-            }
-        }
-    }*/
 
-    /*    private fun setQualityByConnection(list: ArrayList<Pair<String, TrackSelectionOverride>>) {
-            val connectionType = getConnectionType(requireContext())
-            val groupList = list.map { it.second }.map { it.mediaTrackGroup }
-            val formats = groupList.mapIndexed { index, trackGroup -> trackGroup.getFormat(index) }
-            val bitratesKbps = formats.map { it.bitrate.div(1024) }
-            Timber.d("current QualityId:$qualityId")
-            val newId =
-                bitratesKbps.indexOfLast { it < connectionType.speedKbps }.takeIf { it >= 0 } ?: 0
-            Timber.d("connectionType:$connectionType")
-            Timber.d("bitrates:$bitratesKbps")
-            Timber.d("selected qualityId:$qualityId")
-            if (newId > qualityId) {// Check buufering time
-                qualityId = newId
-                Timber.d("set new qualityId:$qualityId")
-                list.getOrNull(qualityId)?.second?.let { setQuality(it) }
-            }
-        }*/
     private fun setQuality(trackSelectionOverride: TrackSelectionOverride) {
         trackSelector?.let { selector ->
             selector.parameters = selector.parameters
@@ -1023,19 +1248,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 .build()
         }
     }
-
-    /*private fun setSubTitles(trackSelectionOverride: TrackSelectionOverride) {
-        trackSelector?.let { selector ->
-            selector.parameters = selector.parameters
-                .buildUpon()
-                .clearOverrides()
-                .setSelectUndeterminedTextLanguage(true)
-                .setRendererDisabled(C.TRACK_TYPE_TEXT, false)
-                .addOverride(trackSelectionOverride)
-                .setTunnelingEnabled(true)
-                .build()
-        }
-    }*/
 
     private fun setLang(override: TrackSelectionOverride) {
         trackSelector?.let { selector ->
@@ -1068,11 +1280,15 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private fun releasePlayer() {
         mediaSession?.release()
+        mediaSession = null
+        releaseEnhancer()
         player?.let {
             it.removeListener(listener)
+            it.removeAnalyticsListener(analytic)
             it.stop()
             it.release()
             player = null
         }
+        isPlayerPrepared = false
     }
 }

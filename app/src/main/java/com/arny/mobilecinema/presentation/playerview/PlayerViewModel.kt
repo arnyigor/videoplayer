@@ -32,6 +32,7 @@ data class PlayerUiState(
     val season: Int? = null,
     val episode: Int? = null,
     val excludeUrls: Set<String> = emptySet(),
+    val version: Long = 0,
 )
 
 class PlayerViewModel @AssistedInject constructor(
@@ -41,6 +42,7 @@ class PlayerViewModel @AssistedInject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState = _uiState.asStateFlow()
+
     private val _isPipModeEnable = MutableStateFlow(false)
     private val _pipMode = BufferedChannel<Boolean>()
     val pipMode = _pipMode.receiveAsFlow()
@@ -55,41 +57,13 @@ class PlayerViewModel @AssistedInject constructor(
     private val _cachedResizeModeIndex = MutableStateFlow(0)
     val cachedResizeModeIndex = _cachedResizeModeIndex.asStateFlow()
 
-    fun saveMoviePosition(dbId: Long?, time: Long, season: Int, episode: Int) {
-        viewModelScope.launch {
-            //detect cache changed
-            historyInteractor.setCacheChanged(true)
+    // Текущая позиция серии — хранится в ViewModel
+    private var currentSeason: Int = 0
+    private var currentEpisode: Int = 0
+    private var currentTime: Long = 0L
 
-            val playerUiState = _uiState.value
-            if (dbId != null) {
-                when (playerUiState.movie?.type) {
-                    MovieType.CINEMA -> {
-                        val save = historyInteractor.saveCinemaPosition(dbId, time)
-                        if (!save) {
-                            _error.trySend(ResourceString(R.string.movie_save_error))
-                        }
-                    }
-
-                    MovieType.SERIAL -> {
-                        val state = _uiState.value
-                        val save = historyInteractor.saveSerialPosition(
-                            movieDbId = dbId,
-                            playerSeasonPosition = season,
-                            playerEpisodePosition = episode,
-                            time = time,
-                            currentSeasonPosition = state.season,
-                            currentEpisodePosition = state.episode
-                        )
-                        if (!save) {
-                            _error.trySend(ResourceString(R.string.movie_save_error))
-                        }
-                    }
-
-                    else -> {}
-                }
-            }
-        }
-    }
+    // Флаг: данные уже были установлены
+    private var isPlayDataSet = false
 
     fun setPlayData(
         path: String?,
@@ -97,6 +71,10 @@ class PlayerViewModel @AssistedInject constructor(
         seasonIndex: Int,
         episodeIndex: Int,
     ) {
+        // Не пересоздаём, если данные уже установлены
+        if (isPlayDataSet) return
+        isPlayDataSet = true
+
         viewModelScope.launch {
             historyInteractor.getSaveData(movie?.dbId)
                 .catch { _error.trySend(ThrowableString(it)) }
@@ -105,19 +83,55 @@ class PlayerViewModel @AssistedInject constructor(
                         is DataResult.Error -> {
                             _error.trySend(ThrowableString(dataResult.throwable))
                         }
-
                         is DataResult.Success -> {
                             val saveData = dataResult.result
-                            _uiState.value = _uiState.value.copy(
+                            val resolvedSeason = resolveSeason(movie, saveData, seasonIndex)
+                            val resolvedEpisode = resolveEpisode(movie, saveData, seasonIndex, episodeIndex)
+                            val resolvedTime = getTime(movie, saveData, resolvedSeason, resolvedEpisode)
+
+                            currentSeason = resolvedSeason
+                            currentEpisode = resolvedEpisode
+                            currentTime = resolvedTime
+
+                            _uiState.value = PlayerUiState(
                                 path = path,
                                 movie = movie,
-                                time = getTime(movie, saveData, seasonIndex, episodeIndex),
-                                season = seasonIndex,
-                                episode = episodeIndex,
+                                time = resolvedTime,
+                                season = resolvedSeason,
+                                episode = resolvedEpisode,
+                                version = 1,
                             )
                         }
                     }
                 }
+        }
+    }
+
+    private fun resolveSeason(
+        movie: Movie?,
+        saveData: SaveData,
+        argsSeason: Int
+    ): Int {
+        if (movie?.type != MovieType.SERIAL) return 0
+        return when {
+            saveData.seasonPosition >= 0 -> saveData.seasonPosition
+            argsSeason >= 0 -> argsSeason
+            else -> 0
+        }
+    }
+
+    private fun resolveEpisode(
+        movie: Movie?,
+        saveData: SaveData,
+        argsSeason: Int,
+        argsEpisode: Int
+    ): Int {
+        if (movie?.type != MovieType.SERIAL) return 0
+        return when {
+            saveData.episodePosition >= 0
+                    && saveData.seasonPosition == argsSeason -> saveData.episodePosition
+            argsEpisode >= 0 -> argsEpisode
+            else -> 0
         }
     }
 
@@ -130,25 +144,66 @@ class PlayerViewModel @AssistedInject constructor(
         return when {
             movie == null -> 0L
             movie.type == MovieType.CINEMA -> saveData.time
-            movie.type == MovieType.SERIAL && saveData.seasonPosition == seasonIndex && saveData.episodePosition == episodeIndex -> saveData.time
+            movie.type == MovieType.SERIAL
+                    && saveData.seasonPosition == seasonIndex
+                    && saveData.episodePosition == episodeIndex -> saveData.time
             else -> 0L
         }
     }
 
-    fun updatePipModeEnable() {
-        _isPipModeEnable.value = interactor.isPipModeEnable()
-    }
+    fun saveMoviePosition(
+        dbId: Long?,
+        time: Long,
+        season: Int,
+        episode: Int
+    ) {
+        // Обновляем кэшированную позицию в ViewModel
+        currentSeason = season
+        currentEpisode = episode
+        currentTime = time
 
-    fun requestPipMode() {
         viewModelScope.launch {
-            if (_isPipModeEnable.value) {
-                _pipMode.trySend(true)
+            historyInteractor.setCacheChanged(true)
+
+            if (dbId != null) {
+                val state = _uiState.value
+                when (state.movie?.type) {
+                    MovieType.CINEMA -> {
+                        val save = historyInteractor.saveCinemaPosition(dbId, time)
+                        if (!save) {
+                            _error.trySend(ResourceString(R.string.movie_save_error))
+                        }
+                    }
+                    MovieType.SERIAL -> {
+                        val save = historyInteractor.saveSerialPosition(
+                            movieDbId = dbId,
+                            playerSeasonPosition = season,
+                            playerEpisodePosition = episode,
+                            time = time,
+                            currentSeasonPosition = season,
+                            currentEpisodePosition = episode
+                        )
+                        if (!save) {
+                            _error.trySend(ResourceString(R.string.movie_save_error))
+                        }
+                    }
+                    else -> {}
+                }
             }
         }
     }
 
-    fun setLastPlayerError(error: String) {
-        feedbackInteractor.setLastError(error)
+    /**
+     * Обновить текущую серию при переключении в плеере
+     */
+    fun updateCurrentEpisode(season: Int, episode: Int) {
+        currentSeason = season
+        currentEpisode = episode
+        // Обновляем state без пересоздания MediaSources
+        _uiState.value = _uiState.value.copy(
+            season = season,
+            episode = episode,
+        )
     }
 
     fun retryOpenCinema(
@@ -169,19 +224,18 @@ class PlayerViewModel @AssistedInject constructor(
                 }
                 hasAnyUrls = !nextCinemaUrl.isNullOrBlank()
             }
-
             MovieType.SERIAL -> {
                 hasAnyUrls = !excludeUrls.contains(serialEpisode?.hls) ||
                         !excludeUrls.contains(serialEpisode?.dash)
             }
-
             else -> {}
         }
         if (hasAnyUrls) {
             _toast.trySend(ResourceString(R.string.try_open_next_link))
             _uiState.value = state.copy(
                 path = nextCinemaUrl,
-                excludeUrls = excludeUrls
+                excludeUrls = excludeUrls,
+                version = state.version + 1,
             )
         } else {
             _toast.trySend(ResourceString(R.string.no_any_links_to_open))
@@ -193,5 +247,28 @@ class PlayerViewModel @AssistedInject constructor(
 
     fun updateResizeModeIndex(resizeModeIndex: Int) {
         _cachedResizeModeIndex.value = resizeModeIndex
+    }
+
+    fun updatePipModeEnable() {
+        _isPipModeEnable.value = interactor.isPipModeEnable()
+    }
+
+    fun requestPipMode() {
+        viewModelScope.launch {
+            if (_isPipModeEnable.value) {
+                _pipMode.trySend(true)
+            }
+        }
+    }
+
+    fun setLastPlayerError(error: String) {
+        feedbackInteractor.setLastError(error)
+    }
+
+    /**
+     * Сброс флага при необходимости полной перезагрузки
+     */
+    fun resetPlayData() {
+        isPlayDataSet = false
     }
 }
