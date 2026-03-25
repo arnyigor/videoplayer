@@ -21,10 +21,17 @@ import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
-import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
-class MoviesRepositoryImpl @Inject constructor(
+/**
+ * Оптимизированная реализация репозитория для работы с фильмами.
+ * Основные улучшения:
+ * 1. Использование оптимизированного PagingSource
+ * 2. Кэширование часто используемых запросов
+ * 3. Оптимизация конфигурации пагинации
+ * 4. Поддержка различных размеров страниц для разных сценариев
+ */
+class MoviesRepositoryImplOptimized @Inject constructor(
     private val movieMapper: MovieMapper,
     private val movieDao: MovieDao,
     private val historyDao: HistoryDao,
@@ -68,10 +75,22 @@ class MoviesRepositoryImpl @Inject constructor(
         kps: SimpleFloatRange?,
         likesPriority: Boolean,
     ): Pager<Int, ViewMovie> = Pager(
+        // Оптимизированная конфигурация пагинации
         PagingConfig(
-            pageSize = 20,
+            pageSize = when {
+                // Для поиска используем меньшие страницы для быстрой отрисовки
+                search.isNotBlank() -> 15
+                // Для обычного списка - стандартные 20
+                else -> 20
+            },
             enablePlaceholders = false,
-            initialLoadSize = 20
+            initialLoadSize = when {
+                search.isNotBlank() -> 15
+                else -> 20
+            },
+            // Оптимизация для быстрой прокрутки
+            prefetchDistance = 5, // Предзагрузка 5 элементов вперед
+            maxSize = 100 // Максимальный размер кэша в памяти
         ),
     ) {
         MainPagingSourceOptimized(
@@ -115,19 +134,26 @@ class MoviesRepositoryImpl @Inject constructor(
             PagingConfig(
                 pageSize = 20,
                 enablePlaceholders = false,
-                initialLoadSize = 20
+                initialLoadSize = 20,
+                prefetchDistance = 5,
+                maxSize = 50
             ),
         ) { HistoryPagingSource(historyDao, search, order, searchType) }
-
 
     override fun getFavoriteMoviesPager(
         search: String,
         order: String,
         searchType: String
     ): Pager<Int, ViewMovie> =
-        Pager(PagingConfig(pageSize = 20)) {
-            FavoritesPagingSource(favoritesDao, search, order, searchType)
-        }
+        Pager(
+            PagingConfig(
+                pageSize = 20,
+                enablePlaceholders = false,
+                initialLoadSize = 20,
+                prefetchDistance = 5,
+                maxSize = 50
+            ),
+        ) { FavoritesPagingSource(favoritesDao, search, order, searchType) }
 
     override fun getMovie(id: Long): Movie? =
         movieDao.getMovie(id)?.let { movieMapper.transform(it) }
