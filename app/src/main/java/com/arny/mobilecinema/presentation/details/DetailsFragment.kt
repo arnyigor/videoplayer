@@ -115,6 +115,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private var isUserTouchEpisodes = false
     private var isUserTouchLinks = false
 
+    // ДОБАВЛЕНО: Флаг для отслеживания пересоздания View
+    private var needsUIRefresh = true
+
     private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
         override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
             if (isUserTouchSeasons) {
@@ -214,13 +217,15 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // View пересоздано - нужно обновить UI
+        needsUIRefresh = true
         initVariables()
         initListeners()
         initSpinnerAdapters()
         observeState()
         observeActions()
         initMenu()
-        viewModel.handleEvent(DetailsEvent.LoadMovie)
+        // Загрузка происходит в init ViewModel
     }
 
     override fun onResume() {
@@ -228,6 +233,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         registerReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
         registerReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
         registerReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
+
+        // Инвалидируем кэш при возврате на экран
+        viewModel.handleEvent(DetailsEvent.InvalidateCache)
     }
 
     override fun onPause() {
@@ -366,24 +374,99 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         binding.progressBar.isVisible = state.isLoading
 
         state.movie?.let { movie ->
-            if (currentMovie != movie) {
+            // ИСПРАВЛЕНО: Обновляем UI если:
+            // 1. Другой фильм
+            // 2. View было пересоздано (например, при возврате с backstack)
+            val shouldRefreshUI = currentMovie?.dbId != movie.dbId || needsUIRefresh
+
+            if (shouldRefreshUI) {
+                needsUIRefresh = false
                 onMovieLoaded(movie)
             }
+
+            // Всегда обновляем спиннеры если позиция изменилась
+            updateSpinnerPositionsIfNeeded(state)
         }
 
         updateDownloadedData(state.downloadedData)
 
-        // Синхронизируем локальное состояние
         canDownload = state.canDownload
         hasSavedData = state.hasSavedData
-        currentSeasonPosition = state.currentSeasonPosition
-        currentEpisodePosition = state.currentEpisodePosition
 
         binding.ivFavorite.setImageResource(
             if (state.isInFavorite) R.drawable.baseline_favorite_24_filled else R.drawable.outline_favorite_24
         )
 
         requireActivity().invalidateOptionsMenu()
+    }
+
+    /**
+     * Обновляет позиции спиннеров если они изменились (например, после просмотра)
+     */
+    private fun updateSpinnerPositionsIfNeeded(state: DetailsUiState) {
+        val seasonChanged = currentSeasonPosition != state.currentSeasonPosition
+        val episodeChanged = currentEpisodePosition != state.currentEpisodePosition
+
+        if (seasonChanged || episodeChanged) {
+            currentSeasonPosition = state.currentSeasonPosition
+            currentEpisodePosition = state.currentEpisodePosition
+
+            // Обновляем спиннеры без вызова listeners
+            updateSpinnerSelectionsWithoutTrigger()
+        }
+    }
+
+    /**
+     * Обновляет выбор в спиннерах без триггера onChange
+     */
+    private fun updateSpinnerSelectionsWithoutTrigger() {
+        val movie = currentMovie ?: return
+
+        if (movie.type != MovieType.SERIAL) return
+
+        with(binding) {
+            // Временно убираем listeners
+            spinSeasons.onItemSelectedListener = null
+            spinEpisodes.onItemSelectedListener = null
+
+            // Обновляем сезон
+            if (spinSeasons.selectedItemPosition != currentSeasonPosition) {
+                spinSeasons.setSelection(currentSeasonPosition, false)
+            }
+
+            // Обновляем список эпизодов для выбранного сезона
+            val episodes = movie.seasons
+                .getOrNull(currentSeasonPosition)
+                ?.episodes.orEmpty()
+            episodesTracksAdapter?.clear()
+            episodesTracksAdapter?.addAll(sortEpisodes(episodes))
+
+            // Обновляем эпизод
+            if (spinEpisodes.selectedItemPosition != currentEpisodePosition) {
+                spinEpisodes.setSelection(currentEpisodePosition, false)
+            }
+
+            // Возвращаем listeners
+            spinSeasons.onItemSelectedListener = seasonsChangeListener
+            spinEpisodes.onItemSelectedListener = episodesChangeListener
+        }
+    }
+
+    private fun updateSpinnerSelections() {
+        with(binding) {
+            if (spinSeasons.selectedItemPosition != currentSeasonPosition) {
+                spinSeasons.setSelection(currentSeasonPosition, false)
+            }
+            if (spinEpisodes.selectedItemPosition != currentEpisodePosition) {
+                // Обновляем список эпизодов для текущего сезона
+                val episodes = currentMovie?.seasons
+                    ?.getOrNull(currentSeasonPosition)
+                    ?.episodes.orEmpty()
+                episodesTracksAdapter?.clear()
+                episodesTracksAdapter?.addAll(sortEpisodes(episodes))
+                spinEpisodes.setSelection(currentEpisodePosition, false)
+            }
+        }
     }
 
     private fun handleAction(action: DetailsAction) {

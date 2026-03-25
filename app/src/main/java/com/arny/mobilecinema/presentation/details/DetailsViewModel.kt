@@ -25,6 +25,7 @@ import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -133,14 +135,23 @@ class DetailsViewModel @AssistedInject constructor(
     private var downloadAlert: Alert? = null
     private var currentRemoveAlert: Alert? = null
 
+    // Флаг для отслеживания первой загрузки
+    private var isInitialLoadComplete = false
+
     init {
         observeCacheChanges()
+        // Загружаем сразу при создании
+        loadMovie()
     }
 
     // ============ Event Handler - единая точка входа ============
     fun handleEvent(event: DetailsEvent) {
         when (event) {
-            is DetailsEvent.LoadMovie -> loadMovie()
+            is DetailsEvent.LoadMovie -> {
+                // Принудительная перезагрузка
+                isInitialLoadComplete = false
+                loadMovie()
+            }
             is DetailsEvent.SerialPositionChanged -> handleSerialPositionChanged(event)
             is DetailsEvent.SelectedUrlChanged -> handleSelectedUrlChanged(event)
             is DetailsEvent.ShowCacheDialog -> showCacheDialog()
@@ -153,7 +164,7 @@ class DetailsViewModel @AssistedInject constructor(
             is DetailsEvent.SendFeedback -> sendFeedback(event.text)
             is DetailsEvent.UpdateDownloadProgress -> handleDownloadProgress(event)
             is DetailsEvent.ClearViewHistory -> clearViewHistory(event)
-            is DetailsEvent.InvalidateCache -> invalidateCache()
+            is DetailsEvent.InvalidateCache -> reloadSaveData()
             is DetailsEvent.ToggleFavorite -> onToggleFavorite()
             is DetailsEvent.CopyMp4Link -> onCopyMp4Link()
         }
@@ -200,12 +211,15 @@ class DetailsViewModel @AssistedInject constructor(
                 .collectLatest { cacheChange ->
                     when (cacheChange) {
                         CacheChangeType.CACHE, CacheChangeType.SERIAL_POSITION -> {
-                            historyInteractor.setCacheChanged(false)
-                            loadMovie()
-                            onReloadCache()
+                            // Перезагружаем только данные о кэше, не весь фильм
+                            reloadCacheData()
                         }
-
-                        else -> {}
+                        CacheChangeType.NONE -> {
+                            // Ничего не делаем - это сброс флага
+                        }
+                        null -> {
+                            // Начальное состояние - ничего не делаем
+                        }
                     }
                 }
         }
@@ -213,21 +227,53 @@ class DetailsViewModel @AssistedInject constructor(
 
     fun loadMovie() {
         viewModelScope.launch {
-            val combinedFlow = interactor.getMovie(id)
-                .combine(historyInteractor.getSaveData(id)) { movie, save -> Pair(movie, save) }
-                .combine(interactor.isFavorite(id)) { pair, isFavorite ->
-                    Triple(pair.first, pair.second, isFavorite)
+            _uiState.update { it.copy(isLoading = true) }
+
+            try {
+                // Параллельная загрузка всех данных
+                val movieDeferred = viewModelScope.async {
+                    interactor.getMovie(id).first()
+                }
+                val saveDeferred = viewModelScope.async {
+                    historyInteractor.getSaveData(id).first()
+                }
+                val favoriteDeferred = viewModelScope.async {
+                    interactor.isFavorite(id).first()
                 }
 
-            combinedFlow
-                .onStart { _uiState.update { it.copy(isLoading = true) } }
-                .onCompletion { _uiState.update { it.copy(isLoading = false) } }
-                .catch { t -> _actions.send(DetailsAction.ShowError(ThrowableString(t))) }
-                .collect { (movie, save, isFavorite) ->
-                    handleMovieResult(movie)
-                    handleSaveDataResult(save)
-                    handleFavorite(isFavorite)
-                }
+                val movieResult = movieDeferred.await()
+                val saveResult = saveDeferred.await()
+                val favoriteResult = favoriteDeferred.await()
+
+                handleMovieResult(movieResult)
+                handleSaveDataResult(saveResult)
+                handleFavorite(favoriteResult)
+
+                isInitialLoadComplete = true
+
+            } catch (e: Exception) {
+                _actions.send(DetailsAction.ShowError(ThrowableString(e)))
+            } finally {
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
+    }
+
+    /**
+     * Перезагрузка только данных о кэше (без полной перезагрузки фильма)
+     */
+    private fun reloadCacheData() {
+        viewModelScope.launch {
+            try {
+                // Перезагружаем SaveData
+                val saveResult = historyInteractor.getSaveData(id).first()
+                handleSaveDataResult(saveResult)
+
+                // Обновляем данные о загрузке
+                onReloadCache()
+            } catch (e: Exception) {
+                _actions.send(DetailsAction.ShowError(ThrowableString(e)))
+            }
         }
     }
 
@@ -256,9 +302,22 @@ class DetailsViewModel @AssistedInject constructor(
             is DataResult.Success -> {
                 val data = saveResult.result
                 _uiState.update { state ->
+                    // Обновляем позицию только если она больше текущей или это первая загрузка
+                    val newSeason = if (!isInitialLoadComplete || data.seasonPosition > state.currentSeasonPosition) {
+                        data.seasonPosition
+                    } else {
+                        state.currentSeasonPosition
+                    }
+                    val newEpisode = if (!isInitialLoadComplete ||
+                        (data.seasonPosition == state.currentSeasonPosition && data.episodePosition > state.currentEpisodePosition)) {
+                        data.episodePosition
+                    } else {
+                        state.currentEpisodePosition
+                    }
+
                     state.copy(
-                        currentSeasonPosition = data.seasonPosition,
-                        currentEpisodePosition = data.episodePosition,
+                        currentSeasonPosition = newSeason.coerceAtLeast(0),
+                        currentEpisodePosition = newEpisode.coerceAtLeast(0),
                         movieTime = data.time,
                         hasSavedData = data.movieDbId != null
                     )
@@ -329,8 +388,34 @@ class DetailsViewModel @AssistedInject constructor(
     private fun invalidateCache() {
         viewModelScope.launch {
             _uiState.update { it.copy(downloadedData = MovieDownloadedData(loading = true)) }
-            kotlinx.coroutines.delay(1000)
-            historyInteractor.setCacheChanged(false)
+
+            try {
+                // Загружаем актуальную позицию из БД
+                val saveResult = historyInteractor.getSaveData(id).first()
+                handleSaveDataResult(saveResult)
+
+                // Перезагружаем данные о кэше
+                onReloadCache()
+            } catch (e: Exception) {
+                _actions.send(DetailsAction.ShowError(ThrowableString(e)))
+            }
+        }
+    }
+
+    /**
+     * Перезагружает только сохранённые данные (позицию просмотра)
+     */
+    private fun reloadSaveData() {
+        viewModelScope.launch {
+            try {
+                val saveResult = historyInteractor.getSaveData(id).first()
+                handleSaveDataResult(saveResult)
+
+                // Обновляем данные о загрузке
+                onReloadCache()
+            } catch (e: Exception) {
+                _actions.send(DetailsAction.ShowError(ThrowableString(e)))
+            }
         }
     }
 

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class PlayerUiState(
@@ -57,26 +58,22 @@ class PlayerViewModel @AssistedInject constructor(
     private val _cachedResizeModeIndex = MutableStateFlow(0)
     val cachedResizeModeIndex = _cachedResizeModeIndex.asStateFlow()
 
-    // Текущая позиция серии — хранится в ViewModel
-    private var currentSeason: Int = 0
-    private var currentEpisode: Int = 0
-    private var currentTime: Long = 0L
-
-    // Флаг: данные уже были установлены
-    private var isPlayDataSet = false
-
     fun setPlayData(
         path: String?,
         movie: Movie?,
         seasonIndex: Int,
         episodeIndex: Int,
     ) {
-        // Не пересоздаём, если данные уже установлены
-        if (isPlayDataSet) return
-        isPlayDataSet = true
+        // Если state уже заполнен для этого фильма - не перезагружаем
+        val currentState = _uiState.value
+        if (currentState.version > 0 && currentState.movie?.dbId == movie?.dbId) {
+            return
+        }
+
+        val movieId = movie?.dbId
 
         viewModelScope.launch {
-            historyInteractor.getSaveData(movie?.dbId)
+            historyInteractor.getSaveData(movieId)
                 .catch { _error.trySend(ThrowableString(it)) }
                 .collect { dataResult ->
                     when (dataResult) {
@@ -85,13 +82,14 @@ class PlayerViewModel @AssistedInject constructor(
                         }
                         is DataResult.Success -> {
                             val saveData = dataResult.result
-                            val resolvedSeason = resolveSeason(movie, saveData, seasonIndex)
-                            val resolvedEpisode = resolveEpisode(movie, saveData, seasonIndex, episodeIndex)
-                            val resolvedTime = getTime(movie, saveData, resolvedSeason, resolvedEpisode)
 
-                            currentSeason = resolvedSeason
-                            currentEpisode = resolvedEpisode
-                            currentTime = resolvedTime
+                            // ПРИОРИТЕТ: сохранённые данные > аргументы навигации
+                            val (resolvedSeason, resolvedEpisode, resolvedTime) = resolvePosition(
+                                movie = movie,
+                                saveData = saveData,
+                                argsSeason = seasonIndex,
+                                argsEpisode = episodeIndex
+                            )
 
                             _uiState.value = PlayerUiState(
                                 path = path,
@@ -107,47 +105,45 @@ class PlayerViewModel @AssistedInject constructor(
         }
     }
 
-    private fun resolveSeason(
-        movie: Movie?,
-        saveData: SaveData,
-        argsSeason: Int
-    ): Int {
-        if (movie?.type != MovieType.SERIAL) return 0
-        return when {
-            saveData.seasonPosition >= 0 -> saveData.seasonPosition
-            argsSeason >= 0 -> argsSeason
-            else -> 0
-        }
-    }
-
-    private fun resolveEpisode(
+    /**
+     * Определяет правильную позицию для воспроизведения
+     */
+    private fun resolvePosition(
         movie: Movie?,
         saveData: SaveData,
         argsSeason: Int,
         argsEpisode: Int
-    ): Int {
-        if (movie?.type != MovieType.SERIAL) return 0
-        return when {
-            saveData.episodePosition >= 0
-                    && saveData.seasonPosition == argsSeason -> saveData.episodePosition
-            argsEpisode >= 0 -> argsEpisode
-            else -> 0
+    ): Triple<Int, Int, Long> {
+        if (movie == null) {
+            return Triple(0, 0, 0L)
         }
-    }
 
-    private fun getTime(
-        movie: Movie?,
-        saveData: SaveData,
-        seasonIndex: Int,
-        episodeIndex: Int
-    ): Long {
-        return when {
-            movie == null -> 0L
-            movie.type == MovieType.CINEMA -> saveData.time
-            movie.type == MovieType.SERIAL
-                    && saveData.seasonPosition == seasonIndex
-                    && saveData.episodePosition == episodeIndex -> saveData.time
-            else -> 0L
+        return when (movie.type) {
+            MovieType.CINEMA -> {
+                // Для фильма - всегда берём сохранённое время
+                Triple(0, 0, saveData.time)
+            }
+            MovieType.SERIAL -> {
+                // Для сериала - проверяем, есть ли сохранённая позиция
+                val hasSavedPosition = saveData.movieDbId != null && saveData.time > 0
+
+                if (hasSavedPosition) {
+                    // Используем сохранённую позицию
+                    Triple(
+                        saveData.seasonPosition.coerceAtLeast(0),
+                        saveData.episodePosition.coerceAtLeast(0),
+                        saveData.time
+                    )
+                } else {
+                    // Используем позицию из аргументов
+                    Triple(
+                        argsSeason.coerceAtLeast(0),
+                        argsEpisode.coerceAtLeast(0),
+                        0L
+                    )
+                }
+            }
+            else -> Triple(0, 0, 0L)
         }
     }
 
@@ -157,14 +153,7 @@ class PlayerViewModel @AssistedInject constructor(
         season: Int,
         episode: Int
     ) {
-        // Обновляем кэшированную позицию в ViewModel
-        currentSeason = season
-        currentEpisode = episode
-        currentTime = time
-
         viewModelScope.launch {
-            historyInteractor.setCacheChanged(true)
-
             if (dbId != null) {
                 val state = _uiState.value
                 when (state.movie?.type) {
@@ -173,6 +162,8 @@ class PlayerViewModel @AssistedInject constructor(
                         if (!save) {
                             _error.trySend(ResourceString(R.string.movie_save_error))
                         }
+                        // Уведомляем об изменении ПОСЛЕ сохранения
+                        historyInteractor.setCacheChanged(true)
                     }
                     MovieType.SERIAL -> {
                         val save = historyInteractor.saveSerialPosition(
@@ -186,6 +177,7 @@ class PlayerViewModel @AssistedInject constructor(
                         if (!save) {
                             _error.trySend(ResourceString(R.string.movie_save_error))
                         }
+                        // Для сериалов setCacheChanged вызывается внутри saveSerialPosition
                     }
                     else -> {}
                 }
@@ -197,13 +189,12 @@ class PlayerViewModel @AssistedInject constructor(
      * Обновить текущую серию при переключении в плеере
      */
     fun updateCurrentEpisode(season: Int, episode: Int) {
-        currentSeason = season
-        currentEpisode = episode
-        // Обновляем state без пересоздания MediaSources
-        _uiState.value = _uiState.value.copy(
-            season = season,
-            episode = episode,
-        )
+        _uiState.update { state ->
+            state.copy(
+                season = season,
+                episode = episode,
+            )
+        }
     }
 
     fun retryOpenCinema(
@@ -263,12 +254,5 @@ class PlayerViewModel @AssistedInject constructor(
 
     fun setLastPlayerError(error: String) {
         feedbackInteractor.setLastError(error)
-    }
-
-    /**
-     * Сброс флага при необходимости полной перезагрузки
-     */
-    fun resetPlayData() {
-        isPlayDataSet = false
     }
 }

@@ -25,6 +25,8 @@ import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.GestureDetectorCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -154,6 +156,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     // Для отслеживания что UI скрыт
     private var isSystemUIHidden = false
+
+    // Сохраняем значения insets для корректного позиционирования
+    private var topInset: Int = 0
+    private var bottomInset: Int = 0
 
     private var gestureDetectorCompat: GestureDetectorCompat? = null
     private var audioManager: AudioManager? = null
@@ -397,6 +403,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.progressBar.isVisible = true
+        // Сбрасываем version чтобы state обработался заново
+        lastProcessedVersion = -1
         observeState()
         initListener()
         initSystemUI()
@@ -562,7 +570,20 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun initSystemUI() {
-        // Скрываем системный UI сразу при старте
+        // Применяем insets к элементам управления
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            topInset = insets.top
+            bottomInset = insets.bottom
+
+            // Обновляем позиции элементов с учётом insets
+            updateControlsPadding()
+
+            // Возвращаем insets без изменений
+            windowInsets
+        }
+
+        // Скрываем системный UI
         hideSystemUIImmediately()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -599,6 +620,73 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 }
             }
         }
+    }
+
+    /**
+     * Обновляет padding для элементов управления с учётом системных insets
+     */
+    private fun updateControlsPadding() {
+        val currentBinding = _binding ?: return
+
+        with(currentBinding) {
+            // Title с отступом от верха (56dp = 48dp safe area + 8dp)
+            (tvTitle.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                val topMargin = topInset + 8.dpToPx()
+                if (params.topMargin != topMargin) {
+                    params.topMargin = topMargin
+                    tvTitle.layoutParams = params
+                }
+            }
+
+            // Кнопка назад
+            (ivBack.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                val topMargin = topInset + 16.dpToPx()
+                if (params.topMargin != topMargin) {
+                    params.topMargin = topMargin
+                    ivBack.layoutParams = params
+                }
+            }
+
+            // ivQuality - верхняя кнопка справа
+            (ivQuality.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                val topMargin = topInset + 16.dpToPx()
+                if (params.topMargin != topMargin) {
+                    params.topMargin = topMargin
+                    ivQuality.layoutParams = params
+                }
+            }
+
+            // ivResizes
+            (ivResizes.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                val topMargin = topInset + 24.dpToPx()
+                if (params.topMargin != topMargin) {
+                    params.topMargin = topMargin
+                    ivResizes.layoutParams = params
+                }
+            }
+
+            // ivLang
+            (ivLang.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                val topMargin = topInset + 32.dpToPx()
+                if (params.topMargin != topMargin) {
+                    params.topMargin = topMargin
+                    ivLang.layoutParams = params
+                }
+            }
+
+            // ivScreenRotation
+            (ivScreenRotation.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                val topMargin = topInset + 40.dpToPx()
+                if (params.topMargin != topMargin) {
+                    params.topMargin = topMargin
+                    ivScreenRotation.layoutParams = params
+                }
+            }
+        }
+    }
+
+    private fun Int.dpToPx(): Int {
+        return (this * Resources.getSystem().displayMetrics.density).toInt()
     }
 
     /**
@@ -934,19 +1022,49 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private fun saveMoviePosition(exoPlayer: ExoPlayer) {
         val currentPosition = exoPlayer.currentPosition
-        if (currentPosition <= 0L) return
+        if (currentPosition <= 0L) {
+            return
+        }
 
-        val metadata = exoPlayer.currentMediaItem?.mediaMetadata
-        val bundle = metadata?.extras
-        val currentSeason = bundle?.getInt(AppConstants.Player.SEASON) ?: return
-        val currentEpisode = bundle?.getInt(AppConstants.Player.EPISODE) ?: return
+        val movie = args.movie
+        val dbId = movie?.dbId
 
-        viewModel.saveMoviePosition(
-            dbId = args.movie?.dbId,
-            time = currentPosition,
-            season = currentSeason,
-            episode = currentEpisode
-        )
+        if (dbId == null) {
+            return
+        }
+
+        when (movie.type) {
+            MovieType.CINEMA -> {
+                viewModel.saveMoviePosition(
+                    dbId = dbId,
+                    time = currentPosition,
+                    season = 0,
+                    episode = 0
+                )
+            }
+            MovieType.SERIAL -> {
+                // Для сериалов берём позицию из metadata или из текущего state
+                val metadata = exoPlayer.currentMediaItem?.mediaMetadata
+                val bundle = metadata?.extras
+
+                val currentSeason = bundle?.getInt(AppConstants.Player.SEASON)
+                    ?: viewModel.uiState.value.season
+                    ?: 0
+                val currentEpisode = bundle?.getInt(AppConstants.Player.EPISODE)
+                    ?: viewModel.uiState.value.episode
+                    ?: 0
+
+                viewModel.saveMoviePosition(
+                    dbId = dbId,
+                    time = currentPosition,
+                    season = currentSeason,
+                    episode = currentEpisode
+                )
+            }
+            else -> {
+                // Для других типов не сохраняем
+            }
+        }
     }
 
     private suspend fun setCinemaUrls(
@@ -1153,7 +1271,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 .setDuration(CONTROLS_ANIMATION_DURATION).start()
             bottomGradient.animate().alpha(1f)
                 .setDuration(CONTROLS_ANIMATION_DURATION).start()
-            activity?.window?.showSystemUI()
+            // НЕ скрываем системный UI при показе контролов - предотвращает прыжки
             setScreenRotIconVisible(getOrientation(), false)
         } else {
             views.forEach { view ->
@@ -1167,7 +1285,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 .setDuration(CONTROLS_ANIMATION_DURATION).start()
             bottomGradient.animate().alpha(0f)
                 .setDuration(CONTROLS_ANIMATION_DURATION).start()
-            activity?.window?.hideSystemUI()
+            // НЕ показываем системный UI при скрытии контролов - предотвращает прыжки
         }
     }
 
