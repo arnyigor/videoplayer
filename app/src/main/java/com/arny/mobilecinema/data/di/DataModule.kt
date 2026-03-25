@@ -12,7 +12,7 @@ import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.network.jsoup.JsoupServiceHelper
-import com.arny.mobilecinema.data.repository.MoviesRepositoryImplOptimized
+import com.arny.mobilecinema.data.repository.MoviesRepositoryImpl
 import com.arny.mobilecinema.data.repository.jsoupupdate.JsoupUpdateRepositoryImpl
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
@@ -96,7 +96,7 @@ interface DataModule {
 
     @Binds
     @Singleton
-    fun bindsMoviesRepository(impl: MoviesRepositoryImplOptimized): MoviesRepository
+    fun bindsMoviesRepository(impl: MoviesRepositoryImpl): MoviesRepository
 
     @Binds
     @Singleton

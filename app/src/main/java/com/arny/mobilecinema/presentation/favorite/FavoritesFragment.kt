@@ -22,7 +22,7 @@ import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FFavoritesBinding
 import com.arny.mobilecinema.di.viewModelFactory
-import com.arny.mobilecinema.presentation.home.VideoItemsAdapterOptimized
+import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
@@ -55,7 +55,7 @@ class FavoritesFragment : Fragment(), OnSearchListener {
 
     /* UI‑поля */
     private lateinit var binding: FFavoritesBinding
-    private var itemsAdapter: VideoItemsAdapterOptimized? = null
+    private var itemsAdapter: VideoItemsAdapter? = null
     private var searchMenuItem: MenuItem? = null
     private var searchView: SearchView? = null
 
@@ -262,7 +262,7 @@ class FavoritesFragment : Fragment(), OnSearchListener {
     /** Создаём адаптер и привязываем к RecyclerView */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapterOptimized(baseUrl) { item ->
+        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
             findNavController().navigateSafely(
                 FavoritesFragmentDirections.actionFavoritesFragmentToNavDetails(item.dbId)
             )

@@ -22,7 +22,7 @@ import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHistoryBinding
 import com.arny.mobilecinema.di.viewModelFactory
-import com.arny.mobilecinema.presentation.home.VideoItemsAdapterOptimized
+import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
@@ -49,7 +49,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
     internal lateinit var viewModelFactory: ViewModelFactory
     private val viewModel: HistoryViewModel by viewModelFactory { viewModelFactory.create() }
     private lateinit var binding: FHistoryBinding
-    private var itemsAdapter: VideoItemsAdapterOptimized? = null
+    private var itemsAdapter: VideoItemsAdapter? = null
     private var searchMenuItem: MenuItem? = null
     private var searchView: SearchView? = null
     private var onQueryChangeSubmit = true
@@ -251,7 +251,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
 
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapterOptimized(baseUrl) { item ->
+        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
             findNavController().navigateSafely(
                 HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId),
             )

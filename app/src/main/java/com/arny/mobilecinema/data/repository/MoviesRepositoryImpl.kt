@@ -10,7 +10,7 @@ import com.arny.mobilecinema.data.db.models.FavoriteEntity
 import com.arny.mobilecinema.data.db.models.HistoryEntity
 import com.arny.mobilecinema.data.db.sources.FavoritesPagingSource
 import com.arny.mobilecinema.data.db.sources.HistoryPagingSource
-import com.arny.mobilecinema.data.db.sources.MainPagingSourceOptimized
+import com.arny.mobilecinema.data.db.sources.MainPagingSource
 import com.arny.mobilecinema.data.models.MovieMapper
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
@@ -74,7 +74,7 @@ class MoviesRepositoryImpl @Inject constructor(
             initialLoadSize = 20
         ),
     ) {
-        MainPagingSourceOptimized(
+        MainPagingSource(
             dao = movieDao,
             search = search.trim(),
             order = order,

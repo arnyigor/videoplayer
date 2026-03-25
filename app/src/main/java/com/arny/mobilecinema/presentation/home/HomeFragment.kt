@@ -109,7 +109,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private var extendSearch = false
     private var hasQuery = false
     private var onQueryChangeSubmit = true
-    private var itemsAdapter: VideoItemsAdapterOptimized? = null
+    private var itemsAdapter: VideoItemsAdapter? = null
     private var extendSearchResult: ExtendSearchResult? = null
     private var permissionRequestId = 0
     private var lastImportedMovieId: Long? = null
@@ -409,7 +409,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     /** Sets up the RecyclerView adapter and its load state listener. */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapterOptimized(baseUrl) { item ->
+        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
             findNavController().navigateSafely(
                 HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId),
             )
@@ -424,7 +424,6 @@ class HomeFragment : Fragment(), OnSearchListener {
         binding.rcVideoList.apply {
             adapter = itemsAdapter
             setHasFixedSize(true)
-            setItemViewCacheSize(10)
         }
     }
 
