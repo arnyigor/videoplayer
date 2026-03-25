@@ -25,6 +25,15 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
+data class PlayerUiState(
+    val path: String? = null,
+    val time: Long = 0,
+    val movie: Movie? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+    val excludeUrls: Set<String> = emptySet(),
+)
+
 class PlayerViewModel @AssistedInject constructor(
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
