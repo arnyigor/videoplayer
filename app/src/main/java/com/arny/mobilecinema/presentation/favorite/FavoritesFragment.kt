@@ -26,14 +26,12 @@ import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FFavoritesBinding
 import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.PrefsConstants
-import com.arny.mobilecinema.presentation.home.HomeFragmentDirections
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
-import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.setupSearchView
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
@@ -47,7 +45,8 @@ import javax.inject.Inject
  */
 class FavoritesFragment : Fragment(), OnSearchListener {
 
-    @Inject lateinit var prefs: Prefs
+    @Inject
+    lateinit var prefs: Prefs
 
     @AssistedFactory
     internal interface ViewModelFactory {
@@ -286,7 +285,7 @@ class FavoritesFragment : Fragment(), OnSearchListener {
     /** Создаём адаптер и привязываем к RecyclerView */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapter(baseUrl) {  item, sharedView ->
+        itemsAdapter = VideoItemsAdapter(baseUrl) { item, sharedView ->
             val extras = FragmentNavigatorExtras(
                 sharedView to sharedView.transitionName
             )

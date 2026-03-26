@@ -579,6 +579,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun initUI(movie: Movie) {
         with(binding) {
             val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()

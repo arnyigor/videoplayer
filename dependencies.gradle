@@ -3,7 +3,7 @@
  * apply from: "$dep_aliases"
  */
 
-def Alias(Closure closure) {
+static def Alias(Closure closure) {
     closure.delegate = dependencies
     closure()
 }

@@ -63,6 +63,7 @@ import java.io.File
 import kotlin.math.roundToInt
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
+import androidx.core.net.toUri
 
 // Утилита для сокращения бойлерплейта (можно вынести в расширения)
 open class TransitionListenerAdapter : Transition.TransitionListener {
@@ -277,7 +278,7 @@ private class AutoClean<T>(private val init: () -> T) : ReadOnlyProperty<Fragmen
 fun Fragment.setBatteryNoSafe() {
     try {
         val intent: Intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.parse("package:" + context?.packageName)
+            data = ("package:" + context?.packageName).toUri()
         }
         requireContext().packageManager.resolveActivity(intent, 0)?.let {
             startActivity(intent)
@@ -290,7 +291,7 @@ fun Fragment.setBatteryNoSafe() {
 fun Fragment.openAppSettings() {
     try {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.parse("package:" + context?.packageName)
+            data = ("package:" + context?.packageName).toUri()
         }
         requireContext().packageManager.resolveActivity(intent, 0)?.let {
             startActivity(intent)
@@ -304,11 +305,7 @@ fun Fragment.isAppInWhiteList(): Boolean {
     return try {
         val powerManager =
             context?.applicationContext?.getSystemService(POWER_SERVICE) as PowerManager?
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            powerManager?.isIgnoringBatteryOptimizations(context?.packageName) ?: false
-        } else {
-            false
-        }
+        return powerManager?.isIgnoringBatteryOptimizations(context?.packageName) ?: false
     } catch (e: Exception) {
         e.printStackTrace()
         false
