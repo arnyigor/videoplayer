@@ -214,6 +214,11 @@ ext {
         implementation("com.github.bumptech.glide:okhttp3-integration:$version") {
             exclude group: 'glide-parent'
         }
+        // Добавьте эту строку (замените 4.16.0 на вашу версию Glide)
+        implementation("com.github.bumptech.glide:recyclerview-integration:4.16.0") {
+            // Исключаем транзитивные зависимости, чтобы избежать конфликтов версий AndroidX
+            transitive = false
+        }
     }}
 
     appcompat = { version = '1.2.0' -> Alias {

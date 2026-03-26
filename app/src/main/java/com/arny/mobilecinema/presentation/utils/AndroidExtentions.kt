@@ -54,6 +54,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import androidx.transition.Transition
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
@@ -62,6 +63,15 @@ import java.io.File
 import kotlin.math.roundToInt
 import kotlin.properties.ReadOnlyProperty
 import kotlin.reflect.KProperty
+
+// Утилита для сокращения бойлерплейта (можно вынести в расширения)
+open class TransitionListenerAdapter : Transition.TransitionListener {
+    override fun onTransitionStart(transition: Transition) {}
+    override fun onTransitionEnd(transition: Transition) {}
+    override fun onTransitionCancel(transition: Transition) {}
+    override fun onTransitionPause(transition: Transition) {}
+    override fun onTransitionResume(transition: Transition) {}
+}
 
 fun Cursor.getStringOrDefault(
     columnName: String,

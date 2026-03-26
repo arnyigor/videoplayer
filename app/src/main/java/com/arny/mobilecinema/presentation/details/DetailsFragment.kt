@@ -4,24 +4,21 @@ import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import androidx.transition.Transition
 import androidx.transition.TransitionInflater
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
@@ -46,10 +43,10 @@ import com.arny.mobilecinema.presentation.services.MovieDownloadService
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
+import com.arny.mobilecinema.presentation.utils.TransitionListenerAdapter
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.copyToClipboard
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
-import com.arny.mobilecinema.presentation.utils.getDP
 import com.arny.mobilecinema.presentation.utils.getDuration
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
@@ -67,7 +64,8 @@ import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.request.RequestListener
 import com.google.android.material.chip.Chip
-import com.google.android.material.chip.ChipGroup
+import com.google.android.material.transition.MaterialContainerTransform
+import com.google.android.material.transition.MaterialFadeThrough
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -219,6 +217,29 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         sharedElementEnterTransition = TransitionInflater.from(requireContext())
             .inflateTransition(R.transition.shared_image_transform)
         // Если не создавал файл из Шага 3, используй: android.R.transition.move
+
+        // 1. Анимация самого постера (Shared Element)
+        // Забудьте про старый TransitionInflater. Используйте Material Motion от Google.
+        // Он гораздо лучше справляется с трансформацией карточки в полноэкранный ImageView.
+        sharedElementEnterTransition = MaterialContainerTransform().apply {
+            // Обязательно указываем id вашего NavHostFragment, иначе анимация будет
+            // рисоваться поверх системных баров (статусбара) с артефактами
+            drawingViewId = R.id.nav_host_fragment
+            duration = 350L
+            scrimColor = Color.TRANSPARENT
+            // Указываем, как сглаживать края при трансформации
+            fadeMode = MaterialContainerTransform.FADE_MODE_CROSS
+        }
+
+        // 2. Анимация появления остального контента (тексты, чипы, кнопки)
+        enterTransition = MaterialFadeThrough().apply {
+            duration = 350L
+        }
+
+        // 3. Анимация при нажатии "Назад"
+        returnTransition = MaterialFadeThrough().apply {
+            duration = 300L
+        }
     }
 
     override fun onCreateView(
@@ -245,13 +266,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         observeState()
         observeActions()
         initMenu()
-        // Загрузка происходит в init ViewModel
     }
 
     private fun initToolbar() {
-        // Убеждаемся что Activity toolbar скрыт
-        (activity as? AppCompatActivity)?.supportActionBar?.hide()
-
         // Настраиваем свой toolbar
         binding.toolbar.setNavigationOnClickListener {
             findNavController().popBackStack()
@@ -271,6 +288,9 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     override fun onResume() {
         super.onResume()
+        // Убеждаемся что Activity toolbar скрыт
+        (activity as? AppCompatActivity)?.supportActionBar?.hide()
+
         registerReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
         registerReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
         registerReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
@@ -344,10 +364,12 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     onDownloadFile()
                     true
                 }
+
                 R.id.menu_action_cache_movie -> {
                     onCache()
                     true
                 }
+
                 R.id.menu_action_clear_cache -> {
                     viewModel.handleEvent(
                         DetailsEvent.ClearCache(
@@ -358,18 +380,22 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     )
                     true
                 }
+
                 R.id.menu_action_send_feedback -> {
                     showFeedbackDialog()
                     true
                 }
+
                 R.id.menu_action_copy_mp4_link -> {
                     showCopyMp4LinkDialog()
                     true
                 }
+
                 R.id.menu_action_update_data -> {
                     viewModel.handleEvent(DetailsEvent.ShowUpdateDialog)
                     true
                 }
+
                 else -> false
             }
         }
@@ -529,18 +555,44 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         updateSpinData(movie)
         initUI(movie)
         initButtons(movie)
+
+        // ОТКЛАДЫВАЕМ ТЯЖЕЛУЮ ОТРИСОВКУ CHIPS И СПИННЕРОВ ДО КОНЦА АНИМАЦИИ
+        postponeHeavyWork {
+            binding.initGenres(movie.info.genres)
+            binding.initDirectors(movie.info.directors)
+            binding.initActors(movie.info.actors)
+        }
+    }
+
+    private fun postponeHeavyWork(action: () -> Unit) {
+        val transition = sharedElementEnterTransition as? Transition
+        if (transition != null) {
+            transition.addListener(object : TransitionListenerAdapter() {
+                override fun onTransitionEnd(transition: Transition) {
+                    action()
+                    transition.removeListener(this)
+                }
+            })
+        } else {
+            // Если transition почему-то нет (например, прямая навигация по диплинку)
+            action()
+        }
     }
 
     private fun initUI(movie: Movie) {
         with(binding) {
             val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
 
-            // 3. Загружаем картинку и ждем готовности
-            Glide.with(requireContext()) // Используй this (Fragment) вместо requireContext() для привязки к Lifecycle
+            Glide.with(this@DetailsFragment)
                 .load(movie.img.getWithDomain(baseUrl))
                 .placeholder(R.drawable.placeholder_movie)
                 .error(R.drawable.placeholder_movie)
-                .dontAnimate() // ВАЖНО: Отключаем кроссфейд глайда, он ломает Shared Transition
+                .dontAnimate()
+                .thumbnail(
+                    Glide.with(this@DetailsFragment)
+                        .load(movie.img.getWithDomain(baseUrl))
+                        .onlyRetrieveFromCache(true)
+                )
                 .listener(object : RequestListener<Drawable> {
                     override fun onLoadFailed(
                         p0: GlideException?,
@@ -548,7 +600,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         p2: com.bumptech.glide.request.target.Target<Drawable?>?,
                         p3: Boolean
                     ): Boolean {
-                        // Картинка не скачалась, но фрагмент надо показать
                         startPostponedEnterTransition()
                         return false
                     }
@@ -560,10 +611,10 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                         p3: DataSource?,
                         p4: Boolean
                     ): Boolean {
-                        // Картинка готова — запускаем магию анимации!
                         startPostponedEnterTransition()
                         return false
                     }
+
                 })
                 .into(binding.ivBanner)
 
@@ -665,7 +716,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun FDetailsBinding.initGenres(genres: List<String>) {
         chgrGenres.removeAllViews()
-        val genresMap = genres.flatMap { it.split(",") }.map { it.trim() }.filter { it.isNotBlank() }
+        val genresMap =
+            genres.flatMap { it.split(",") }.map { it.trim() }.filter { it.isNotBlank() }
         tvGenres.isVisible = genresMap.isNotEmpty()
 
         for (genre in genresMap) {
@@ -746,9 +798,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 data == null -> {
                     cardSaveData.isVisible = false
                 }
+
                 data.loading -> {
                     tvSaveData.text = getString(R.string.cinema_save_data_invalidate)
                 }
+
                 data.downloadedPercent > 0.0f && data.downloadedSize > 0L -> {
                     val percentStr = "%.1f%%".format(Locale.getDefault(), data.downloadedPercent)
                     val sizeStr = formatFileSize(data.downloadedSize, 1)
@@ -757,6 +811,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     } else ""
                     tvSaveData.text = "Сохранён: $percentStr • $sizeStr$totalStr"
                 }
+
                 data.downloadedSize > 0L -> {
                     tvSaveData.text = "Сохранён: ${formatFileSize(data.downloadedSize, 1)}"
                 }

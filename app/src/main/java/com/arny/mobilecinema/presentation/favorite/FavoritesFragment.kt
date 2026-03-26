@@ -10,11 +10,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.SearchView
 import androidx.core.view.MenuProvider
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.FragmentNavigatorExtras
 import androidx.navigation.fragment.findNavController
+import androidx.paging.LoadState
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
@@ -36,6 +39,7 @@ import com.arny.mobilecinema.presentation.utils.updateTitle
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -92,6 +96,24 @@ class FavoritesFragment : Fragment(), OnSearchListener {
         initAdapters()
         observeData()
         initMenu()
+
+        // 1. Откладываем транзицию
+        postponeEnterTransition()
+
+        // 2. Ждем, пока Paging 3 загрузит данные из кэша
+        viewLifecycleOwner.lifecycleScope.launch {
+            itemsAdapter?.loadStateFlow?.collectLatest { state ->
+                // Проверяем, что адаптер закончил загрузку локальных данных
+                if (state.source.refresh !is LoadState.Loading && (itemsAdapter?.itemCount
+                        ?: 0) > 0
+                ) {
+                    // 3. Ждем физической отрисовки View на экране
+                    binding.rvFavoritesList.doOnPreDraw {
+                        startPostponedEnterTransition()
+                    }
+                }
+            }
+        }
     }
 
     override fun onResume() {

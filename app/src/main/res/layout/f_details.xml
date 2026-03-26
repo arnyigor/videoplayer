@@ -3,14 +3,12 @@
         xmlns:app="http://schemas.android.com/apk/res-auto"
         xmlns:tools="http://schemas.android.com/tools"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="@color/colorPrimary">
+        android:layout_height="match_parent" >
 
     <com.google.android.material.appbar.AppBarLayout
             android:id="@+id/appBarLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/colorPrimary"
             app:elevation="0dp">
 
         <com.google.android.material.appbar.CollapsingToolbarLayout
@@ -29,28 +27,25 @@
                 app:titleEnabled="true">
 
             <!-- 1. Постер с градиентом - ПЕРВЫЙ, параллакс эффект -->
-            <FrameLayout
+            <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
-                    android:layout_height="380dp"
+                    android:layout_height="wrap_content"
                     app:layout_collapseMode="parallax"
                     app:layout_collapseParallaxMultiplier="0.7">
 
                 <ImageView
                         android:id="@+id/ivBanner"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
                         android:contentDescription="@null"
-                        android:scaleType="centerCrop"
+                        android:scaleType="fitCenter"
+                        app:layout_constraintDimensionRatio="3:4"
+                        app:layout_constraintTop_toTopOf="parent"
+                        app:layout_constraintStart_toStartOf="parent"
+                        app:layout_constraintEnd_toEndOf="parent"
                         tools:src="@tools:sample/backgrounds/scenic" />
 
-                <!-- Градиент снизу для читаемости текста -->
-                <View
-                        android:layout_width="match_parent"
-                        android:layout_height="200dp"
-                        android:layout_gravity="bottom"
-                        android:background="@drawable/gradient_bottom_dark" />
-
-            </FrameLayout>
+            </androidx.constraintlayout.widget.ConstraintLayout>
 
             <!-- 2. Информация поверх постера - parallax, исчезает при свёртывании -->
             <LinearLayout
@@ -59,8 +54,8 @@
                     android:layout_gravity="bottom"
                     android:layout_marginBottom="?attr/actionBarSize"
                     android:orientation="vertical"
+                    android:background="@color/colorOverlay"
                     android:paddingHorizontal="16dp"
-                    android:paddingBottom="16dp"
                     app:layout_collapseMode="parallax"
                     app:layout_collapseParallaxMultiplier="0.3">
 
@@ -225,9 +220,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingHorizontal="16dp"
-                android:paddingTop="12dp"
-                android:paddingBottom="100dp">
+                android:paddingHorizontal="16dp"  >
 
             <!-- Быстрая информация (чипы) -->
             <HorizontalScrollView

@@ -20,10 +20,12 @@ import android.widget.SearchView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.MenuProvider
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.FragmentNavigatorExtras
 import androidx.navigation.fragment.findNavController
 import androidx.paging.LoadState
@@ -38,6 +40,7 @@ import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
 import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.PrefsConstants
+import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendSearchResult
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.services.UpdateService
@@ -45,6 +48,7 @@ import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.getImgCompat
+import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.inputDialog
 import com.arny.mobilecinema.presentation.utils.isNotificationsFullyEnabled
@@ -61,9 +65,16 @@ import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.unlockOrientation
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateTitle
+import com.bumptech.glide.Glide
+import com.bumptech.glide.ListPreloader
+import com.bumptech.glide.RequestBuilder
+import com.bumptech.glide.integration.recyclerview.RecyclerViewPreloader
+import com.bumptech.glide.util.ViewPreloadSizeProvider
+import com.google.android.material.transition.MaterialFadeThrough
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -150,6 +161,18 @@ class HomeFragment : Fragment(), OnSearchListener {
     private val handler = Handler(Looper.getMainLooper())
     private val updateReceiver by lazy { makeBroadcastReceiver() }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Чтобы список плавно затухал, пока поверх него открываются детали
+        exitTransition = MaterialFadeThrough().apply {
+            duration = 350L
+        }
+        // Чтобы список плавно появлялся при возврате
+        reenterTransition = MaterialFadeThrough().apply {
+            duration = 350L
+        }
+    }
+
     override fun onAttach(context: Context) {
         AndroidSupportInjection.inject(this)
         super.onAttach(context)
@@ -176,11 +199,22 @@ class HomeFragment : Fragment(), OnSearchListener {
         observeResult()
         requestPermissions()
 
-        // Откладываем анимацию возврата, пока RecyclerView не отрисуется
+        // 1. Откладываем транзицию
         postponeEnterTransition()
-        binding.rcVideoList.viewTreeObserver.addOnPreDrawListener {
-            startPostponedEnterTransition()
-            true
+
+        // 2. Ждем, пока Paging 3 загрузит данные из кэша
+        viewLifecycleOwner.lifecycleScope.launch {
+            itemsAdapter?.loadStateFlow?.collectLatest { state ->
+                // Проверяем, что адаптер закончил загрузку локальных данных
+                if (state.source.refresh !is LoadState.Loading && (itemsAdapter?.itemCount
+                        ?: 0) > 0
+                ) {
+                    // 3. Ждем физической отрисовки View на экране
+                    binding.rcVideoList.doOnPreDraw {
+                        startPostponedEnterTransition()
+                    }
+                }
+            }
         }
     }
 
@@ -417,7 +451,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     /** Sets up the RecyclerView adapter and its load state listener. */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapter(baseUrl) {  item, sharedView ->
+        itemsAdapter = VideoItemsAdapter(baseUrl) { item, sharedView ->
             // Создаем связку: View -> её transitionName
             val extras = FragmentNavigatorExtras(
                 sharedView to sharedView.transitionName
@@ -436,6 +470,31 @@ class HomeFragment : Fragment(), OnSearchListener {
             adapter = itemsAdapter
             setHasFixedSize(true)
         }
+
+
+        // В HomeFragment при инициализации RecyclerView:
+        val preloader = Glide.with(this@HomeFragment)
+        val sizeProvider = ViewPreloadSizeProvider<ViewMovie>()
+        val modelProvider = object : ListPreloader.PreloadModelProvider<ViewMovie> {
+            override fun getPreloadItems(position: Int): MutableList<ViewMovie> {
+                val item = itemsAdapter?.peek(position) ?: return mutableListOf()
+                return mutableListOf(item)
+            }
+
+            override fun getPreloadRequestBuilder(item: ViewMovie): RequestBuilder<*> {
+                return preloader.load(item.img.getWithDomain(baseUrl))
+                    .override(com.bumptech.glide.request.target.Target.SIZE_ORIGINAL) // Или укажите точный размер карточки
+            }
+        }
+
+        binding.rcVideoList.addOnScrollListener(
+            RecyclerViewPreloader(
+                /* requestManager = */ preloader, /* preloadModelProvider = */
+                modelProvider, /* preloadDimensionProvider = */
+                sizeProvider, /* maxPreload = */
+                10 // Предзагружать 10 следующих элементов
+            )
+        )
     }
 
     /** Collects flows from the ViewModel and updates UI accordingly. */

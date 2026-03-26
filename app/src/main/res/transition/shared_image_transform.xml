@@ -2,7 +2,12 @@
 <transitionSet xmlns:android="http://schemas.android.com/apk/res/android"
         android:duration="350"
         android:interpolator="@android:interpolator/fast_out_slow_in">
+
+    <!-- Трансформирует размеры View -->
     <changeBounds />
+    <!-- Трансформирует матрицу (положение X/Y, scale) -->
     <changeTransform />
+    <!-- Ключевой элемент для плавного перехода centerCrop -->
     <changeImageTransform />
+
 </transitionSet>
