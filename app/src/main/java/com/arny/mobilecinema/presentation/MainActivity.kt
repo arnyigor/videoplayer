@@ -38,7 +38,6 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
         super.onCreate(savedInstanceState)
         binding = AMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(binding.toolbar)
 
         // Получаем NavController через NavHostFragment
         val navHostFragment = supportFragmentManager
@@ -62,45 +61,11 @@ class MainActivity : AppCompatActivity(), HasAndroidInjector {
                     R.id.nav_extended_search
                 )
             )
-
-            // Скрываем Activity toolbar для экранов со своим toolbar
-            showActivityToolbar(
-                destination.id !in listOf(
-                    R.id.nav_player_view,
-                    R.id.nav_details
-                )
-            )
-
-            // Кнопка "назад"
-            showHome(
-                destination.id !in listOf(
-                    R.id.nav_home,
-                    R.id.nav_prefs,
-                    R.id.nav_history,
-                    R.id.nav_favorite
-                )
-            )
         }
     }
 
     private fun showBottomNav(show: Boolean) {
         binding.bottomNavView.isVisible = show
-    }
-
-    /**
-     * Показывает/скрывает Activity Toolbar
-     */
-    private fun showActivityToolbar(show: Boolean) {
-        binding.toolbar.isVisible = show
-        if (show) {
-            supportActionBar?.show()
-        } else {
-            supportActionBar?.hide()
-        }
-    }
-
-    private fun showHome(show: Boolean) {
-        supportActionBar?.setDisplayHomeAsUpEnabled(show)
     }
 
     private fun getCurrentFragment() =

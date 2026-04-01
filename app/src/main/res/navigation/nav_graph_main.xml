@@ -28,8 +28,10 @@
         <action
             android:id="@+id/action_nav_home_to_nav_details"
             app:destination="@id/nav_details"
-            app:enterAnim="@anim/fade_in"
-            app:exitAnim="@anim/fade_out" />
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/fade_out" />
         <argument
             android:name="director"
             app:argType="string"
@@ -76,8 +78,10 @@
         <action
             android:id="@+id/action_nav_history_to_nav_details"
             app:destination="@id/nav_details"
-            app:enterAnim="@anim/fade_in"
-            app:exitAnim="@anim/fade_out" />
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/fade_out" />
     </fragment>
     <fragment
         android:id="@+id/nav_prefs"
@@ -115,6 +119,10 @@
             android:label="FavoritesFragment" >
         <action
                 android:id="@+id/action_favoritesFragment_to_nav_details"
-                app:destination="@id/nav_details" />
+                app:destination="@id/nav_details"
+                app:enterAnim="@anim/slide_in_right"
+                app:exitAnim="@anim/slide_out_left"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
     </fragment>
 </navigation>

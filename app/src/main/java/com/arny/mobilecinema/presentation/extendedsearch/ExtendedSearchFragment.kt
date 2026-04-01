@@ -78,11 +78,17 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        updateTitle(getString(R.string.search_extended_title))
+        initToolbar()
         initUi()
         initMenu()
         initListeners()
         observeData()
+    }
+
+    private fun initToolbar() {
+        binding.toolbar.setNavigationOnClickListener {
+            findNavController().navigateUp()
+        }
     }
 
     private fun initUi() = with(binding) {

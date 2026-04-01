@@ -168,7 +168,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     /** Initializes UI listeners and starts data loading. */
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        updateTitle(getString(R.string.app_name))
+        initToolbar()
         initListeners()
         initMenu()
         initAdapters()
@@ -182,6 +182,21 @@ class HomeFragment : Fragment(), OnSearchListener {
             startPostponedEnterTransition()
             true
         }
+    }
+
+    private fun initToolbar() {
+        binding.toolbar.setNavigationOnClickListener {
+            findNavController().navigateUp()
+        }
+    }
+
+    /** Обновляет видимость пунктов меню */
+    private fun updateMenuVisibility() {
+        val menu = binding.toolbar.menu
+        menu.findItem(R.id.action_search).isVisible = hasQuery
+        menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
+        menu.findItem(R.id.action_order_settings).isVisible = hasQuery
+        menu.findItem(R.id.action_extended_search_settings).isVisible = true
     }
 
     /** Sets up button listeners. */
@@ -445,10 +460,10 @@ class HomeFragment : Fragment(), OnSearchListener {
                 binding.pbLoading.isVisible = loading
             }
         }
-        launchWhenCreated {
+launchWhenCreated {
             viewModel.empty.collectLatest { empty ->
                 hasQuery = !empty
-                requireActivity().invalidateOptionsMenu()
+                updateMenuVisibility()
                 binding.tvEmptyView.isVisible = empty
             }
         }
@@ -533,98 +548,102 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     override fun isSearchComplete(): Boolean = emptySearch && !extendSearch
 
-    /** Resets search state and UI when the user collapses the search view. */
+/** Resets search state and UI when the user collapses the search view. */
     override fun collapseSearch() {
         viewModel.loadMovies(resetAll = true)
         emptySearch = true
         extendSearch = false
         requireActivity().hideKeyboard()
-        requireActivity().invalidateOptionsMenu()
+        updateMenuVisibility()
     }
 
-    /** Builds and handles menu items for the home screen. */
+/** Builds and handles menu items for the home screen. */
     private fun initMenu() {
-        requireActivity().addMenuProvider(object : MenuProvider {
-            override fun onPrepareMenu(menu: Menu) {
-                menu.findItem(R.id.action_search).isVisible = hasQuery
-                menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
-                menu.findItem(R.id.action_order_settings).isVisible = hasQuery
-                menu.findItem(R.id.action_extended_search_settings).isVisible = true
+        binding.toolbar.inflateMenu(R.menu.home_menu)
+
+        // Обновление видимости пунктов меню
+        fun updateMenuVisibility() {
+            val menu = binding.toolbar.menu
+            menu.findItem(R.id.action_search).isVisible = hasQuery
+            menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
+            menu.findItem(R.id.action_order_settings).isVisible = hasQuery
+            menu.findItem(R.id.action_extended_search_settings).isVisible = true
+        }
+
+        val menu = binding.toolbar.menu
+        searchMenuItem = menu.findItem(R.id.action_search)
+        searchView = setupSearchView(
+            menuItem = requireNotNull(searchMenuItem),
+            onQueryChange = { query ->
+                emptySearch = query?.isBlank() == true
+                viewModel.loadMovies(query.orEmpty(), onQueryChangeSubmit)
+                onQueryChangeSubmit = true
+            },
+            onMenuCollapse = {
+                viewModel.loadMovies(resetAll = true)
+                emptySearch = true
+                requireActivity().hideKeyboard()
+                updateMenuVisibility()
+            },
+            onSubmitAvailable = true,
+            onQuerySubmit = { query ->
+                emptySearch = query?.isBlank() == true
+                viewModel.loadMovies(query.orEmpty())
             }
+        )
+        getIntentParams()
 
-            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
-                menuInflater.inflate(R.menu.home_menu, menu)
-                searchMenuItem = menu.findItem(R.id.action_search)
-                searchView = setupSearchView(
-                    menuItem = requireNotNull(searchMenuItem),
-                    onQueryChange = { query ->
-                        emptySearch = query?.isBlank() == true
-                        viewModel.loadMovies(query.orEmpty(), onQueryChangeSubmit)
-                        onQueryChangeSubmit = true
-                    },
-                    onMenuCollapse = {
-                        viewModel.loadMovies(resetAll = true)
-                        emptySearch = true
-                        requireActivity().hideKeyboard()
-                        requireActivity().invalidateOptionsMenu()
-                    },
-                    onSubmitAvailable = true,
-                    onQuerySubmit = { query ->
-                        emptySearch = query?.isBlank() == true
-                        viewModel.loadMovies(query.orEmpty())
-                    }
-                )
-                getIntentParams()
-            }
+        // Устанавливаем visibility при инициализации
+        updateMenuVisibility()
 
-            override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
-                when (menuItem.itemId) {
-                    R.id.action_search -> true
-                    R.id.action_order_settings -> {
-                        showCustomOrderDialog()
-                        true
-                    }
-
-                    R.id.action_search_settings -> {
-                        showCustomSearchDialog()
-                        true
-                    }
-
-                    R.id.action_extended_search_settings -> {
-                        findNavController().navigateSafely(
-                            HomeFragmentDirections.actionNavHomeToNavExtendedSearch()
-                        )
-                        true
-                    }
-
-                    R.id.menu_action_check_update -> {
-                        showVideoUpdateDialog()
-                        true
-                    }
-
-                    R.id.menu_action_from_path -> {
-                        openPath()
-                        true
-                    }
-
-                    R.id.menu_action_import_link -> {
-                        showImportLinkDialog()
-                        true
-                    }
-
-                    R.id.menu_action_update_list -> {
-                        viewModel.loadMovies()
-                        true
-                    }
-
-                    R.id.menu_action_update_download_new -> {
-                        viewModel.onActionUpdateAll()
-                        true
-                    }
-
-                    else -> false
+        binding.toolbar.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.action_search -> true
+                R.id.action_order_settings -> {
+                    showCustomOrderDialog()
+                    true
                 }
-        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+
+                R.id.action_search_settings -> {
+                    showCustomSearchDialog()
+                    true
+                }
+
+                R.id.action_extended_search_settings -> {
+                    findNavController().navigateSafely(
+                        HomeFragmentDirections.actionNavHomeToNavExtendedSearch()
+                    )
+                    true
+                }
+
+                R.id.menu_action_check_update -> {
+                    showVideoUpdateDialog()
+                    true
+                }
+
+                R.id.menu_action_from_path -> {
+                    openPath()
+                    true
+                }
+
+                R.id.menu_action_import_link -> {
+                    showImportLinkDialog()
+                    true
+                }
+
+                R.id.menu_action_update_list -> {
+                    viewModel.loadMovies()
+                    true
+                }
+
+                R.id.menu_action_update_download_new -> {
+                    viewModel.onActionUpdateAll()
+                    true
+                }
+
+                else -> false
+            }
+        }
     }
 
     private fun showVideoUpdateDialog() {

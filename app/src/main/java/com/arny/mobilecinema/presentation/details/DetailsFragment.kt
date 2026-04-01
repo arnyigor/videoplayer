@@ -249,23 +249,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     }
 
     private fun initToolbar() {
-        // Убеждаемся что Activity toolbar скрыт
-        (activity as? AppCompatActivity)?.supportActionBar?.hide()
-
-        // Настраиваем свой toolbar
         binding.toolbar.setNavigationOnClickListener {
             findNavController().popBackStack()
-        }
-
-        binding.appBarLayout.addOnOffsetChangedListener { appBarLayout, verticalOffset ->
-            val scrollRange = appBarLayout.totalScrollRange
-            val percentage = kotlin.math.abs(verticalOffset).toFloat() / scrollRange
-
-            if (percentage > 0.8f) {
-                binding.collapsingToolbar.title = currentMovie?.title ?: ""
-            } else {
-                binding.collapsingToolbar.title = " "
-            }
         }
     }
 

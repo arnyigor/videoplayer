@@ -88,10 +88,16 @@ class FavoritesFragment : Fragment(), OnSearchListener {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        updateTitle(getString(R.string.f_favorites_title))
+        initToolbar()
         initAdapters()
         observeData()
         initMenu()
+    }
+
+    private fun initToolbar() {
+        binding.toolbar.setNavigationOnClickListener {
+            findNavController().navigateUp()
+        }
     }
 
     override fun onResume() {
