@@ -11,25 +11,31 @@
         android:label="f_home"
         tools:layout="@layout/f_home">
         <action
-            android:id="@+id/action_nav_home_to_nav_prefs"
-            app:destination="@id/nav_prefs"
-            app:enterAnim="@anim/fade_in"
-            app:exitAnim="@anim/fade_out" />
+           android:id="@+id/action_nav_home_to_nav_prefs"
+           app:destination="@id/nav_prefs"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
         <action
-            android:id="@+id/action_nav_home_to_nav_player_view"
-            app:destination="@id/nav_player_view"
-            app:enterAnim="@anim/fade_in"
-            app:exitAnim="@anim/fade_out" />
+           android:id="@+id/action_nav_home_to_nav_player_view"
+           app:destination="@id/nav_player_view"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
         <action
-            android:id="@+id/action_nav_home_to_nav_history"
-            app:destination="@id/nav_history"
-            app:enterAnim="@anim/fade_in"
-            app:exitAnim="@anim/fade_out" />
+           android:id="@+id/action_nav_home_to_nav_history"
+           app:destination="@id/nav_history"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
         <action
             android:id="@+id/action_nav_home_to_nav_details"
             app:destination="@id/nav_details"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"
+            app:enterAnim="@anim/fade_in"
+            app:exitAnim="@anim/fade_out"
             app:popEnterAnim="@anim/fade_in"
             app:popExitAnim="@anim/fade_out" />
         <argument
@@ -48,81 +54,163 @@
             app:nullable="true"
             android:defaultValue="@null" />
         <action
-            android:id="@+id/action_nav_home_to_nav_extended_search"
-            app:destination="@id/nav_extended_search" />
+           android:id="@+id/action_nav_home_to_nav_extended_search"
+           app:destination="@id/nav_extended_search"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
     </fragment>
     <fragment
-        android:id="@+id/nav_details"
-        android:name="com.arny.mobilecinema.presentation.details.DetailsFragment"
-        android:label="details_fragment"
-        tools:layout="@layout/f_details">
-        <argument
-            android:name="id"
-            app:argType="long" />
-        <action
-            android:id="@+id/action_nav_details_to_nav_player_view"
-            app:destination="@id/nav_player_view"
-            app:enterAnim="@anim/fade_in"
-            app:exitAnim="@anim/fade_out" />
-        <action
-            android:id="@+id/action_nav_details_to_nav_home"
-            app:destination="@id/nav_home"
-            app:launchSingleTop="true"
-            app:popUpToInclusive="false" />
-    </fragment>
+       android:id="@+id/nav_details"
+       android:name="com.arny.mobilecinema.presentation.details.DetailsFragment"
+       android:label="details_fragment"
+       tools:layout="@layout/f_details">
+       <argument
+           android:name="id"
+           app:argType="long" />
+       <action
+           android:id="@+id/action_nav_details_to_nav_player_view"
+           app:destination="@id/nav_player_view"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
+       <action
+           android:id="@+id/action_nav_details_to_nav_home"
+           app:destination="@id/nav_home"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out"
+           app:launchSingleTop="true"
+           app:popUpToInclusive="false" />
+       <action
+           android:id="@+id/action_nav_details_to_nav_history"
+           app:destination="@id/nav_history"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
+       <action
+           android:id="@+id/action_nav_details_to_nav_favorite"
+           app:destination="@id/nav_favorite"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
+   </fragment>
     <fragment
         android:id="@+id/nav_history"
         tools:layout="@layout/f_history"
         android:name="com.arny.mobilecinema.presentation.history.HistoryFragment"
         android:label="HistoryFragment">
         <action
-            android:id="@+id/action_nav_history_to_nav_details"
-            app:destination="@id/nav_details"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"
-            app:popEnterAnim="@anim/fade_in"
-            app:popExitAnim="@anim/fade_out" />
+             android:id="@+id/action_nav_history_to_nav_details"
+             app:destination="@id/nav_details"
+             app:enterAnim="@anim/fade_in"
+             app:exitAnim="@anim/fade_out"
+             app:popEnterAnim="@anim/fade_in"
+             app:popExitAnim="@anim/fade_out" />
+        <action
+             android:id="@+id/action_nav_history_to_nav_home"
+             app:destination="@id/nav_home"
+             app:enterAnim="@anim/fade_in"
+             app:exitAnim="@anim/fade_out"
+             app:popEnterAnim="@anim/fade_in"
+             app:popExitAnim="@anim/fade_out" />
     </fragment>
     <fragment
         android:id="@+id/nav_prefs"
         android:name="com.arny.mobilecinema.presentation.settings.SettingsFragment"
-        android:label="SettingsFragment" />
+        android:label="SettingsFragment" >
+       <action
+           android:id="@+id/action_nav_prefs_to_nav_home"
+           app:destination="@id/nav_home"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
+   </fragment>
     <fragment
-        android:id="@+id/nav_player_view"
-        tools:layout="@layout/f_player_view"
-        android:name="com.arny.mobilecinema.presentation.playerview.PlayerViewFragment"
-        android:label="PlayerViewFragment" >
-        <argument
-            android:name="path"
-            app:argType="string"
-            app:nullable="true" />
-        <argument
-            android:name="movie"
-            app:argType="com.arny.mobilecinema.domain.models.Movie"
-            app:nullable="true" />
-        <argument
-            android:name="seasonIndex"
-            app:argType="integer"
-            android:defaultValue="0" />
-        <argument
-            android:name="episodeIndex"
-            app:argType="integer"
-            android:defaultValue="0" />
-    </fragment>
+       android:id="@+id/nav_player_view"
+       tools:layout="@layout/f_player_view"
+       android:name="com.arny.mobilecinema.presentation.playerview.PlayerViewFragment"
+       android:label="PlayerViewFragment" >
+       <argument
+           android:name="path"
+           app:argType="string"
+           app:nullable="true" />
+       <argument
+           android:name="movie"
+           app:argType="com.arny.mobilecinema.domain.models.Movie"
+           app:nullable="true" />
+       <argument
+           android:name="seasonIndex"
+           app:argType="integer"
+           android:defaultValue="0" />
+       <argument
+           android:name="episodeIndex"
+           app:argType="integer"
+           android:defaultValue="0" />
+       <action
+           android:id="@+id/action_nav_player_view_to_nav_details"
+           app:destination="@id/nav_details"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
+       <action
+           android:id="@+id/action_nav_player_view_to_nav_history"
+           app:destination="@id/nav_history"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
+       <action
+           android:id="@+id/action_nav_player_view_to_nav_favorite"
+           app:destination="@id/nav_favorite"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
+       <action
+           android:id="@+id/action_nav_player_view_to_nav_home"
+           app:destination="@id/nav_home"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
+   </fragment>
     <fragment
         android:id="@+id/nav_extended_search"
         android:name="com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchFragment"
-        android:label="ExtendedSearchFragment" />
+        android:label="ExtendedSearchFragment" >
+       <action
+           android:id="@+id/action_nav_extended_search_to_nav_home"
+           app:destination="@id/nav_home"
+           app:enterAnim="@anim/fade_in"
+           app:exitAnim="@anim/fade_out"
+           app:popEnterAnim="@anim/fade_in"
+           app:popExitAnim="@anim/fade_out" />
+   </fragment>
     <fragment
             android:id="@+id/nav_favorite"
             android:name="com.arny.mobilecinema.presentation.favorite.FavoritesFragment"
             android:label="FavoritesFragment" >
         <action
-                android:id="@+id/action_favoritesFragment_to_nav_details"
-                app:destination="@id/nav_details"
-                app:enterAnim="@anim/slide_in_right"
-                app:exitAnim="@anim/slide_out_left"
-                app:popEnterAnim="@anim/fade_in"
-                app:popExitAnim="@anim/fade_out" />
+                 android:id="@+id/action_favoritesFragment_to_nav_details"
+                 app:destination="@id/nav_details"
+                 app:enterAnim="@anim/fade_in"
+                 app:exitAnim="@anim/fade_out"
+                 app:popEnterAnim="@anim/fade_in"
+                 app:popExitAnim="@anim/fade_out" />
+        <action
+                 android:id="@+id/action_favoritesFragment_to_nav_home"
+                 app:destination="@id/nav_home"
+                 app:enterAnim="@anim/fade_in"
+                 app:exitAnim="@anim/fade_out"
+                 app:popEnterAnim="@anim/fade_in"
+                 app:popExitAnim="@anim/fade_out" />
     </fragment>
 </navigation>

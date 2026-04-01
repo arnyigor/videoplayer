@@ -13,7 +13,6 @@ import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
-import androidx.navigation.fragment.FragmentNavigatorExtras
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
@@ -259,12 +258,9 @@ class HistoryFragment : Fragment(), OnSearchListener {
 
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapter(baseUrl) {  item, sharedView ->
-            val extras = FragmentNavigatorExtras(
-                sharedView to sharedView.transitionName
-            )
+        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
             val action = HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId)
-            findNavController().navigate(action, extras)
+            findNavController().navigateSafely(action)
         }
         binding.rvHistoryList.apply {
             adapter = itemsAdapter

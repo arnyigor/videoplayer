@@ -24,7 +24,6 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
 import androidx.lifecycle.Lifecycle
-import androidx.navigation.fragment.FragmentNavigatorExtras
 import androidx.navigation.fragment.findNavController
 import androidx.paging.LoadState
 import com.arny.mobilecinema.R
@@ -175,13 +174,6 @@ class HomeFragment : Fragment(), OnSearchListener {
         observeData()
         observeResult()
         requestPermissions()
-
-        // Откладываем анимацию возврата, пока RecyclerView не отрисуется
-        postponeEnterTransition()
-        binding.rcVideoList.viewTreeObserver.addOnPreDrawListener {
-            startPostponedEnterTransition()
-            true
-        }
     }
 
     private fun initToolbar() {
@@ -432,13 +424,9 @@ class HomeFragment : Fragment(), OnSearchListener {
     /** Sets up the RecyclerView adapter and its load state listener. */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapter(baseUrl) {  item, sharedView ->
-            // Создаем связку: View -> её transitionName
-            val extras = FragmentNavigatorExtras(
-                sharedView to sharedView.transitionName
-            )
+        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
             val action = HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId)
-            findNavController().navigate(action, extras)
+            findNavController().navigateSafely(action)
         }
         itemsAdapter?.addLoadStateListener { loadState ->
             if (loadState.source.refresh is LoadState.NotLoading) {
