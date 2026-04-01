@@ -1,22 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#263238</color>
-    <color name="colorPrimaryDark">#000a12</color>
-    <color name="colorSecondary">#455a64</color>
-    <color name="colorAccent">#fbc02d</color>
-    <color name="textColorPrimary">#ffffff</color>
-    <color name="textColorSecondary">#fafafa</color>
+    <!-- Основные фоны (глубокий иссиня-черный) -->
+    <color name="colorPrimary">#0D0D18</color>
+    <color name="colorPrimaryDark">#000000</color>
+
+    <!-- Акценты (Неон: Фиолетовый и Голубой) -->
+    <color name="colorAccent">#B6A0FF</color>
+    <color name="colorAccentSecondary">#00AFFE</color>
+    <color name="colorOnAccent">#340090</color>
+
+    <!-- Текст (с легким холодным оттенком) -->
+    <color name="textColorPrimary">#E9E6F7</color>
+    <color name="textColorSecondary">#ABA9B9</color>
+    <color name="textLabel">#7E51FF</color>
+
+    <!-- Карточки и контейнеры (тонированные в тон основного фона) -->
+    <color name="card_dark_bg">#181826</color>
+    <color name="card_light_bg">#242434</color>
+    <color name="card_success_bg">#1E1E2D</color>
+
+    <!-- Эффект "стекла" (полупрозрачные элементы) -->
+    <color name="bottom_nav_bg">#E6181826</color>
+    <color name="badge_blue_bg">#3300AFFE</color>
+
+    <!-- Дополнительные цвета -->
     <color name="colorIcon">#FFFFFF</color>
     <color name="colorOverlay">#66000000</color>
-    <color name="colorSeparator">#1E1E1E</color>
+    <color name="colorSeparator">#2A2A3D</color>
 
-    <!-- UI Colors -->
-    <color name="card_dark_bg">#1E1E1E</color>
-    <color name="card_success_bg">#1A3A1A</color>
-    <color name="chip_dark_bg">#3A3A3A</color>
-    <color name="chip_bg">#3A3A3A</color>
-    <color name="chip_text">#E0E0E0</color>
-    <color name="input_dark_bg">#2A2A2A</color>
-    <color name="text_secondary">#B0B0B0</color>
-    <color name="text_hint">#707070</color>
+    <!-- Чипсы (заменены с грязного #3A3A3A на глубокий фиолетово-серый) -->
+    <color name="chip_dark_bg">#2A2A3D</color>
+    <color name="chip_bg">#2A2A3D</color>
+    <color name="chip_text">#E9E6F7</color>
+
+    <!-- Инпуты -->
+    <color name="input_dark_bg">#1F1F2E</color>
+    <color name="text_hint">#6A6A80</color>
 </resources>

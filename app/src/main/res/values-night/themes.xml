@@ -50,7 +50,7 @@
     </style>
 
     <style name="CustomChipChoice" parent="@style/Widget.MaterialComponents.Chip.Choice">
-        <item name="chipBackgroundColor">@color/colorSecondary</item>
+        <item name="chipBackgroundColor">@color/colorAccentSecondary</item>
         <item name="android:textColor">@color/textColorPrimary</item>
     </style>
 

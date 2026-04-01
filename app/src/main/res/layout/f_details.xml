@@ -73,10 +73,10 @@
                             android:id="@+id/llImdb"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:background="@drawable/bg_rating_imdb"
+                            android:background="@drawable/bg_badge_blue"
                             android:gravity="center"
                             android:orientation="horizontal"
-                            android:paddingHorizontal="10dp"
+                            android:paddingHorizontal="8dp"
                             android:paddingVertical="4dp"
                             android:visibility="gone"
                             tools:visibility="visible">
@@ -85,8 +85,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="IMDb"
-                                android:textColor="#000000"
-                                android:textSize="11sp"
+                                android:textColor="@color/colorAccentSecondary"
+                                android:textSize="12sp"
                                 android:textStyle="bold" />
 
                         <TextView
@@ -94,8 +94,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="4dp"
-                                android:textColor="#000000"
-                                android:textSize="13sp"
+                                android:textColor="@color/colorAccentSecondary"
+                                android:textSize="12sp"
                                 android:textStyle="bold"
                                 tools:text="7.5" />
                     </LinearLayout>
@@ -106,10 +106,10 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_rating_kp"
+                            android:background="@drawable/bg_badge_blue"
                             android:gravity="center"
                             android:orientation="horizontal"
-                            android:paddingHorizontal="10dp"
+                            android:paddingHorizontal="8dp"
                             android:paddingVertical="4dp"
                             android:visibility="gone"
                             tools:visibility="visible">
@@ -118,8 +118,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="КП"
-                                android:textColor="@android:color/white"
-                                android:textSize="11sp"
+                                android:textColor="@color/colorAccentSecondary"
+                                android:textSize="12sp"
                                 android:textStyle="bold" />
 
                         <TextView
@@ -127,8 +127,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="4dp"
-                                android:textColor="@android:color/white"
-                                android:textSize="13sp"
+                                android:textColor="@color/colorAccentSecondary"
+                                android:textSize="12sp"
                                 android:textStyle="bold"
                                 tools:text="6.8" />
                     </LinearLayout>
@@ -139,7 +139,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="12dp"
-                            android:textColor="@android:color/white"
+                            android:textColor="@color/textColorPrimary"
                             android:textSize="13sp"
                             tools:text="👍 150  👎 30" />
 
@@ -174,7 +174,7 @@
                         android:shadowDx="1"
                         android:shadowDy="1"
                         android:shadowRadius="4"
-                        android:textColor="@android:color/white"
+                        android:textColor="@color/textColorPrimary"
                         android:textSize="22sp"
                         android:textStyle="bold"
                         tools:text="Очень длинное название фильма" />
@@ -185,7 +185,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:textColor="#BBBBBB"
+                        android:textColor="@color/textColorSecondary"
                         android:textSize="14sp"
                         tools:text="2023 • Сериал • 3 сезона • США" />
 
@@ -246,7 +246,7 @@
                             android:gravity="center_vertical"
                             android:paddingHorizontal="12dp"
                             android:paddingVertical="8dp"
-                            android:textColor="@android:color/white"
+                        android:textColor="@color/textColorPrimary"
                             android:textSize="13sp"
                             android:visibility="gone"
                             app:drawableStartCompat="@drawable/ic_timer"
@@ -265,7 +265,7 @@
                             android:gravity="center_vertical"
                             android:paddingHorizontal="12dp"
                             android:paddingVertical="8dp"
-                            android:textColor="@android:color/white"
+                        android:textColor="@color/textColorPrimary"
                             android:textSize="13sp"
                             android:visibility="gone"
                             app:drawableStartCompat="@drawable/ic_hd"
@@ -284,7 +284,7 @@
                             android:gravity="center_vertical"
                             android:paddingHorizontal="12dp"
                             android:paddingVertical="8dp"
-                            android:textColor="@android:color/white"
+                        android:textColor="@color/textColorPrimary"
                             android:textSize="13sp"
                             app:drawableStartCompat="@drawable/ic_update"
                             app:drawableTint="@color/colorAccent"
@@ -302,7 +302,7 @@
                     android:layout_marginTop="12dp"
                     android:visibility="gone"
                     app:cardBackgroundColor="@color/card_success_bg"
-                    app:cardCornerRadius="12dp"
+                    app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp"
                     tools:visibility="visible">
@@ -327,7 +327,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
                             android:layout_weight="1"
-                            android:textColor="@android:color/white"
+                        android:textColor="@color/textColorPrimary"
                             android:textSize="13sp"
                             tools:text="Сохранён: 45.2% • 500 МБ" />
 
@@ -343,7 +343,7 @@
                     android:layout_marginTop="12dp"
                     android:visibility="gone"
                     app:cardBackgroundColor="@color/card_dark_bg"
-                    app:cardCornerRadius="12dp"
+                    app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp"
                     tools:visibility="visible">
@@ -359,7 +359,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="@string/seasons"
-                            android:textColor="@android:color/white"
+                        android:textColor="@color/textColorPrimary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
@@ -404,7 +404,7 @@
                     android:layout_marginTop="12dp"
                     android:visibility="gone"
                     app:cardBackgroundColor="@color/card_dark_bg"
-                    app:cardCornerRadius="12dp"
+                    app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp"
                     tools:visibility="visible">
@@ -420,7 +420,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="@string/link"
-                            android:textColor="@android:color/white"
+                        android:textColor="@color/textColorPrimary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
@@ -443,7 +443,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     app:cardBackgroundColor="@color/card_dark_bg"
-                    app:cardCornerRadius="12dp"
+                    app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
                     app:strokeWidth="0dp">
 
@@ -458,8 +458,10 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="@string/movie_description"
-                            android:textColor="@android:color/white"
-                            android:textSize="15sp"
+                            android:textAllCaps="true"
+                            android:letterSpacing="0.1"
+                            android:textColor="@color/textLabel"
+                            android:textSize="12sp"
                             android:textStyle="bold" />
 
                     <TextView
@@ -468,7 +470,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:lineSpacingExtra="3dp"
-                            android:textColor="@color/text_secondary"
+                        android:textColor="@color/textColorSecondary"
                             android:textSize="14sp"
                             tools:text="@tools:sample/lorem/random" />
 
@@ -483,8 +485,10 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:text="@string/genre"
-                    android:textColor="@android:color/white"
-                    android:textSize="15sp"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.1"
+                    android:textColor="@color/textLabel"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
             <com.google.android.material.chip.ChipGroup
@@ -502,8 +506,10 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
                     android:text="@string/directors"
-                    android:textColor="@android:color/white"
-                    android:textSize="15sp"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.1"
+                    android:textColor="@color/textLabel"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
             <com.google.android.material.chip.ChipGroup
@@ -521,8 +527,10 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="14dp"
                     android:text="@string/actors"
-                    android:textColor="@android:color/white"
-                    android:textSize="15sp"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.1"
+                    android:textColor="@color/textLabel"
+                    android:textSize="12sp"
                     android:textStyle="bold" />
 
             <com.google.android.material.chip.ChipGroup
@@ -543,7 +551,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:background="@drawable/bg_bottom_button"
+            android:background="@android:color/transparent"
             android:orientation="vertical"
             android:paddingHorizontal="16dp"
             android:paddingTop="12dp"
@@ -552,19 +560,21 @@
         <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnPlay"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="56dp"
                 android:text="@string/watch"
-                android:textAllCaps="false"
-                android:textColor="@color/colorPrimary"
+                android:textAllCaps="true"
+                android:letterSpacing="0.05"
+                android:textColor="@color/colorOnAccent"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                app:backgroundTint="@color/colorAccent"
-                app:cornerRadius="26dp"
+                android:background="@drawable/bg_button_gradient"
+                app:backgroundTint="@null"
+                app:cornerRadius="28dp"
                 app:icon="@drawable/ic_play_arrow"
                 app:iconGravity="textStart"
                 app:iconPadding="8dp"
                 app:iconSize="24dp"
-                app:iconTint="@color/colorPrimary" />
+                app:iconTint="@color/colorOnAccent" />
 
     </LinearLayout>
 
