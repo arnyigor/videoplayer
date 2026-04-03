@@ -10,7 +10,8 @@
             android:id="@+id/appBarLayout"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@color/colorPrimary"
+            android:background="@android:color/transparent"
+            android:fitsSystemWindows="true"
             app:elevation="0dp">
 
         <com.google.android.material.appbar.CollapsingToolbarLayout
@@ -43,9 +44,16 @@
             <!-- 2. Градиент снизу для читаемости текста -->
             <View
                     android:layout_width="match_parent"
-                    android:layout_height="250dp"
+                    android:layout_height="300dp"
                     android:layout_gravity="bottom"
-                    android:background="@drawable/gradient_bottom_dark" />
+                    android:background="@drawable/gradient_details_bottom_multi" />
+
+            <!-- Градиент сверху для toolbar -->
+            <View
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    android:layout_gravity="top"
+                    android:background="@drawable/gradient_details_top" />
 
             <!-- 3. Информация поверх постера - parallax, исчезает при свёртывании -->
             <LinearLayout
@@ -73,11 +81,11 @@
                             android:id="@+id/llImdb"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:background="@drawable/bg_badge_blue"
+                            android:background="@drawable/bg_badge_imdb"
                             android:gravity="center"
                             android:orientation="horizontal"
-                            android:paddingHorizontal="8dp"
-                            android:paddingVertical="4dp"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="5dp"
                             android:visibility="gone"
                             tools:visibility="visible">
 
@@ -85,8 +93,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="IMDb"
-                                android:textColor="@color/colorAccentSecondary"
-                                android:textSize="12sp"
+                                android:textColor="#FFD700"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
 
                         <TextView
@@ -94,7 +102,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="4dp"
-                                android:textColor="@color/colorAccentSecondary"
+                                android:textColor="@android:color/white"
                                 android:textSize="12sp"
                                 android:textStyle="bold"
                                 tools:text="7.5" />
@@ -106,11 +114,11 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_badge_blue"
+                            android:background="@drawable/bg_badge_kp"
                             android:gravity="center"
                             android:orientation="horizontal"
-                            android:paddingHorizontal="8dp"
-                            android:paddingVertical="4dp"
+                            android:paddingHorizontal="10dp"
+                            android:paddingVertical="5dp"
                             android:visibility="gone"
                             tools:visibility="visible">
 
@@ -118,8 +126,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="КП"
-                                android:textColor="@color/colorAccentSecondary"
-                                android:textSize="12sp"
+                                android:textColor="#FF6600"
+                                android:textSize="11sp"
                                 android:textStyle="bold" />
 
                         <TextView
@@ -127,7 +135,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginStart="4dp"
-                                android:textColor="@color/colorAccentSecondary"
+                                android:textColor="@android:color/white"
                                 android:textSize="12sp"
                                 android:textStyle="bold"
                                 tools:text="6.8" />
@@ -151,13 +159,13 @@
                     <!-- Избранное -->
                     <ImageView
                             android:id="@+id/ivFavorite"
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:background="@drawable/bg_circle_ripple"
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:background="@drawable/bg_circle_glass"
                             android:clickable="true"
                             android:contentDescription="@string/favorite"
                             android:focusable="true"
-                            android:padding="10dp"
+                            android:padding="12dp"
                             app:srcCompat="@drawable/outline_favorite_24"
                             app:tint="@color/colorAccent" />
 
@@ -191,12 +199,12 @@
 
             </LinearLayout>
 
-            <!-- 4. Toolbar - непрозрачный для читаемости меню -->
+            <!-- 4. Toolbar - прозрачный с градиентом -->
             <androidx.appcompat.widget.Toolbar
                 android:id="@+id/toolbar"
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
-                android:background="@color/colorPrimary"
+                android:background="@android:color/transparent"
                 app:contentInsetStartWithNavigation="0dp"
                 app:navigationIcon="@drawable/ic_arrow_back"
                 app:navigationIconTint="@android:color/white"
@@ -241,12 +249,12 @@
                             android:id="@+id/tvDuration"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:background="@drawable/bg_info_chip"
+                            android:background="@drawable/bg_info_chip_glass"
                             android:drawablePadding="6dp"
                             android:gravity="center_vertical"
-                            android:paddingHorizontal="12dp"
-                            android:paddingVertical="8dp"
-                        android:textColor="@color/textColorPrimary"
+                            android:paddingHorizontal="14dp"
+                            android:paddingVertical="10dp"
+                            android:textColor="@color/textColorPrimary"
                             android:textSize="13sp"
                             android:visibility="gone"
                             app:drawableStartCompat="@drawable/ic_timer"
@@ -260,12 +268,12 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_info_chip"
+                            android:background="@drawable/bg_info_chip_glass"
                             android:drawablePadding="6dp"
                             android:gravity="center_vertical"
-                            android:paddingHorizontal="12dp"
-                            android:paddingVertical="8dp"
-                        android:textColor="@color/textColorPrimary"
+                            android:paddingHorizontal="14dp"
+                            android:paddingVertical="10dp"
+                            android:textColor="@color/textColorPrimary"
                             android:textSize="13sp"
                             android:visibility="gone"
                             app:drawableStartCompat="@drawable/ic_hd"
@@ -279,12 +287,12 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:background="@drawable/bg_info_chip"
+                            android:background="@drawable/bg_info_chip_glass"
                             android:drawablePadding="6dp"
                             android:gravity="center_vertical"
-                            android:paddingHorizontal="12dp"
-                            android:paddingVertical="8dp"
-                        android:textColor="@color/textColorPrimary"
+                            android:paddingHorizontal="14dp"
+                            android:paddingVertical="10dp"
+                            android:textColor="@color/textColorPrimary"
                             android:textSize="13sp"
                             app:drawableStartCompat="@drawable/ic_update"
                             app:drawableTint="@color/colorAccent"
@@ -299,12 +307,13 @@
                     android:id="@+id/cardSaveData"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:visibility="gone"
                     app:cardBackgroundColor="@color/card_success_bg"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
-                    app:strokeWidth="0dp"
+                    app:strokeColor="@color/colorSeparator"
+                    app:strokeWidth="1dp"
                     tools:visibility="visible">
 
                 <LinearLayout
@@ -340,12 +349,13 @@
                     android:id="@+id/cardSeasons"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:visibility="gone"
                     app:cardBackgroundColor="@color/card_dark_bg"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
-                    app:strokeWidth="0dp"
+                    app:strokeColor="@color/colorSeparator"
+                    app:strokeWidth="1dp"
                     tools:visibility="visible">
 
                 <LinearLayout
@@ -373,21 +383,21 @@
                         <Spinner
                                 android:id="@+id/spinSeasons"
                                 android:layout_width="0dp"
-                                android:layout_height="44dp"
+                                android:layout_height="48dp"
                                 android:layout_marginEnd="6dp"
                                 android:layout_weight="1"
-                                android:background="@drawable/bg_spinner"
-                                android:paddingHorizontal="12dp"
+                                android:background="@drawable/bg_spinner_new"
+                                android:paddingHorizontal="14dp"
                                 tools:listitem="@layout/i_track_select_text" />
 
                         <Spinner
                                 android:id="@+id/spinEpisodes"
                                 android:layout_width="0dp"
-                                android:layout_height="44dp"
+                                android:layout_height="48dp"
                                 android:layout_marginStart="6dp"
                                 android:layout_weight="1"
-                                android:background="@drawable/bg_spinner"
-                                android:paddingHorizontal="12dp"
+                                android:background="@drawable/bg_spinner_new"
+                                android:paddingHorizontal="14dp"
                                 tools:listitem="@layout/i_track_select_text" />
 
                     </LinearLayout>
@@ -401,12 +411,13 @@
                     android:id="@+id/cardLinks"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
                     android:visibility="gone"
                     app:cardBackgroundColor="@color/card_dark_bg"
                     app:cardCornerRadius="16dp"
                     app:cardElevation="0dp"
-                    app:strokeWidth="0dp"
+                    app:strokeColor="@color/colorSeparator"
+                    app:strokeWidth="1dp"
                     tools:visibility="visible">
 
                 <LinearLayout
@@ -427,10 +438,10 @@
                     <Spinner
                             android:id="@+id/spinLinks"
                             android:layout_width="match_parent"
-                            android:layout_height="44dp"
-                            android:layout_marginTop="10dp"
-                            android:background="@drawable/bg_spinner"
-                            android:paddingHorizontal="12dp"
+                            android:layout_height="48dp"
+                            android:layout_marginTop="12dp"
+                            android:background="@drawable/bg_spinner_new"
+                            android:paddingHorizontal="14dp"
                             tools:listitem="@layout/i_track_select_text" />
 
                 </LinearLayout>
@@ -551,10 +562,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:background="@android:color/transparent"
+            android:background="@drawable/gradient_bottom_button"
             android:orientation="vertical"
             android:paddingHorizontal="16dp"
-            android:paddingTop="12dp"
+            android:paddingTop="32dp"
             android:paddingBottom="16dp">
 
         <com.google.android.material.button.MaterialButton
@@ -564,17 +575,17 @@
                 android:text="@string/watch"
                 android:textAllCaps="true"
                 android:letterSpacing="0.05"
-                android:textColor="@color/colorOnAccent"
+                android:textColor="@android:color/white"
                 android:textSize="16sp"
                 android:textStyle="bold"
-                android:background="@drawable/bg_button_gradient"
+                android:background="@drawable/bg_button_play_gradient"
                 app:backgroundTint="@null"
                 app:cornerRadius="28dp"
                 app:icon="@drawable/ic_play_arrow"
                 app:iconGravity="textStart"
                 app:iconPadding="8dp"
                 app:iconSize="24dp"
-                app:iconTint="@color/colorOnAccent" />
+                app:iconTint="@android:color/white" />
 
     </LinearLayout>
 

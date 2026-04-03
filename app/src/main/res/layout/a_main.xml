@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/colorPrimary"
     tools:context=".presentation.MainActivity">
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -24,14 +25,15 @@
 
         <com.google.android.material.bottomnavigation.BottomNavigationView
             android:id="@+id/bottom_nav_view"
-            android:background="@color/bottom_nav_bg"
+            android:background="@drawable/bg_bottom_nav"
             android:layout_width="match_parent"
             app:itemBackground="@null"
             app:itemTextColor="@color/nav_item_color_state"
             app:itemIconTint="@color/nav_item_color_state"
+            app:itemIconSize="24dp"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
-            android:elevation="16dp"
+            android:elevation="0dp"
             app:labelVisibilityMode="labeled"
             app:itemRippleColor="@color/colorAccent"
             app:layout_constraintBottom_toBottomOf="parent"

@@ -13,6 +13,7 @@ import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.utils.diffItemCallback
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import java.util.Locale
 
 class VideoItemsAdapter(
@@ -46,7 +47,10 @@ class VideoItemsAdapter(
                 tvVideoTitle.text = item.title
                 Glide.with(ivVideoIcon)
                     .load(item.img.getWithDomain(baseUrl))
-                    .placeholder(R.drawable.play_circle_outline)
+                    .placeholder(R.drawable.placeholder_movie)
+                    .error(R.drawable.placeholder_movie)
+                    .transition(DrawableTransitionOptions.withCrossFade(200))
+                    .centerCrop()
                     .into(ivVideoIcon)
                 val type = getType(item, context)
                 val year = if (item.year > 0) "${item.year} " else ""

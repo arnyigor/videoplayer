@@ -11,12 +11,14 @@
         <item name="android:textColorHint">@color/textColorSecondary</item>
         <item name="android:textColorPrimary">@color/textColorPrimary</item>
         <item name="android:textColorSecondary">@color/textColorSecondary</item>
+        <item name="android:textColorHint">@color/textColorSecondary</item>
 
         <item name="android:dialogTheme">@style/MyDialogStyle</item>
         <item name="alertDialogTheme">@style/MyDialogStyle</item>
 
-        <item name="android:statusBarColor">?attr/colorPrimarySurface</item>
-        <item name="android:navigationBarColor">?attr/colorPrimaryDark</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/colorPrimaryDark</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:itemTextAppearance">@style/ItemMenuTextAppearance</item>
         <item name="popupMenuStyle">@style/popupMenuStyle</item>
 

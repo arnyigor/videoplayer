@@ -6,18 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuInflater
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import androidx.core.content.ContextCompat
-import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.BuildConfig
@@ -46,7 +41,6 @@ import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.copyToClipboard
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
-import com.arny.mobilecinema.presentation.utils.getDP
 import com.arny.mobilecinema.presentation.utils.getDuration
 import com.arny.mobilecinema.presentation.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
@@ -61,7 +55,6 @@ import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
 import com.google.android.material.chip.Chip
-import com.google.android.material.chip.ChipGroup
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
@@ -311,10 +304,12 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     onDownloadFile()
                     true
                 }
+
                 R.id.menu_action_cache_movie -> {
                     onCache()
                     true
                 }
+
                 R.id.menu_action_clear_cache -> {
                     viewModel.handleEvent(
                         DetailsEvent.ClearCache(
@@ -325,18 +320,22 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     )
                     true
                 }
+
                 R.id.menu_action_send_feedback -> {
                     showFeedbackDialog()
                     true
                 }
+
                 R.id.menu_action_copy_mp4_link -> {
                     showCopyMp4LinkDialog()
                     true
                 }
+
                 R.id.menu_action_update_data -> {
                     viewModel.handleEvent(DetailsEvent.ShowUpdateDialog)
                     true
                 }
+
                 else -> false
             }
         }
@@ -607,7 +606,8 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private fun FDetailsBinding.initGenres(genres: List<String>) {
         chgrGenres.removeAllViews()
-        val genresMap = genres.flatMap { it.split(",") }.map { it.trim() }.filter { it.isNotBlank() }
+        val genresMap =
+            genres.flatMap { it.split(",") }.map { it.trim() }.filter { it.isNotBlank() }
         tvGenres.isVisible = genresMap.isNotEmpty()
 
         for (genre in genresMap) {
@@ -688,9 +688,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 data == null -> {
                     cardSaveData.isVisible = false
                 }
+
                 data.loading -> {
                     tvSaveData.text = getString(R.string.cinema_save_data_invalidate)
                 }
+
                 data.downloadedPercent > 0.0f && data.downloadedSize > 0L -> {
                     val percentStr = "%.1f%%".format(Locale.getDefault(), data.downloadedPercent)
                     val sizeStr = formatFileSize(data.downloadedSize, 1)
@@ -699,6 +701,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     } else ""
                     tvSaveData.text = "Сохранён: $percentStr • $sizeStr$totalStr"
                 }
+
                 data.downloadedSize > 0L -> {
                     tvSaveData.text = "Сохранён: ${formatFileSize(data.downloadedSize, 1)}"
                 }

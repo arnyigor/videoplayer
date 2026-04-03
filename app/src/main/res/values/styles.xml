@@ -5,13 +5,29 @@
         <item name="android:textSize">14sp</item>
         <item name="android:textColor">@color/textColorPrimary</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:maxLines">1</item>
+        <item name="android:maxLines">2</item>
         <item name="android:ellipsize">end</item>
+        <item name="android:lineSpacingExtra">2dp</item>
     </style>
 
     <style name="HomeCardSubTitleStyle" parent="TextAppearance.AppCompat">
         <item name="android:textSize">12sp</item>
         <item name="android:textColor">@color/textColorSecondary</item>
+        <item name="android:lineSpacingExtra">1dp</item>
+    </style>
+
+    <style name="SectionLabelStyle" parent="TextAppearance.AppCompat">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/textLabel</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.1</item>
+    </style>
+
+    <style name="ToolbarTitleStyle" parent="TextAppearance.Widget.AppCompat.Toolbar.Title">
+        <item name="android:textSize">20sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@android:color/white</item>
     </style>
 
     <style name="DetailsTitleStyle" parent="TextAppearance.AppCompat">
@@ -48,14 +64,14 @@
     <style name="PlayButton" parent="@style/Widget.MaterialComponents.Button">
         <item name="android:padding">8dp</item>
         <item name="android:textSize">20sp</item>
-        <item name="android:background">@drawable/btn_background</item>
-        <item name="android:textColor">?attr/colorPrimary</item>
+        <item name="android:background">@drawable/bg_button_play_gradient</item>
+        <item name="android:textColor">@android:color/white</item>
     </style>
 
     <style name="SerialSpinnerStyle" parent="TextAppearance.AppCompat">
         <item name="android:textSize">16sp</item>
         <item name="android:gravity">center_horizontal</item>
-        <item name="android:background">@drawable/bg_stroke</item>
+        <item name="android:background">@drawable/bg_spinner</item>
         <item name="android:padding">8dp</item>
         <item name="android:textColor">@color/textColorSecondary</item>
     </style>
@@ -68,6 +84,22 @@
     <style name="CollapsingToolbarTitleExpanded" parent="TextAppearance.AppCompat.Widget.ActionBar.Title">
         <item name="android:textColor">@android:color/transparent</item>
         <item name="android:textSize">1sp</item>
+    </style>
+
+    <!-- Material 3 Chip Styles -->
+    <style name="Widget.App.Chip.Unselected" parent="Widget.Material3.Chip.Suggestion">
+        <item name="chipBackgroundColor">@color/chip_dark_bg</item>
+        <item name="chipStrokeColor">@android:color/transparent</item>
+        <item name="chipStrokeWidth">0dp</item>
+        <item name="android:textColor">@color/chip_text</item>
+        <item name="cornerRadius">16dp</item>
+    </style>
+
+    <style name="Widget.App.Chip.Selected" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">@color/chip_selected_bg</item>
+        <item name="chipStrokeWidth">0dp</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="cornerRadius">16dp</item>
     </style>
 
 </resources>

@@ -8,13 +8,13 @@ import androidx.sqlite.db.SupportSQLiteQuery
 import com.arny.mobilecinema.domain.models.ViewMovie
 
 interface BaseDao<T> {
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insert(obj: T): Long
 
-    @Update(onConflict = OnConflictStrategy.ABORT)
+    @Update(onConflict = OnConflictStrategy.REPLACE)
     fun update(obj: T): Int
 
-    @Insert(onConflict = OnConflictStrategy.ABORT)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertAll(objs: List<T>)
 
     @RawQuery

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Градиентная подложка -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#FF6B6B"
+                android:centerColor="#E056FD"
+                android:endColor="#9B59B6"
+                android:type="linear" />
+            <corners android:radius="28dp" />
+        </shape>
+    </item>
+    <!-- Светлая обводка -->
+    <item
+        android:bottom="2dp"
+        android:left="2dp"
+        android:right="2dp"
+        android:top="2dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="135"
+                android:startColor="#FF8E8E"
+                android:centerColor="#F787FF"
+                android:endColor="#B07CC6"
+                android:type="linear" />
+            <corners android:radius="26dp" />
+        </shape>
+    </item>
+</layer-list>
