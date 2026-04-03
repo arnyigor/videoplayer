@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class PlayerUiState(
@@ -43,6 +44,10 @@ class PlayerViewModel @AssistedInject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState = _uiState.asStateFlow()
+
+    private var lastKnownPosition: Long = 0L
+    private var lastKnownSeason: Int = 0
+    private var lastKnownEpisode: Int = 0
 
     private val _isPipModeEnable = MutableStateFlow(false)
     private val _pipMode = BufferedChannel<Boolean>()
@@ -72,36 +77,39 @@ class PlayerViewModel @AssistedInject constructor(
 
         val movieId = movie?.dbId
 
-        viewModelScope.launch {
-            historyInteractor.getSaveData(movieId)
+viewModelScope.launch {
+            val dataResult = historyInteractor.getSaveData(movieId)
                 .catch { _error.trySend(ThrowableString(it)) }
-                .collect { dataResult ->
-                    when (dataResult) {
-                        is DataResult.Error -> {
-                            _error.trySend(ThrowableString(dataResult.throwable))
-                        }
-                        is DataResult.Success -> {
-                            val saveData = dataResult.result
+                .first()
 
-                            // ПРИОРИТЕТ: сохранённые данные > аргументы навигации
-                            val (resolvedSeason, resolvedEpisode, resolvedTime) = resolvePosition(
-                                movie = movie,
-                                saveData = saveData,
-                                argsSeason = seasonIndex,
-                                argsEpisode = episodeIndex
-                            )
-
-                            _uiState.value = PlayerUiState(
-                                path = path,
-                                movie = movie,
-                                time = resolvedTime,
-                                season = resolvedSeason,
-                                episode = resolvedEpisode,
-                                version = 1,
-                            )
-                        }
-                    }
+            when (dataResult) {
+                is DataResult.Error -> {
+                    _error.trySend(ThrowableString(dataResult.throwable))
                 }
+                is DataResult.Success -> {
+                    val saveData = dataResult.result
+
+                    val (resolvedSeason, resolvedEpisode, resolvedTime) = resolvePosition(
+                        movie = movie,
+                        saveData = saveData,
+                        argsSeason = seasonIndex,
+                        argsEpisode = episodeIndex
+                    )
+
+                    lastKnownPosition = resolvedTime
+                    lastKnownSeason = resolvedSeason
+                    lastKnownEpisode = resolvedEpisode
+
+                    _uiState.value = PlayerUiState(
+                        path = path,
+                        movie = movie,
+                        time = resolvedTime,
+                        season = resolvedSeason,
+                        episode = resolvedEpisode,
+                        version = 1,
+                    )
+                }
+            }
         }
     }
 
@@ -252,7 +260,27 @@ class PlayerViewModel @AssistedInject constructor(
         }
     }
 
-    fun setLastPlayerError(error: String) {
+fun setLastPlayerError(error: String) {
         feedbackInteractor.setLastError(error)
+    }
+
+    fun updatePlaybackPosition(position: Long, season: Int, episode: Int) {
+        lastKnownPosition = position
+        lastKnownSeason = season
+        lastKnownEpisode = episode
+    }
+
+    fun forceReEmit() {
+        val currentState = _uiState.value
+        if (currentState.version > 0) {
+            _uiState.update { state ->
+                state.copy(
+                    time = lastKnownPosition.takeIf { it > 0 } ?: state.time,
+                    season = lastKnownSeason.takeIf { it >= 0 } ?: state.season,
+                    episode = lastKnownEpisode.takeIf { it >= 0 } ?: state.episode,
+                    version = state.version + 1
+                )
+            }
+        }
     }
 }

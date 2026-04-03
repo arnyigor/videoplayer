@@ -437,13 +437,14 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    override fun onPause() {
+override fun onPause() {
         super.onPause()
         volumeObserver?.let { unregisterContentResolver(it) }
         with((requireActivity() as AppCompatActivity)) {
             supportActionBar?.show()
         }
         player?.let { exoPlayer ->
+            saveCurrentPosition(exoPlayer)
             saveMoviePosition(exoPlayer)
         }
         // Показываем системный UI обратно
@@ -453,21 +454,42 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    override fun onStop() {
+override fun onStop() {
         super.onStop()
         if (Util.SDK_INT >= Build.VERSION_CODES.N) {
+            player?.let { exoPlayer ->
+                val currentPosition = exoPlayer.currentPosition
+                val movie = args.movie
+                val dbId = movie?.dbId
+                if (dbId != null) {
+                    val state = viewModel.uiState.value
+                    when (movie.type) {
+                        MovieType.CINEMA -> {
+                            viewModel.updatePlaybackPosition(currentPosition, 0, 0)
+                            viewModel.saveMoviePosition(dbId, currentPosition, 0, 0)
+                        }
+                        MovieType.SERIAL -> {
+                            val metadata = exoPlayer.currentMediaItem?.mediaMetadata
+                            val bundle = metadata?.extras
+                            val season = bundle?.getInt(AppConstants.Player.SEASON) ?: state.season ?: 0
+                            val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: state.episode ?: 0
+                            viewModel.updatePlaybackPosition(currentPosition, season, episode)
+                            viewModel.saveMoviePosition(dbId, currentPosition, season, episode)
+                        }
+                        else -> {}
+                    }
+                }
+            }
             releasePlayer()
         }
         requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
-    override fun onDestroyView() {
+override fun onDestroyView() {
         super.onDestroyView()
-        // Очистка Handlers
         btnsHandler.removeCallbacksAndMessages(null)
         volumeHandler.removeCallbacksAndMessages(null)
 
-        // ВАЖНО: Удаляем listener с decorView
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             activity?.window?.decorView?.setOnApplyWindowInsetsListener(null)
         } else {
@@ -476,10 +498,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
         windowInsetsListener = null
 
-        // Показываем системный UI обратно при уходе
         showSystemUIImmediately()
 
-        // Обнуляем binding в конце
+        gestureDetectorCompat = null
         _binding = null
     }
 
@@ -970,9 +991,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             )
             binding.playerView.setShowNextButton(size > 0)
             binding.playerView.setShowPreviousButton(size > 0)
-            player?.apply {
+player?.apply {
                 player?.seekTo(currentEpisodeIndex, position)
-                addListener(listener)
                 prepare()
             }
         } else {
@@ -1018,9 +1038,23 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 }
             }
         }
-        player?.clearMediaItems()
+player?.clearMediaItems()
         player?.setMediaSources(mediaSources)
         return currentIndexEpisode
+    }
+
+    private fun saveCurrentPosition(exoPlayer: ExoPlayer) {
+        val position = exoPlayer.currentPosition
+        if (position <= 0L) return
+
+        val metadata = exoPlayer.currentMediaItem?.mediaMetadata
+        val bundle = metadata?.extras
+        val currentSeason = bundle?.getInt(AppConstants.Player.SEASON)
+            ?: viewModel.uiState.value.season ?: 0
+        val currentEpisode = bundle?.getInt(AppConstants.Player.EPISODE)
+            ?: viewModel.uiState.value.episode ?: 0
+
+        viewModel.updatePlaybackPosition(position, currentSeason, currentEpisode)
     }
 
     private fun saveMoviePosition(exoPlayer: ExoPlayer) {
@@ -1110,13 +1144,18 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
+@SuppressLint("ClickableViewAccessibility")
     private fun preparePlayer() {
-        // Проверяем binding
         val currentBinding = _binding ?: return
 
-        // Предотвращаем повторную инициализацию при lifecycle
         if (isPlayerPrepared && player != null) return
+
+        val isRecreatedPlayer = isPlayerPrepared && player == null
+
+        if (isRecreatedPlayer) {
+            lastProcessedVersion = -1
+        }
+
         isPlayerPrepared = true
 
         with(currentBinding) {
@@ -1126,7 +1165,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     .build()
             trackSelector =
                 DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory()).apply {
-                    // Исправление: присваиваем результат buildUpon()
                     parameters = parameters.buildUpon()
                         .setPreferredAudioLanguage("rus")
                         .build()
@@ -1141,7 +1179,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 .apply {
                     playWhenReady = true
                     addAnalyticsListener(analytic)
+                    addListener(listener)
                 }
+            mediaItemIndex = viewModel.uiState.value.episode ?: 0
             initMediaSession()
             releaseEnhancer()
             initEnhancer()
@@ -1169,12 +1209,22 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 gestureDetectorCompat?.onTouchEvent(event)
                 false
             }
-            viewModel.setPlayData(
-                path = args.path,
-                movie = args.movie,
-                seasonIndex = args.seasonIndex,
-                episodeIndex = args.episodeIndex,
-            )
+
+            setupPopupMenus = true
+            qualityPopUp = null
+            langPopUp = null
+
+            val currentState = viewModel.uiState.value
+            if (currentState.version > 0) {
+                viewModel.forceReEmit()
+            } else {
+                viewModel.setPlayData(
+                    path = args.path,
+                    movie = args.movie,
+                    seasonIndex = args.seasonIndex,
+                    episodeIndex = args.episodeIndex,
+                )
+            }
         }
     }
 
@@ -1292,12 +1342,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    private fun setPlayerSource(time: Long = 0, source: MediaSource?) {
+private fun setPlayerSource(time: Long = 0, source: MediaSource?) {
         player?.apply {
             source?.let {
                 setMediaSource(source)
                 seekTo(time)
-                addListener(listener)
                 prepare()
             }
         }
@@ -1399,7 +1448,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    private fun releasePlayer() {
+private fun releasePlayer() {
         mediaSession?.release()
         mediaSession = null
         releaseEnhancer()
@@ -1411,5 +1460,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             player = null
         }
         isPlayerPrepared = false
+        setupPopupMenus = true
+        qualityPopUp = null
+        langPopUp = null
     }
 }
