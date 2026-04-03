@@ -54,6 +54,7 @@ import com.arny.mobilecinema.presentation.utils.unregisterReceiver
 import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
+import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.chip.Chip
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.Assisted
@@ -63,6 +64,7 @@ import org.joda.time.DateTime
 import timber.log.Timber
 import java.util.Locale
 import javax.inject.Inject
+import kotlin.math.abs
 
 class DetailsFragment : Fragment(R.layout.f_details) {
 
@@ -226,6 +228,25 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private fun initToolbar() {
         binding.toolbar.setNavigationOnClickListener {
             findNavController().popBackStack()
+        }
+
+        var isCollapsed = false
+
+        binding.appBarLayout.addOnOffsetChangedListener { appBarLayout, verticalOffset ->
+            val totalScrollRange = appBarLayout.totalScrollRange
+            val percentage = abs(verticalOffset).toFloat() / totalScrollRange.toFloat()
+
+            // Плавно скрываем элементы поверх постера
+            val contentAlpha = (1f - percentage * 1.5f).coerceIn(0f, 1f)
+            binding.tvTitle.setAlpha(contentAlpha)
+            binding.tvTypeYear.setAlpha(contentAlpha)
+            binding.llRatings.setAlpha(contentAlpha)
+
+            // Отслеживаем состояние свёрнутости
+            val newCollapsed = percentage > 0.8f
+            if (newCollapsed != isCollapsed) {
+                isCollapsed = newCollapsed
+            }
         }
     }
 
@@ -508,6 +529,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                 .error(R.drawable.placeholder_movie)
                 .into(binding.ivBanner)
 
+            collapsingToolbar.title = movie.title
             updateTitle(movie.title)
 
             val info = movie.info

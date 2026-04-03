@@ -20,12 +20,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="500dp"
                 app:contentScrim="@color/colorPrimary"
-                app:expandedTitleGravity="bottom|start"
                 app:layout_scrollFlags="scroll|exitUntilCollapsed|snap"
                 app:statusBarScrim="@color/colorPrimary"
-                app:titleEnabled="false"
+                app:titleEnabled="true"
+                app:expandedTitleGravity="bottom|start"
                 app:expandedTitleMarginStart="16dp"
-                app:expandedTitleMarginBottom="80dp">
+                app:expandedTitleMarginBottom="80dp"
+                app:collapsedTitleGravity="start|center_vertical"
+                app:collapsedTitleTextAppearance="@style/CollapsingToolbar.Collapsed"
+                app:expandedTitleTextAppearance="@style/CollapsingToolbar.Expanded">
 
             <!-- 1. Poster with Parallax -->
             <FrameLayout
