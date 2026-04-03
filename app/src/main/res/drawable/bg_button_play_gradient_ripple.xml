@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+        android:color="#33FFFFFF">
+
+    <item>
+        <layer-list>
+            <!-- Градиентная подложка -->
+            <item>
+                <shape android:shape="rectangle">
+                    <gradient
+                            android:angle="135"
+                            android:startColor="#FF6B6B"
+                            android:centerColor="#E056FD"
+                            android:endColor="#9B59B6"
+                            android:type="linear" />
+                    <corners android:radius="28dp" />
+                </shape>
+            </item>
+
+            <!-- Светлая обводка -->
+            <item
+                    android:bottom="2dp"
+                    android:left="2dp"
+                    android:right="2dp"
+                    android:top="2dp">
+                <shape android:shape="rectangle">
+                    <gradient
+                            android:angle="135"
+                            android:startColor="#FF8E8E"
+                            android:centerColor="#F787FF"
+                            android:endColor="#B07CC6"
+                            android:type="linear" />
+                    <corners android:radius="26dp" />
+                </shape>
+            </item>
+        </layer-list>
+    </item>
+
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <corners android:radius="28dp" />
+            <solid android:color="#FFFFFFFF" />
+        </shape>
+    </item>
+
+</ripple>

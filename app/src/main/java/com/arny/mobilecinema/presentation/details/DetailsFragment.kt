@@ -514,20 +514,29 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
             // Рейтинги в виде бейджей
             if (info.ratingImdb > 0) {
-                llImdb.isVisible = true
-                tvImdbRating.text = "%.1f".format(Locale.US, info.ratingImdb)
+                tvImdbBadge.isVisible = true
+                tvImdbBadge.text = buildString {
+                    append("%.1f")
+                }.format(Locale.US, info.ratingImdb)
             } else {
-                llImdb.isVisible = false
+                tvImdbBadge.isVisible = false
             }
 
             if (info.ratingKP > 0) {
-                llKp.isVisible = true
-                tvKpRating.text = "%.1f".format(Locale.US, info.ratingKP)
+                tvKpBadge.isVisible = true
+                tvKpBadge.text = buildString {
+                    append("%.1f")
+                }.format(Locale.US, info.ratingKP)
             } else {
-                llKp.isVisible = false
+                tvKpBadge.isVisible = false
             }
 
-            tvLikes.text = "👍 ${info.likes}  👎 ${info.dislikes}"
+            tvLikes.text = buildString {
+                append("👍 ")
+                append(info.likes)
+                append("  👎 ")
+                append(info.dislikes)
+            }
 
             // Название
             tvTitle.text = movie.title
@@ -699,11 +708,20 @@ class DetailsFragment : Fragment(R.layout.f_details) {
                     val totalStr = if (data.total > 0L) {
                         " / ${formatFileSize(data.total, 1)}"
                     } else ""
-                    tvSaveData.text = "Сохранён: $percentStr • $sizeStr$totalStr"
+                    tvSaveData.text = buildString {
+                        append("Сохранён: ")
+                        append(percentStr)
+                        append(" • ")
+                        append(sizeStr)
+                        append(totalStr)
+                    }
                 }
 
                 data.downloadedSize > 0L -> {
-                    tvSaveData.text = "Сохранён: ${formatFileSize(data.downloadedSize, 1)}"
+                    tvSaveData.text = buildString {
+                        append("Сохранён: ")
+                        append(formatFileSize(data.downloadedSize, 1))
+                    }
                 }
             }
         }
