@@ -409,7 +409,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         hasSavedData = state.hasSavedData
 
         binding.ivFavorite.setImageResource(
-            if (state.isInFavorite) R.drawable.baseline_favorite_24_filled else R.drawable.outline_favorite_24
+            if (state.isInFavorite) R.drawable.baseline_bookmark_24 else R.drawable.outline_bookmark_24
         )
 
         updateMenuVisibility()
@@ -537,18 +537,14 @@ class DetailsFragment : Fragment(R.layout.f_details) {
             // Рейтинги в виде бейджей
             if (info.ratingImdb > 0) {
                 tvImdbBadge.isVisible = true
-                tvImdbBadge.text = buildString {
-                    append("%.1f")
-                }.format(Locale.US, info.ratingImdb)
+                tvImdbBadge.text = getString(R.string.imdb_formatted,"%.2f".format(info.ratingImdb))
             } else {
                 tvImdbBadge.isVisible = false
             }
 
             if (info.ratingKP > 0) {
                 tvKpBadge.isVisible = true
-                tvKpBadge.text = buildString {
-                    append("%.1f")
-                }.format(Locale.US, info.ratingKP)
+                tvKpBadge.text = getString(R.string.kp_formatted,"%.2f".format(info.ratingKP))
             } else {
                 tvKpBadge.isVisible = false
             }

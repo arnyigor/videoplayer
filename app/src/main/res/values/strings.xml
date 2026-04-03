@@ -58,7 +58,9 @@
     <string name="cinema">Фильм</string>
     <string name="serial">Сериал</string>
     <string name="imdb">IMDB</string>
+    <string name="imdb_formatted">IMDB %s</string>
     <string name="kp">KP</string>
+    <string name="kp_formatted">KP %s</string>
     <string name="updating_channel_name">Обновление</string>
     <string name="updating">Обновление фильмов и сериалов %d%%</string>
     <string name="updating_all">Обновление фильмов и сериалов</string>

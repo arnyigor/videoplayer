@@ -17,7 +17,7 @@
     <item
         android:id="@+id/nav_favorite"
         app:showAsAction="ifRoom"
-        android:icon="@drawable/outline_favorite_24"
+        android:icon="@drawable/outline_bookmark_24"
         android:title="@string/menu_favorite" />
 
     <item
