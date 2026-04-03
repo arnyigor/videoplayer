@@ -60,6 +60,7 @@ import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.unlockOrientation
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateTitle
+import com.google.android.material.chip.Chip
 import dagger.android.support.AndroidSupportInjection
 import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
@@ -307,6 +308,7 @@ class HomeFragment : Fragment(), OnSearchListener {
                     searchMenuItem?.expandActionView()
                     searchView?.setQuery(search, false)
                 }
+                updateFilterChips()
             }, 350)
             extendSearchResult = null
         }
@@ -352,6 +354,7 @@ class HomeFragment : Fragment(), OnSearchListener {
             searchView?.setQuery(query, false)
             viewModel.loadMovies(query, delay = true)
             arguments?.clear()
+            updateFilterChips()
         }
     }
 
@@ -428,38 +431,51 @@ class HomeFragment : Fragment(), OnSearchListener {
             val action = HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId)
             findNavController().navigateSafely(action)
         }
+
+        // Улучшенный LoadStateListener — loading/empty/error/retry
         itemsAdapter?.addLoadStateListener { loadState ->
-            if (loadState.source.refresh is LoadState.NotLoading) {
-                val visibleEmpty = (itemsAdapter?.itemCount ?: 0) < 1
-                binding.tvEmptyView.isVisible = visibleEmpty
-                binding.btnUpdateList.isVisible = visibleEmpty
+            val refresh = loadState.refresh
+            when {
+                refresh is LoadState.Loading -> {
+                    binding.pbLoading.isVisible = true
+                    binding.llEmptyState.isVisible = false
+                    binding.errorView.isVisible = false
+                }
+                refresh is LoadState.Error -> {
+                    binding.pbLoading.isVisible = false
+                    binding.llEmptyState.isVisible = false
+                    binding.errorView.isVisible = true
+                    val errorMsg = refresh.error.localizedMessage
+                        ?: getString(R.string.error_loading_data)
+                    binding.tvErrorMessage.text = errorMsg
+                }
+                refresh is LoadState.NotLoading -> {
+                    binding.pbLoading.isVisible = false
+                    binding.errorView.isVisible = false
+                    val isEmpty = (itemsAdapter?.itemCount ?: 0) < 1
+                    binding.llEmptyState.isVisible = isEmpty
+                    binding.btnUpdateList.isVisible = isEmpty
+                    binding.tvEmptyView.isVisible = isEmpty
+                    hasQuery = !isEmpty
+                    updateMenuVisibility()
+                }
             }
         }
+
         binding.rcVideoList.apply {
             adapter = itemsAdapter
             setHasFixedSize(true)
+        }
+
+        // Кнопка Retry
+        binding.btnRetry.setOnClickListener {
+            itemsAdapter?.retry()
         }
     }
 
     /** Collects flows from the ViewModel and updates UI accordingly. */
     private fun observeData() {
-        launchWhenCreated {
-            viewModel.loading.collectLatest { loading ->
-                binding.pbLoading.isVisible = loading
-            }
-        }
-launchWhenCreated {
-            viewModel.empty.collectLatest { empty ->
-                hasQuery = !empty
-                updateMenuVisibility()
-                binding.tvEmptyView.isVisible = empty
-            }
-        }
-        launchWhenCreated {
-            viewModel.emptyExtended.collectLatest { empty ->
-                binding.tvEmptyView.isVisible = empty
-            }
-        }
+        // loading/empty теперь управляются через LoadStateListener в initAdapters()
         launchWhenCreated {
             viewModel.error.collectLatest { error ->
                 when (error) {
@@ -534,15 +550,116 @@ launchWhenCreated {
         }
     }
 
+    /** Обновляет чипы активных фильтров над списком */
+    private fun updateFilterChips() {
+        binding.filterChips.removeAllViews()
+
+        val hasActiveFilters = extendSearch || searchType.isNotBlank() ||
+                searchAddTypes.size < 2 || arguments?.isEmpty == false
+
+        if (!hasActiveFilters) {
+            binding.filterChipsScroll.isVisible = false
+            return
+        }
+
+        binding.filterChipsScroll.isVisible = true
+
+        // Чип типа поиска (director/actor/genre из intent)
+        val director = getIntentString(AppConstants.PARAMS.DIRECTOR)
+        val actor = getIntentString(AppConstants.PARAMS.ACTOR)
+        val genre = getIntentString(AppConstants.PARAMS.GENRE)
+
+        when {
+            !director.isNullOrBlank() -> addFilterChip("Режиссёр: $director") {
+                resetFilters()
+            }
+            !actor.isNullOrBlank() -> addFilterChip("Актёр: $actor") {
+                resetFilters()
+            }
+            !genre.isNullOrBlank() -> addFilterChip("Жанр: $genre") {
+                resetFilters()
+            }
+        }
+
+        // Чип расширенного поиска
+        if (extendSearch && extendSearchResult != null) {
+            val result = extendSearchResult!!
+            if (result.search.isNotBlank()) {
+                addFilterChip("Поиск: ${result.search}") {
+                    resetFilters()
+                }
+            }
+            if (result.genres.isNotEmpty()) {
+                addFilterChip("Жанры: ${result.genres.take(3).joinToString(", ")}") {
+                    resetFilters()
+                }
+            }
+            if (result.countries.isNotEmpty()) {
+                addFilterChip("Страны: ${result.countries.take(3).joinToString(", ")}") {
+                    resetFilters()
+                }
+            }
+            if (result.yearsRange.from > 1900 || result.yearsRange.to > 0) {
+                addFilterChip("Годы: ${result.yearsRange.from}–${result.yearsRange.to}") {
+                    resetFilters()
+                }
+            }
+        }
+
+        // Чип сортировки
+        if (currentOrder.isNotBlank()) {
+            val orderLabel = when (currentOrder) {
+                AppConstants.Order.NONE -> "По дате обновления"
+                AppConstants.Order.TITLE -> "По названию"
+                AppConstants.Order.RATINGS -> "По рейтингам"
+                AppConstants.Order.YEAR_DESC -> "По году ↓"
+                AppConstants.Order.YEAR_ASC -> "По году ↑"
+                else -> currentOrder
+            }
+            addFilterChip("Сортировка: $orderLabel") {
+                resetFilters()
+            }
+        }
+    }
+
+    private fun addFilterChip(text: String, onClose: () -> Unit) {
+        val chip = Chip(requireContext())
+        chip.text = text
+        chip.isCloseIconVisible = true
+        chip.isClickable = false
+        chip.isCheckable = false
+        chip.setOnCloseIconClickListener {
+            onClose()
+        }
+        binding.filterChips.addView(chip)
+    }
+
+    private fun resetFilters() {
+        extendSearch = false
+        extendSearchResult = null
+        searchType = AppConstants.SearchType.TITLE
+        searchAddTypes = mutableListOf(
+            AppConstants.SearchType.CINEMA,
+            AppConstants.SearchType.SERIAL
+        )
+        currentOrder = ""
+        arguments?.clear()
+        viewModel.loadMovies(resetAll = true)
+        updateFilterChips()
+    }
+
     override fun isSearchComplete(): Boolean = emptySearch && !extendSearch
 
-/** Resets search state and UI when the user collapses the search view. */
+ /** Resets search state and UI when the user collapses the search view. */
     override fun collapseSearch() {
         viewModel.loadMovies(resetAll = true)
         emptySearch = true
         extendSearch = false
+        extendSearchResult = null
+        searchType = AppConstants.SearchType.TITLE
         requireActivity().hideKeyboard()
         updateMenuVisibility()
+        updateFilterChips()
     }
 
 /** Builds and handles menu items for the home screen. */
@@ -653,6 +770,7 @@ launchWhenCreated {
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
                 viewModel.setOrder(currentOrder, likesPriority)
+                updateFilterChips()
             },
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
@@ -710,6 +828,7 @@ launchWhenCreated {
                     type = searchType,
                     addTypes = searchAddTypes
                 )
+                updateFilterChips()
             },
             initView = {
                 with(DCustomSearchBinding.bind(this)) {

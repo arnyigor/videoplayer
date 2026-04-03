@@ -9,6 +9,7 @@ import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.home.UiAction
+import com.arny.mobilecinema.presentation.uimodels.ListScreenState
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -31,10 +32,9 @@ class HistoryViewModel @AssistedInject constructor(
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor
 ) : ViewModel() {
-    private val _loading = MutableStateFlow(false)
-    val loading = _loading.asStateFlow()
-    private val _empty = MutableStateFlow(false)
-    val empty = _empty.asStateFlow()
+    private val _screenState = MutableStateFlow<ListScreenState>(ListScreenState.Loading)
+    val screenState = _screenState.asStateFlow()
+
     private val _order = MutableStateFlow("")
     val order = _order.asStateFlow()
     private var search = UiAction.Search()
@@ -48,6 +48,7 @@ class HistoryViewModel @AssistedInject constructor(
         .debounce(350)
         .onStart {
             started = true
+            _screenState.value = ListScreenState.Loading
             val savedOrder = interactor.getOrder(true)
             _order.value = savedOrder
             emit(
@@ -65,9 +66,10 @@ class HistoryViewModel @AssistedInject constructor(
                 searchType = search.searchType,
             )
         }
-        .onEach {
-            _loading.value = false
-            checkEmpty()
+        .onEach { pagingData ->
+            // Empty state will be determined by LoadStateListener in Fragment
+            // based on actual adapter itemCount, so we just set Content here
+            _screenState.value = ListScreenState.Content
         }
         .cachedIn(viewModelScope)
 
@@ -118,18 +120,6 @@ class HistoryViewModel @AssistedInject constructor(
         }
     }
 
-    private fun checkEmpty() {
-        viewModelScope.launch {
-            historyInteractor.isHistoryEmpty()
-                .collectLatest { data ->
-                    when (data) {
-                        is DataResult.Error -> {}
-                        is DataResult.Success -> _empty.value = data.result
-                    }
-                }
-        }
-    }
-
     fun clearAllViewHistory() {
         viewModelScope.launch {
             historyInteractor.clearAllViewHistory()
@@ -137,6 +127,7 @@ class HistoryViewModel @AssistedInject constructor(
                     when (data) {
                         is DataResult.Error -> {}
                         is DataResult.Success -> {
+                            _screenState.value = ListScreenState.Empty
                             reloadHistory()
                         }
                     }

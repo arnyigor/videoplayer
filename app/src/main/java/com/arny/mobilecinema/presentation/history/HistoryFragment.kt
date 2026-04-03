@@ -14,6 +14,7 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
+import androidx.paging.LoadState
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
@@ -25,6 +26,7 @@ import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.presentation.favorite.FavoritesFragmentDirections
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
+import com.arny.mobilecinema.presentation.uimodels.ListScreenState
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
@@ -262,23 +264,72 @@ class HistoryFragment : Fragment(), OnSearchListener {
             val action = HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId)
             findNavController().navigateSafely(action)
         }
+
+        // LoadStateListener — единый источник правды для loading/empty/error
+        itemsAdapter?.addLoadStateListener { loadState ->
+            val refresh = loadState.refresh
+            when {
+                refresh is LoadState.Loading -> {
+                    binding.progressBar.isVisible = true
+                    binding.tvEmptyView.isVisible = false
+                    binding.errorView.isVisible = false
+                }
+                refresh is LoadState.Error -> {
+                    binding.progressBar.isVisible = false
+                    binding.tvEmptyView.isVisible = false
+                    binding.errorView.isVisible = true
+                    val errorMsg = (refresh as? LoadState.Error)?.error?.localizedMessage
+                        ?: getString(R.string.error_loading_data)
+                    binding.tvErrorMessage.text = errorMsg
+                }
+                refresh is LoadState.NotLoading -> {
+                    binding.progressBar.isVisible = false
+                    binding.errorView.isVisible = false
+                    val isEmpty = (itemsAdapter?.itemCount ?: 0) == 0
+                    binding.tvEmptyView.isVisible = isEmpty
+                    hasSavedData = !isEmpty
+                    requireActivity().invalidateOptionsMenu()
+                }
+            }
+        }
+
         binding.rvHistoryList.apply {
             adapter = itemsAdapter
             setHasFixedSize(true)
+        }
+
+        // Кнопка Retry
+        binding.btnRetry.setOnClickListener {
+            itemsAdapter?.retry()
         }
     }
 
     private fun observeData() {
         launchWhenCreated {
-            viewModel.loading.collectLatest { loading ->
-                binding.progressBar.isVisible = loading
-            }
-        }
-        launchWhenCreated {
-            viewModel.empty.collectLatest { empty ->
-                hasSavedData = !empty
-                requireActivity().invalidateOptionsMenu()
-                binding.tvEmptyView.isVisible = empty
+            viewModel.screenState.collectLatest { state ->
+                when (state) {
+                    is ListScreenState.Loading -> {
+                        binding.progressBar.isVisible = true
+                        binding.tvEmptyView.isVisible = false
+                        binding.errorView.isVisible = false
+                    }
+                    is ListScreenState.Empty -> {
+                        binding.progressBar.isVisible = false
+                        binding.tvEmptyView.isVisible = true
+                        binding.errorView.isVisible = false
+                        hasSavedData = false
+                        requireActivity().invalidateOptionsMenu()
+                    }
+                    is ListScreenState.Error -> {
+                        binding.progressBar.isVisible = false
+                        binding.tvEmptyView.isVisible = false
+                        binding.errorView.isVisible = true
+                        binding.tvErrorMessage.text = state.message
+                    }
+                    is ListScreenState.Content -> {
+                        // Visibility управляется через LoadStateListener
+                    }
+                }
             }
         }
         launchWhenCreated {

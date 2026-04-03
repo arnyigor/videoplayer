@@ -221,6 +221,14 @@
     <string name="feedback_dialog_result_ok">Сообщение отправлено!</string>
     <string name="f_favorites_title">Избранное</string>
     <string name="history_empty_title">История просмотра пуста</string>
+    <string name="favorites_empty_title">Нет избранного</string>
+    <string name="error_loading_data">Ошибка загрузки</string>
+    <string name="retry">Повторить</string>
+    <string name="history_empty_subtitle">Здесь будут фильмы, которые ты уже открывал</string>
+    <string name="favorites_empty_subtitle">Добавляй фильмы по кнопке сердца</string>
+    <string name="go_to_catalog">Перейти в каталог</string>
+    <string name="player_loading">Загрузка видео…</string>
+    <string name="player_error_title">Ошибка воспроизведения</string>
 
     <plurals name="sezons">
         <item quantity="one">%d сезон</item>
