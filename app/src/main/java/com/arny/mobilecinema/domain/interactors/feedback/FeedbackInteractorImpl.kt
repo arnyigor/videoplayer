@@ -13,9 +13,8 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.presentation.utils.getAvailableMemory
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
-import javax.inject.Inject
 
-class FeedbackInteractorImpl @Inject constructor(
+class FeedbackInteractorImpl constructor(
     private val context: Context
 ) : FeedbackInteractor {
 

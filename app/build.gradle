@@ -2,8 +2,8 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-parcelize'
-apply plugin: 'kotlin-kapt'
-apply plugin: "androidx.navigation.safeargs.kotlin"
+apply plugin: 'com.google.devtools.ksp'
+apply plugin: "androidx.navigation.safeargs"
 apply plugin: "com.google.android.libraries.mapsplatform.secrets-gradle-plugin"
 apply from: "$rootProject.projectDir/dependencies.gradle"
 apply from: "$rootProject.projectDir/commonconfig.gradle"
@@ -11,6 +11,13 @@ apply plugin: 'kotlinx-serialization'
 
 
 android {
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
+    
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {
@@ -26,7 +33,7 @@ dependencies {
     recycler()
     cardview()
     supportLegacy()
-    dagger()
+    koin()
     material()
     glide()
     navigation()
@@ -47,4 +54,5 @@ dependencies {
     kotlinxSerialization()
     bouncycastle()
     ffmpeg()
+    leanback()
 }

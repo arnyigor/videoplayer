@@ -11,9 +11,8 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
-import javax.inject.Inject
 
-class MovieMapper @Inject constructor() : Mapper<MovieEntity, Movie> {
+class MovieMapper constructor() : Mapper<MovieEntity, Movie> {
     override fun transform(data: MovieEntity): Movie {
         val seasons = if (data.seasons.isNotBlank()) {
             data.seasons.fromJsonToList<SerialSeason>(initGson())

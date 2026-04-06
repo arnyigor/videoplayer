@@ -38,9 +38,8 @@ import org.joda.time.DateTime
 import org.joda.time.Duration
 import timber.log.Timber
 import java.io.File
-import javax.inject.Inject
 
-class UpdateRepositoryImpl @Inject constructor(
+class UpdateRepositoryImpl constructor(
     private val apiService: ApiService,
     private val jsoup: JsoupService,
     private val prefs: Prefs,

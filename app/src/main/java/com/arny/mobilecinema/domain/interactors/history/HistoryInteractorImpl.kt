@@ -18,9 +18,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
-class HistoryInteractorImpl @Inject constructor(
+class HistoryInteractorImpl constructor(
     private val repository: MoviesRepository,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val playerSource: PlayerSource,

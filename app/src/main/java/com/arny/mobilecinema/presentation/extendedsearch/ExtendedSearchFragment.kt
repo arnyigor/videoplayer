@@ -20,7 +20,6 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.databinding.FExtendedSearchBinding
-import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel.Companion.DIALOG_REQ_COUNTRIES
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel.Companion.DIALOG_REQ_GENRES
@@ -33,25 +32,16 @@ import com.arny.mobilecinema.presentation.utils.multiChoiceDialog
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.updateTitle
-import dagger.android.support.AndroidSupportInjection
-import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import java.text.NumberFormat
 import java.util.Calendar
-import javax.inject.Inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.core.component.KoinComponent
+import org.koin.android.ext.android.inject
 
 class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
-    @Inject
-    lateinit var prefs: Prefs
-
-    @AssistedFactory
-    internal interface ViewModelFactory {
-        fun create(): ExtendedSearchViewModel
-    }
-
-    @Inject
-    internal lateinit var viewModelFactory: ViewModelFactory
-    private val viewModel: ExtendedSearchViewModel by viewModelFactory { viewModelFactory.create() }
+    private val prefs: Prefs by inject()
+    private val viewModel: ExtendedSearchViewModel by viewModel()
 
     private companion object {
         const val MIN_IMDB = 0.0f
@@ -63,7 +53,7 @@ class ExtendedSearchFragment : Fragment(R.layout.f_extended_search) {
     private lateinit var binding: FExtendedSearchBinding
 
     override fun onAttach(context: Context) {
-        AndroidSupportInjection.inject(this)
+        // Koin injection
         super.onAttach(context)
     }
 

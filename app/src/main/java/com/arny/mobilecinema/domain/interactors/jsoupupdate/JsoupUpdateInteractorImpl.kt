@@ -37,10 +37,9 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
 import kotlin.math.abs
 
-class JsoupUpdateInteractorImpl @Inject constructor(
+class JsoupUpdateInteractorImpl constructor(
     private val jsoupService: JsoupService,
     private val repository: JsoupUpdateRepository,
     private val updateRepository: UpdateRepository,

@@ -6,10 +6,9 @@ import kotlinx.coroutines.delay
 import org.jsoup.Connection
 import org.jsoup.helper.Validate
 import org.jsoup.nodes.Document
-import javax.inject.Inject
 import kotlin.random.Random
 
-class JsoupService @Inject constructor() {
+class JsoupService constructor() {
 
     companion object {
         @Volatile

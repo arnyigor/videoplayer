@@ -77,4 +77,20 @@
         <!-- Required -->
         <item name="postSplashScreenTheme">@style/AppTheme</item>
     </style>
+
+    <!-- TV Styles -->
+    <style name="AppTheme.TV" parent="Theme.Leanback">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="android:windowBackground">@color/colorPrimaryDark</item>
+        <item name="android:textColor">@color/textColorPrimary</item>
+    </style>
+
+    <style name="TvDialogTheme" parent="Theme.MaterialComponents.DayNight.Dialog">
+        <item name="android:windowMinWidthMajor">50%</item>
+        <item name="android:windowMinWidthMinor">50%</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:background">@color/colorPrimaryDark</item>
+    </style>
 </resources>

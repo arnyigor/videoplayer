@@ -44,11 +44,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.concurrent.Executors
-import javax.inject.Inject
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-class PlayerSource @Inject constructor(
+class PlayerSource constructor(
     private val context: Context,
     private val updateRepository: UpdateRepository,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,

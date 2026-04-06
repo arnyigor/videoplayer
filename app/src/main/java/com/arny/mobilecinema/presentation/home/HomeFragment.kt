@@ -35,12 +35,13 @@ import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
-import com.arny.mobilecinema.di.viewModelFactory
+
 import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendSearchResult
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.uimodels.AlertType
+import com.arny.mobilecinema.presentation.utils.DeviceUtils
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.getImgCompat
@@ -61,18 +62,18 @@ import com.arny.mobilecinema.presentation.utils.unlockOrientation
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.google.android.material.chip.Chip
-import dagger.android.support.AndroidSupportInjection
-import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import timber.log.Timber
-import javax.inject.Inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 /**
  * HomeFragment handles the primary UI for browsing videos.
  * It coordinates with [HomeViewModel] to fetch and display data,
  * manages search state, user permissions, and interactions with other app components.
  */
-class HomeFragment : Fragment(), OnSearchListener {
+class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
     /** Companion object holding request codes for activity results. */
     private companion object {
         const val REQUEST_LOAD: Int = 99
@@ -80,19 +81,9 @@ class HomeFragment : Fragment(), OnSearchListener {
         const val REQUEST_OPEN_FOLDER: Int = 101
     }
 
-    @Inject
-    lateinit var prefs: Prefs
+    private val prefs: Prefs by inject()
 
-    /** Factory for creating the associated ViewModel via assisted injection. */
-    @AssistedFactory
-    internal interface ViewModelFactory {
-        fun create(): HomeViewModel
-    }
-
-    @Inject
-    internal lateinit var viewModelFactory: ViewModelFactory
-
-    private val viewModel: HomeViewModel by viewModelFactory { viewModelFactory.create() }
+    private val viewModel: HomeViewModel by viewModel()
     private lateinit var binding: FHomeBinding
     private var searchMenuItem: MenuItem? = null
     private var searchView: SearchView? = null
@@ -150,10 +141,7 @@ class HomeFragment : Fragment(), OnSearchListener {
     private val handler = Handler(Looper.getMainLooper())
     private val updateReceiver by lazy { makeBroadcastReceiver() }
 
-    override fun onAttach(context: Context) {
-        AndroidSupportInjection.inject(this)
-        super.onAttach(context)
-    }
+
 
     /** Inflates the fragment layout and returns the root view. */
     override fun onCreateView(
@@ -362,6 +350,7 @@ class HomeFragment : Fragment(), OnSearchListener {
 
     /** Orchestrates permission requests for notifications and storage. */
     private fun requestPermissions() {
+        if (DeviceUtils.isTV(requireContext())) return
         when (permissionRequestId) {
             0 -> requestNotice()
             1 -> requestStorage()

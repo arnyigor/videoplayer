@@ -13,13 +13,12 @@ import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.strings.SimpleString
-import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-class ExtendedSearchViewModel @AssistedInject constructor(
+class ExtendedSearchViewModel constructor(
     private val moviesInteractor: MoviesInteractor,
 ) : ViewModel() {
     companion object {

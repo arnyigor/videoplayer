@@ -16,7 +16,6 @@ import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
-import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -37,7 +36,7 @@ data class PlayerUiState(
     val version: Long = 0,
 )
 
-class PlayerViewModel @AssistedInject constructor(
+class PlayerViewModel constructor(
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
     private val feedbackInteractor: FeedbackInteractor,

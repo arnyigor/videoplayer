@@ -561,6 +561,8 @@ fun Context.getDP(value: Int) = TypedValue.applyDimension(
     resources.displayMetrics
 )
 
-fun Context.isPiPAvailable() =
-    Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+fun Context.isPiPAvailable(): Boolean {
+    if (DeviceUtils.isTV(this)) return false
+    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
             && packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+}

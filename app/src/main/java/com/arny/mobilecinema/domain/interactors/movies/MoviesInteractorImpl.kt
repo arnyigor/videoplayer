@@ -18,9 +18,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
-import javax.inject.Inject
 
-class MoviesInteractorImpl @Inject constructor(
+class MoviesInteractorImpl constructor(
     private val repository: MoviesRepository,
     private val updateRepository: UpdateRepository,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,

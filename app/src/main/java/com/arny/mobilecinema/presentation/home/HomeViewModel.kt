@@ -19,7 +19,6 @@ import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
-import dagger.assisted.AssistedInject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -52,7 +51,7 @@ sealed class NavigationEvent {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class HomeViewModel @AssistedInject constructor(
+class HomeViewModel constructor(
     private val dataUpdateInteractor: DataUpdateInteractor,
     private val moviesInteractor: MoviesInteractor,
 ) : ViewModel() {

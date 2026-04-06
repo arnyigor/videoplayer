@@ -6,9 +6,8 @@ import com.arny.mobilecinema.data.models.MovieMapper
 import com.arny.mobilecinema.data.models.setData
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.JsoupUpdateRepository
-import javax.inject.Inject
 
-class JsoupUpdateRepositoryImpl @Inject constructor(
+class JsoupUpdateRepositoryImpl constructor(
     private val movieDao: MovieDao,
     private val movieMapper: MovieMapper,
 ) : JsoupUpdateRepository {

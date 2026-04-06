@@ -9,7 +9,6 @@ import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.home.UiAction
 import com.arny.mobilecinema.presentation.uimodels.ListScreenState
-import dagger.assisted.AssistedInject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
@@ -20,7 +19,7 @@ import kotlinx.coroutines.launch
  * ViewModel для экрана «Избранное».
  */
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class FavoritesViewModel @AssistedInject constructor(
+class FavoritesViewModel constructor(
     private val interactor: MoviesInteractor,
 ) : ViewModel() {
 

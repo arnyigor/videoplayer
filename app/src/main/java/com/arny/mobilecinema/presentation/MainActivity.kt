@@ -16,25 +16,15 @@ import com.arny.mobilecinema.databinding.AMainBinding
 import com.arny.mobilecinema.presentation.listeners.OnPictureInPictureListener
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.showSnackBar
-import dagger.android.AndroidInjection
-import dagger.android.AndroidInjector
-import dagger.android.DispatchingAndroidInjector
-import dagger.android.HasAndroidInjector
-import javax.inject.Inject
 
-class MainActivity : AppCompatActivity(), HasAndroidInjector {
+class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: AMainBinding
     private lateinit var navController: NavController
     private var backPressedTime: Long = 0
 
-    @Inject
-    lateinit var dispatchingAndroidInjector: DispatchingAndroidInjector<Any>
-
-    override fun androidInjector(): AndroidInjector<Any> = dispatchingAndroidInjector
-
     override fun onCreate(savedInstanceState: Bundle?) {
-        AndroidInjection.inject(this)
+        // Koin injection
         super.onCreate(savedInstanceState)
         binding = AMainBinding.inflate(layoutInflater)
         setContentView(binding.root)

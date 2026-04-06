@@ -28,12 +28,11 @@ import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
 import com.arny.mobilecinema.domain.models.DownloadMovieItem
 import com.arny.mobilecinema.domain.repository.UpdateRepository
-import com.arny.mobilecinema.presentation.MainActivity
 import com.arny.mobilecinema.presentation.player.PlayerSource
+import com.arny.mobilecinema.presentation.utils.ActivityNavigator
 import com.arny.mobilecinema.presentation.utils.DownloadHelper
 import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
 import com.google.android.exoplayer2.offline.Download
-import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -43,12 +42,14 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.File
 import java.util.concurrent.CancellationException
-import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.pow
 import kotlin.properties.Delegates
 
-class MovieDownloadService : LifecycleService(), CoroutineScope {
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+
+class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
     private companion object {
         const val NOTICE_ID = 100002
         const val NOTICE_CHANNEL_ID = "NOTICE_CHANNEL_ID"
@@ -57,14 +58,11 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     private var fileDownloadJob: Job? = null
 
-    @Inject
-    lateinit var playerSource: PlayerSource
+    private val playerSource: PlayerSource by inject()
 
-    @Inject
-    lateinit var updateRepository: UpdateRepository
+    private val updateRepository: UpdateRepository by inject()
 
-    @Inject
-    lateinit var feedbackInteractor: FeedbackInteractor
+    private val feedbackInteractor: FeedbackInteractor by inject()
     private var nextPauseResumeAction: String = ""
     private var noticeStopped = false
     private val supervisorJob = SupervisorJob()
@@ -247,7 +245,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
 
     override fun onCreate() {
         super.onCreate()
-        AndroidInjection.inject(this)
+        // Koin injection
         initNotice()
         playerSource.setListener(progressListener)
         downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -699,14 +697,14 @@ class MovieDownloadService : LifecycleService(), CoroutineScope {
             PendingIntent.getActivity(
                 /* context = */ this,
                 /* requestCode = */ 0,
-                /* intent = */ Intent(this, MainActivity::class.java),
+                /* intent = */ ActivityNavigator.getMainActivityIntent(this),
                 /* flags = */ pendingFlags
             )
         } else {
             PendingIntent.getActivity(
                 /* context = */ this,
                 /* requestCode = */ 0,
-                /* intent = */ Intent(this, MainActivity::class.java),
+                /* intent = */ ActivityNavigator.getMainActivityIntent(this),
                 /* flags = */ pendingFlags
             )
         }

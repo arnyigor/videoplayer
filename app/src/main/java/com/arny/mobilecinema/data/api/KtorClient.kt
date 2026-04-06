@@ -9,9 +9,8 @@ import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.logging.SIMPLE
 import io.ktor.serialization.gson.gson
-import javax.inject.Inject
 
-class KtorClient @Inject constructor() {
+class KtorClient constructor() {
     val client = HttpClient(OkHttp) {
         install(ContentNegotiation) {
             gson()

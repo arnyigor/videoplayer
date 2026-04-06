@@ -7,32 +7,17 @@ import android.view.ViewTreeObserver
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.arny.mobilecinema.R
-import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.presentation.MainActivity
-import dagger.android.AndroidInjection
-import dagger.android.AndroidInjector
-import dagger.android.DispatchingAndroidInjector
-import dagger.android.HasAndroidInjector
-import dagger.assisted.AssistedFactory
-import javax.inject.Inject
+import com.arny.mobilecinema.presentation.tv.TvMainActivity
+import com.arny.mobilecinema.presentation.utils.DeviceUtils
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.core.component.KoinComponent
 
-class StartActivity : AppCompatActivity(), HasAndroidInjector {
-    @Inject
-    lateinit var dispatchingAndroidInjector: DispatchingAndroidInjector<Any>
-
-    override fun androidInjector(): AndroidInjector<Any> = dispatchingAndroidInjector
-
-    @AssistedFactory
-    internal interface ViewModelFactory {
-        fun create(): SplashViewModel
-    }
-
-    @Inject
-    internal lateinit var viewModelFactory: ViewModelFactory
-    private val viewModel: SplashViewModel by viewModelFactory { viewModelFactory.create() }
+class StartActivity : AppCompatActivity(), KoinComponent {
+    private val viewModel: SplashViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        AndroidInjection.inject(this)
+        // Koin injection
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         splashScreen.setKeepOnScreenCondition { true }
@@ -42,14 +27,19 @@ class StartActivity : AppCompatActivity(), HasAndroidInjector {
             object : ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
                     return if (viewModel.readyComplete.value) {
-                        // The content is ready; start drawing.
                         content.viewTreeObserver.removeOnPreDrawListener(this)
-                        startActivity(Intent(this@StartActivity, MainActivity::class.java))
+                        val targetActivity = if (DeviceUtils.isTV(this@StartActivity)) {
+                            TvMainActivity::class.java
+                        } else {
+                            MainActivity::class.java
+                        }
+                        val intent = Intent(this@StartActivity, targetActivity)
+                        intent.putExtra(KEY_SHARED_URL, viewModel.sharedUrl)
+                        startActivity(intent)
                         overridePendingTransition(R.anim.fade_in, R.anim.fade_out)
                         finish()
                         true
                     } else {
-                        // The content is not ready; suspend.
                         false
                     }
                 }
@@ -73,5 +63,9 @@ class StartActivity : AppCompatActivity(), HasAndroidInjector {
                 }
             }
         }
+    }
+
+    companion object {
+        const val KEY_SHARED_URL = "KEY_SHARED_URL"
     }
 }

@@ -2,6 +2,8 @@
     <string name="app_name">Anwap Movies</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
+    <string name="rewind">Rewind</string>
+    <string name="forward">Forward</string>
     <string name="movies_not_found">Список видео пуст</string>
     <string name="update_list">Обновить список</string>
     <string name="home_search">Поиск</string>
@@ -256,4 +258,20 @@
         <item quantity="many">%1$d загрузок</item>
         <item quantity="other">%1$d загрузок</item>
     </plurals>
+
+    <!-- TV -->
+    <string name="all_movies">Все фильмы</string>
+    <string name="history">История</string>
+    <string name="favorites">Избранное</string>
+    <string name="search_results">Результаты поиска</string>
+    <string name="related_movies">Похожие</string>
+    <string name="episodes">Эпизоды</string>
+    <string name="add_to_favorites">Добавить в избранное</string>
+    <string name="remove_from_favorites">Удалить из избранного</string>
+    <string name="exit_title">Выход</string>
+    <string name="exit_message">Вы уверены, что хотите выйти?</string>
+    <string name="yes">Да</string>
+    <string name="no">Нет</string>
+    <string name="update_available_title">Доступно обновление</string>
+    <string name="update_available_message">Доступно новое обновление фильмов и сериалов. Хотите обновить?</string>
 </resources>

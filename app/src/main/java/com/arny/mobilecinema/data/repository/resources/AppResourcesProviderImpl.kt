@@ -1,9 +1,8 @@
 package com.arny.mobilecinema.data.repository.resources
 
 import android.content.Context
-import javax.inject.Inject
 
-class AppResourcesProviderImpl @Inject constructor(
+class AppResourcesProviderImpl constructor(
     private val context: Context
 ) : AppResourcesProvider {
     override fun getStringArray(res: Int): List<String> {

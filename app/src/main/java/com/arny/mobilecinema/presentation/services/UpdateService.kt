@@ -33,12 +33,11 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MoviesData
 import com.arny.mobilecinema.domain.models.UpdateType
 import com.arny.mobilecinema.domain.repository.UpdateRepository
-import com.arny.mobilecinema.presentation.MainActivity
+import com.arny.mobilecinema.presentation.utils.ActivityNavigator
 import com.arny.mobilecinema.presentation.utils.getAvailableMemory
 import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
 import com.google.gson.GsonBuilder
 import com.google.gson.stream.JsonReader
-import dagger.android.AndroidInjection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -55,7 +54,6 @@ import java.io.FileInputStream
 import java.io.FileReader
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
-import javax.inject.Inject
 import kotlin.coroutines.CoroutineContext
 
 /**
@@ -72,7 +70,10 @@ import kotlin.coroutines.CoroutineContext
  * All operations are executed inside coroutines, making use of the AndroidX Lifecycle
  * components to automatically cancel jobs when the service is destroyed.
  */
-class UpdateService : LifecycleService(), CoroutineScope {
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+
+class UpdateService : LifecycleService(), CoroutineScope, KoinComponent {
     private companion object {
         /**
          * Unique identifier used for foreground notifications.  The ID must be unique within
@@ -85,12 +86,10 @@ class UpdateService : LifecycleService(), CoroutineScope {
     private var importedMovieId = 0L
 
     /** Repository for accessing and persisting movie data. */
-    @Inject
-    lateinit var repository: UpdateRepository
+    private val repository: UpdateRepository by inject()
 
     /** Interactor used to fetch data from remote websites via Jsoup. */
-    @Inject
-    lateinit var jsoupUpdateInteractor: JsoupUpdateInteractor
+    private val jsoupUpdateInteractor: JsoupUpdateInteractor by inject()
 
     private val supervisorJob = SupervisorJob()
     private var canceled = false
@@ -106,7 +105,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
      */
     override fun onCreate() {
         super.onCreate()
-        AndroidInjection.inject(this)
+        // Koin injection
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTICE_ID,
@@ -704,7 +703,7 @@ class UpdateService : LifecycleService(), CoroutineScope {
         val contentIntent = PendingIntent.getActivity(
             /* context = */ this,
             /* requestCode = */ 0,
-            /* intent = */ Intent(this, MainActivity::class.java),
+            /* intent = */ ActivityNavigator.getMainActivityIntent(this),
             /* flags = */  getFlag()
         )
         val pendingFlags: Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

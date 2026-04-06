@@ -134,7 +134,7 @@ ext {
     roomDB = { version = '2.6.1' -> Alias {
         implementation("androidx.room:room-runtime:$version")
         implementation("androidx.room:room-ktx:$version")
-        kapt("androidx.room:room-compiler:$version")
+        ksp("androidx.room:room-compiler:$version")
         implementation("androidx.room:room-paging:$version")
         implementation("androidx.paging:paging-runtime-ktx:3.1.1")
     }}
@@ -208,9 +208,14 @@ ext {
         kapt "com.google.dagger:dagger-android-processor:$version"
     }}
 
-    glide = { version = '4.11.0' -> Alias {
+    koin = { version = '3.5.6' -> Alias {
+        implementation "io.insert-koin:koin-android:$version"
+        implementation "io.insert-koin:koin-core:$version"
+    }}
+
+    glide = { version = '4.16.0' -> Alias {
         implementation "com.github.bumptech.glide:glide:$version"
-        kapt "com.github.bumptech.glide:compiler:$version"
+        ksp "com.github.bumptech.glide:ksp:$version"
         implementation("com.github.bumptech.glide:okhttp3-integration:$version") {
             exclude group: 'glide-parent'
         }
@@ -295,6 +300,10 @@ ext {
         implementation "ru.ok.tracer:tracer-profiler-sampling:$version"
         // Систрейс
         implementation "ru.ok.tracer:tracer-profiler-systrace:$version"
+    }}
+
+    leanback = { version = '1.0.0' -> Alias {
+        implementation "androidx.leanback:leanback:$version"
     }}
 
 }

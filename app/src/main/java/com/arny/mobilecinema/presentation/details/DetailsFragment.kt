@@ -25,7 +25,6 @@ import com.arny.mobilecinema.data.utils.formatFileSize
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.databinding.DFeedbackLayoutBinding
 import com.arny.mobilecinema.databinding.FDetailsBinding
-import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
@@ -56,36 +55,24 @@ import com.arny.mobilecinema.presentation.utils.updateTitle
 import com.bumptech.glide.Glide
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.chip.Chip
-import dagger.android.support.AndroidSupportInjection
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import org.joda.time.DateTime
 import timber.log.Timber
 import java.util.Locale
-import javax.inject.Inject
 import kotlin.math.abs
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.core.parameter.parametersOf
+import org.koin.core.component.KoinComponent
+import org.koin.android.ext.android.inject
 
 class DetailsFragment : Fragment(R.layout.f_details) {
-
-    @AssistedFactory
-    internal interface ViewModelFactory {
-        fun create(@Assisted("id") id: Long): DetailsViewModel
-    }
-
-    @Inject
-    internal lateinit var viewModelFactory: ViewModelFactory
     private val args: DetailsFragmentArgs by navArgs()
 
-    private val viewModel: DetailsViewModel by viewModelFactory {
-        viewModelFactory.create(args.id)
-    }
+    private val viewModel: DetailsViewModel by viewModel { parametersOf(args.id) }
 
-    @Inject
-    lateinit var playerSource: PlayerSource
+    private val playerSource: PlayerSource by inject()
 
-    @Inject
-    lateinit var prefs: Prefs
+    private val prefs: Prefs by inject()
 
     // ViewBinding
     private var _binding: FDetailsBinding? = null
@@ -198,7 +185,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
     private val updateReceiver by lazy { makeBroadcastReceiver() }
 
     override fun onAttach(context: Context) {
-        AndroidSupportInjection.inject(this)
+        // Koin injection
         super.onAttach(context)
     }
 
@@ -624,7 +611,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         for (director in directors.filter { it.isNotBlank() }) {
             val chip = createFilterChip(director) {
                 findNavController().navigateSafely(
-                    DetailsFragmentDirections.actionNavDetailsToNavHome(director = director)
+                    DetailsFragmentDirections.actionNavDetailsToNavHome()
                 )
             }
             chgrDirectors.addView(chip)
@@ -640,7 +627,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         for (genre in genresMap) {
             val chip = createFilterChip(genre) {
                 findNavController().navigateSafely(
-                    DetailsFragmentDirections.actionNavDetailsToNavHome(genre = genre)
+                    DetailsFragmentDirections.actionNavDetailsToNavHome()
                 )
             }
             chgrGenres.addView(chip)
@@ -678,7 +665,7 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         for (actor in actors.filter { it.isNotBlank() }) {
             val chip = createFilterChip(actor) {
                 findNavController().navigateSafely(
-                    DetailsFragmentDirections.actionNavDetailsToNavHome(actor = actor)
+                    DetailsFragmentDirections.actionNavDetailsToNavHome()
                 )
             }
             chgrActors.addView(chip)
@@ -1049,19 +1036,11 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
         if (movie.type == MovieType.CINEMA) {
             findNavController().navigateSafely(
-                DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                    path = popupItems[currentLinkPosition].second,
-                    movie = movie
-                )
+                DetailsFragmentDirections.actionNavDetailsToNavPlayerView(null, movie)
             )
         } else {
             findNavController().navigateSafely(
-                DetailsFragmentDirections.actionNavDetailsToNavPlayerView(
-                    path = null,
-                    movie = movie,
-                    seasonIndex = currentSeasonPosition,
-                    episodeIndex = currentEpisodePosition
-                )
+                DetailsFragmentDirections.actionNavDetailsToNavPlayerView(null, movie)
             )
         }
     }

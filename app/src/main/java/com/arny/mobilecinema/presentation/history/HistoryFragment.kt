@@ -22,7 +22,6 @@ import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHistoryBinding
-import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.presentation.favorite.FavoritesFragmentDirections
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
@@ -34,23 +33,14 @@ import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.setupSearchView
 import com.arny.mobilecinema.presentation.utils.updateTitle
-import dagger.android.support.AndroidSupportInjection
-import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
-import javax.inject.Inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.core.component.KoinComponent
+import org.koin.android.ext.android.inject
 
 class HistoryFragment : Fragment(), OnSearchListener {
-    @Inject
-    lateinit var prefs: Prefs
-
-    @AssistedFactory
-    internal interface ViewModelFactory {
-        fun create(): HistoryViewModel
-    }
-
-    @Inject
-    internal lateinit var viewModelFactory: ViewModelFactory
-    private val viewModel: HistoryViewModel by viewModelFactory { viewModelFactory.create() }
+    private val prefs: Prefs by inject()
+    private val viewModel: HistoryViewModel by viewModel()
     private lateinit var binding: FHistoryBinding
     private var itemsAdapter: VideoItemsAdapter? = null
     private var searchMenuItem: MenuItem? = null
@@ -62,7 +52,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
     private var hasSavedData: Boolean = false
 
     override fun onAttach(context: Context) {
-        AndroidSupportInjection.inject(this)
+        // Koin injection
         super.onAttach(context)
     }
 

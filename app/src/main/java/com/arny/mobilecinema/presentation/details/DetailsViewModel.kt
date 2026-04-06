@@ -22,8 +22,6 @@ import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import com.arny.mobilecinema.presentation.utils.strings.ThrowableString
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedInject
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
@@ -110,8 +108,8 @@ sealed interface DetailsAction {
 }
 
 // ============ ViewModel ============
-class DetailsViewModel @AssistedInject constructor(
-    @Assisted("id") private val id: Long,
+class DetailsViewModel constructor(
+    private val id: Long,
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
     private val feedbackInteractor: FeedbackInteractor,

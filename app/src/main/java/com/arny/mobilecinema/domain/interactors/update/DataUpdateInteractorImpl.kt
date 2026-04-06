@@ -9,9 +9,8 @@ import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.DataUpdateResult
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import kotlinx.coroutines.flow.Flow
-import javax.inject.Inject
 
-class DataUpdateInteractorImpl @Inject constructor(
+class DataUpdateInteractorImpl constructor(
     private val repository: UpdateRepository
 ) : DataUpdateInteractor {
     private var forceUpdate = false

@@ -22,9 +22,8 @@ import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import kotlinx.coroutines.flow.Flow
-import javax.inject.Inject
 
-class MoviesRepositoryImpl @Inject constructor(
+class MoviesRepositoryImpl constructor(
     private val movieMapper: MovieMapper,
     private val movieDao: MovieDao,
     private val historyDao: HistoryDao,

@@ -43,7 +43,6 @@ import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getErrorUrl
 import com.arny.mobilecinema.data.utils.getFullError
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
-import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
@@ -80,13 +79,13 @@ import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
-import dagger.android.support.AndroidSupportInjection
-import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.properties.Delegates
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.core.component.KoinComponent
+import org.koin.android.ext.android.inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
     private companion object {
@@ -97,21 +96,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         const val CONTROLS_ANIMATION_DURATION = 250L
     }
 
-    @AssistedFactory
-    internal interface ViewModelFactory {
-        fun create(): PlayerViewModel
-    }
+    private val prefs: Prefs by inject()
 
-    @Inject
-    internal lateinit var viewModelFactory: ViewModelFactory
+    private val playerSource: PlayerSource by inject()
 
-    @Inject
-    lateinit var prefs: Prefs
-
-    @Inject
-    lateinit var playerSource: PlayerSource
-
-    private val viewModel: PlayerViewModel by viewModelFactory { viewModelFactory.create() }
+    private val viewModel: PlayerViewModel by viewModel()
 
     // Убраны дублирующие поля - теперь хранятся в ViewModel
     private var allEpisodes: List<SerialEpisode> = emptyList()
@@ -387,7 +376,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     override fun onAttach(context: Context) {
-        AndroidSupportInjection.inject(this)
+        // Koin injection
         super.onAttach(context)
     }
 

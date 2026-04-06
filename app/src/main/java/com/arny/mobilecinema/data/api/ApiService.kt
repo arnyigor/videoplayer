@@ -25,9 +25,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import java.io.File
-import javax.inject.Inject
 
-class ApiService @Inject constructor(
+class ApiService(
     private val httpClient: HttpClient
 ) {
     @OptIn(InternalAPI::class)

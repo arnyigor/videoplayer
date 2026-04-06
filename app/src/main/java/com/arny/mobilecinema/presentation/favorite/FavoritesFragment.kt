@@ -21,7 +21,6 @@ import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FFavoritesBinding
-import com.arny.mobilecinema.di.viewModelFactory
 import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.presentation.home.HomeFragmentDirections
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
@@ -34,27 +33,18 @@ import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.setupSearchView
 import com.arny.mobilecinema.presentation.utils.updateTitle
-import dagger.android.support.AndroidSupportInjection
-import dagger.assisted.AssistedFactory
 import kotlinx.coroutines.flow.collectLatest
-import javax.inject.Inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 /**
  * Экран «Избранное».
  */
-class FavoritesFragment : Fragment(), OnSearchListener {
+class FavoritesFragment : Fragment(), OnSearchListener, KoinComponent {
 
-    @Inject lateinit var prefs: Prefs
-
-    @AssistedFactory
-    internal interface ViewModelFactory {
-        fun create(): FavoritesViewModel
-    }
-
-    @Inject
-    internal lateinit var viewModelFactory: ViewModelFactory
-
-    private val viewModel: FavoritesViewModel by viewModelFactory { viewModelFactory.create() }
+    private val prefs: Prefs by inject()
+    private val viewModel: FavoritesViewModel by viewModel()
 
     /* UI‑поля */
     private lateinit var binding: FFavoritesBinding
@@ -74,7 +64,7 @@ class FavoritesFragment : Fragment(), OnSearchListener {
     private var hasSavedData = false
 
     override fun onAttach(context: Context) {
-        AndroidSupportInjection.inject(this)
+        // Koin injection
         super.onAttach(context)
     }
 
