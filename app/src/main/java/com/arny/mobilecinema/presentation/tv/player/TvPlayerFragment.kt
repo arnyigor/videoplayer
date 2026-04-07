@@ -1,22 +1,21 @@
 package com.arny.mobilecinema.presentation.tv.player
 
-import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.inputmethod.EditorInfo
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.databinding.FTvPlayerBinding
+import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
@@ -24,17 +23,16 @@ import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import com.arny.mobilecinema.presentation.utils.DeviceUtils
 import com.arny.mobilecinema.presentation.utils.toast
 import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.source.ProgressiveMediaSource
-import com.google.android.exoplayer2.upstream.DataSource
-import com.google.android.exoplayer2.upstream.DefaultDataSource
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.koin.android.ext.android.getKoin
+import org.koin.android.ext.android.inject
 import org.koin.core.component.KoinComponent
+import androidx.core.view.isVisible
+import com.arny.mobilecinema.presentation.player.PlayerSource
+import kotlin.getValue
 
 /**
  * TV-экран плеера для воспроизведения фильмов и сериалов.
@@ -58,6 +56,11 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
     /** Аргументы навигации */
     private val args: TvPlayerFragmentArgs by navArgs()
+
+    /** Загружаем movie напрямую через интерактор, а не через activityViewModel */
+    private val moviesInteractor: MoviesInteractor by inject()
+
+    private val playerSource: PlayerSource by inject()
 
     private var _binding: FTvPlayerBinding? = null
     private val binding get() = _binding!!
@@ -87,13 +90,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            showError(error.localizedMessage ?: getString(R.string.error_loading_data))
+            val errorMsg = error.localizedMessage ?: getString(R.string.error_loading_data)
+            showError("Ошибка плеера: $errorMsg")
         }
-    }
-
-    override fun onAttach(context: Context) {
-        // Koin injection
-        super.onAttach(context)
     }
 
     override fun onCreateView(
@@ -147,12 +146,67 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
 
         // Загружаем данные
-        viewModel.setPlayData(
-            path = args.sharedUrl.takeIf { it.isNotBlank() },
-            movie = null,
-            seasonIndex = 0,
-            episodeIndex = 0
-        )
+        val sharedUrl = args.sharedUrl.takeIf { it.isNotBlank() }
+        val movieId = args.movieId.takeIf { it > 0 }
+
+        when {
+            sharedUrl != null -> {
+                viewModel.setPlayData(
+                    path = sharedUrl,
+                    movie = null,
+                    seasonIndex = 0,
+                    episodeIndex = 0
+                )
+            }
+            movieId != null -> {
+                // НЕ загружаем фильм вручную.
+                // Вместо этого мы создаем "пустой" фильм только с ID (или извлекаем из аргументов, если у вас есть SafeArgs).
+                // PlayerViewModel сам всё загрузит, проверит ссылки и обновит uiState!
+
+                // Если у вас в NavArgs передается только ID, сделайте так:
+                viewLifecycleOwner.lifecycleScope.launch {
+                    moviesInteractor.getMovie(movieId).collectLatest { result ->
+                        if (result is DataResult.Success) {
+                            viewModel.setPlayData(
+                                path = null,
+                                movie = result.result, // Передаем полный фильм во ViewModel
+                                seasonIndex = args.seasonIndex,
+                                episodeIndex = args.episodeIndex
+                            )
+                        }
+                    }
+                }
+            }
+            else -> {
+                toast(getString(R.string.error_loading_data))
+                findNavController().navigateUp()
+            }
+        }
+    }
+
+    /**
+     * Загружает фильм из базы и передаёт в плеер.
+     */
+    private fun loadMovieAndPlay(movieId: Long) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            moviesInteractor.getMovie(movieId).collectLatest { result ->
+                when (result) {
+                    is DataResult.Success -> {
+                        val movie = result.result
+                        viewModel.setPlayData(
+                            path = null,
+                            movie = movie,
+                            seasonIndex = args.seasonIndex,
+                            episodeIndex = args.episodeIndex
+                        )
+                    }
+                    is DataResult.Error -> {
+                        toast(getString(R.string.error_loading_data))
+                        findNavController().navigateUp()
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -209,28 +263,45 @@ class TvPlayerFragment : Fragment(), KoinComponent {
      * Воспроизводит медиа-контент.
      */
     private fun playMedia(path: String?, movie: Movie?, seasonIndex: Int, episodeIndex: Int) {
-        when {
-            !path.isNullOrBlank() -> playUrl(path)
-            movie != null && movie.type == MovieType.CINEMA -> playCinema(movie)
-            movie != null && movie.type == MovieType.SERIAL -> playSerial(movie, seasonIndex, episodeIndex)
-            else -> {
-                toast(getString(R.string.error_loading_data))
-                findNavController().navigateUp()
+        viewLifecycleOwner.lifecycleScope.launch {
+            when {
+                !path.isNullOrBlank() -> playUrl(path, "Video")
+                movie != null && movie.type == MovieType.CINEMA -> playCinema(movie)
+                movie != null && movie.type == MovieType.SERIAL -> playSerial(movie, seasonIndex, episodeIndex)
+                else -> {
+                    toast(getString(R.string.error_loading_data))
+                    findNavController().navigateUp()
+                }
             }
         }
     }
 
-    private fun playUrl(url: String) {
-        val mediaSource = createMediaSource(url, "Video")
-        player?.apply {
-            setMediaSource(mediaSource)
-            prepare()
+    private suspend fun playUrl(url: String, videoTitle: String) {
+        try {
+            val mediaSource = playerSource.getSource(url, videoTitle)
+            if (mediaSource != null) {
+                player?.apply {
+                    setMediaSource(mediaSource)
+                    prepare()
+                }
+            } else {
+                showError("Не удалось создать источник видео")
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showError(e.message ?: "Ошибка загрузки видео")
         }
     }
 
     private fun playCinema(movie: Movie) {
-        val url = movie.getFirstPlayableUrl() ?: return
-        playUrl(url)
+        val url = movie.getFirstPlayableUrl()
+        if (url.isNullOrBlank()) {
+            showError("Прямая ссылка на видео еще не загружена или недоступна")
+            return
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            playUrl(url, movie.title)
+        }
     }
 
     private fun playSerial(movie: Movie, seasonIndex: Int, episodeIndex: Int) {
@@ -242,15 +313,17 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         allEpisodes = seasons.flatMap { it.episodes.sortedBy { e -> e.episode } }
         currentEpisodeIndex = allEpisodes.indexOf(episode)
 
-        val url = episode.hls ?: episode.dash ?: return
-        playUrl(url)
-        showEpisodeInfo(season.id ?: 0, 0, episode.title)
-    }
+        val url = episode.hls ?: episode.dash
+        if (url.isNullOrBlank()) {
+            showError("Ссылка на эпизод недоступна")
+            return
+        }
 
-    private fun createMediaSource(url: String, title: String): MediaSource {
-        val dataSourceFactory: DataSource.Factory = DefaultDataSource.Factory(requireContext())
-        return ProgressiveMediaSource.Factory(dataSourceFactory)
-            .createMediaSource(MediaItem.fromUri(url))
+        viewLifecycleOwner.lifecycleScope.launch {
+            playUrl(url, episode.title)
+        }
+        val episodeNum = episode.episode.toIntOrNull() ?: 0
+        showEpisodeInfo(season.id ?: 0, episodeNum, episode.title)
     }
 
     private fun showEpisodeInfo(seasonNum: Int, episodeNum: Int, title: String) {
@@ -261,8 +334,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     }
 
     private fun toggleControls() {
-        val isVisible = binding.controlsGroup.visibility == View.VISIBLE
-        if (isVisible) hideControls() else {
+        if (binding.controlsGroup.isVisible) hideControls() else {
             showControls()
             scheduleHideControls()
         }
@@ -295,7 +367,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             currentEpisodeIndex++
             val nextEpisode = allEpisodes[currentEpisodeIndex]
             val url = nextEpisode.hls ?: nextEpisode.dash
-            url?.let { playUrl(it) }
+            url?.let { viewLifecycleOwner.lifecycleScope.launch { playUrl(it, nextEpisode.title ?: "Episode") } }
         } else {
             toast(getString(R.string.update_finished_success))
         }

@@ -272,6 +272,7 @@
     <string name="exit_message">Вы уверены, что хотите выйти?</string>
     <string name="yes">Да</string>
     <string name="no">Нет</string>
+    <string name="stop">Стоп</string>
     <string name="update_available_title">Доступно обновление</string>
     <string name="update_available_message">Доступно новое обновление фильмов и сериалов. Хотите обновить?</string>
 </resources>

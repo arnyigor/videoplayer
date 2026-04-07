@@ -99,6 +99,6 @@ val presentationModule = module {
     viewModel { HistoryViewModel(get(), get()) }
     viewModel { PlayerViewModel(get(), get(), get()) }
     viewModel { SplashViewModel(get()) }
-    viewModel { TvHomeViewModel(get(), get()) }
+    viewModel { TvHomeViewModel(get(), get(), get()) }
     viewModel { TvDetailsViewModel(get()) }
 }

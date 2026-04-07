@@ -10,6 +10,7 @@ interface DataUpdateInteractor {
     fun resetUpdate()
     suspend fun checkBaseUrl(): Flow<DataResult<Boolean>>
     fun updateAll()
+    fun cancelUpdate()
     suspend fun setIntentUrl(url: String)
     suspend fun intentUrl(): Flow<String>
 }

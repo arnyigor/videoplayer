@@ -47,7 +47,7 @@ import java.util.concurrent.Executors
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-class PlayerSource constructor(
+class PlayerSource(
     private val context: Context,
     private val updateRepository: UpdateRepository,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,

@@ -304,6 +304,7 @@ ext {
 
     leanback = { version = '1.0.0' -> Alias {
         implementation "androidx.leanback:leanback:$version"
+        implementation "androidx.leanback:leanback-paging:1.1.0-alpha11"
     }}
 
 }

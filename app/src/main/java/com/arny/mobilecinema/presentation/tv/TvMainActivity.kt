@@ -1,14 +1,14 @@
 package com.arny.mobilecinema.presentation.tv
 
 import android.os.Bundle
-import androidx.appcompat.app.AlertDialog
+import android.app.AlertDialog
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
-import androidx.appcompat.app.AppCompatActivity
+import androidx.fragment.app.FragmentActivity
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.presentation.splash.StartActivity
 
-class TvMainActivity : AppCompatActivity() {
+class TvMainActivity : FragmentActivity() {
 
     private lateinit var navController: NavController
 

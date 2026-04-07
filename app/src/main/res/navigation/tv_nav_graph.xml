@@ -44,6 +44,14 @@
             android:name="sharedUrl"
             app:argType="string"
             android:defaultValue="" />
+        <argument
+            android:name="seasonIndex"
+            app:argType="integer"
+            android:defaultValue="0" />
+        <argument
+            android:name="episodeIndex"
+            app:argType="integer"
+            android:defaultValue="0" />
     </fragment>
 
     <fragment

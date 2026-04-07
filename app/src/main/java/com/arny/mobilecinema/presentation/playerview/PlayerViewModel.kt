@@ -36,7 +36,7 @@ data class PlayerUiState(
     val version: Long = 0,
 )
 
-class PlayerViewModel constructor(
+class PlayerViewModel(
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
     private val feedbackInteractor: FeedbackInteractor,

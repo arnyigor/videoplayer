@@ -167,9 +167,16 @@ class UpdateRepositoryImpl constructor(
     }
 
     override fun updateAll() {
-        context.sendServiceMessage(
+        context.applicationContext.sendServiceMessage(
             Intent(context.applicationContext, UpdateService::class.java),
             AppConstants.ACTION_UPDATE_ALL
+        )
+    }
+
+    override fun cancelUpdate() {
+        context.applicationContext.sendServiceMessage(
+            Intent(context.applicationContext, UpdateService::class.java),
+            AppConstants.ACTION_UPDATE_ALL_CANCEL
         )
     }
 

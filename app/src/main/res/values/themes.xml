@@ -87,10 +87,15 @@
         <item name="android:textColor">@color/textColorPrimary</item>
     </style>
 
-    <style name="TvDialogTheme" parent="Theme.MaterialComponents.DayNight.Dialog">
+    <style name="TvDialogTheme" parent="android:Theme.DeviceDefault.Dialog.Alert">
+        <item name="android:textColor">@color/textColorPrimary</item>
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+
+        <item name="android:windowBackground">@color/colorPrimaryDark</item>
+
+        <item name="android:colorAccent">@color/colorAccent</item>
+
         <item name="android:windowMinWidthMajor">50%</item>
         <item name="android:windowMinWidthMinor">50%</item>
-        <item name="android:textSize">18sp</item>
-        <item name="android:background">@color/colorPrimaryDark</item>
     </style>
 </resources>

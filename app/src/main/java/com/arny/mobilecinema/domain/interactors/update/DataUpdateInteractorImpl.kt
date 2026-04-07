@@ -29,6 +29,10 @@ class DataUpdateInteractorImpl constructor(
         repository.updateAll()
     }
 
+    override fun cancelUpdate() {
+        repository.cancelUpdate()
+    }
+
     override fun resetUpdate() {
         repository.newUpdate = ""
         repository.checkUpdate = false

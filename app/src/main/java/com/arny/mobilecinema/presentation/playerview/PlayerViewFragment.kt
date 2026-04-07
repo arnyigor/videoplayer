@@ -90,8 +90,6 @@ import org.koin.android.ext.android.inject
 class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
     private companion object {
         const val MAX_BOOST_DEFAULT = 1000
-        const val DOUBLE_TAP_TIMEOUT = 300L // ms
-        const val SEEK_INCREMENT = 5000L // ms (5 секунд)
         const val MEDIA_SESSION_TAG = "MEDIA_SESSION_ANWAP_TAG"
         const val CONTROLS_ANIMATION_DURATION = 250L
     }

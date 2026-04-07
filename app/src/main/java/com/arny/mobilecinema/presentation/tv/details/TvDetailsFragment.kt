@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.presentation.tv.details
 
 import android.content.Context
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.View
 import androidx.leanback.app.DetailsSupportFragment
@@ -9,14 +10,19 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.utils.getWithDomain
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsViewModel
 import com.bumptech.glide.Glide
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.androidx.viewmodel.ext.android.activityViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -27,8 +33,9 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         private const val ACTION_FAVORITE = 2L
     }
 
-    private val moviesInteractor: MoviesInteractor by inject()
-    private val viewModel: TvDetailsViewModel by viewModel()
+    private val viewModel: TvDetailsViewModel by activityViewModel()
+
+    private val prefs: Prefs by inject()
 
     /** Аргументы навигации (movieId) */
     private val args: TvDetailsFragmentArgs by navArgs()
@@ -38,11 +45,6 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     /** Адаптер для кнопок действий */
     private lateinit var actionsAdapter: ArrayObjectAdapter
-
-    override fun onAttach(context: Context) {
-        // Koin injection
-        super.onAttach(context)
-    }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -84,7 +86,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     /** Загружает данные фильма по ID */
     private fun loadMovie() {
-        viewModel.loadMovie(args.movieId.toLong())
+        viewModel.loadMovie(args.movieId)
     }
 
     /**
@@ -114,12 +116,19 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
         // Устанавливаем обложку
         if (movie.img.isNotBlank()) {
+            val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
+            val fullUrl = movie.img.getWithDomain(baseUrl)
+
             Glide.with(requireContext())
-                .load(movie.img)
-                .into(object : com.bumptech.glide.request.target.SimpleTarget<android.graphics.drawable.Drawable>() {
-                    override fun onResourceReady(resource: android.graphics.drawable.Drawable, transition: com.bumptech.glide.request.transition.Transition<in android.graphics.drawable.Drawable>?) {
+                .load(fullUrl)
+                .error(R.drawable.placeholder_movie)
+                .into(object : CustomTarget<Drawable>() {
+                    override fun onResourceReady(resource: Drawable, transition: Transition<in Drawable>?) {
                         detailsRow.imageDrawable = resource
+                        // Уведомляем адаптер об изменении — Leanback не обновляет UI автоматически
+                        detailsAdapter.notifyArrayItemRangeChanged(0, detailsAdapter.size())
                     }
+                    override fun onLoadCleared(placeholder: Drawable?) {}
                 })
         }
 
@@ -208,21 +217,10 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     /** Переходит на экран плеера для воспроизведения */
     private fun navigateToPlayer() {
         val movie = viewModel.movie.value ?: return
-
-        val directions = when (movie.type) {
-            MovieType.CINEMA -> {
-                TvDetailsFragmentDirections.actionToPlayer()
-            }
-            MovieType.SERIAL -> {
-                // Для сериала начинаем с первого эпизода первого сезона
-                TvDetailsFragmentDirections.actionToPlayer()
-            }
-            else -> {
-                TvDetailsFragmentDirections.actionToPlayer()
-            }
+        val bundle = Bundle().apply {
+            putLong("movieId", args.movieId)
         }
-
-        findNavController().navigate(directions)
+        findNavController().navigate(R.id.actionToPlayer, bundle)
     }
 
 }

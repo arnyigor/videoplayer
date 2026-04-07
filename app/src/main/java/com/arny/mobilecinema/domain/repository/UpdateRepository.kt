@@ -42,4 +42,5 @@ interface UpdateRepository {
     ): Flow<DataResultWithProgress<FfmpegResult>>
 
     fun updateAll()
+    fun cancelUpdate()
 }

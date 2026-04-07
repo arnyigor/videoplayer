@@ -70,8 +70,6 @@ class DetailsFragment : Fragment(R.layout.f_details) {
 
     private val viewModel: DetailsViewModel by viewModel { parametersOf(args.id) }
 
-    private val playerSource: PlayerSource by inject()
-
     private val prefs: Prefs by inject()
 
     // ViewBinding

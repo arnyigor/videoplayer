@@ -25,6 +25,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.DisplayMetrics
+import android.util.Log
 import android.util.TypedValue
 import android.view.KeyEvent
 import android.view.MenuItem
@@ -58,6 +59,7 @@ import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import kotlinx.coroutines.CoroutineScope
+import timber.log.Timber
 import java.io.File
 import kotlin.math.roundToInt
 import kotlin.properties.ReadOnlyProperty
@@ -432,6 +434,7 @@ fun Context.sendServiceMessage(
     intent.apply {
         this.action = action
         this.putExtras(Bundle().apply(extras))
+        Timber.d( "sendServiceMessage: START SERVICE")
         if (isOreoPlus()) {
             this@sendServiceMessage.applicationContext.startForegroundService(this)
         } else {
