@@ -19,7 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
-class MoviesInteractorImpl constructor(
+class MoviesInteractorImpl(
     private val repository: MoviesRepository,
     private val updateRepository: UpdateRepository,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,

@@ -19,13 +19,13 @@ import javax.net.ssl.SSLHandshakeException
 
 fun getDomainName(url: String): String = try {
     val uri = URI(url)
-    val scheme: String? = uri.scheme
-    val host: String? = uri.host
-    if (!scheme.isNullOrBlank() && !host.isNullOrBlank()) {
-        "${scheme}://${host}"
-    } else {
-        ""
-    }
+    val scheme = uri.scheme?.takeIf { it.isNotBlank() }
+    val host = uri.host?.takeIf { it.isNotBlank() }
+    val port = uri.port.takeIf { it > 0 }
+
+    if (scheme != null && host != null) {
+        "$scheme://$host${port?.let { ":$it" }.orEmpty()}"
+    } else ""
 } catch (e: Exception) {
     ""
 }
@@ -33,10 +33,16 @@ fun getDomainName(url: String): String = try {
 fun String.getWithDomain(location: String): String =
     when {
         this.startsWith("http") -> this
-        else -> "${getDomainName(location)}$this"
+        else -> {
+            val domain = getDomainName(location).trimEnd('/')
+            val path = this.trimStart('/')
+            if (domain.isNotBlank() && path.isNotBlank()) {
+                "$domain/$path"
+            } else {
+                ""
+            }
+        }
     }
-
-fun urlEncode(value: String): String? = URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
 
 sealed class ConnectionType(open val speedKbps: Int) {
     object NONE : ConnectionType(0)
@@ -48,41 +54,21 @@ sealed class ConnectionType(open val speedKbps: Int) {
 fun getConnectionType(context: Context): ConnectionType {
     var type: ConnectionType = ConnectionType.NONE
     val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        cm?.let {
-            val capabilities = cm.getNetworkCapabilities(cm.activeNetwork)
-            val downSpeedKbps = (capabilities?.linkDownstreamBandwidthKbps) ?: 0
-            capabilities?.run {
-                when {
-                    hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
-                        type = ConnectionType.WIFI(downSpeedKbps)
-                    }
-
-                    hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
-                        type = ConnectionType.MOBILE(downSpeedKbps)
-                    }
-
-                    hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> {
-                        type = ConnectionType.VPN(downSpeedKbps)
-                    }
+    cm?.let {
+        val capabilities = cm.getNetworkCapabilities(cm.activeNetwork)
+        val downSpeedKbps = (capabilities?.linkDownstreamBandwidthKbps) ?: 0
+        capabilities?.run {
+            when {
+                hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
+                    type = ConnectionType.WIFI(downSpeedKbps)
                 }
-            }
-        }
-    } else {
-        cm?.let {
-            cm.activeNetworkInfo?.let {
-                when (it.type) {
-                    ConnectivityManager.TYPE_WIFI -> {
-                        type = ConnectionType.WIFI(0)
-                    }
 
-                    ConnectivityManager.TYPE_MOBILE -> {
-                        type = ConnectionType.MOBILE(getMaxSpeedKbps(it))
-                    }
+                hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
+                    type = ConnectionType.MOBILE(downSpeedKbps)
+                }
 
-                    ConnectivityManager.TYPE_VPN -> {
-                        type = ConnectionType.VPN(0)
-                    }
+                hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> {
+                    type = ConnectionType.VPN(downSpeedKbps)
                 }
             }
         }

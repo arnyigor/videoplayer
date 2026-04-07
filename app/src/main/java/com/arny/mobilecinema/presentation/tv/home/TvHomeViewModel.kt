@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -28,6 +29,9 @@ class TvHomeViewModel(
 
     private val _updateAvailable = MutableStateFlow(false)
     val updateAvailable = _updateAvailable.asStateFlow()
+
+    private val _downloadProgress = MutableStateFlow<Map<Long, Float>>(emptyMap())
+    val downloadProgress = _downloadProgress.asStateFlow()
 
     private val _refreshTrigger = MutableStateFlow(0)
 
@@ -95,10 +99,25 @@ class TvHomeViewModel(
     }
 
     fun downloadData() {
+        viewModelScope.launch {
+            _updateAvailable.value = false
+        }
         dataUpdateInteractor.updateAll()
     }
 
     fun stopUpdate() {
         dataUpdateInteractor.cancelUpdate()
+    }
+
+    fun updateDownloadProgress(movieId: Long, percent: Float) {
+        _downloadProgress.update { current ->
+            current.toMutableMap().apply {
+                if (percent >= 100f) {
+                    remove(movieId)
+                } else {
+                    put(movieId, percent)
+                }
+            }
+        }
     }
 }

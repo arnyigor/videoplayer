@@ -1,226 +1,208 @@
+// presentation/tv/details/TvDetailsFragment.kt
 package com.arny.mobilecinema.presentation.tv.details
 
-import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.View
+import androidx.core.content.ContextCompat
 import androidx.leanback.app.DetailsSupportFragment
-import androidx.leanback.widget.*
+import androidx.leanback.widget.Action
+import androidx.leanback.widget.ArrayObjectAdapter
+import androidx.leanback.widget.ClassPresenterSelector
+import androidx.leanback.widget.DetailsOverviewRow
+import androidx.leanback.widget.FullWidthDetailsOverviewRowPresenter
+import androidx.leanback.widget.HeaderItem
+import androidx.leanback.widget.ListRow
+import androidx.leanback.widget.ListRowPresenter
+import androidx.leanback.widget.OnActionClickedListener
+import androidx.leanback.widget.SparseArrayObjectAdapter
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.prefs.Prefs
-import com.arny.mobilecinema.data.utils.getWithDomain
-import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.PrefsConstants
+import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsViewModel
+import com.arny.mobilecinema.data.utils.getWithDomain // ← ИСПРАВЛЕН ИМПОРТ
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.koin.androidx.viewmodel.ext.android.activityViewModel
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import timber.log.Timber
+
+data class EpisodeItem(
+    val episode: SerialEpisode,
+    val seasonIndex: Int
+)
 
 class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     companion object {
         private const val ACTION_PLAY = 1L
         private const val ACTION_FAVORITE = 2L
+        private const val POSTER_WIDTH = 274
+        private const val POSTER_HEIGHT = 400
     }
 
-    private val viewModel: TvDetailsViewModel by activityViewModel()
-
+    private val viewModel: TvDetailsViewModel by viewModel()
     private val prefs: Prefs by inject()
-
-    /** Аргументы навигации (movieId) */
     private val args: TvDetailsFragmentArgs by navArgs()
 
-    /** Адаптер для детального ряда */
     private lateinit var detailsAdapter: ArrayObjectAdapter
-
-    /** Адаптер для кнопок действий */
-    private lateinit var actionsAdapter: ArrayObjectAdapter
+    private var detailsRow: DetailsOverviewRow? = null
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupDetailsAdapter()
-        loadMovie()
+        buildAdapter()
+        viewModel.loadMovie(args.movieId)
         observeData()
     }
 
-    /**
-     * Настраивает адаптеры для отображения деталей фильма.
-     * Использует [FullWidthDetailsOverviewRowPresenter] для красивого отображения.
-     */
-    private fun setupDetailsAdapter() {
-        val presenterSelector = ClassPresenterSelector()
+    private fun buildAdapter() {
+        val selector = ClassPresenterSelector()
 
-        // Presenter для основного ряда с деталями
-        val detailsPresenter = FullWidthDetailsOverviewRowPresenter(
+        val overviewPresenter = FullWidthDetailsOverviewRowPresenter(
             TvDetailsDescriptionPresenter()
         ).apply {
+            backgroundColor =
+                ContextCompat.getColor(requireContext(), R.color.colorPrimaryDark)
+
             onActionClickedListener = OnActionClickedListener { action ->
-                handleAction(action)
+                onActionClicked(action)
             }
         }
+        selector.addClassPresenter(DetailsOverviewRow::class.java, overviewPresenter)
+        selector.addClassPresenter(ListRow::class.java, ListRowPresenter())
 
-        presenterSelector.addClassPresenter(
-            DetailsOverviewRow::class.java,
-            detailsPresenter
-        )
-
-        // Presenter для списка эпизодов (для сериалов)
-        presenterSelector.addClassPresenter(
-            ListRow::class.java,
-            ListRowPresenter()
-        )
-
-        detailsAdapter = ArrayObjectAdapter(presenterSelector)
+        detailsAdapter = ArrayObjectAdapter(selector)
         adapter = detailsAdapter
     }
 
-    /** Загружает данные фильма по ID */
-    private fun loadMovie() {
-        viewModel.loadMovie(args.movieId)
-    }
-
-    /**
-     * Наблюдает за данными из ViewModel.
-     * При изменении данных обновляет UI.
-     */
     private fun observeData() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.movie.collectLatest { movie ->
                 movie?.let { bindMovie(it) }
             }
         }
-
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.isFavorite.collectLatest { isFav ->
-                updateFavoriteAction(isFav)
+                updateFavoriteLabel(isFav)
             }
         }
     }
 
-    /**
-     * Привязывает данные фильма к UI.
-     * Создаёт [DetailsOverviewRow] с информацией о фильме.
-     */
     private fun bindMovie(movie: Movie) {
-        val detailsRow = DetailsOverviewRow(movie)
+        val row = DetailsOverviewRow(movie)
+        detailsRow = row
 
-        // Устанавливаем обложку
-        if (movie.img.isNotBlank()) {
-            val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-            val fullUrl = movie.img.getWithDomain(baseUrl)
+        row.imageDrawable = ContextCompat.getDrawable(requireContext(), R.drawable.placeholder_movie)
+        loadPoster(movie, row)
 
-            Glide.with(requireContext())
-                .load(fullUrl)
-                .error(R.drawable.placeholder_movie)
-                .into(object : CustomTarget<Drawable>() {
-                    override fun onResourceReady(resource: Drawable, transition: Transition<in Drawable>?) {
-                        detailsRow.imageDrawable = resource
-                        // Уведомляем адаптер об изменении — Leanback не обновляет UI автоматически
-                        detailsAdapter.notifyArrayItemRangeChanged(0, detailsAdapter.size())
-                    }
-                    override fun onLoadCleared(placeholder: Drawable?) {}
-                })
+        val actions = SparseArrayObjectAdapter().apply {
+            set(ACTION_PLAY.toInt(), Action(ACTION_PLAY, getString(R.string.play)))
+            set(
+                ACTION_FAVORITE.toInt(),
+                Action(
+                    ACTION_FAVORITE,
+                    if (viewModel.isFavorite.value) getString(R.string.remove_from_favorites)
+                    else getString(R.string.add_to_favorites)
+                )
+            )
         }
+        row.actionsAdapter = actions
 
-        // Создаём кнопки действий
-        actionsAdapter = ArrayObjectAdapter().apply {
-            add(Action(ACTION_PLAY, getString(R.string.play)))
-            val favLabel = if (viewModel.isFavorite.value) {
-                getString(R.string.remove_from_favorites)
-            } else {
-                getString(R.string.add_to_favorites)
-            }
-            add(Action(ACTION_FAVORITE, favLabel))
-        }
-
-        detailsRow.actionsAdapter = actionsAdapter
         detailsAdapter.clear()
-        detailsAdapter.add(detailsRow)
+        detailsAdapter.add(row)
 
-        // Для сериалов добавляем список эпизодов
         if (movie.type == MovieType.SERIAL && movie.seasons.isNotEmpty()) {
-            addSeasonsList(movie)
+            addSeasonRows(movie)
         }
     }
 
-    /**
-     * Добавляет список сезонов для сериала.
-     * Каждый сезон - отдельный ряд с эпизодами.
-     */
-    private fun addSeasonsList(movie: Movie) {
-        val seasonsPresenter = ListRowPresenter()
-        val episodesAdapter = ArrayObjectAdapter(seasonsPresenter)
+    private fun loadPoster(movie: Movie, row: DetailsOverviewRow) {
+        val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
+        val fullUrl = movie.img.getWithDomain(baseUrl)
+        Timber.d("loadPoster: url=%s", fullUrl)
 
-        movie.seasons.sortedBy { it.id }.forEach { seasonItem ->
-            val seasonHeader = HeaderItem(
-                (seasonItem.id ?: 0).toLong(),
-                "${getString(R.string.spinner_season)} ${seasonItem.id ?: 0}"
+        if (fullUrl.isBlank()) return
+
+        Glide.with(requireContext())
+            .asBitmap()
+            .load(fullUrl)
+            .override(POSTER_WIDTH, POSTER_HEIGHT)
+            .centerCrop()
+            .error(R.drawable.placeholder_movie)
+            .into(object : CustomTarget<Bitmap>(POSTER_WIDTH, POSTER_HEIGHT) {
+                override fun onResourceReady(
+                    resource: Bitmap,
+                    transition: Transition<in Bitmap>?
+                ) {
+                    Timber.d("loadPoster: bitmap ready %dx%d", resource.width, resource.height)
+                    row.imageDrawable = BitmapDrawable(resources, resource)
+                    val idx = detailsAdapter.indexOf(row)
+                    if (idx >= 0) {
+                        detailsAdapter.notifyArrayItemRangeChanged(idx, 1)
+                    }
+                }
+
+                override fun onLoadFailed(errorDrawable: Drawable?) {
+                    Timber.w("loadPoster: failed, setting placeholder")
+                    row.imageDrawable = errorDrawable
+                        ?: ContextCompat.getDrawable(requireContext(), R.drawable.placeholder_movie)
+                }
+
+                override fun onLoadCleared(placeholder: Drawable?) {
+                    row.imageDrawable = placeholder
+                }
+            })
+    }
+
+    private fun addSeasonRows(movie: Movie) {
+        movie.seasons.sortedBy { it.id }.forEachIndexed { seasonIdx, season ->
+            val header = HeaderItem(
+                (season.id ?: seasonIdx).toLong(),
+                "${getString(R.string.spinner_season)} ${season.id ?: (seasonIdx + 1)}"
             )
-            val episodes = seasonItem.episodes.sortedBy { it.episode }
-            val rowAdapter = ArrayObjectAdapter(
-                TvEpisodeCardPresenter()
-            )
-            episodes.forEach { episode ->
-                rowAdapter.add(episode)
+            val rowAdapter = ArrayObjectAdapter(TvEpisodeCardPresenter())
+            season.episodes.sortedBy { it.episode }.forEach { ep ->
+                rowAdapter.add(EpisodeItem(ep, seasonIdx))
             }
-            episodesAdapter.add(ListRow(seasonHeader, rowAdapter))
-        }
-
-        detailsAdapter.add(episodesAdapter)
-    }
-
-    /**
-     * Обновляет текст кнопки избранного.
-     * @param isFavorite текущее состояние избранного
-     */
-    private fun updateFavoriteAction(isFavorite: Boolean) {
-        if (!::actionsAdapter.isInitialized) return
-
-        // Находим кнопку избранного
-        val actions = List(actionsAdapter.size()) { i -> actionsAdapter.get(i) }
-        val favAction = actions.filterIsInstance<Action>().find { it.id == ACTION_FAVORITE } ?: return
-
-        // Обновляем текст кнопки - пересоздаём действие
-        val newLabel = if (isFavorite) {
-            getString(R.string.remove_from_favorites)
-        } else {
-            getString(R.string.add_to_favorites)
-        }
-        val newAction = Action(ACTION_FAVORITE, newLabel)
-        val index = actionsAdapter.indexOf(favAction)
-        if (index >= 0) {
-            actionsAdapter.replace(index, newAction)
+            detailsAdapter.add(ListRow(header, rowAdapter))
         }
     }
 
-    /**
-     * Обрабатывает нажатия на кнопки действий.
-     * @param action действие, на которое нажали
-     */
-    private fun handleAction(action: Action) {
+    private fun onActionClicked(action: Action) {
         when (action.id) {
             ACTION_PLAY -> navigateToPlayer()
-            ACTION_FAVORITE -> viewModel.toggleFavorite(args.movieId.toLong())
+            ACTION_FAVORITE -> viewModel.toggleFavorite(args.movieId)
         }
     }
 
-    /** Переходит на экран плеера для воспроизведения */
+    private fun updateFavoriteLabel(isFav: Boolean) {
+        val row = detailsRow ?: return
+        val actions = row.actionsAdapter as? SparseArrayObjectAdapter ?: return
+        actions.set(
+            ACTION_FAVORITE.toInt(),
+            Action(
+                ACTION_FAVORITE,
+                if (isFav) getString(R.string.remove_from_favorites)
+                else getString(R.string.add_to_favorites)
+            )
+        )
+    }
+
     private fun navigateToPlayer() {
-        val movie = viewModel.movie.value ?: return
-        val bundle = Bundle().apply {
-            putLong("movieId", args.movieId)
-        }
-        findNavController().navigate(R.id.actionToPlayer, bundle)
+        findNavController().navigate(
+            TvDetailsFragmentDirections.actionToPlayer(args.movieId)
+        )
     }
-
 }

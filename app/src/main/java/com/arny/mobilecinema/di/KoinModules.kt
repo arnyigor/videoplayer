@@ -38,6 +38,7 @@ import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import com.arny.mobilecinema.presentation.splash.SplashViewModel
 import com.arny.mobilecinema.presentation.tv.home.TvHomeViewModel
+import com.arny.mobilecinema.presentation.tv.search.TvSearchViewModel
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -101,4 +102,5 @@ val presentationModule = module {
     viewModel { SplashViewModel(get()) }
     viewModel { TvHomeViewModel(get(), get(), get()) }
     viewModel { TvDetailsViewModel(get()) }
+    viewModel { TvSearchViewModel(get()) }
 }

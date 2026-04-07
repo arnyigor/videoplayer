@@ -78,7 +78,8 @@
             android:name=".presentation.services.UpdateService"
             android:enabled="true"
             android:foregroundServiceType="mediaPlayback"
-            android:exported="false" />
+            android:exported="false"
+            android:stopWithTask="false" />
 
         <service
             android:name=".presentation.services.MovieDownloadService"

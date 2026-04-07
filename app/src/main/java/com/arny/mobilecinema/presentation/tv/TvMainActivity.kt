@@ -1,11 +1,14 @@
 package com.arny.mobilecinema.presentation.tv
 
+import android.content.Intent
 import android.os.Bundle
 import android.app.AlertDialog
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.fragment.app.FragmentActivity
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.splash.StartActivity
 
 class TvMainActivity : FragmentActivity() {
@@ -31,6 +34,13 @@ class TvMainActivity : FragmentActivity() {
         }
     }
 
+    private fun stopUpdateService() {
+        val intent = Intent(this, UpdateService::class.java).apply {
+            action = AppConstants.ACTION_UPDATE_ALL_CANCEL
+        }
+        startService(intent)
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         val navHost = supportFragmentManager
@@ -45,7 +55,10 @@ class TvMainActivity : FragmentActivity() {
         AlertDialog.Builder(this, R.style.TvDialogTheme)
             .setTitle(R.string.exit_title)
             .setMessage(R.string.exit_message)
-            .setPositiveButton(R.string.yes) { _, _ -> finish() }
+            .setPositiveButton(R.string.yes) { _, _ ->
+                stopUpdateService()
+                finish()
+            }
             .setNegativeButton(R.string.no, null)
             .show()
     }

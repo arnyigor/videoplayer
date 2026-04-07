@@ -1,11 +1,15 @@
+// presentation/tv/player/TvPlayerFragment.kt
 package com.arny.mobilecinema.presentation.tv.player
 
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.SeekBar
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -14,91 +18,131 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.databinding.FTvPlayerBinding
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.SerialSeason
+import com.arny.mobilecinema.presentation.player.PlayerSource
+import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
-import com.arny.mobilecinema.presentation.utils.DeviceUtils
 import com.arny.mobilecinema.presentation.utils.toast
 import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
+import com.google.android.exoplayer2.SeekParameters
 import com.google.android.exoplayer2.source.MediaSource
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.core.component.KoinComponent
-import androidx.core.view.isVisible
-import com.arny.mobilecinema.presentation.player.PlayerSource
-import kotlin.getValue
+import timber.log.Timber
 
-/**
- * TV-экран плеера для воспроизведения фильмов и сериалов.
- *
- * Особенности TV-версии:
- * - Поддержка управления с пульта (D-pad)
- * - Увеличенные кнопки перемотки (10 сек)
- * - Отображение кнопок next/previous для эпизодов
- * - Автоматическое скрытие UI после 3 секунд бездействия
- *
- * Переиспользует [PlayerViewModel] от Phone-версии для:
- * - Логики сохранения позиции
- * - Определения источника видео
- * - Обработки серий/сезонов
- *
- * @property viewModel ViewModel с логикой плеера
- */
 class TvPlayerFragment : Fragment(), KoinComponent {
 
-    private lateinit var viewModel: PlayerViewModel
+    companion object {
+        private const val SEEK_STEP_MS = 10_000L
+        private const val HIDE_DELAY_MS = 5_000L
+        private const val PROGRESS_INTERVAL_MS = 1_000L
+    }
 
-    /** Аргументы навигации */
-    private val args: TvPlayerFragmentArgs by navArgs()
-
-    /** Загружаем movie напрямую через интерактор, а не через activityViewModel */
+    private val viewModel: PlayerViewModel by inject()
     private val moviesInteractor: MoviesInteractor by inject()
-
     private val playerSource: PlayerSource by inject()
+
+    private val args: TvPlayerFragmentArgs by navArgs()
 
     private var _binding: FTvPlayerBinding? = null
     private val binding get() = _binding!!
 
     private var player: ExoPlayer? = null
 
-    /** Обработчик для скрытия UI */
+    // ─────────────────────────────────────────────────────────────
+    // Данные о сериале
+    // ─────────────────────────────────────────────────────────────
+
+    private var currentMovie: Movie? = null
+
+    /** Плоский список всех эпизодов сериала (для отображения информации) */
+    private var allEpisodes: List<SerialEpisode> = emptyList()
+
+    /** Список сезонов (для определения сезона/эпизода по индексу) */
+    private var serialSeasons: List<SerialSeason> = emptyList()
+
+    /** Текущий индекс эпизода в плейлисте ExoPlayer */
+    private var currentEpisodeIndex = 0
+
     private val hideHandler = Handler(Looper.getMainLooper())
     private val hideRunnable = Runnable { hideControls() }
 
-    /** Список всех эпизодов для навигации */
-    private var allEpisodes: List<SerialEpisode> = emptyList()
-    private var currentEpisodeIndex = 0
+    private var progressJob: Job? = null
+    private var mediaLoaded = false
 
-    /** Слушатель событий плеера */
+    // ─────────────────────────────────────────────────────────────
+    // Player listener
+    // ─────────────────────────────────────────────────────────────
+
     private val playerListener = object : Player.Listener {
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            when (playbackState) {
+        override fun onPlaybackStateChanged(state: Int) {
+            when (state) {
                 Player.STATE_BUFFERING -> showLoading(true)
                 Player.STATE_READY -> {
                     showLoading(false)
-                    scheduleHideControls()
+                    updateDuration()
+                    startProgressUpdates()
+                    scheduleHide()
                 }
-                Player.STATE_ENDED -> onPlaybackEnded()
-                Player.STATE_IDLE -> showLoading(false)
+                Player.STATE_ENDED -> {
+                    // Плейлист закончился
+                    showLoading(false)
+                    toast(getString(R.string.playback_complete))
+                }
+                Player.STATE_IDLE -> {
+                    showLoading(false)
+                    stopProgressUpdates()
+                }
             }
         }
 
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) startProgressUpdates() else stopProgressUpdates()
+        }
+
         override fun onPlayerError(error: PlaybackException) {
-            val errorMsg = error.localizedMessage ?: getString(R.string.error_loading_data)
-            showError("Ошибка плеера: $errorMsg")
+            Timber.e(error, "ExoPlayer error")
+            showError("Ошибка: ${error.localizedMessage.orEmpty()}")
+        }
+
+        /**
+         * Вызывается при переходе к другому элементу плейлиста.
+         * Обновляем информацию об эпизоде.
+         */
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            super.onMediaItemTransition(mediaItem, reason)
+
+            val newIndex = player?.currentMediaItemIndex ?: 0
+            Timber.d("Media transition: index $currentEpisodeIndex -> $newIndex, reason=$reason")
+
+            currentEpisodeIndex = newIndex
+            updateEpisodeInfoFromIndex(newIndex)
+
+            // Сбрасываем прогресс для нового эпизода
+            updateDuration()
         }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // Fragment lifecycle
+    // ─────────────────────────────────────────────────────────────
+
     override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FTvPlayerBinding.inflate(inflater, container, false)
         return binding.root
@@ -106,288 +150,10 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        // Инициализация ViewModel через Koin
-        viewModel = getKoin().get<PlayerViewModel>()
-
-        // Проверка что это TV - если телефон, показываем сообщение
-        if (!DeviceUtils.isTV(requireContext())) {
-            toast(getString(R.string.internet_connection_error))
-            findNavController().navigateUp()
-            return
-        }
-
         initPlayer()
         initControls()
-        observeState()
-    }
-
-    /**
-     * Инициализирует ExoPlayer с настройками для TV.
-     */
-    private fun initPlayer() {
-        player = ExoPlayer.Builder(requireContext())
-            .build()
-            .apply {
-                playWhenReady = true
-                addListener(playerListener)
-            }
-
-        binding.playerView.apply {
-            player = this@TvPlayerFragment.player
-            useController = true
-            setShowNextButton(true)
-            setShowPreviousButton(true)
-
-            // Настройки для TV пульта
-            setControllerOnFullScreenModeChangedListener { isFullScreen ->
-                // Обработка полноэкранного режима
-            }
-        }
-
-        // Загружаем данные
-        val sharedUrl = args.sharedUrl.takeIf { it.isNotBlank() }
-        val movieId = args.movieId.takeIf { it > 0 }
-
-        when {
-            sharedUrl != null -> {
-                viewModel.setPlayData(
-                    path = sharedUrl,
-                    movie = null,
-                    seasonIndex = 0,
-                    episodeIndex = 0
-                )
-            }
-            movieId != null -> {
-                // НЕ загружаем фильм вручную.
-                // Вместо этого мы создаем "пустой" фильм только с ID (или извлекаем из аргументов, если у вас есть SafeArgs).
-                // PlayerViewModel сам всё загрузит, проверит ссылки и обновит uiState!
-
-                // Если у вас в NavArgs передается только ID, сделайте так:
-                viewLifecycleOwner.lifecycleScope.launch {
-                    moviesInteractor.getMovie(movieId).collectLatest { result ->
-                        if (result is DataResult.Success) {
-                            viewModel.setPlayData(
-                                path = null,
-                                movie = result.result, // Передаем полный фильм во ViewModel
-                                seasonIndex = args.seasonIndex,
-                                episodeIndex = args.episodeIndex
-                            )
-                        }
-                    }
-                }
-            }
-            else -> {
-                toast(getString(R.string.error_loading_data))
-                findNavController().navigateUp()
-            }
-        }
-    }
-
-    /**
-     * Загружает фильм из базы и передаёт в плеер.
-     */
-    private fun loadMovieAndPlay(movieId: Long) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            moviesInteractor.getMovie(movieId).collectLatest { result ->
-                when (result) {
-                    is DataResult.Success -> {
-                        val movie = result.result
-                        viewModel.setPlayData(
-                            path = null,
-                            movie = movie,
-                            seasonIndex = args.seasonIndex,
-                            episodeIndex = args.episodeIndex
-                        )
-                    }
-                    is DataResult.Error -> {
-                        toast(getString(R.string.error_loading_data))
-                        findNavController().navigateUp()
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Инициализирует элементы управления.
-     */
-    private fun initControls() {
-        binding.btnBack.setOnClickListener {
-            savePositionAndExit()
-        }
-
-        binding.btnRewind.setOnClickListener {
-            player?.seekTo(maxOf(0, (player?.currentPosition ?: 0) - 10000))
-        }
-
-        binding.btnForward.setOnClickListener {
-            player?.seekTo(minOf(player?.duration ?: 0, (player?.currentPosition ?: 0) + 10000))
-        }
-
-        binding.playerView.setOnClickListener {
-            toggleControls()
-        }
-    }
-
-    /**
-     * Наблюдает за состоянием ViewModel.
-     */
-    private fun observeState() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    viewModel.uiState.collect { state ->
-                        if (state.path != null || state.movie != null) {
-                            playMedia(state.path, state.movie, state.season ?: 0, state.episode ?: 0)
-                        }
-                    }
-                }
-
-                launch {
-                    viewModel.back.collectLatest {
-                        findNavController().navigateUp()
-                    }
-                }
-
-                launch {
-                    viewModel.toast.collectLatest { message ->
-                        message?.let { toast(it.toString(requireContext())) }
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Воспроизводит медиа-контент.
-     */
-    private fun playMedia(path: String?, movie: Movie?, seasonIndex: Int, episodeIndex: Int) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            when {
-                !path.isNullOrBlank() -> playUrl(path, "Video")
-                movie != null && movie.type == MovieType.CINEMA -> playCinema(movie)
-                movie != null && movie.type == MovieType.SERIAL -> playSerial(movie, seasonIndex, episodeIndex)
-                else -> {
-                    toast(getString(R.string.error_loading_data))
-                    findNavController().navigateUp()
-                }
-            }
-        }
-    }
-
-    private suspend fun playUrl(url: String, videoTitle: String) {
-        try {
-            val mediaSource = playerSource.getSource(url, videoTitle)
-            if (mediaSource != null) {
-                player?.apply {
-                    setMediaSource(mediaSource)
-                    prepare()
-                }
-            } else {
-                showError("Не удалось создать источник видео")
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            showError(e.message ?: "Ошибка загрузки видео")
-        }
-    }
-
-    private fun playCinema(movie: Movie) {
-        val url = movie.getFirstPlayableUrl()
-        if (url.isNullOrBlank()) {
-            showError("Прямая ссылка на видео еще не загружена или недоступна")
-            return
-        }
-        viewLifecycleOwner.lifecycleScope.launch {
-            playUrl(url, movie.title)
-        }
-    }
-
-    private fun playSerial(movie: Movie, seasonIndex: Int, episodeIndex: Int) {
-        val seasons = movie.seasons.sortedBy { it.id }
-        val season = seasons.getOrNull(seasonIndex) ?: return
-        val episodes = season.episodes.sortedBy { it.episode }
-        val episode = episodes.getOrNull(episodeIndex) ?: return
-
-        allEpisodes = seasons.flatMap { it.episodes.sortedBy { e -> e.episode } }
-        currentEpisodeIndex = allEpisodes.indexOf(episode)
-
-        val url = episode.hls ?: episode.dash
-        if (url.isNullOrBlank()) {
-            showError("Ссылка на эпизод недоступна")
-            return
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            playUrl(url, episode.title)
-        }
-        val episodeNum = episode.episode.toIntOrNull() ?: 0
-        showEpisodeInfo(season.id ?: 0, episodeNum, episode.title)
-    }
-
-    private fun showEpisodeInfo(seasonNum: Int, episodeNum: Int, title: String) {
-        binding.tvEpisodeInfo.apply {
-            text = "Сезон $seasonNum Серия $episodeNum\n$title"
-            visibility = View.VISIBLE
-        }
-    }
-
-    private fun toggleControls() {
-        if (binding.controlsGroup.isVisible) hideControls() else {
-            showControls()
-            scheduleHideControls()
-        }
-    }
-
-    private fun showControls() { binding.controlsGroup.visibility = View.VISIBLE }
-    private fun hideControls() {
-        binding.controlsGroup.visibility = View.GONE
-        binding.tvEpisodeInfo.visibility = View.GONE
-    }
-
-    private fun scheduleHideControls() {
-        hideHandler.removeCallbacks(hideRunnable)
-        hideHandler.postDelayed(hideRunnable, 3000)
-    }
-
-    private fun showLoading(show: Boolean) {
-        binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
-    }
-
-    private fun showError(message: String) {
-        binding.tvError.apply {
-            text = message
-            visibility = View.VISIBLE
-        }
-    }
-
-    private fun onPlaybackEnded() {
-        if (currentEpisodeIndex < allEpisodes.size - 1) {
-            currentEpisodeIndex++
-            val nextEpisode = allEpisodes[currentEpisodeIndex]
-            val url = nextEpisode.hls ?: nextEpisode.dash
-            url?.let { viewLifecycleOwner.lifecycleScope.launch { playUrl(it, nextEpisode.title ?: "Episode") } }
-        } else {
-            toast(getString(R.string.update_finished_success))
-        }
-    }
-
-    private fun savePositionAndExit() {
-        player?.let { exoPlayer ->
-            val position = exoPlayer.currentPosition
-            val movie = viewModel.uiState.value.movie
-            val dbId = movie?.dbId
-            if (dbId != null && position > 0) {
-                val state = viewModel.uiState.value
-                when (movie.type) {
-                    MovieType.CINEMA -> viewModel.saveMoviePosition(dbId, position, 0, 0)
-                    MovieType.SERIAL -> viewModel.saveMoviePosition(dbId, position, state.season ?: 0, state.episode ?: 0)
-                    else -> {}
-                }
-            }
-        }
-        findNavController().navigateUp()
+        setupDpadListener()
+        loadContent()
     }
 
     override fun onPause() {
@@ -396,29 +162,632 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         savePosition()
     }
 
-    private fun savePosition() {
-        player?.let { exo ->
-            val pos = exo.currentPosition
-            val state = viewModel.uiState.value
-            if (pos > 0) {
-                viewModel.updatePlaybackPosition(pos, state.season ?: 0, state.episode ?: 0)
-            }
-        }
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
         hideHandler.removeCallbacks(hideRunnable)
+        stopProgressUpdates()
         player?.removeListener(playerListener)
         player?.release()
         player = null
         _binding = null
     }
 
-        companion object {
-        private fun Movie.getFirstPlayableUrl(): String? {
-            return cinemaUrlData?.cinemaUrl?.url
-                ?: cinemaUrlData?.hdUrl?.url
+    // ─────────────────────────────────────────────────────────────
+    // Player init
+    // ─────────────────────────────────────────────────────────────
+
+    private fun initPlayer() {
+        player = ExoPlayer.Builder(requireContext())
+            .setSeekParameters(SeekParameters.CLOSEST_SYNC)
+            .build()
+            .apply {
+                playWhenReady = true
+                addListener(playerListener)
+            }
+
+        binding.playerView.apply {
+            player = this@TvPlayerFragment.player
+            useController = false
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Controls
+    // ─────────────────────────────────────────────────────────────
+
+    private fun initControls() {
+        binding.btnBack.setOnClickListener { savePositionAndExit() }
+        binding.btnRewind.setOnClickListener { seekBackward() }
+        binding.btnForward.setOnClickListener { seekForward() }
+
+        // Кнопки переключения эпизодов
+        binding.btnPrevious.setOnClickListener { previousEpisode() }
+        binding.btnNext.setOnClickListener { nextEpisode() }
+
+        binding.playerView.setOnClickListener { toggleControls() }
+
+        binding.seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    val duration = player?.duration ?: 0L
+                    if (duration > 0) {
+                        binding.tvCurrentTime.text =
+                            formatTime((progress.toLong() * duration) / 1000)
+                    }
+                }
+            }
+
+            override fun onStartTrackingTouch(sb: SeekBar) {
+                stopProgressUpdates()
+            }
+
+            override fun onStopTrackingTouch(sb: SeekBar) {
+                val duration = player?.duration ?: return
+                val newPos = (sb.progress.toLong() * duration) / 1000
+                player?.seekTo(newPos)
+                startProgressUpdates()
+                scheduleHide()
+            }
+        })
+    }
+
+    private fun setupDpadListener() {
+        binding.root.isFocusableInTouchMode = true
+        binding.root.requestFocus()
+
+        binding.root.setOnKeyListener { _, keyCode, event ->
+            if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+
+            when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_CENTER,
+                KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                    togglePlayPause()
+                    true
+                }
+
+                KeyEvent.KEYCODE_DPAD_LEFT,
+                KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                    seekBackward()
+                    binding.root.requestFocus()
+                    true
+                }
+
+                KeyEvent.KEYCODE_DPAD_RIGHT,
+                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                    seekForward()
+                    binding.root.requestFocus()
+                    true
+                }
+
+                KeyEvent.KEYCODE_DPAD_UP -> {
+                    showControls()
+                    scheduleHide()
+                    binding.btnRewind.requestFocus()
+                    true
+                }
+
+                KeyEvent.KEYCODE_DPAD_DOWN -> {
+                    showControls()
+                    scheduleHide()
+                    binding.btnRewind.requestFocus()
+                    true
+                }
+
+                // Переключение эпизодов через пульт
+                KeyEvent.KEYCODE_MEDIA_NEXT,
+                KeyEvent.KEYCODE_CHANNEL_UP -> {
+                    nextEpisode()
+                    true
+                }
+
+                KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+                KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+                    previousEpisode()
+                    true
+                }
+
+                KeyEvent.KEYCODE_BACK -> {
+                    savePositionAndExit()
+                    true
+                }
+
+                else -> false
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Content loading
+    // ─────────────────────────────────────────────────────────────
+
+    private fun loadContent() {
+        if (mediaLoaded) return
+
+        val sharedUrl = args.sharedUrl.takeIf { it.isNotBlank() }
+        val movieId = args.movieId.takeIf { it > 0L }
+
+        when {
+            sharedUrl != null -> {
+                mediaLoaded = true
+                playUrl(sharedUrl, "Video")
+                hideEpisodeNavigation()
+            }
+            movieId != null -> loadMovieAndPlay(movieId)
+            else -> showError(getString(R.string.error_loading_data))
+        }
+    }
+
+    private fun loadMovieAndPlay(movieId: Long) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            moviesInteractor.getMovie(movieId).collectLatest { result ->
+                when (result) {
+                    is DataResult.Success -> {
+                        if (!mediaLoaded) {
+                            mediaLoaded = true
+                            currentMovie = result.result
+                            playMovie(result.result)
+                        }
+                    }
+                    is DataResult.Error -> showError(getString(R.string.error_loading_data))
+                }
+            }
+        }
+    }
+
+    private fun playMovie(movie: Movie) {
+        when (movie.type) {
+            MovieType.CINEMA -> {
+                playCinema(movie)
+                hideEpisodeNavigation()
+            }
+            MovieType.SERIAL -> {
+                playSerial(movie, args.seasonIndex, args.episodeIndex)
+            }
+            else -> showError("Неподдерживаемый тип")
+        }
+    }
+
+    private fun playCinema(movie: Movie) {
+        val url = movie.getCinemaUrl()
+        if (url.isBlank()) {
+            showError("Видео недоступно")
+            return
+        }
+        binding.tvEpisodeInfo.visibility = View.GONE
+        playUrl(url, movie.title)
+    }
+
+    /**
+     * Загружает ВСЕ серии сериала в плейлист ExoPlayer.
+     * Позволяет переключаться между сериями кнопками next/previous.
+     */
+    private fun playSerial(movie: Movie, seasonIndex: Int, episodeIndex: Int) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                showLoading(true)
+                hideError()
+
+                setSerialUrls(
+                    movie = movie,
+                    seasonIndex = seasonIndex,
+                    episodeIndex = episodeIndex,
+                    position = 0L,
+                    excludeUrls = emptySet()
+                )
+
+            } catch (e: Exception) {
+                Timber.e(e, "Error loading serial")
+                showError(e.localizedMessage ?: "Ошибка загрузки сериала")
+            }
+        }
+    }
+
+    /**
+     * Загружает все эпизоды сериала в плеер.
+     *
+     * @param movie фильм/сериал
+     * @param seasonIndex индекс сезона для начала воспроизведения
+     * @param episodeIndex индекс эпизода для начала воспроизведения
+     * @param position позиция в миллисекундах
+     * @param excludeUrls URLs которые нужно исключить (битые ссылки)
+     */
+    private suspend fun setSerialUrls(
+        movie: Movie,
+        seasonIndex: Int?,
+        episodeIndex: Int?,
+        position: Long,
+        excludeUrls: Set<String>
+    ) {
+        val seasons = movie.seasons
+        serialSeasons = seasons.sortedBy { it.id }
+
+        // Собираем плоский список всех эпизодов
+        allEpisodes = serialSeasons.flatMap { season ->
+            season.episodes.sortedBy { episode ->
+                findByGroup(episode.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
+            }
+        }
+
+        val size = allEpisodes.size
+        Timber.d("setSerialUrls: total episodes = $size")
+
+        if (allEpisodes.all { it.dash.isNotBlank() || it.hls.isNotBlank() }) {
+            // Заполняем плейлист и получаем индекс текущего эпизода
+            currentEpisodeIndex = fillPlayerEpisodes(
+                serialSeasons = serialSeasons,
+                seasonIndex = seasonIndex,
+                episodeIndex = episodeIndex,
+                allEpisodes = allEpisodes,
+                excludeUrls = excludeUrls
+            )
+
+            Timber.d("setSerialUrls: currentEpisodeIndex = $currentEpisodeIndex")
+
+            // Показываем/скрываем кнопки навигации
+            updateEpisodeNavigationVisibility(size)
+
+            // Показываем информацию о текущем эпизоде
+            updateEpisodeInfoFromIndex(currentEpisodeIndex)
+
+            player?.apply {
+                // Переходим к нужному эпизоду и позиции
+                seekTo(currentEpisodeIndex, position)
+                prepare()
+            }
+        } else {
+            toast(getString(R.string.episodes_not_found))
+            findNavController().navigateUp()
+        }
+    }
+
+    /**
+     * Создаёт MediaSource для каждого эпизода и добавляет в плеер.
+     *
+     * @return индекс эпизода с которого начинать воспроизведение
+     */
+    private suspend fun fillPlayerEpisodes(
+        serialSeasons: List<SerialSeason>,
+        seasonIndex: Int?,
+        episodeIndex: Int?,
+        allEpisodes: List<SerialEpisode>,
+        excludeUrls: Set<String>
+    ): Int {
+        var currentIndexEpisode = 0
+        val mediaSources = mutableListOf<MediaSource>()
+
+        for ((s, season) in serialSeasons.withIndex()) {
+            val episodes = season.episodes.sortedBy { episode ->
+                findByGroup(episode.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
+            }
+
+            for ((e, episode) in episodes.withIndex()) {
+                // Определяем индекс стартового эпизода
+                if (seasonIndex == s && episodeIndex == e) {
+                    currentIndexEpisode = allEpisodes.indexOf(episode)
+                    if (currentIndexEpisode == -1) {
+                        currentIndexEpisode = 0
+                    }
+                }
+
+                // Выбираем URL (с учётом исключённых)
+                val url = when {
+                    excludeUrls.isEmpty() -> episode.hls.ifBlank { episode.dash }
+                    !excludeUrls.contains(episode.hls) -> episode.hls
+                    !excludeUrls.contains(episode.dash) -> episode.dash
+                    else -> episode.hls.ifBlank { episode.dash }
+                }
+
+                if (url.isBlank()) {
+                    Timber.w("Episode ${episode.episode} has no valid URL")
+                    continue
+                }
+
+                val source = playerSource.getSource(
+                    url = url,
+                    title = episode.title,
+                    season = s,
+                    episode = e
+                )
+
+                if (source != null) {
+                    mediaSources.add(source)
+                } else {
+                    Timber.w("Failed to create source for episode ${episode.episode}")
+                }
+            }
+        }
+
+        Timber.d("fillPlayerEpisodes: created ${mediaSources.size} sources")
+
+        player?.clearMediaItems()
+        player?.setMediaSources(mediaSources)
+
+        return currentIndexEpisode
+    }
+
+    private fun playUrl(url: String, title: String) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                showLoading(true)
+                hideError()
+
+                val source = playerSource.getSource(url, title)
+                if (source != null) {
+                    player?.apply {
+                        setMediaSource(source)
+                        prepare()
+                    }
+                } else {
+                    showError("Не удалось создать источник видео")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "playUrl error")
+                showError(e.localizedMessage ?: "Ошибка воспроизведения")
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Episode navigation
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Переход к следующему эпизоду.
+     */
+    private fun nextEpisode() {
+        val p = player ?: return
+
+        if (p.hasNextMediaItem()) {
+            p.seekToNextMediaItem()
+            showControls()
+            scheduleHide()
+        } else {
+            toast(getString(R.string.playback_complete))
+        }
+    }
+
+    /**
+     * Переход к предыдущему эпизоду.
+     */
+    private fun previousEpisode() {
+        val p = player ?: return
+
+        if (p.hasPreviousMediaItem()) {
+            p.seekToPreviousMediaItem()
+            showControls()
+            scheduleHide()
+        } else {
+            toast(getString(R.string.episodes_not_found))
+        }
+    }
+
+    /**
+     * Обновляет видимость кнопок навигации по эпизодам.
+     */
+    private fun updateEpisodeNavigationVisibility(episodeCount: Int) {
+        val showNavigation = episodeCount > 1
+        binding.btnPrevious.isVisible = showNavigation
+        binding.btnNext.isVisible = showNavigation
+    }
+
+    /**
+     * Скрывает кнопки навигации (для фильмов и прямых ссылок).
+     */
+    private fun hideEpisodeNavigation() {
+        binding.btnPrevious.isVisible = false
+        binding.btnNext.isVisible = false
+    }
+
+    /**
+     * Обновляет информацию об эпизоде по индексу в плейлисте.
+     */
+    private fun updateEpisodeInfoFromIndex(index: Int) {
+        if (allEpisodes.isEmpty() || serialSeasons.isEmpty()) {
+            binding.tvEpisodeInfo.visibility = View.GONE
+            return
+        }
+
+        val episode = allEpisodes.getOrNull(index)
+        if (episode == null) {
+            binding.tvEpisodeInfo.visibility = View.GONE
+            return
+        }
+
+        // Находим сезон для этого эпизода
+        var seasonNum = 1
+        var episodeNumInSeason = 1
+        var episodeCounter = 0
+
+        for ((sIdx, season) in serialSeasons.withIndex()) {
+            val sortedEpisodes = season.episodes.sortedBy { ep ->
+                findByGroup(ep.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
+            }
+
+            for ((eIdx, ep) in sortedEpisodes.withIndex()) {
+                if (episodeCounter == index) {
+                    seasonNum = season.id ?: (sIdx + 1)
+                    episodeNumInSeason = findByGroup(ep.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull()
+                        ?: (eIdx + 1)
+                    break
+                }
+                episodeCounter++
+            }
+        }
+
+        showEpisodeInfo(seasonNum, episodeNumInSeason, episode.title ?: "")
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Playback controls
+    // ─────────────────────────────────────────────────────────────
+
+    private fun togglePlayPause() {
+        player?.let { if (it.isPlaying) it.pause() else it.play() }
+        showControls()
+        scheduleHide()
+    }
+
+    private fun seekForward() {
+        player?.let { p ->
+            p.seekTo(minOf(p.duration, p.currentPosition + SEEK_STEP_MS))
+        }
+        showControls()
+        scheduleHide()
+        updateProgress()
+    }
+
+    private fun seekBackward() {
+        player?.let { p ->
+            p.seekTo(maxOf(0L, p.currentPosition - SEEK_STEP_MS))
+        }
+        showControls()
+        scheduleHide()
+        updateProgress()
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // UI: controls visibility
+    // ─────────────────────────────────────────────────────────────
+
+    private fun toggleControls() {
+        if (binding.controlsGroup.isVisible) hideControls()
+        else {
+            showControls()
+            scheduleHide()
+        }
+    }
+
+    private fun showControls() {
+        binding.controlsGroup.visibility = View.VISIBLE
+        if (allEpisodes.isNotEmpty()) {
+            binding.tvEpisodeInfo.visibility = View.VISIBLE
+        }
+        binding.btnRewind.requestFocus()
+    }
+
+    private fun hideControls() {
+        binding.controlsGroup.visibility = View.GONE
+        binding.tvEpisodeInfo.visibility = View.GONE
+        binding.root.requestFocus()
+    }
+
+    private fun scheduleHide() {
+        hideHandler.removeCallbacks(hideRunnable)
+        hideHandler.postDelayed(hideRunnable, HIDE_DELAY_MS)
+    }
+
+    private fun showLoading(show: Boolean) {
+        binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
+    }
+
+    private fun showError(msg: String) {
+        binding.tvError.text = msg
+        binding.tvError.visibility = View.VISIBLE
+    }
+
+    private fun hideError() {
+        binding.tvError.visibility = View.GONE
+    }
+
+    private fun showEpisodeInfo(seasonNum: Int, episodeNum: Int, title: String) {
+        binding.tvEpisodeInfo.text = buildString {
+            append("Сезон $seasonNum • Серия $episodeNum")
+            if (title.isNotBlank()) append("\n$title")
+        }
+        binding.tvEpisodeInfo.visibility = View.VISIBLE
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Progress bar updates
+    // ─────────────────────────────────────────────────────────────
+
+    private fun startProgressUpdates() {
+        stopProgressUpdates()
+        progressJob = viewLifecycleOwner.lifecycleScope.launch {
+            while (isActive) {
+                updateProgress()
+                delay(PROGRESS_INTERVAL_MS)
+            }
+        }
+    }
+
+    private fun stopProgressUpdates() {
+        progressJob?.cancel()
+        progressJob = null
+    }
+
+    private fun updateProgress() {
+        val p = player ?: return
+        val duration = p.duration.takeIf { it > 0 } ?: return
+        val pos = p.currentPosition
+
+        binding.seekBar.max = 1000
+        binding.seekBar.progress = ((pos * 1000) / duration).toInt()
+        binding.tvCurrentTime.text = formatTime(pos)
+    }
+
+    private fun updateDuration() {
+        val dur = player?.duration?.takeIf { it > 0 } ?: return
+        binding.tvDuration.text = formatTime(dur)
+        binding.seekBar.max = 1000
+    }
+
+    private fun formatTime(ms: Long): String {
+        val totalSec = ms / 1000
+        val h = totalSec / 3600
+        val m = (totalSec % 3600) / 60
+        val s = totalSec % 60
+        return if (h > 0) "%d:%02d:%02d".format(h, m, s)
+        else "%02d:%02d".format(m, s)
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Save position
+    // ─────────────────────────────────────────────────────────────
+
+    private fun savePosition() {
+        val exo = player ?: return
+        val pos = exo.currentPosition
+        val movie = currentMovie ?: return
+        if (pos <= 0) return
+
+        // Находим текущий сезон и эпизод по индексу в плейлисте
+        val (seasonIdx, episodeIdx) = getSeasonEpisodeFromIndex(currentEpisodeIndex)
+
+        when (movie.type) {
+            MovieType.CINEMA ->
+                viewModel.saveMoviePosition(movie.dbId, pos, 0, 0)
+            MovieType.SERIAL ->
+                viewModel.saveMoviePosition(movie.dbId, pos, seasonIdx, episodeIdx)
+            else -> {}
+        }
+    }
+
+    /**
+     * Конвертирует индекс в плейлисте в (сезон, эпизод).
+     */
+    private fun getSeasonEpisodeFromIndex(playlistIndex: Int): Pair<Int, Int> {
+        var counter = 0
+
+        for ((sIdx, season) in serialSeasons.withIndex()) {
+            val sortedEpisodes = season.episodes.sortedBy { ep ->
+                findByGroup(ep.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
+            }
+
+            for ((eIdx, _) in sortedEpisodes.withIndex()) {
+                if (counter == playlistIndex) {
+                    return sIdx to eIdx
+                }
+                counter++
+            }
+        }
+
+        return 0 to 0
+    }
+
+    private fun savePositionAndExit() {
+        savePosition()
+        findNavController().navigateUp()
     }
 }

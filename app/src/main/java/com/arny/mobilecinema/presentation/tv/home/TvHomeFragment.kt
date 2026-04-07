@@ -4,10 +4,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.Toast
-import androidx.fragment.app.setFragmentResultListener
 import androidx.leanback.app.BrowseSupportFragment
 import androidx.leanback.paging.PagingDataAdapter
 import androidx.leanback.widget.ArrayObjectAdapter
@@ -19,6 +17,7 @@ import androidx.leanback.widget.OnItemViewClickedListener
 import androidx.leanback.widget.OnItemViewSelectedListener
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.paging.LoadState
 import androidx.recyclerview.widget.DiffUtil
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
@@ -32,25 +31,29 @@ import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import timber.log.Timber
 
+enum class UpdateAction(val labelResId: Int) {
+    CHECK_UPDATE(R.string.check_update),
+    CANCEL_UPDATE(R.string.cancel_update)
+}
+
 class TvHomeFragment : BrowseSupportFragment() {
 
     private val viewModel: TvHomeViewModel by viewModel()
 
     private lateinit var rowsAdapter: ArrayObjectAdapter
+    private lateinit var updateRowAdapter: ArrayObjectAdapter
+
+    // Глобальный флаг состояния обновления
+    private var isUpdatingDb = false
 
     private val movieDiffCallback = object : DiffUtil.ItemCallback<ViewMovie>() {
-        override fun areItemsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean {
-            return oldItem.dbId == newItem.dbId
-        }
-
-        override fun areContentsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean {
-            return oldItem == newItem
-        }
+        override fun areItemsTheSame(oldItem: ViewMovie, newItem: ViewMovie) = oldItem.dbId == newItem.dbId
+        override fun areContentsTheSame(oldItem: ViewMovie, newItem: ViewMovie) = oldItem == newItem
     }
 
-    private val allMoviesAdapter = PagingDataAdapter(MovieCardPresenter(), movieDiffCallback)
-    private val historyAdapter = PagingDataAdapter(MovieCardPresenter(), movieDiffCallback)
-    private val favoritesAdapter = PagingDataAdapter(MovieCardPresenter(), movieDiffCallback)
+    private val allMoviesAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
+    private val historyAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
+    private val favoritesAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
 
     private val updateReceiver by lazy { makeBroadcastReceiver() }
 
@@ -58,114 +61,20 @@ class TvHomeFragment : BrowseSupportFragment() {
         super.onCreate(savedInstanceState)
         setupUI()
         setupRowsAdapter()
-        setupDialogListener()
-    }
-
-    private fun setupUI() {
-        title = getString(R.string.app_name)
-        headersState = HEADERS_ENABLED
-        isHeadersTransitionOnBackEnabled = true
-        brandColor = requireContext().getColor(R.color.colorPrimary)
-        searchAffordanceColor = requireContext().getColor(R.color.colorAccent)
-    }
-
-    private fun setupDialogListener() {
-        Timber.i( "setupDialogListener: INIT")
-        childFragmentManager.setFragmentResultListener("UPDATE_REQUEST", this) { _, bundle ->
-            val shouldUpdate = bundle.getBoolean("START_UPDATE", false)
-            val shouldStop = bundle.getBoolean("STOP_UPDATE", false)
-            Timber.d( "setupDialogListener: shouldUpdate:$shouldUpdate, shouldStop:$shouldStop")
-            if (shouldUpdate) {
-                viewModel.downloadData()
-            }
-            if (shouldStop) {
-                viewModel.stopUpdate()
-            }
-        }
-    }
-
-    private fun setupRowsAdapter() {
-        val presenterSelector = ClassPresenterSelector()
-        presenterSelector.addClassPresenter(ListRow::class.java, ListRowPresenter())
-
-        rowsAdapter = ArrayObjectAdapter(presenterSelector)
-
-        val allMoviesHeader = HeaderItem(0, getString(R.string.all_movies))
-        rowsAdapter.add(ListRow(allMoviesHeader, allMoviesAdapter))
-
-        val historyHeader = HeaderItem(1, getString(R.string.history))
-        rowsAdapter.add(ListRow(historyHeader, historyAdapter))
-
-        val favoritesHeader = HeaderItem(2, getString(R.string.favorites))
-        rowsAdapter.add(ListRow(favoritesHeader, favoritesAdapter))
-
-        adapter = rowsAdapter
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupListeners()
+        setupLoadStateListener()
+        setupClickListeners()
+        setupDialogResultListener()
         observeData()
-    }
-
-    private fun setupListeners() {
-        onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
-            if (item is ViewMovie) {
-                findNavController().navigate(
-                    TvHomeFragmentDirections.actionToDetails(item.dbId)
-                )
-            }
-        }
-
-        onItemViewSelectedListener = OnItemViewSelectedListener { _, item, _, _ ->
-            if (item is ViewMovie) {
-                viewModel.onMovieSelected(item)
-            }
-        }
-
-        setOnSearchClickedListener {
-            findNavController().navigate(
-                TvHomeFragmentDirections.actionToSearch()
-            )
-        }
-    }
-
-    private fun observeData() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.moviesDataFlow.collectLatest { pagingData ->
-                allMoviesAdapter.submitData(pagingData)
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.historyMoviesFlow.collectLatest { pagingData ->
-                historyAdapter.submitData(pagingData)
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.favoriteMoviesFlow.collectLatest { pagingData ->
-                favoritesAdapter.submitData(pagingData)
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.updateAvailable.collect { available ->
-                if (available) {
-                    showUpdateDialog()
-                }
-            }
-        }
-    }
-
-    private fun showUpdateDialog() {
-        TvUpdateDialogFragment.newInstance()
-            .show(childFragmentManager, TvUpdateDialogFragment.TAG)
     }
 
     override fun onResume() {
         super.onResume()
         registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
+        viewModel.refreshData()
     }
 
     override fun onPause() {
@@ -173,39 +82,127 @@ class TvHomeFragment : BrowseSupportFragment() {
         unregisterLocalReceiver(updateReceiver)
     }
 
+    private fun setupUI() {
+        headersState = HEADERS_ENABLED
+        isHeadersTransitionOnBackEnabled = true
+        brandColor = requireContext().getColor(R.color.colorPrimary)
+        searchAffordanceColor = requireContext().getColor(R.color.colorAccent)
+        title = getString(R.string.app_name)
+    }
+
+    private fun setupRowsAdapter() {
+        val presenterSelector = ClassPresenterSelector().apply {
+            addClassPresenter(ListRow::class.java, ListRowPresenter())
+        }
+        rowsAdapter = ArrayObjectAdapter(presenterSelector)
+
+        rowsAdapter.add(ListRow(HeaderItem(0, getString(R.string.all_movies)), allMoviesAdapter))
+        rowsAdapter.add(ListRow(HeaderItem(1, getString(R.string.history)), historyAdapter))
+        rowsAdapter.add(ListRow(HeaderItem(2, getString(R.string.favorites)), favoritesAdapter))
+
+        updateRowAdapter = ArrayObjectAdapter(UpdateActionPresenter())
+        updateRowAdapter.add(UpdateAction.CHECK_UPDATE)
+        rowsAdapter.add(ListRow(HeaderItem(3, getString(R.string.update_list)), updateRowAdapter))
+
+        adapter = rowsAdapter
+    }
+
+    private fun setupLoadStateListener() {
+        allMoviesAdapter.addLoadStateListener { loadStates ->
+            val isLoading = loadStates.refresh is LoadState.Loading
+            if (isLoading) {
+                progressBarManager.show()
+            } else {
+                // Если база качается, не прячем спиннер!
+                if (!isUpdatingDb) {
+                    progressBarManager.hide()
+                }
+            }
+        }
+    }
+
+    private fun setupClickListeners() {
+        onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
+            when (item) {
+                is ViewMovie -> findNavController().navigate(TvHomeFragmentDirections.actionToDetails(item.dbId))
+                is UpdateAction -> handleUpdateAction(item)
+            }
+        }
+
+        onItemViewSelectedListener = OnItemViewSelectedListener { _, item, _, _ ->
+            if (item is ViewMovie) viewModel.onMovieSelected(item)
+        }
+
+        setOnSearchClickedListener {
+            findNavController().navigate(TvHomeFragmentDirections.actionToSearch())
+        }
+    }
+
+    private fun setupDialogResultListener() {
+        childFragmentManager.setFragmentResultListener(
+            TvUpdateDialogFragment.REQUEST_KEY,
+            viewLifecycleOwner
+        ) { _, bundle ->
+            if (bundle.getBoolean(TvUpdateDialogFragment.KEY_START_UPDATE, false)) {
+                viewModel.downloadData()
+            }
+        }
+    }
+
+    private fun observeData() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.moviesDataFlow.collectLatest { allMoviesAdapter.submitData(it) }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.historyMoviesFlow.collectLatest { historyAdapter.submitData(it) }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.favoriteMoviesFlow.collectLatest { favoritesAdapter.submitData(it) }
+        }
+    }
+
+    private fun handleUpdateAction(action: UpdateAction) {
+        when (action) {
+            UpdateAction.CHECK_UPDATE -> showUpdateDialog()
+            UpdateAction.CANCEL_UPDATE -> viewModel.stopUpdate()
+        }
+    }
+
+    private fun showUpdateDialog() {
+        if (childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null) return
+        TvUpdateDialogFragment.newInstance().show(childFragmentManager, TvUpdateDialogFragment.TAG)
+    }
+
     private fun makeBroadcastReceiver(): BroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)
-            Timber.d("TV Broadcast received – action: %s", action ?: "<null>")
+
+            // Если пришло уведомление о парсинге конкретного фильма
+            val titleProgress = intent?.getStringExtra("update_title")
+            if (!titleProgress.isNullOrBlank()) {
+                Toast.makeText(requireContext(), "Обновление: $titleProgress", Toast.LENGTH_SHORT).show()
+                return
+            }
 
             when (action) {
                 AppConstants.ACTION_UPDATE_STATUS_STARTED -> {
-                    Toast.makeText(requireContext(), R.string.update_started, Toast.LENGTH_SHORT).show()
+                    isUpdatingDb = true
+                    progressBarManager.initialDelay = 0
                     progressBarManager.show()
-                }
-
-                AppConstants.ACTION_UPDATE_STATUS_PROGRESS -> {
-                    val percent = intent?.getIntExtra("progress_percent", 0) ?: 0
-                    progressBarManager.show()
-                    title = getString(R.string.app_name) + " — ${percent}%"
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
-                    Toast.makeText(requireContext(), R.string.update_finished_success, Toast.LENGTH_SHORT).show()
+                    isUpdatingDb = false
                     progressBarManager.hide()
-                    title = getString(R.string.app_name)
-                    viewModel.refreshData()
+                    Toast.makeText(requireContext(), R.string.update_finished_success, Toast.LENGTH_LONG).show()
+                    allMoviesAdapter.refresh()
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
-                    val errorMsg = intent.getStringExtra("error_message") ?: ""
-                    Toast.makeText(requireContext(), getString(R.string.update_finished_error, errorMsg), Toast.LENGTH_LONG).show()
+                    isUpdatingDb = false
                     progressBarManager.hide()
-                    title = getString(R.string.app_name)
-                }
-
-                else -> {
-                    Timber.w("Unknown update status action: %s", action)
+                    val errorMsg = intent.getStringExtra("error_message") ?: "Неизвестная ошибка"
+                    Toast.makeText(requireContext(), "Ошибка: $errorMsg", Toast.LENGTH_LONG).show()
                 }
             }
         }

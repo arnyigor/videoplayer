@@ -1,65 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
 <navigation xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/tv_nav_graph"
-    app:startDestination="@id/tvHomeFragment">
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/tv_nav_graph"
+        app:startDestination="@id/tvHomeFragment">
 
     <fragment
-        android:id="@+id/tvHomeFragment"
-        android:name="com.arny.mobilecinema.presentation.tv.home.TvHomeFragment"
-        android:label="Home">
+            android:id="@+id/tvHomeFragment"
+            android:name="com.arny.mobilecinema.presentation.tv.home.TvHomeFragment"
+            android:label="Home">
         <action
-            android:id="@+id/actionToDetails"
-            app:destination="@id/tvDetailsFragment" />
+                android:id="@+id/actionToDetails"
+                app:destination="@id/tvDetailsFragment" />
         <action
-            android:id="@+id/actionToSearch"
-            app:destination="@id/tvSearchFragment" />
+                android:id="@+id/actionToSearch"
+                app:destination="@id/tvSearchFragment" />
         <action
-            android:id="@+id/actionToPlayer"
-            app:destination="@id/tvPlayerFragment" />
+                android:id="@+id/actionToPlayer"
+                app:destination="@id/tvPlayerFragment" />
     </fragment>
 
     <fragment
-        android:id="@+id/tvDetailsFragment"
-        android:name="com.arny.mobilecinema.presentation.tv.details.TvDetailsFragment"
-        android:label="Details">
+            android:id="@+id/tvDetailsFragment"
+            android:name="com.arny.mobilecinema.presentation.tv.details.TvDetailsFragment"
+            android:label="Details">
         <argument
-            android:name="movieId"
-            app:argType="long" />
+                android:name="movieId"
+                app:argType="long" />
         <action
-            android:id="@+id/actionToPlayer"
-            app:destination="@id/tvPlayerFragment" />
+                android:id="@+id/actionToPlayer"
+                app:destination="@id/tvPlayerFragment">
+            <argument
+                    android:name="movieId"
+                    app:argType="long" />
+            <argument
+                    android:name="seasonIndex"
+                    app:argType="integer"
+                    android:defaultValue="0" />
+            <argument
+                    android:name="episodeIndex"
+                    app:argType="integer"
+                    android:defaultValue="0" />
+        </action>
     </fragment>
 
     <fragment
-        android:id="@+id/tvPlayerFragment"
-        android:name="com.arny.mobilecinema.presentation.tv.player.TvPlayerFragment"
-        android:label="Player">
+            android:id="@+id/tvPlayerFragment"
+            android:name="com.arny.mobilecinema.presentation.tv.player.TvPlayerFragment"
+            android:label="Player">
         <argument
-            android:name="movieId"
-            app:argType="long"
-            android:defaultValue="0L" />
+                android:name="movieId"
+                app:argType="long"
+                android:defaultValue="0L" />
         <argument
-            android:name="sharedUrl"
-            app:argType="string"
-            android:defaultValue="" />
+                android:name="sharedUrl"
+                app:argType="string"
+                android:defaultValue="" />
         <argument
-            android:name="seasonIndex"
-            app:argType="integer"
-            android:defaultValue="0" />
+                android:name="seasonIndex"
+                app:argType="integer"
+                android:defaultValue="0" />
         <argument
-            android:name="episodeIndex"
-            app:argType="integer"
-            android:defaultValue="0" />
+                android:name="episodeIndex"
+                app:argType="integer"
+                android:defaultValue="0" />
     </fragment>
 
     <fragment
-        android:id="@+id/tvSearchFragment"
-        android:name="com.arny.mobilecinema.presentation.tv.search.TvSearchFragment"
-        android:label="Search">
+            android:id="@+id/tvSearchFragment"
+            android:name="com.arny.mobilecinema.presentation.tv.search.TvSearchFragment"
+            android:label="Search">
         <action
-            android:id="@+id/actionToDetails"
-            app:destination="@id/tvDetailsFragment" />
+                android:id="@+id/actionToDetails"
+                app:destination="@id/tvDetailsFragment" />
     </fragment>
 </navigation>

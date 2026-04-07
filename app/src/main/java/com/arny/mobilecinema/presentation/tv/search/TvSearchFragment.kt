@@ -1,141 +1,96 @@
 package com.arny.mobilecinema.presentation.tv.search
 
-import android.app.LoaderManager
-import android.content.Context
-import android.content.CursorLoader
-import android.content.Loader
-import android.database.Cursor
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
-import android.widget.TextView
 import androidx.leanback.app.SearchSupportFragment
-import androidx.leanback.widget.*
+import androidx.leanback.paging.PagingDataAdapter
+import androidx.leanback.widget.ArrayObjectAdapter
+import androidx.leanback.widget.HeaderItem
+import androidx.leanback.widget.ListRow
+import androidx.leanback.widget.ListRowPresenter
+import androidx.leanback.widget.ObjectAdapter
+import androidx.leanback.widget.OnItemViewClickedListener
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.DiffUtil
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.tv.presenters.MovieCardPresenter
-import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import org.koin.androidx.viewmodel.ext.android.viewModel
+import timber.log.Timber
 
-/**
- * TV-экран поиска фильмов и сериалов.
- *
- * Использует [SearchSupportFragment] из библиотеки Leanback для
- * реализации поиска с автодополнением и отображением результатов.
- *
- * Поддерживает:
- * - Поиск по названию
- * - Отображение результатов в виде сетки карточек
- * - D-pad навигацию (стрелки, OK для выбора)
- *
- * @see MovieCardPresenter - презентер для карточек фильмов
- * @see SearchResultsAdapter - адаптер для результатов поиска
- */
-class TvSearchFragment : SearchSupportFragment(),
-    SearchSupportFragment.SearchResultProvider,
-    LoaderManager.LoaderCallbacks<Cursor> {
+class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchResultProvider {
 
-    private lateinit var searchAdapter: ArrayObjectAdapter
-    private var savedQuery: String? = null
+    private val viewModel: TvSearchViewModel by viewModel()
 
-    override fun onAttach(context: Context) {
-        // Koin injection
-        super.onAttach(context)
+    private val movieDiff = object : DiffUtil.ItemCallback<ViewMovie>() {
+        override fun areItemsTheSame(a: ViewMovie, b: ViewMovie) = a.dbId == b.dbId
+        override fun areContentsTheSame(a: ViewMovie, b: ViewMovie) = a == b
     }
+
+    private val rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
+    private val moviesAdapter = PagingDataAdapter(MovieCardPresenter(), movieDiff)
+
+    private var searchJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Создаём адаптер для результатов поиска
-        searchAdapter = ArrayObjectAdapter(MovieCardPresenter())
-
-        // Устанавливаем этот фрагмент как провайдер результатов
+        // 1. Обязательная привязка провайдера результатов
         setSearchResultProvider(this)
 
-        // Обработчик клика на результат
+        // 2. Создаем ряд с результатами один раз
+        val header = HeaderItem(0, getString(R.string.search_results))
+        val row = ListRow(header, moviesAdapter)
+        rowsAdapter.add(row)
+
+        // 3. Обработчик клика
         setOnItemViewClickedListener { _, item, _, _ ->
             if (item is ViewMovie) {
-                // Переходим к деталям фильма
                 findNavController().navigate(
                     TvSearchFragmentDirections.actionToDetails(item.dbId)
                 )
             }
         }
-    }
 
-    override fun onViewCreated(view: android.view.View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        // Text listening is handled by SearchSupportFragment internally
-    }
-
-    /**
-     * Возвращает адаптер для отображения результатов поиска.
-     */
-    override fun getResultsAdapter(): ArrayObjectAdapter = searchAdapter
-
-    /**
-     * Обрабатывает результаты поиска.
-     * Вызывается при получении результатов от запроса.
-     *
-     * @param result результат поиска (Cursor с фильмами)
-     * @return true если результаты обработаны
-     */
-    override fun onQueryTextChange(newQuery: String?): Boolean {
-        savedQuery = newQuery
-        if (!newQuery.isNullOrBlank()) {
-            startQuery(newQuery)
-        } else {
-            searchAdapter.clear()
+        // 4. Подписываемся на результаты поиска
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.searchResults.collectLatest { pagingData ->
+                moviesAdapter.submitData(pagingData)
+            }
         }
+    }
+
+    // ── SearchResultProvider ──
+
+    // Leanback сам вызывает этот метод, чтобы узнать, что рисовать
+    override fun getResultsAdapter(): ObjectAdapter {
+        return rowsAdapter
+    }
+
+    override fun onQueryTextChange(newQuery: String): Boolean {
+        searchWithDebounce(newQuery)
         return true
     }
 
-    override fun onQueryTextSubmit(query: String?): Boolean {
-        savedQuery = query
-        if (!query.isNullOrBlank()) {
-            startQuery(query)
-        }
+    override fun onQueryTextSubmit(query: String): Boolean {
+        searchWithDebounce(query)
         return true
     }
 
-    /**
-     * Запускает запрос поиска.
-     * В реальной реализации здесь должен быть вызов репозитория.
-     *
-     * @param query строка поиска
-     */
-    private fun startQuery(query: String) {
-        if (query.length < 2) {
-            searchAdapter.clear()
+    private fun searchWithDebounce(query: String) {
+        searchJob?.cancel()
+        if (query.isBlank() || query.length < 2) {
+            viewModel.clearSearch()
             return
         }
-
-        // Заглушка - очищаем и показываем пустой результат
-        // В реальном приложении здесь будет Paging запрос к БД
-        searchAdapter.clear()
-
-        // TODO: Реализовать реальный поиск через MoviesInteractor
-        // moviesInteractor.search(query).collectLatest { pagingData ->
-        //     val snapshot = pagingData.snapshot()
-        //     searchAdapter.addAll(0, snapshot.items)
-        // }
-    }
-
-    // --- LoaderCallbacks implementation ---
-
-    override fun onCreateLoader(id: Int, args: Bundle?): Loader<Cursor> {
-        return CursorLoader(requireContext())
-    }
-
-    override fun onLoadFinished(loader: Loader<Cursor>, data: Cursor?) {
-        // Обработка результатов
-    }
-
-    override fun onLoaderReset(loader: Loader<Cursor>) {
-        searchAdapter.clear()
-    }
-
-    companion object {
-        fun newInstance() = TvSearchFragment()
+        searchJob = viewLifecycleOwner.lifecycleScope.launch {
+            delay(500) // Ждем полсекунды, пока пользователь допечатает
+            Timber.d("Searching: %s", query)
+            viewModel.search(query)
+        }
     }
 }

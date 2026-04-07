@@ -1,3 +1,4 @@
+// presentation/playerview/PlayerViewModel.kt
 package com.arny.mobilecinema.presentation.playerview
 
 import androidx.lifecycle.ViewModel
@@ -21,9 +22,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class PlayerUiState(
@@ -62,21 +63,22 @@ class PlayerViewModel(
     private val _cachedResizeModeIndex = MutableStateFlow(0)
     val cachedResizeModeIndex = _cachedResizeModeIndex.asStateFlow()
 
+    /**
+     * Устанавливает данные для воспроизведения.
+     *
+     * **ВАЖНО:** Эта функция может вызываться повторно при навигации Details → Player.
+     * Мы **не блокируем** повторный вызов, если `movieId` совпадает, но загружаем
+     * актуальную позицию из базы.
+     */
     fun setPlayData(
         path: String?,
         movie: Movie?,
         seasonIndex: Int,
         episodeIndex: Int,
     ) {
-        // Если state уже заполнен для этого фильма - не перезагружаем
-        val currentState = _uiState.value
-        if (currentState.version > 0 && currentState.movie?.dbId == movie?.dbId) {
-            return
-        }
-
         val movieId = movie?.dbId
 
-viewModelScope.launch {
+        viewModelScope.launch {
             val dataResult = historyInteractor.getSaveData(movieId)
                 .catch { _error.trySend(ThrowableString(it)) }
                 .first()
@@ -99,14 +101,17 @@ viewModelScope.launch {
                     lastKnownSeason = resolvedSeason
                     lastKnownEpisode = resolvedEpisode
 
-                    _uiState.value = PlayerUiState(
-                        path = path,
-                        movie = movie,
-                        time = resolvedTime,
-                        season = resolvedSeason,
-                        episode = resolvedEpisode,
-                        version = 1,
-                    )
+                    // Увеличиваем version чтобы UI знал что данные обновились
+                    _uiState.update { current ->
+                        PlayerUiState(
+                            path = path,
+                            movie = movie,
+                            time = resolvedTime,
+                            season = resolvedSeason,
+                            episode = resolvedEpisode,
+                            version = current.version + 1,
+                        )
+                    }
                 }
             }
         }
@@ -127,22 +132,18 @@ viewModelScope.launch {
 
         return when (movie.type) {
             MovieType.CINEMA -> {
-                // Для фильма - всегда берём сохранённое время
                 Triple(0, 0, saveData.time)
             }
             MovieType.SERIAL -> {
-                // Для сериала - проверяем, есть ли сохранённая позиция
                 val hasSavedPosition = saveData.movieDbId != null && saveData.time > 0
 
                 if (hasSavedPosition) {
-                    // Используем сохранённую позицию
                     Triple(
                         saveData.seasonPosition.coerceAtLeast(0),
                         saveData.episodePosition.coerceAtLeast(0),
                         saveData.time
                     )
                 } else {
-                    // Используем позицию из аргументов
                     Triple(
                         argsSeason.coerceAtLeast(0),
                         argsEpisode.coerceAtLeast(0),
@@ -169,7 +170,6 @@ viewModelScope.launch {
                         if (!save) {
                             _error.trySend(ResourceString(R.string.movie_save_error))
                         }
-                        // Уведомляем об изменении ПОСЛЕ сохранения
                         historyInteractor.setCacheChanged(true)
                     }
                     MovieType.SERIAL -> {
@@ -184,7 +184,6 @@ viewModelScope.launch {
                         if (!save) {
                             _error.trySend(ResourceString(R.string.movie_save_error))
                         }
-                        // Для сериалов setCacheChanged вызывается внутри saveSerialPosition
                     }
                     else -> {}
                 }
@@ -192,9 +191,6 @@ viewModelScope.launch {
         }
     }
 
-    /**
-     * Обновить текущую серию при переключении в плеере
-     */
     fun updateCurrentEpisode(season: Int, episode: Int) {
         _uiState.update { state ->
             state.copy(
@@ -259,7 +255,7 @@ viewModelScope.launch {
         }
     }
 
-fun setLastPlayerError(error: String) {
+    fun setLastPlayerError(error: String) {
         feedbackInteractor.setLastError(error)
     }
 

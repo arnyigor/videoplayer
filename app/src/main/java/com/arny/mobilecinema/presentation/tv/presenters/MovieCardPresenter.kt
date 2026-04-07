@@ -5,18 +5,16 @@ import android.widget.ImageView
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
-import com.arny.mobilecinema.data.repository.prefs.Prefs // Убедитесь, что импорт правильный
+import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.utils.getWithDomain
 import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.domain.models.ViewMovie
-import com.arny.mobilecinema.presentation.utils.getWithDomain // Убедитесь, что импорт правильный
 import com.bumptech.glide.Glide
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
-// 1. Добавляем интерфейс KoinComponent
 class MovieCardPresenter : Presenter(), KoinComponent {
 
-    // 2. Теперь мы можем инжектить Prefs напрямую
     private val prefs: Prefs by inject()
 
     companion object {
@@ -38,23 +36,22 @@ class MovieCardPresenter : Presenter(), KoinComponent {
         val movie = item as? ViewMovie ?: return
         val cardView = viewHolder.view as ImageCardView
 
-        // 3. Получаем baseUrl
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
 
         cardView.apply {
             titleText = movie.title
-            contentText = movie.year.toString()
+            // Используем year напрямую (Int) и конвертируем в String
+            contentText = if (movie.year > 0) movie.year.toString() else ""
 
             if (movie.img.isNotBlank()) {
-                // 4. Склеиваем URL и загружаем картинку
                 val fullUrl = movie.img.getWithDomain(baseUrl)
                 Glide.with(context)
                     .load(fullUrl)
                     .centerCrop()
+                    .placeholder(R.drawable.placeholder_movie)
                     .error(R.drawable.placeholder_movie)
                     .into(mainImageView!!)
             } else {
-                // Если картинки нет изначально, ставим заглушку
                 mainImageView?.setImageResource(R.drawable.placeholder_movie)
             }
         }
