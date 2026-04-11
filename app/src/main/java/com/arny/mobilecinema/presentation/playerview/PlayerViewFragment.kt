@@ -1148,8 +1148,12 @@ player?.clearMediaItems()
         with(currentBinding) {
             val loadControl =
                 DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
-                    .build()
+                    .setBufferDurationsMs(
+                        DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
+                        DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
+                        DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
+                        DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
+                    )                    .build()
             trackSelector =
                 DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory()).apply {
                     parameters = parameters.buildUpon()
@@ -1248,9 +1252,11 @@ player?.clearMediaItems()
 
     private fun requestPipMode() {
         if (requireContext().isPiPAvailable()) {
-            PictureInPictureParams.Builder()
-                .apply { setAutoEnabled(this) }
-                .also { requireActivity().enterPictureInPictureMode(it.build()) }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                PictureInPictureParams.Builder()
+                    .apply { setAutoEnabled(this) }
+                    .also { requireActivity().enterPictureInPictureMode(it.build()) }
+            }
         }
     }
 
@@ -1270,8 +1276,7 @@ player?.clearMediaItems()
     }
 
     override fun isPiPAvailable(): Boolean =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
-            && requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+        if (requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
         ) {
             pipMode()
             true

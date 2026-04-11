@@ -477,42 +477,7 @@ class JsoupUpdateInteractorImpl constructor(
         }
     }
 
-    /*private fun fixDuplicates() {
-        val group = listOf(
-            Tables.Movies.TITLE_COL,
-            Tables.Movies.IMG_COL,
-        ).joinToString(",")
-        val duplicates = repository.getDuplicatesBy(group)
-        val size = duplicates.size
-        Timber.d("duplicates:$size")
-        val fullList = mutableListOf<Movie>()
-        for (duplicate in duplicates) {
-            val allDuplicates = repository.getMoviesByQuery(
-                search = "${duplicate.movieId}",
-                column = Tables.Movies.MOVIE_ID_COL,
-                equals = true
-            )
-            if (allDuplicates.isNotEmpty()) {
-                fullList.addAll(allDuplicates)
-            }
-        }
-        for (movie in fullList) {
-            val errors = repository.getErrors(
-                args = listOf(Tables.Errors.PAGE_URL_COLUMN to SqlParam.StringParam(movie.pageUrl))
-            )
-            if (errors.isEmpty()) {
-                dbRepository.insertError(movie.pageUrl, "Дублирование")
-            }
-            repository.removeMovie(movie.dbId)
-            Timber.d("${movie.title} -> ${movie.pageUrl}\n")
-        }
-        isParsing = false
-    }*/
-
-    private suspend fun loadPage(url: String): Document =
-        loadPageWithProxy(url)
-
-    private suspend fun loadPageWithProxy(
+    private suspend fun loadPage(
         url: String
     ): Document {
         val start = System.currentTimeMillis()
@@ -531,7 +496,7 @@ class JsoupUpdateInteractorImpl constructor(
                 delayMin = delayMin,
                 delayMax = delayMax,
                 timeout = 120000,
-                logLevel = LogLevel.NONE,
+                logLevel = LogLevel.BASE,
                 resetCookie = false,
                 domain = domain,
                 path = path
@@ -676,41 +641,93 @@ class JsoupUpdateInteractorImpl constructor(
         )
     }
 
-    private fun getCinemaUrlData(
+private fun getCinemaUrlData(
         page: Element
     ): CinemaUrlData {
-        val data = page.selectFirst(Selectors.PAGE_SCRIPT)?.data()
-        val scriptData = data.orEmpty().trimIndent().trim()
-        val cinemaUrl = getUrlsData(
-            scriptData = scriptData,
-            regex = Selectors.KINO_REGEXP.toRegex(),
-            simpleRegex = Selectors.SIMPLE_REGEXP.toRegex(),
-            require = true,
-        )
+        var cinemaUrl = AnwapUrl()
+        var hdUrl = AnwapUrl()
+
+        val playerScriptData = page.selectFirst(Selectors.PAGE_SCRIPT)?.data()
+            .orEmpty().trimIndent().trim()
+        if (playerScriptData.isNotBlank()) {
+            cinemaUrl = getUrlsData(
+                scriptData = playerScriptData,
+                regex = Selectors.KINO_REGEXP.toRegex(),
+                simpleRegex = Selectors.SIMPLE_REGEXP.toRegex(),
+                require = true,
+            )
+        }
+
+        val kinohdScriptData = page.selectFirst(Selectors.KINO_HD_SCRIPT)?.data()
+            .orEmpty().trimIndent().trim()
+        if (kinohdScriptData.isNotBlank()) {
+            hdUrl = getUrlsData(
+                scriptData = kinohdScriptData,
+                regex = Selectors.KINO_REGEXP.toRegex(),
+                simpleRegex = Selectors.SIMPLE_REGEXP.toRegex(),
+                require = true,
+            )
+        }
+
+        if (cinemaUrl.urls.isEmpty() && kinohdScriptData.isNotBlank()) {
+            cinemaUrl = hdUrl
+            hdUrl = AnwapUrl()
+        }
+
+        val titleScriptData = page.selectFirst(Selectors.KINO_HD_SCRIPT2)?.data()
+            .orEmpty().trimIndent().trim()
+        if (titleScriptData.isNotBlank() && hdUrl.urls.isEmpty()) {
+            val titleUrl = getUrlsData(
+                scriptData = titleScriptData,
+                regex = Selectors.KINO_REGEXP.toRegex(),
+                simpleRegex = Selectors.SIMPLE_REGEXP.toRegex(),
+                require = true,
+            )
+            if (titleUrl.urls.isNotEmpty()) {
+                hdUrl = titleUrl
+            }
+        }
+
         return CinemaUrlData(
             cinemaUrl = cinemaUrl,
+            hdUrl = hdUrl,
         )
     }
 
-    private suspend fun getMp4UrlData(
+private suspend fun getMp4UrlData(
         page: Element,
         location: String,
         cinemaUrlData: CinemaUrlData
     ): CinemaUrlData {
         var data = cinemaUrlData
-        val mp4Link: String? =
-            getMp4Link(page.getAllCinemaLinks().lastOrNull()?.getWithDomain(location))
-        if (!mp4Link.isNullOrBlank()) {
-            val urls = data.cinemaUrl?.urls.orEmpty().toMutableList()
-            urls.add(mp4Link)
-            data = data.copy(cinemaUrl = AnwapUrl(urls = urls))
+        val allCinemaLinks = page.getAllCinemaLinks()
+        for (link in allCinemaLinks) {
+            val resolvedLink = getMp4Link(link.getWithDomain(location))
+            if (!resolvedLink.isNullOrBlank()) {
+                val isM3u8 = resolvedLink.endsWith("m3u8")
+                val isMp4 = resolvedLink.endsWith("mp4")
+                if (isM3u8 || isMp4) {
+                    val urls = if (isM3u8) {
+                        data.cinemaUrl?.urls.orEmpty().toMutableList()
+                    } else {
+                        data.cinemaUrl?.urls.orEmpty().toMutableList()
+                    }
+                    if (!urls.any { it == resolvedLink }) {
+                        urls.add(resolvedLink)
+                    }
+                    data = data.copy(cinemaUrl = AnwapUrl(urls = urls))
+                }
+            }
         }
         return data
     }
 
     private suspend fun getMp4Link(link: String?): String? {
         var result = link
-        if (!result.isNullOrBlank() && !result.endsWith("mp4") && result.startsWith("http")) {
+        if (!result.isNullOrBlank() &&
+            !result.endsWith("mp4") &&
+            !result.endsWith("m3u8") &&
+            result.startsWith("http")) {
             val url = loadUrl(result)
             if (url.isNotBlank()) {
                 result = url

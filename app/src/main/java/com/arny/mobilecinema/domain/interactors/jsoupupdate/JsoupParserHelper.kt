@@ -86,11 +86,7 @@ fun Movie.hasAllVideoData(): Boolean {
 }
 
 fun CinemaUrlData.isNoCinemaUrls(): Boolean {
-    val cinemaUrls = cinemaUrl?.urls
-    val hdUrls = hdUrl?.urls
-    val allEmpty = cinemaUrls.isNullOrEmpty() && hdUrls.isNullOrEmpty()
-    val strings = cinemaUrls.orEmpty() + hdUrls.orEmpty()
-    return allEmpty || filterTrailer(strings).isEmpty()
+    return cinemaUrl?.urls.isNullOrEmpty() && hdUrl?.urls.isNullOrEmpty()
 }
 
 fun getUpdateTime(dateInfo: String, updateToNow: Boolean): Long {
@@ -317,15 +313,12 @@ fun getUrlsData(
     if (data.isNotBlank()) {
         val encryptedData = data.cleanAnwapEncryptedData()
         val decodedData = encryptedData.getDecodedData()
-        var urls = if (decodedData.contains("m3u8") || decodedData.contains("mp4") || decodedData.contains("mpd")) {
+        val urls = if (decodedData.contains("m3u8") || decodedData.contains("mp4") || decodedData.contains("mpd")) {
             getUrlsFromFile(decodedData, fileEnds)
         } else {
             val urlData = getUrlData(decodedData, require, data)
             val file = urlData.file.orEmpty()
             getUrlsFromFile(file, fileEnds)
-        }
-        if (require) {
-            urls = filterTrailer(urls)
         }
         val nonASCII = urls.find {
             "[^\\u0000-\\u007F]+".toRegex() in it
@@ -375,10 +368,6 @@ private fun getUrlData(decodedData: String, require: Boolean, data: String): Anw
         }
     }
     return urlData
-}
-
-fun filterTrailer(urls: List<String>): List<String> {
-    return urls.filter { !it.contains("http(s?)://tr.anwap.be/".toRegex()) }
 }
 
 fun getUrlsFromFile(file: String, fileEnds: String = "(.mp4|.m3u8|.mpd)"): List<String> =

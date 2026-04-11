@@ -810,14 +810,17 @@ class DetailsFragment : Fragment(R.layout.f_details) {
         return "%s %s".format(Locale.getDefault(), it.episode, getString(R.string.spinner_episode))
     }
 
-    private fun getCinemaUrlsItems(movie: Movie): List<Pair<String, String>> {
+private fun getCinemaUrlsItems(movie: Movie): List<Pair<String, String>> {
         val cinemaUrlData = movie.cinemaUrlData
         val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
         val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
-        val fullLinkList = (hdUrls + cinemaUrls).filter { it.isNotBlank() }
+        val fullLinkList = (hdUrls + cinemaUrls).filter { it.isNotBlank() }.distinct()
 
         return fullLinkList.mapIndexed { index, s ->
-            getString(R.string.link_format, "${index + 1} (${s.substringAfterLast(".")})") to s
+            val afterProtocol = s.substringAfter("://")
+            val host = afterProtocol.substringBefore("/")
+            val extension = afterProtocol.substringAfterLast(".")
+            getString(R.string.link_format, "${index + 1}($host/$extension)") to s
         }.takeIf {
             movie.type == MovieType.CINEMA
         }.orEmpty()
