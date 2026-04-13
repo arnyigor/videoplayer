@@ -66,6 +66,7 @@
     <string name="updating_channel_name">Обновление</string>
     <string name="updating">Обновление фильмов и сериалов %d%%</string>
     <string name="updating_all">Обновление фильмов и сериалов</string>
+    <string name="please_wait">Пожалуйста, подождите…</string>
     <string name="no_movie_title">Нет названия</string>
     <string name="serial_title">%s (%s сезон,%s серия)</string>
     <string name="movie_not_found">Фильм или сериал не найден</string>
@@ -278,6 +279,10 @@
     <string name="update_available_message">Доступно новое обновление фильмов и сериалов. Хотите обновить?</string>
     <string name="check_update">Проверить обновления</string>
     <string name="cancel_update">Отменить обновление</string>
+    <string name="update_canceled">Обновление отменено</string>
+    <string name="cancelling">Отмена…</string>
+    <string name="cancelling_update">Отмена обновления</string>
+    <string name="cancelled">Отменено</string>
     <string name="previous_episode">Предыдущая серия</string>
     <string name="next_episode">Следующая серия</string>
     <string name="playback_complete">Воспроизведение завершено</string>

@@ -434,7 +434,7 @@ fun Context.sendServiceMessage(
     intent.apply {
         this.action = action
         this.putExtras(Bundle().apply(extras))
-        Timber.d( "sendServiceMessage: START SERVICE")
+        Timber.d("sendServiceMessage: action=%s", action)
         if (isOreoPlus()) {
             this@sendServiceMessage.applicationContext.startForegroundService(this)
         } else {

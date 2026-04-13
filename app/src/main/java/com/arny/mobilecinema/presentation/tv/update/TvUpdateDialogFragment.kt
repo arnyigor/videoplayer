@@ -12,7 +12,7 @@ import timber.log.Timber
 class TvUpdateDialogFragment : DialogFragment() {
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        return AlertDialog.Builder(requireContext(), R.style.TvDialogTheme)
+        return AlertDialog.Builder(requireContext())
             .setTitle(R.string.update_available_title)
             .setMessage(R.string.update_available_message)
             .setPositiveButton(R.string.yes) { _, _ ->
@@ -21,7 +21,6 @@ class TvUpdateDialogFragment : DialogFragment() {
                 dismissAllowingStateLoss()
             }
             .setNegativeButton(R.string.no) { _, _ ->
-                Timber.d("User declined update")
                 dismissAllowingStateLoss()
             }
             .create()
@@ -36,7 +35,6 @@ class TvUpdateDialogFragment : DialogFragment() {
         const val TAG = "TvUpdateDialog"
         const val REQUEST_KEY = "UPDATE_REQUEST"
         const val KEY_START_UPDATE = "START_UPDATE"
-        const val KEY_STOP_UPDATE = "STOP_UPDATE"
         fun newInstance() = TvUpdateDialogFragment()
     }
 }

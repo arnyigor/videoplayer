@@ -103,6 +103,12 @@
         private var canceled = false
         private var downloadAllJob: Job? = null
 
+        // Хранение последнего известного прогресса
+        private var lastKnownCurrent: Int = -1
+        private var lastKnownTotal: Int = -1
+        private var lastKnownPercent: Int = -1
+        private var lastKnownTitleForUi: String? = null
+
         override val coroutineContext: CoroutineContext
             get() = Dispatchers.Main + supervisorJob
 
@@ -174,6 +180,15 @@
          */
         private fun cancelAllAndStop() {
             downloadAllJob?.cancel()
+
+            // Send broadcast for TV UI to know that update was cancelled
+            sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                putString(
+                    AppConstants.ACTION_UPDATE_STATUS,
+                    AppConstants.ACTION_UPDATE_STATUS_CANCELLED
+                )
+            }
+
             getNoticeManager().cancel(NOTICE_ID)
             stop()
         }
@@ -402,6 +417,11 @@
          * Performs a full update by scraping data from the website and updating local storage.
          */
         private suspend fun downloadAll() {
+            // Сброс прогресса перед новым обновлением
+            lastKnownCurrent = -1
+            lastKnownTotal = -1
+            lastKnownPercent = -1
+            lastKnownTitleForUi = null
 
             val isTv = DeviceUtils.isTV(applicationContext)
             val silent = !isTv
@@ -422,12 +442,29 @@
                     is DataResultWithProgress.Progress -> {
                         val result = data.result
                         val progress = result.progress
+
+                        val currentRaw = progress[UpdateType.CURRENT_INDEX]?.toIntOrNull()
+                        val totalRaw = progress[UpdateType.TOTAL_COUNT]?.toIntOrNull()
+
+                        // Обновляем только если есть новые данные
+                        if (currentRaw != null) {
+                            lastKnownCurrent = currentRaw
+                        }
+                        if (totalRaw != null && totalRaw > 0) {
+                            lastKnownTotal = totalRaw
+                        }
+
+                        // Вычисляем процент только если есть валидные данные
+                        if (lastKnownCurrent >= 0 && lastKnownTotal > 0) {
+                            lastKnownPercent = ((lastKnownCurrent * 100f) / lastKnownTotal).toInt().coerceIn(0, 100)
+                        }
+
                         for (progressItem in progress.keys) {
                             when (progressItem) {
                                 UpdateType.TITLE -> {
-                                    val title1 = UpdateType.TITLE
-                                    val title = progress[title1]
-                                    if (title != null) {
+                                    val title = progress[UpdateType.TITLE]
+                                    if (!title.isNullOrBlank()) {
+                                        lastKnownTitleForUi = title
                                         updateNotification(
                                             title = getString(
                                                 R.string.update_cinema_formatted,
@@ -442,7 +479,8 @@
 
                                 UpdateType.LINK -> {
                                     val link = progress[UpdateType.LINK]
-                                    if (link != null) {
+                                    if (!link.isNullOrBlank() && lastKnownTitleForUi.isNullOrBlank()) {
+                                        lastKnownTitleForUi = link
                                         updateNotification(
                                             title = link,
                                             text = "",
@@ -454,6 +492,22 @@
 
                                 else -> {}
                             }
+                        }
+
+                        // Send broadcast for TV UI progress
+                        sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                            putString(
+                                AppConstants.ACTION_UPDATE_STATUS,
+                                AppConstants.ACTION_UPDATE_STATUS_PROGRESS
+                            )
+                            putString(
+                                "update_title",
+                                lastKnownTitleForUi ?: getString(R.string.updating_all)
+                            )
+                            // Используем сохранённый прогресс вместо вычисленного из текущего события
+                            putInt("progress_percent", lastKnownPercent)
+                            putInt("progress_current", lastKnownCurrent)
+                            putInt("progress_total", lastKnownTotal)
                         }
                     }
 

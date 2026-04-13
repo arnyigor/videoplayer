@@ -197,14 +197,33 @@ class JsoupUpdateInteractorImpl constructor(
         globalStart: Long,
         pageTimeStart: Long,
     ) {
+        // Перебираем каждый фильм и обновляем прогресс на каждом
         for ((linkId, filmLink) in filmLinks.withIndex()) {
             yield()
             if (!isParsing) {
                 throw ParsingStopException("Парсинг завершен")
             }
+
+            // Рассчитываем общий прогресс
+            // page начинается с 0, поэтому (page + 1) - это текущая страница (1..pages)
+            // Добавляем прогресс внутри страницы: linkId/size показывает сколько фильмов обработано на текущей странице
+            val progressInsidePage = if (size > 0) (linkId.toFloat() / size.toFloat()) else 0f
+            val overallProgress = if (pages > 0) {
+                // Формула: (номер страницы + прогресс внутри страницы) / всего страниц * 100
+                ((page.toFloat() + 1f + progressInsidePage) / pages.toFloat() * 100f)
+                    .toInt()
+                    .coerceIn(1, 100)
+            } else {
+                -1
+            }
+
+            // Отправляем готовый процент (0-100) и TOTAL_COUNT = 100
+            fCollector.emit(loading(UpdateType.CURRENT_INDEX to overallProgress.toString()))
+            fCollector.emit(loading(UpdateType.TOTAL_COUNT to "100"))
+
             val linkTimeStart = System.currentTimeMillis()
             parseLink(fCollector, filmLink)
-            fCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Всего записей ${repository.getMoviesSize()} текущая страница $page из $pages"))
+            fCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Страница ${page + 1} из $pages, запись ${linkId + 1} из $size"))
             fCollector.emit(loading(UpdateType.PROGRESS1 to "${getProgress(linkId + 1, size)}"))
             fCollector.emit(
                 getUpdateInfo(
@@ -495,8 +514,8 @@ class JsoupUpdateInteractorImpl constructor(
                 needDelay = needDelay,
                 delayMin = delayMin,
                 delayMax = delayMax,
-                timeout = 120000,
-                logLevel = LogLevel.BASE,
+                timeout = 30000,
+                logLevel = LogLevel.NONE,
                 resetCookie = false,
                 domain = domain,
                 path = path

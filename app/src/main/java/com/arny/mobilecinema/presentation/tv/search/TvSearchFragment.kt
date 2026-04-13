@@ -1,6 +1,9 @@
 package com.arny.mobilecinema.presentation.tv.search
 
 import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import androidx.leanback.app.SearchSupportFragment
 import androidx.leanback.paging.PagingDataAdapter
 import androidx.leanback.widget.ArrayObjectAdapter
@@ -55,13 +58,16 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
                 )
             }
         }
+    }
 
-        // 4. Подписываемся на результаты поиска
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+        // 4. Подписываемся на результаты поиска после создания view
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.searchResults.collectLatest { pagingData ->
                 moviesAdapter.submitData(pagingData)
             }
         }
+        return super.onCreateView(inflater, container, savedInstanceState)
     }
 
     // ── SearchResultProvider ──

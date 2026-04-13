@@ -13,4 +13,7 @@ object UpdateType {
     const val PROGRESS1 = "update_progress_1"
     const val PROGRESS2 = "update_progress_2"
     const val MOVIE = "movie"
+    // Progress tracking for TV UI
+    const val CURRENT_INDEX = "current_index"
+    const val TOTAL_COUNT = "total_count"
 }
