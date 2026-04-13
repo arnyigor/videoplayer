@@ -34,10 +34,14 @@ class SortCategoryPresenter : Presenter() {
         textView.text = textView.context.getString(category.labelResId)
 
         val isSelected = category.ordinal == selectedPosition
+
+        // ИСПРАВЛЕНИЕ: На выбранной категории - ТЕМНЫЙ текст на светлом фоне
+        // На невыбранной - светлый текст
         textView.setTextColor(
             ContextCompat.getColor(
                 textView.context,
-                if (isSelected) R.color.white else R.color.sort_category_text
+                if (isSelected) R.color.textColorPrimary // Темный цвет для выбранной
+                else R.color.sort_category_text // Светлый для невыбранной
             )
         )
         textView.isSelected = isSelected

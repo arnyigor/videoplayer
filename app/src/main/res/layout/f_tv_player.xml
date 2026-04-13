@@ -14,35 +14,44 @@
             app:use_controller="false"
             app:show_buffering="when_playing" />
 
-    <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:layout_gravity="center"
-            android:indeterminateTint="@android:color/white"
-            android:visibility="gone" />
-
     <TextView
             android:id="@+id/tvError"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:background="#AA000000"
-            android:padding="24dp"
+            android:background="#CC000000"
+            android:padding="32dp"
             android:textColor="@android:color/white"
-            android:textSize="18sp"
+            android:textSize="20sp"
+            android:gravity="center"
             android:visibility="gone" />
 
+    <!-- Название фильма/сериала (всегда видимо сверху) -->
+    <TextView
+            android:id="@+id/tvMovieTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:background="@drawable/gradient_top_dark"
+            android:padding="24dp"
+            android:paddingTop="32dp"
+            android:textColor="@android:color/white"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:visibility="gone" />
+
+    <!-- Информация о текущем эпизоде -->
     <TextView
             android:id="@+id/tvEpisodeInfo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="top|center_horizontal"
-            android:layout_marginTop="24dp"
-            android:background="#88000000"
-            android:padding="12dp"
+            android:layout_marginTop="100dp"
+            android:background="#AA000000"
+            android:padding="16dp"
             android:textColor="@android:color/white"
-            android:textSize="18sp"
+            android:textSize="20sp"
             android:gravity="center"
             android:visibility="gone" />
 
@@ -53,60 +62,62 @@
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:background="@drawable/gradient_bottom_dark"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp"
-            android:paddingTop="32dp"
-            android:paddingBottom="24dp"
+            android:paddingStart="32dp"
+            android:paddingEnd="32dp"
+            android:paddingTop="40dp"
+            android:paddingBottom="32dp"
             android:visibility="gone">
 
-        <!-- Верхний ряд: Назад + SeekBar -->
-
+        <!-- Кнопка назад -->
         <ImageButton
                 android:id="@+id/btnBack"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?android:attr/selectableItemBackground"
-                android:contentDescription="Назад"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="@drawable/tv_button_selector"
+                android:contentDescription="@string/back"
                 android:focusable="true"
                 android:src="@drawable/ic_arrow_back"
+                android:scaleType="centerInside"
+                android:padding="12dp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:tint="@android:color/white"
                 android:nextFocusRight="@id/btnPrevious"
                 android:nextFocusDown="@id/btnRewind" />
 
+        <!-- SeekBar -->
         <SeekBar
                 android:id="@+id/seekBar"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginEnd="16dp"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp"
                 android:focusable="false"
                 android:max="1000"
                 android:progressTint="@color/colorAccent"
                 android:thumbTint="@color/colorAccent"
+                android:progressBackgroundTint="#80FFFFFF"
                 app:layout_constraintBottom_toBottomOf="@id/btnBack"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toEndOf="@id/btnBack"
                 app:layout_constraintTop_toTopOf="@id/btnBack" />
 
-        <!-- Нижний ряд: Previous | Rewind | Time | Forward | Next -->
-
         <!-- Предыдущий эпизод -->
         <ImageButton
                 android:id="@+id/btnPrevious"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:background="?android:attr/selectableItemBackground"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginTop="24dp"
+                android:background="@drawable/tv_button_selector"
                 android:contentDescription="@string/previous_episode"
                 android:focusable="true"
                 android:src="@drawable/ic_skip_previous"
-                app:layout_constraintBottom_toBottomOf="parent"
+                android:scaleType="centerInside"
+                android:padding="14dp"
                 app:layout_constraintEnd_toStartOf="@id/btnRewind"
                 app:layout_constraintHorizontal_chainStyle="packed"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/seekBar"
-                android:layout_marginTop="16dp"
                 app:tint="@android:color/white"
                 android:visibility="gone"
                 android:nextFocusRight="@id/btnRewind"
@@ -116,18 +127,20 @@
         <!-- Перемотка назад -->
         <ImageButton
                 android:id="@+id/btnRewind"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:background="?android:attr/selectableItemBackground"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginStart="24dp"
+                android:background="@drawable/tv_button_selector"
                 android:contentDescription="@string/rewind"
                 android:focusable="true"
                 android:src="@drawable/ic_fast_rewind"
+                android:scaleType="centerInside"
+                android:padding="16dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/tvCurrentTime"
                 app:layout_constraintStart_toEndOf="@id/btnPrevious"
                 app:layout_constraintTop_toBottomOf="@id/seekBar"
-                android:layout_marginTop="16dp"
-                android:layout_marginStart="16dp"
                 app:tint="@android:color/white"
                 android:nextFocusRight="@id/btnForward"
                 android:nextFocusLeft="@id/btnPrevious"
@@ -136,41 +149,29 @@
         <!-- Текущее время -->
         <TextView
                 android:id="@+id/tvCurrentTime"
-                android:layout_width="80dp"
+                android:layout_width="100dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="16dp"
                 android:gravity="center"
                 android:text="00:00"
                 android:textColor="@android:color/white"
-                android:textSize="14sp"
+                android:textSize="18sp"
+                android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="@id/btnRewind"
                 app:layout_constraintEnd_toStartOf="@id/tvDuration"
                 app:layout_constraintStart_toEndOf="@id/btnRewind"
                 app:layout_constraintTop_toTopOf="@id/btnRewind" />
 
-        <!-- Разделитель -->
-        <TextView
-                android:id="@+id/tvSeparator"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text=" / "
-                android:textColor="@android:color/white"
-                android:textSize="14sp"
-                android:visibility="gone"
-                app:layout_constraintBottom_toBottomOf="@id/tvCurrentTime"
-                app:layout_constraintStart_toEndOf="@id/tvCurrentTime"
-                app:layout_constraintTop_toTopOf="@id/tvCurrentTime" />
-
         <!-- Длительность -->
         <TextView
                 android:id="@+id/tvDuration"
-                android:layout_width="80dp"
+                android:layout_width="100dp"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="16dp"
                 android:gravity="center"
                 android:text="00:00"
-                android:textColor="@android:color/white"
-                android:textSize="14sp"
+                android:textColor="#CCFFFFFF"
+                android:textSize="18sp"
                 app:layout_constraintBottom_toBottomOf="@id/btnForward"
                 app:layout_constraintEnd_toStartOf="@id/btnForward"
                 app:layout_constraintStart_toEndOf="@id/tvCurrentTime"
@@ -179,18 +180,20 @@
         <!-- Перемотка вперёд -->
         <ImageButton
                 android:id="@+id/btnForward"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:background="?android:attr/selectableItemBackground"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginEnd="24dp"
+                android:background="@drawable/tv_button_selector"
                 android:contentDescription="@string/forward"
                 android:focusable="true"
                 android:src="@drawable/ic_fast_forward"
+                android:scaleType="centerInside"
+                android:padding="16dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toStartOf="@id/btnNext"
                 app:layout_constraintStart_toEndOf="@id/tvDuration"
                 app:layout_constraintTop_toBottomOf="@id/seekBar"
-                android:layout_marginTop="16dp"
-                android:layout_marginEnd="16dp"
                 app:tint="@android:color/white"
                 android:nextFocusLeft="@id/btnRewind"
                 android:nextFocusRight="@id/btnNext"
@@ -199,20 +202,23 @@
         <!-- Следующий эпизод -->
         <ImageButton
                 android:id="@+id/btnNext"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:background="?android:attr/selectableItemBackground"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginTop="24dp"
+                android:background="@drawable/tv_button_selector"
                 android:contentDescription="@string/next_episode"
                 android:focusable="true"
                 android:src="@drawable/ic_skip_next"
+                android:scaleType="centerInside"
+                android:padding="14dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toEndOf="@id/btnForward"
                 app:layout_constraintTop_toBottomOf="@id/seekBar"
-                android:layout_marginTop="16dp"
                 app:tint="@android:color/white"
                 android:visibility="gone"
-                android:nextFocusLeft="@id/btnForward" />
+                android:nextFocusLeft="@id/btnForward"
+                android:nextFocusUp="@id/btnBack" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

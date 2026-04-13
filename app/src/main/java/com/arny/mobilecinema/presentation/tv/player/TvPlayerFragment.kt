@@ -11,9 +11,7 @@ import android.view.ViewGroup
 import android.widget.SeekBar
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
@@ -62,20 +60,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private val binding get() = _binding!!
 
     private var player: ExoPlayer? = null
-
-    // ─────────────────────────────────────────────────────────────
-    // Данные о сериале
-    // ─────────────────────────────────────────────────────────────
-
     private var currentMovie: Movie? = null
-
-    /** Плоский список всех эпизодов сериала (для отображения информации) */
     private var allEpisodes: List<SerialEpisode> = emptyList()
-
-    /** Список сезонов (для определения сезона/эпизода по индексу) */
     private var serialSeasons: List<SerialSeason> = emptyList()
-
-    /** Текущий индекс эпизода в плейлисте ExoPlayer */
     private var currentEpisodeIndex = 0
 
     private val hideHandler = Handler(Looper.getMainLooper())
@@ -99,9 +86,15 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     scheduleHide()
                 }
                 Player.STATE_ENDED -> {
-                    // Плейлист закончился
                     showLoading(false)
-                    toast(getString(R.string.playback_complete))
+                    stopProgressUpdates()
+                    // Автопереход к следующему эпизоду
+                    if (player?.hasNextMediaItem() == true) {
+                        player?.seekToNextMediaItem()
+                        player?.play()
+                    } else {
+                        toast(getString(R.string.playback_complete))
+                    }
                 }
                 Player.STATE_IDLE -> {
                     showLoading(false)
@@ -119,21 +112,33 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             showError("Ошибка: ${error.localizedMessage.orEmpty()}")
         }
 
-        /**
-         * Вызывается при переходе к другому элементу плейлиста.
-         * Обновляем информацию об эпизоде.
-         */
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             super.onMediaItemTransition(mediaItem, reason)
 
             val newIndex = player?.currentMediaItemIndex ?: 0
             Timber.d("Media transition: index $currentEpisodeIndex -> $newIndex, reason=$reason")
 
-            currentEpisodeIndex = newIndex
-            updateEpisodeInfoFromIndex(newIndex)
+            if (newIndex != currentEpisodeIndex) {
+                currentEpisodeIndex = newIndex
+                updateEpisodeInfoFromIndex(newIndex)
+                updateDuration()
+            }
+        }
 
-            // Сбрасываем прогресс для нового эпизода
-            updateDuration()
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int
+        ) {
+            super.onPositionDiscontinuity(oldPosition, newPosition, reason)
+
+            // Обновляем индекс при переключении эпизода
+            val newIndex = player?.currentMediaItemIndex ?: 0
+            if (newIndex != currentEpisodeIndex) {
+                currentEpisodeIndex = newIndex
+                updateEpisodeInfoFromIndex(newIndex)
+                updateDuration()
+            }
         }
     }
 
@@ -199,8 +204,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         binding.btnBack.setOnClickListener { savePositionAndExit() }
         binding.btnRewind.setOnClickListener { seekBackward() }
         binding.btnForward.setOnClickListener { seekForward() }
-
-        // Кнопки переключения эпизодов
         binding.btnPrevious.setOnClickListener { previousEpisode() }
         binding.btnNext.setOnClickListener { nextEpisode() }
 
@@ -274,7 +277,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     true
                 }
 
-                // Переключение эпизодов через пульт
                 KeyEvent.KEYCODE_MEDIA_NEXT,
                 KeyEvent.KEYCODE_CHANNEL_UP -> {
                     nextEpisode()
@@ -358,10 +360,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         playUrl(url, movie.title)
     }
 
-    /**
-     * Загружает ВСЕ серии сериала в плейлист ExoPlayer.
-     * Позволяет переключаться между сериями кнопками next/previous.
-     */
     private fun playSerial(movie: Movie, seasonIndex: Int, episodeIndex: Int) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -383,15 +381,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
     }
 
-    /**
-     * Загружает все эпизоды сериала в плеер.
-     *
-     * @param movie фильм/сериал
-     * @param seasonIndex индекс сезона для начала воспроизведения
-     * @param episodeIndex индекс эпизода для начала воспроизведения
-     * @param position позиция в миллисекундах
-     * @param excludeUrls URLs которые нужно исключить (битые ссылки)
-     */
     private suspend fun setSerialUrls(
         movie: Movie,
         seasonIndex: Int?,
@@ -402,7 +391,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         val seasons = movie.seasons
         serialSeasons = seasons.sortedBy { it.id }
 
-        // Собираем плоский список всех эпизодов
         allEpisodes = serialSeasons.flatMap { season ->
             season.episodes.sortedBy { episode ->
                 findByGroup(episode.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
@@ -413,7 +401,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         Timber.d("setSerialUrls: total episodes = $size")
 
         if (allEpisodes.all { it.dash.isNotBlank() || it.hls.isNotBlank() }) {
-            // Заполняем плейлист и получаем индекс текущего эпизода
             currentEpisodeIndex = fillPlayerEpisodes(
                 serialSeasons = serialSeasons,
                 seasonIndex = seasonIndex,
@@ -424,16 +411,13 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
             Timber.d("setSerialUrls: currentEpisodeIndex = $currentEpisodeIndex")
 
-            // Показываем/скрываем кнопки навигации
             updateEpisodeNavigationVisibility(size)
-
-            // Показываем информацию о текущем эпизоде
             updateEpisodeInfoFromIndex(currentEpisodeIndex)
 
             player?.apply {
-                // Переходим к нужному эпизоду и позиции
-                seekTo(currentEpisodeIndex, position)
                 prepare()
+                seekTo(currentEpisodeIndex, position)
+                playWhenReady = true
             }
         } else {
             toast(getString(R.string.episodes_not_found))
@@ -441,11 +425,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
     }
 
-    /**
-     * Создаёт MediaSource для каждого эпизода и добавляет в плеер.
-     *
-     * @return индекс эпизода с которого начинать воспроизведение
-     */
     private suspend fun fillPlayerEpisodes(
         serialSeasons: List<SerialSeason>,
         seasonIndex: Int?,
@@ -462,7 +441,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             }
 
             for ((e, episode) in episodes.withIndex()) {
-                // Определяем индекс стартового эпизода
                 if (seasonIndex == s && episodeIndex == e) {
                     currentIndexEpisode = allEpisodes.indexOf(episode)
                     if (currentIndexEpisode == -1) {
@@ -470,7 +448,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     }
                 }
 
-                // Выбираем URL (с учётом исключённых)
                 val url = when {
                     excludeUrls.isEmpty() -> episode.hls.ifBlank { episode.dash }
                     !excludeUrls.contains(episode.hls) -> episode.hls
@@ -500,7 +477,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
         Timber.d("fillPlayerEpisodes: created ${mediaSources.size} sources")
 
-        player?.clearMediaItems()
         player?.setMediaSources(mediaSources)
 
         return currentIndexEpisode
@@ -517,6 +493,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     player?.apply {
                         setMediaSource(source)
                         prepare()
+                        playWhenReady = true
                     }
                 } else {
                     showError("Не удалось создать источник видео")
@@ -532,14 +509,12 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     // Episode navigation
     // ─────────────────────────────────────────────────────────────
 
-    /**
-     * Переход к следующему эпизоду.
-     */
     private fun nextEpisode() {
         val p = player ?: return
 
         if (p.hasNextMediaItem()) {
             p.seekToNextMediaItem()
+            p.play()
             showControls()
             scheduleHide()
         } else {
@@ -547,14 +522,12 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
     }
 
-    /**
-     * Переход к предыдущему эпизоду.
-     */
     private fun previousEpisode() {
         val p = player ?: return
 
         if (p.hasPreviousMediaItem()) {
             p.seekToPreviousMediaItem()
+            p.play()
             showControls()
             scheduleHide()
         } else {
@@ -562,26 +535,17 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
     }
 
-    /**
-     * Обновляет видимость кнопок навигации по эпизодам.
-     */
     private fun updateEpisodeNavigationVisibility(episodeCount: Int) {
         val showNavigation = episodeCount > 1
         binding.btnPrevious.isVisible = showNavigation
         binding.btnNext.isVisible = showNavigation
     }
 
-    /**
-     * Скрывает кнопки навигации (для фильмов и прямых ссылок).
-     */
     private fun hideEpisodeNavigation() {
         binding.btnPrevious.isVisible = false
         binding.btnNext.isVisible = false
     }
 
-    /**
-     * Обновляет информацию об эпизоде по индексу в плейлисте.
-     */
     private fun updateEpisodeInfoFromIndex(index: Int) {
         if (allEpisodes.isEmpty() || serialSeasons.isEmpty()) {
             binding.tvEpisodeInfo.visibility = View.GONE
@@ -594,7 +558,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             return
         }
 
-        // Находим сезон для этого эпизода
         var seasonNum = 1
         var episodeNumInSeason = 1
         var episodeCounter = 0
@@ -678,7 +641,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     }
 
     private fun showLoading(show: Boolean) {
-        binding.progressBar.visibility = if (show) View.VISIBLE else View.GONE
     }
 
     private fun showError(msg: String) {
@@ -752,7 +714,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         val movie = currentMovie ?: return
         if (pos <= 0) return
 
-        // Находим текущий сезон и эпизод по индексу в плейлисте
         val (seasonIdx, episodeIdx) = getSeasonEpisodeFromIndex(currentEpisodeIndex)
 
         when (movie.type) {
@@ -764,9 +725,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
     }
 
-    /**
-     * Конвертирует индекс в плейлисте в (сезон, эпизод).
-     */
     private fun getSeasonEpisodeFromIndex(playlistIndex: Int): Pair<Int, Int> {
         var counter = 0
 

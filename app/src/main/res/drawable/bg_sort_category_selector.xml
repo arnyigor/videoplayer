@@ -1,22 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Состояние: выбран (selected) -->
     <item android:state_selected="true">
         <shape android:shape="rectangle">
             <solid android:color="@color/colorAccent" />
-            <corners android:radius="16dp" />
+            <corners android:radius="8dp" />
         </shape>
     </item>
+
+    <!-- Состояние: в фокусе -->
     <item android:state_focused="true">
         <shape android:shape="rectangle">
-            <solid android:color="@color/sort_category_focused" />
-            <corners android:radius="16dp" />
+            <solid android:color="@color/colorAccent" />
+            <corners android:radius="8dp" />
+            <stroke android:width="2dp" android:color="@android:color/white" />
         </shape>
     </item>
+
+    <!-- Обычное состояние -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="@android:color/transparent" />
-            <corners android:radius="16dp" />
-            <stroke android:width="1dp" android:color="@color/sort_category_border" />
+            <solid android:color="#40FFFFFF" />
+            <corners android:radius="8dp" />
         </shape>
     </item>
 </selector>
