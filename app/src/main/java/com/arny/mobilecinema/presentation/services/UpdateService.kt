@@ -4,8 +4,6 @@
     import android.app.NotificationChannel
     import android.app.NotificationManager
     import android.app.PendingIntent
-    import android.app.PendingIntent.FLAG_IMMUTABLE
-    import android.app.PendingIntent.FLAG_UPDATE_CURRENT
     import android.content.Context
     import android.content.Intent
     import android.content.pm.ServiceInfo
@@ -41,7 +39,7 @@
     import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
     import com.google.gson.GsonBuilder
     import com.google.gson.stream.JsonReader
-    import kotlinx.coroutines.CoroutineScope
+    import kotlinx.coroutines.cancelChildren
     import kotlinx.coroutines.Dispatchers
     import kotlinx.coroutines.Job
     import kotlinx.coroutines.SupervisorJob
@@ -77,10 +75,11 @@
     import org.koin.core.component.inject
 
     import kotlinx.coroutines.CancellationException
+    import kotlinx.coroutines.CoroutineScope
     import kotlinx.coroutines.currentCoroutineContext
     import kotlinx.coroutines.isActive
 
-    class UpdateService : LifecycleService(), CoroutineScope, KoinComponent {
+    class UpdateService : LifecycleService(), KoinComponent {
         private companion object {
             /**
              * Unique identifier used for foreground notifications.  The ID must be unique within
@@ -108,9 +107,6 @@
         private var lastKnownTotal: Int = -1
         private var lastKnownPercent: Int = -1
         private var lastKnownTitleForUi: String? = null
-
-        override val coroutineContext: CoroutineContext
-            get() = Dispatchers.Main + supervisorJob
 
         /**
          * Initializes the service.  Creates a notification channel (if required) and starts
@@ -198,7 +194,7 @@
          * data from the specified URL and update the local database.
          */
         private fun actionUpdateByUrl(intent: Intent?) {
-            lifecycleScope.launch(coroutineContext) {
+            lifecycleScope.launch {
                 try {
                     val url = intent?.getStringExtra(SERVICE_PARAM_UPDATE_URL)
                     getPageData(url)
@@ -353,7 +349,7 @@
          * download the ZIP file from the given URL and then update the database.
          */
         private fun actionDownload(intent: Intent?) {
-            lifecycleScope.launch(coroutineContext) {
+            lifecycleScope.launch {
                 try {
                     download(
                         intent?.getStringExtra(SERVICE_PARAM_URL),
@@ -373,7 +369,7 @@
         private fun actionDownloadAll() {
             downloadAllJob?.cancel()
 
-            downloadAllJob = lifecycleScope.launch(coroutineContext) {
+            downloadAllJob = lifecycleScope.launch {
                 try {
                     downloadAll()
                 } catch (e: Exception) {
@@ -522,7 +518,7 @@
          * Handles an `ACTION_UPDATE` request.  Parses the local file and updates movies.
          */
         private fun actionUpdate(intent: Intent?) {
-            lifecycleScope.launch(coroutineContext) {
+            lifecycleScope.launch {
                 try {
                     update(
                         filePath = intent?.getStringExtra(SERVICE_PARAM_FILE),
@@ -603,6 +599,9 @@
                             hasUpdate,
                             forceAll
                         ) { percent ->
+                            // Прерываем работу, если сервис был отменен
+                            if (canceled) throw CancellationException("Update cancelled")
+
                             updateNotification(getString(R.string.updating, percent), text = "", true)
                             // Broadcast progress for TV UI
                             sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
@@ -621,6 +620,11 @@
                         )
                         success = true
                     } catch (e: Exception) {
+                        // Если это отмена - не показываем сообщение об ошибке
+                        if (e is CancellationException) {
+                            Timber.tag(TAG).d("Update cancelled by user")
+                            return@readFile
+                        }
                         e.printStackTrace()
                         updateNotification(
                             title = getString(R.string.update_finished_error, e.message),
@@ -648,6 +652,7 @@
          */
         private fun stop() {
             canceled = true
+            supervisorJob.cancelChildren() // Отменяем все активные корутины сервиса
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
         }
@@ -775,7 +780,7 @@
                 /* context = */ this,
                 /* requestCode = */ 0,
                 /* intent = */ ActivityNavigator.getMainActivityIntent(this),
-                /* flags = */  FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT
+                /* flags = */  PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             val pendingFlags: Int =
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

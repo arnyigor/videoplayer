@@ -10,7 +10,6 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.DialogFragment
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.DialogTvUpdateProgressBinding
-import timber.log.Timber
 
 class TvUpdateProgressDialogFragment : DialogFragment() {
 
@@ -99,8 +98,6 @@ class TvUpdateProgressDialogFragment : DialogFragment() {
     private fun render(progress: Int, stage: String?) {
         if (isCancelled) return
 
-        Timber.d("render called: progress=$progress, stage=$stage")
-
         // Разрешаем прогресс: если пришло -1, но был валидный — используем последний валидный
         val resolvedProgress = when {
             progress in 0..100 -> {
@@ -128,7 +125,6 @@ class TvUpdateProgressDialogFragment : DialogFragment() {
             binding.tvUpdateSpinner.isIndeterminate = resolvedProgress !in 0..100
             binding.tvUpdateSpinner.isVisible = true
             lastProgress = resolvedProgress
-            Timber.d("render: updated progress UI to $resolvedProgress")
         }
     }
 
