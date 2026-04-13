@@ -9,11 +9,11 @@
             android:name="com.arny.mobilecinema.presentation.tv.home.TvHomeFragment"
             android:label="Home">
         <action
-                android:id="@+id/actionToDetails"
-                app:destination="@id/tvDetailsFragment" />
-        <action
                 android:id="@+id/actionToSearch"
                 app:destination="@id/tvSearchFragment" />
+        <action
+                android:id="@+id/actionToDetails"
+                app:destination="@id/tvDetailsFragment" />
         <action
                 android:id="@+id/actionToPlayer"
                 app:destination="@id/tvPlayerFragment" />

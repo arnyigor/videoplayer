@@ -17,6 +17,7 @@ import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,13 +25,22 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
+
+enum class MovieSortCategory(val labelResId: Int, val order: String) {
+    NEW(R.string.new_movies, AppConstants.Order.YEAR_DESC),
+    POPULAR(R.string.popular_movies, AppConstants.Order.RATINGS),
+    ALPHABET(R.string.alphabet_movies, AppConstants.Order.TITLE),
+    RATING(R.string.by_rating_movies, AppConstants.Order.RATINGS)
+}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TvHomeViewModel(
@@ -45,8 +55,6 @@ class TvHomeViewModel(
     private val _downloadProgress = MutableStateFlow<Map<Long, Float>>(emptyMap())
     val downloadProgress = _downloadProgress.asStateFlow()
 
-    private val _refreshTrigger = MutableStateFlow(0)
-
     // Alert flow for update confirmation
     private val _alert = BufferedChannel<Alert>()
     val alert: Flow<Alert> = _alert.receiveAsFlow()
@@ -58,11 +66,21 @@ class TvHomeViewModel(
     private val _loading = MutableStateFlow(false)
     val loading: Flow<Boolean> = _loading.asStateFlow()
 
-    val moviesDataFlow: Flow<PagingData<ViewMovie>> = _refreshTrigger
-        .flatMapLatest {
+    // Текущая категория сортировки
+    private val _sortCategory = MutableStateFlow(MovieSortCategory.NEW)
+    val sortCategory = _sortCategory.asStateFlow()
+
+    // Paging flows с учетом сортировки
+    private val refreshTrigger = MutableStateFlow(0)
+
+    val moviesDataFlow: Flow<PagingData<ViewMovie>> = combine(
+        refreshTrigger,
+        _sortCategory
+    ) { _, sort -> sort }
+        .flatMapLatest { sortCategory ->
             moviesInteractor.getMovies(
                 search = "",
-                order = AppConstants.Order.NONE,
+                order = sortCategory.order,
                 searchType = "",
                 searchAddTypes = listOf(
                     AppConstants.SearchType.CINEMA,
@@ -72,7 +90,7 @@ class TvHomeViewModel(
         }
         .cachedIn(viewModelScope)
 
-    val favoriteMoviesFlow: Flow<PagingData<ViewMovie>> = _refreshTrigger
+    val favoriteMoviesFlow: Flow<PagingData<ViewMovie>> = refreshTrigger
         .flatMapLatest {
             moviesInteractor.getFavoriteMovies(
                 search = "",
@@ -82,7 +100,7 @@ class TvHomeViewModel(
         }
         .cachedIn(viewModelScope)
 
-    val historyMoviesFlow: Flow<PagingData<ViewMovie>> = _refreshTrigger
+    val historyMoviesFlow: Flow<PagingData<ViewMovie>> = refreshTrigger
         .flatMapLatest {
             historyInteractor.getHistoryMovies(
                 search = "",
@@ -97,7 +115,14 @@ class TvHomeViewModel(
     }
 
     fun refreshData() {
-        _refreshTrigger.value++
+        refreshTrigger.value++
+    }
+
+    fun setSortCategory(category: MovieSortCategory) {
+        if (_sortCategory.value != category) {
+            _sortCategory.value = category
+            refreshTrigger.value++
+        }
     }
 
     fun onMovieSelected(movie: ViewMovie) {

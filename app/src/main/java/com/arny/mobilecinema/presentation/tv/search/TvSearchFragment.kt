@@ -4,14 +4,18 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.leanback.app.SearchSupportFragment
 import androidx.leanback.paging.PagingDataAdapter
 import androidx.leanback.widget.ArrayObjectAdapter
+import androidx.leanback.widget.ClassPresenterSelector
 import androidx.leanback.widget.HeaderItem
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.ObjectAdapter
 import androidx.leanback.widget.OnItemViewClickedListener
+import androidx.leanback.widget.Presenter
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.DiffUtil
@@ -25,6 +29,50 @@ import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import timber.log.Timber
 
+/**
+ * Presenter для отображения фильтров поиска
+ */
+class SearchFilterPresenter : Presenter() {
+    private var selectedPosition = 0
+
+    override fun onCreateViewHolder(parent: ViewGroup): ViewHolder {
+        val textView = TextView(parent.context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            isFocusable = true
+            isFocusableInTouchMode = true
+            setPadding(24, 12, 24, 12)
+            textSize = 14f
+            setBackgroundResource(R.drawable.bg_sort_category_selector)
+        }
+        return ViewHolder(textView)
+    }
+
+    override fun onBindViewHolder(viewHolder: ViewHolder, item: Any?) {
+        val filter = item as? SearchFilter ?: return
+        val textView = viewHolder.view as TextView
+
+        textView.text = textView.context.getString(filter.labelResId)
+
+        val isSelected = filter.ordinal == selectedPosition
+        textView.setTextColor(
+            ContextCompat.getColor(
+                textView.context,
+                if (isSelected) R.color.white else R.color.sort_category_text
+            )
+        )
+        textView.isSelected = isSelected
+    }
+
+    override fun onUnbindViewHolder(viewHolder: ViewHolder) {}
+
+    fun setSelectedPosition(position: Int) {
+        selectedPosition = position
+    }
+}
+
 class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchResultProvider {
 
     private val viewModel: TvSearchViewModel by viewModel()
@@ -34,34 +82,61 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
         override fun areContentsTheSame(a: ViewMovie, b: ViewMovie) = a == b
     }
 
-    private val rowsAdapter = ArrayObjectAdapter(ListRowPresenter())
+    private lateinit var rowsAdapter: ArrayObjectAdapter
+    private lateinit var filterRowAdapter: ArrayObjectAdapter
+    private lateinit var filterPresenter: SearchFilterPresenter
     private val moviesAdapter = PagingDataAdapter(MovieCardPresenter(), movieDiff)
 
     private var searchJob: Job? = null
+    private var selectedFilter = SearchFilter.ALL
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Обязательная привязка провайдера результатов
-        setSearchResultProvider(this)
+        // Инициализируем адаптеры
+        val presenterSelector = ClassPresenterSelector().apply {
+            addClassPresenter(ListRow::class.java, ListRowPresenter())
+        }
+        rowsAdapter = ArrayObjectAdapter(presenterSelector)
 
-        // 2. Создаем ряд с результатами один раз
+        // Row с фильтрами
+        filterPresenter = SearchFilterPresenter()
+        filterRowAdapter = ArrayObjectAdapter(filterPresenter).apply {
+            add(SearchFilter.ALL)
+            add(SearchFilter.CINEMA_ONLY)
+            add(SearchFilter.SERIAL_ONLY)
+        }
+        filterPresenter.setSelectedPosition(selectedFilter.ordinal)
+        rowsAdapter.add(ListRow(HeaderItem(-1, ""), filterRowAdapter))
+
+        // Row с результатами
         val header = HeaderItem(0, getString(R.string.search_results))
         val row = ListRow(header, moviesAdapter)
         rowsAdapter.add(row)
 
-        // 3. Обработчик клика
+        // Обработчик клика
         setOnItemViewClickedListener { _, item, _, _ ->
-            if (item is ViewMovie) {
-                findNavController().navigate(
-                    TvSearchFragmentDirections.actionToDetails(item.dbId)
-                )
+            when (item) {
+                is ViewMovie -> {
+                    findNavController().navigate(
+                        TvSearchFragmentDirections.actionToDetails(item.dbId)
+                    )
+                }
+                is SearchFilter -> {
+                    selectedFilter = item
+                    filterPresenter.setSelectedPosition(item.ordinal)
+                    filterRowAdapter.notifyArrayItemRangeChanged(0, filterRowAdapter.size())
+                    viewModel.setFilter(item)
+                }
             }
         }
+
+        // Обязательная привязка провайдера результатов
+        setSearchResultProvider(this)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
-        // 4. Подписываемся на результаты поиска после создания view
+        // Подписываемся на результаты поиска
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.searchResults.collectLatest { pagingData ->
                 moviesAdapter.submitData(pagingData)
@@ -72,7 +147,6 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
 
     // ── SearchResultProvider ──
 
-    // Leanback сам вызывает этот метод, чтобы узнать, что рисовать
     override fun getResultsAdapter(): ObjectAdapter {
         return rowsAdapter
     }
@@ -94,7 +168,7 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
             return
         }
         searchJob = viewLifecycleOwner.lifecycleScope.launch {
-            delay(500) // Ждем полсекунды, пока пользователь допечатает
+            delay(500)
             Timber.d("Searching: %s", query)
             viewModel.search(query)
         }

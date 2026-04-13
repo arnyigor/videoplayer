@@ -46,10 +46,14 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
     private lateinit var rowsAdapter: ArrayObjectAdapter
     private lateinit var updateRowAdapter: ArrayObjectAdapter
+    private lateinit var sortRowAdapter: ArrayObjectAdapter
+    private lateinit var sortPresenter: SortCategoryPresenter
 
     // Глобальный флаг состояния обновления
     private var isUpdatingDb = false
     private var isCancellingUpdate = false
+
+    private var selectedSortCategory = MovieSortCategory.NEW
 
     private val movieDiffCallback = object : DiffUtil.ItemCallback<ViewMovie>() {
         override fun areItemsTheSame(oldItem: ViewMovie, newItem: ViewMovie) = oldItem.dbId == newItem.dbId
@@ -101,6 +105,18 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         }
         rowsAdapter = ArrayObjectAdapter(presenterSelector)
 
+        // Row сортировки (добавляем первым!)
+        sortPresenter = SortCategoryPresenter()
+        sortRowAdapter = ArrayObjectAdapter(sortPresenter).apply {
+            add(MovieSortCategory.NEW)
+            add(MovieSortCategory.POPULAR)
+            add(MovieSortCategory.ALPHABET)
+            add(MovieSortCategory.RATING)
+        }
+        sortPresenter.setSelectedPosition(selectedSortCategory.ordinal)
+        rowsAdapter.add(ListRow(HeaderItem(-1, ""), sortRowAdapter))
+
+        // Основные категории
         rowsAdapter.add(ListRow(HeaderItem(0, getString(R.string.all_movies)), allMoviesAdapter))
         rowsAdapter.add(ListRow(HeaderItem(1, getString(R.string.history)), historyAdapter))
         rowsAdapter.add(ListRow(HeaderItem(2, getString(R.string.favorites)), favoritesAdapter))
@@ -131,6 +147,12 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
             when (item) {
                 is ViewMovie -> findNavController().navigate(TvHomeFragmentDirections.actionToDetails(item.dbId))
                 is UpdateAction -> handleUpdateAction(item)
+                is MovieSortCategory -> {
+                    selectedSortCategory = item
+                    sortPresenter.setSelectedPosition(item.ordinal)
+                    sortRowAdapter.notifyArrayItemRangeChanged(0, sortRowAdapter.size())
+                    viewModel.setSortCategory(item)
+                }
             }
         }
 

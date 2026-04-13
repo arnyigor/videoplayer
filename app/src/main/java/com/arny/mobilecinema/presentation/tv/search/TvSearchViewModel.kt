@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -12,36 +13,51 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+enum class SearchFilter(val labelResId: Int, val searchTypes: List<String>) {
+    ALL(R.string.all_types, listOf(AppConstants.SearchType.CINEMA, AppConstants.SearchType.SERIAL)),
+    CINEMA_ONLY(R.string.cinema_only, listOf(AppConstants.SearchType.CINEMA)),
+    SERIAL_ONLY(R.string.serials_only, listOf(AppConstants.SearchType.SERIAL))
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class TvSearchViewModel(
     private val moviesInteractor: MoviesInteractor
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
-    
+    private val _filter = MutableStateFlow(SearchFilter.ALL)
+    val filter = _filter.asStateFlow()
+
     @OptIn(FlowPreview::class)
-    val searchResults: Flow<PagingData<ViewMovie>> = _searchQuery
-        .debounce(300)
-        .distinctUntilChanged()
-        .flatMapLatest { query ->
-            if (query.isBlank()) {
-                flowOf(PagingData.empty())
-            } else {
-                moviesInteractor.getMovies(
-                    search = query,
-                    order = AppConstants.Order.NONE,
-                    searchType = "",
-                    searchAddTypes = listOf(
-                        AppConstants.SearchType.CINEMA,
-                        AppConstants.SearchType.SERIAL
-                    )
-                )
-            }
+    val searchResults: Flow<PagingData<ViewMovie>> = combine(
+        _searchQuery.debounce(300).distinctUntilChanged(),
+        _filter
+    ) { query, filterOption ->
+        Pair(query, filterOption)
+    }.flatMapLatest { (query, filterOption) ->
+        if (query.isBlank()) {
+            flowOf(PagingData.empty())
+        } else {
+            moviesInteractor.getMovies(
+                search = query,
+                order = AppConstants.Order.NONE,
+                searchType = "",
+                searchAddTypes = filterOption.searchTypes
+            )
         }
-        .cachedIn(viewModelScope)
+    }.cachedIn(viewModelScope)
 
     fun search(query: String) {
         _searchQuery.value = query
+    }
+
+    fun setFilter(filter: SearchFilter) {
+        _filter.value = filter
+        // Перезапускаем поиск с новым фильтром
+        val currentQuery = _searchQuery.value
+        if (currentQuery.isNotBlank()) {
+            _searchQuery.value = currentQuery
+        }
     }
 
     fun clearSearch() {

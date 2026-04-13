@@ -52,4 +52,10 @@
     <!-- Градиенты -->
     <color name="gradient_strong">#CC000000</color>
     <color name="gradient_medium">#66000000</color>
+
+    <!-- TV Сортировка -->
+    <color name="sort_category_focused">#2A2A40</color>
+    <color name="sort_category_border">#3A3A50</color>
+    <color name="sort_category_text">#ABA9B9</color>
+    <color name="white">#FFFFFF</color>
 </resources>

@@ -262,6 +262,13 @@
 
     <!-- TV -->
     <string name="all_movies">Все фильмы</string>
+    <string name="new_movies">Новинки</string>
+    <string name="popular_movies">Популярное</string>
+    <string name="alphabet_movies">По алфавиту</string>
+    <string name="by_rating_movies">По рейтингу</string>
+    <string name="cinema_only">Только фильмы</string>
+    <string name="serials_only">Только сериалы</string>
+    <string name="all_types">Все</string>
     <string name="history">История</string>
     <string name="favorites">Избранное</string>
     <string name="search_results">Результаты поиска</string>
