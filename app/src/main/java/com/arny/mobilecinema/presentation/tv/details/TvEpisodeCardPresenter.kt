@@ -8,17 +8,15 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.getWithDomain
 import com.arny.mobilecinema.domain.models.PrefsConstants
-import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.bumptech.glide.Glide
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class TvEpisodeCardPresenter(
-    private val cardWidth: Int = 240,
-    private val cardHeight: Int = 135
-) : Presenter(), KoinComponent { // 1. Добавили KoinComponent
+    private val cardWidth: Int = 313,
+    private val cardHeight: Int = 176
+) : Presenter(), KoinComponent {
 
-    // 2. Инжектим Prefs
     private val prefs: Prefs by inject()
 
     override fun onCreateViewHolder(parent: ViewGroup): ViewHolder {
@@ -32,23 +30,30 @@ class TvEpisodeCardPresenter(
     }
 
     override fun onBindViewHolder(viewHolder: ViewHolder, item: Any?) {
-        val episode = when (item) {
-            is SerialEpisode -> item
-            is EpisodeItem -> item.episode
-            else -> return
+        val episodeItem = item as? EpisodeItem ?: return
+        val episode = episodeItem.episode
+        val cardView = viewHolder.view as ImageCardView
+
+        // Улучшенное отображение названия
+        cardView.titleText = when {
+            episode.title.isNotBlank() -> episode.title
+            else -> "Серия ${episode.episode}"
         }
 
-        val cardView = viewHolder.view as ImageCardView
-        cardView.titleText = episode.title.ifBlank { "Серия ${episode.episode}" }
-        cardView.contentText = episode.episode
+        // Дополнительная информация
+        cardView.contentText = buildString {
+            append("Серия ${episode.episode}")
+            if (episode.title.isNotBlank() && episode.episode.isNotBlank()) {
+                // Если есть и номер и название, показываем номер в subtitle
+            }
+        }
 
-        // 3. Получаем baseUrl и склеиваем ссылку
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
         val fullUrl = episode.poster.getWithDomain(baseUrl)
 
         if (fullUrl.isNotBlank()) {
             Glide.with(cardView.context)
-                .load(fullUrl) // 4. Загружаем склеенный URL
+                .load(fullUrl)
                 .centerCrop()
                 .placeholder(R.drawable.placeholder_movie)
                 .error(R.drawable.placeholder_movie)

@@ -1,34 +1,31 @@
-// presentation/tv/details/TvDetailsFragment.kt
 package com.arny.mobilecinema.presentation.tv.details
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.leanback.app.DetailsSupportFragment
-import androidx.leanback.widget.Action
-import androidx.leanback.widget.ArrayObjectAdapter
-import androidx.leanback.widget.ClassPresenterSelector
-import androidx.leanback.widget.DetailsOverviewRow
-import androidx.leanback.widget.FullWidthDetailsOverviewRowPresenter
-import androidx.leanback.widget.HeaderItem
-import androidx.leanback.widget.ListRow
-import androidx.leanback.widget.ListRowPresenter
-import androidx.leanback.widget.OnActionClickedListener
-import androidx.leanback.widget.SparseArrayObjectAdapter
+import androidx.leanback.widget.*
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
-import com.arny.mobilecinema.domain.models.Movie
-import com.arny.mobilecinema.domain.models.MovieType
-import com.arny.mobilecinema.domain.models.PrefsConstants
-import com.arny.mobilecinema.domain.models.SerialEpisode
+import com.arny.mobilecinema.data.utils.getWithDomain
+import com.arny.mobilecinema.domain.models.*
+import com.arny.mobilecinema.presentation.services.UpdateService
+import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsAction
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsViewModel
-import com.arny.mobilecinema.data.utils.getWithDomain // ← ИСПРАВЛЕН ИМПОРТ
+import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
+import com.arny.mobilecinema.presentation.utils.sendServiceMessage
+import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.target.CustomTarget
 import com.bumptech.glide.request.transition.Transition
@@ -41,7 +38,15 @@ import timber.log.Timber
 
 data class EpisodeItem(
     val episode: SerialEpisode,
-    val seasonIndex: Int
+    val seasonIndex: Int,
+    val episodeIndex: Int
+)
+
+data class SourceItem(
+    val url: String,
+    val label: String,
+    val quality: String,
+    val index: Int
 )
 
 class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
@@ -49,6 +54,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     companion object {
         private const val ACTION_PLAY = 1L
         private const val ACTION_FAVORITE = 2L
+        private const val ACTION_UPDATE = 3L
         private const val POSTER_WIDTH = 274
         private const val POSTER_HEIGHT = 400
     }
@@ -59,12 +65,28 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     private lateinit var detailsAdapter: ArrayObjectAdapter
     private var detailsRow: DetailsOverviewRow? = null
+    private var currentMovie: Movie? = null
+    private var sources: List<SourceItem> = emptyList()
+
+    private val updateReceiver by lazy { makeBroadcastReceiver() }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         buildAdapter()
+        setupClickListeners()
         viewModel.loadMovie(args.movieId)
         observeData()
+        observeActions()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterLocalReceiver(updateReceiver)
     }
 
     private fun buildAdapter() {
@@ -73,13 +95,12 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         val overviewPresenter = FullWidthDetailsOverviewRowPresenter(
             TvDetailsDescriptionPresenter()
         ).apply {
-            backgroundColor =
-                ContextCompat.getColor(requireContext(), R.color.colorPrimaryDark)
-
+            backgroundColor = ContextCompat.getColor(requireContext(), R.color.colorPrimaryDark)
             onActionClickedListener = OnActionClickedListener { action ->
                 onActionClicked(action)
             }
         }
+
         selector.addClassPresenter(DetailsOverviewRow::class.java, overviewPresenter)
         selector.addClassPresenter(ListRow::class.java, ListRowPresenter())
 
@@ -87,15 +108,70 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         adapter = detailsAdapter
     }
 
+    private fun setupClickListeners() {
+        onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
+            when (item) {
+                is EpisodeItem -> {
+                    navigateToPlayer(
+                        seasonIndex = item.seasonIndex,
+                        episodeIndex = item.episodeIndex
+                    )
+                }
+                is SourceItem -> {
+                    navigateToPlayerWithUrl(item.url)
+                }
+            }
+        }
+    }
+
     private fun observeData() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.movie.collectLatest { movie ->
-                movie?.let { bindMovie(it) }
+                movie?.let {
+                    currentMovie = it
+                    bindMovie(it)
+                }
             }
         }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.isFavorite.collectLatest { isFav ->
                 updateFavoriteLabel(isFav)
+            }
+        }
+    }
+
+    private fun observeActions() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.actions.collect { action ->
+                handleAction(action)
+            }
+        }
+    }
+
+    private fun handleAction(action: TvDetailsAction) {
+        when (action) {
+            is TvDetailsAction.ShowToast -> {
+                Toast.makeText(
+                    requireContext(),
+                    action.message.toString(requireContext()),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            is TvDetailsAction.ShowError -> {
+                Toast.makeText(
+                    requireContext(),
+                    action.message.toString(requireContext()),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            is TvDetailsAction.NavigateToUpdate -> {
+                requireContext().sendServiceMessage(
+                    Intent(requireContext().applicationContext, UpdateService::class.java),
+                    AppConstants.ACTION_UPDATE_BY_URL
+                ) {
+                    putString(AppConstants.SERVICE_PARAM_UPDATE_URL, action.url)
+                }
             }
         }
     }
@@ -117,21 +193,32 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                     else getString(R.string.add_to_favorites)
                 )
             )
+            set(ACTION_UPDATE.toInt(), Action(ACTION_UPDATE, getString(R.string.update_data)))
         }
         row.actionsAdapter = actions
 
         detailsAdapter.clear()
         detailsAdapter.add(row)
 
-        if (movie.type == MovieType.SERIAL && movie.seasons.isNotEmpty()) {
-            addSeasonRows(movie)
+        when (movie.type) {
+            MovieType.SERIAL -> {
+                if (movie.seasons.isNotEmpty()) {
+                    addSeasonRows(movie)
+                }
+            }
+            MovieType.CINEMA -> {
+                sources = prepareSourcesList(movie)
+                if (sources.size > 1) {
+                    addSourcesRow(sources)
+                }
+            }
+            else -> {}
         }
     }
 
     private fun loadPoster(movie: Movie, row: DetailsOverviewRow) {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
         val fullUrl = movie.img.getWithDomain(baseUrl)
-        Timber.d("loadPoster: url=%s", fullUrl)
 
         if (fullUrl.isBlank()) return
 
@@ -146,7 +233,6 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                     resource: Bitmap,
                     transition: Transition<in Bitmap>?
                 ) {
-                    Timber.d("loadPoster: bitmap ready %dx%d", resource.width, resource.height)
                     row.imageDrawable = BitmapDrawable(resources, resource)
                     val idx = detailsAdapter.indexOf(row)
                     if (idx >= 0) {
@@ -155,7 +241,6 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                 }
 
                 override fun onLoadFailed(errorDrawable: Drawable?) {
-                    Timber.w("loadPoster: failed, setting placeholder")
                     row.imageDrawable = errorDrawable
                         ?: ContextCompat.getDrawable(requireContext(), R.drawable.placeholder_movie)
                 }
@@ -166,6 +251,49 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
             })
     }
 
+    private fun prepareSourcesList(movie: Movie): List<SourceItem> {
+        val cinemaUrlData = movie.cinemaUrlData ?: return emptyList()
+
+        val hdUrls = cinemaUrlData.hdUrl?.urls.orEmpty()
+        val cinemaUrls = cinemaUrlData.cinemaUrl?.urls.orEmpty()
+        val allUrls = (hdUrls + cinemaUrls).filter { it.isNotBlank() }.distinct()
+
+        return allUrls.mapIndexed { index, url ->
+            val isHD = index < hdUrls.size
+
+            val afterProtocol = url.substringAfter("://")
+            val host = afterProtocol.substringBefore("/")
+            val extension = afterProtocol.substringAfterLast(".").take(4)
+
+            val label = buildString {
+                if (isHD) {
+                    append("🎬 HD • ")
+                } else {
+                    append("📺 SD • ")
+                }
+
+                val shortHost = if (host.length > 20) {
+                    "${host.take(17)}..."
+                } else {
+                    host
+                }
+                append(shortHost)
+
+                if (extension.isNotBlank()) {
+                    append(" • ")
+                    append(extension.uppercase())
+                }
+            }
+
+            SourceItem(
+                url = url,
+                label = label,
+                quality = if (isHD) "HD" else "",
+                index = index
+            )
+        }
+    }
+
     private fun addSeasonRows(movie: Movie) {
         movie.seasons.sortedBy { it.id }.forEachIndexed { seasonIdx, season ->
             val header = HeaderItem(
@@ -173,17 +301,31 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                 "${getString(R.string.spinner_season)} ${season.id ?: (seasonIdx + 1)}"
             )
             val rowAdapter = ArrayObjectAdapter(TvEpisodeCardPresenter())
-            season.episodes.sortedBy { it.episode }.forEach { ep ->
-                rowAdapter.add(EpisodeItem(ep, seasonIdx))
+
+            season.episodes.sortedBy { it.episode }.forEachIndexed { episodeIdx, ep ->
+                rowAdapter.add(EpisodeItem(ep, seasonIdx, episodeIdx))
             }
+
             detailsAdapter.add(ListRow(header, rowAdapter))
         }
+    }
+
+    private fun addSourcesRow(sources: List<SourceItem>) {
+        val header = HeaderItem(1000, getString(R.string.available_sources))
+        val rowAdapter = ArrayObjectAdapter(TvSourceCardPresenter())
+
+        sources.forEach { source ->
+            rowAdapter.add(source)
+        }
+
+        detailsAdapter.add(ListRow(header, rowAdapter))
     }
 
     private fun onActionClicked(action: Action) {
         when (action.id) {
             ACTION_PLAY -> navigateToPlayer()
             ACTION_FAVORITE -> viewModel.toggleFavorite(args.movieId)
+            ACTION_UPDATE -> viewModel.updateMovieData(args.movieId)
         }
     }
 
@@ -200,9 +342,46 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         )
     }
 
-    private fun navigateToPlayer() {
+    private fun navigateToPlayer(seasonIndex: Int = 0, episodeIndex: Int = 0) {
         findNavController().navigate(
-            TvDetailsFragmentDirections.actionToPlayer(args.movieId)
+            TvDetailsFragmentDirections.actionToPlayer(
+            args.movieId,
+            )
         )
+    }
+
+    private fun navigateToPlayerWithUrl(url: String) {
+        findNavController().navigate(
+            TvDetailsFragmentDirections.actionToPlayer(
+             0L,
+            )
+        )
+    }
+
+    private fun makeBroadcastReceiver() = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val action = intent?.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)
+
+            when (action) {
+                AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.update_finished_success,
+                        Toast.LENGTH_LONG
+                    ).show()
+                    // Перезагружаем данные фильма
+                    viewModel.loadMovie(args.movieId)
+                }
+
+                AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
+                    val errorMsg = intent.getStringExtra("error_message") ?: "Неизвестная ошибка"
+                    Toast.makeText(
+                        requireContext(),
+                        "Ошибка обновления: $errorMsg",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
     }
 }

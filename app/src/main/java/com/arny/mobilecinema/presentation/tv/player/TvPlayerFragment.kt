@@ -71,78 +71,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private var progressJob: Job? = null
     private var mediaLoaded = false
 
-    // ─────────────────────────────────────────────────────────────
-    // Player listener
-    // ─────────────────────────────────────────────────────────────
-
-    private val playerListener = object : Player.Listener {
-        override fun onPlaybackStateChanged(state: Int) {
-            when (state) {
-                Player.STATE_BUFFERING -> showLoading(true)
-                Player.STATE_READY -> {
-                    showLoading(false)
-                    updateDuration()
-                    startProgressUpdates()
-                    scheduleHide()
-                }
-                Player.STATE_ENDED -> {
-                    showLoading(false)
-                    stopProgressUpdates()
-                    // Автопереход к следующему эпизоду
-                    if (player?.hasNextMediaItem() == true) {
-                        player?.seekToNextMediaItem()
-                        player?.play()
-                    } else {
-                        toast(getString(R.string.playback_complete))
-                    }
-                }
-                Player.STATE_IDLE -> {
-                    showLoading(false)
-                    stopProgressUpdates()
-                }
-            }
-        }
-
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            if (isPlaying) startProgressUpdates() else stopProgressUpdates()
-        }
-
-        override fun onPlayerError(error: PlaybackException) {
-            Timber.e(error, "ExoPlayer error")
-            showError("Ошибка: ${error.localizedMessage.orEmpty()}")
-        }
-
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            super.onMediaItemTransition(mediaItem, reason)
-
-            val newIndex = player?.currentMediaItemIndex ?: 0
-            Timber.d("Media transition: index $currentEpisodeIndex -> $newIndex, reason=$reason")
-
-            if (newIndex != currentEpisodeIndex) {
-                currentEpisodeIndex = newIndex
-                updateEpisodeInfoFromIndex(newIndex)
-                updateDuration()
-            }
-        }
-
-        override fun onPositionDiscontinuity(
-            oldPosition: Player.PositionInfo,
-            newPosition: Player.PositionInfo,
-            reason: Int
-        ) {
-            super.onPositionDiscontinuity(oldPosition, newPosition, reason)
-
-            // Обновляем индекс при переключении эпизода
-            val newIndex = player?.currentMediaItemIndex ?: 0
-            if (newIndex != currentEpisodeIndex) {
-                currentEpisodeIndex = newIndex
-                updateEpisodeInfoFromIndex(newIndex)
-                updateDuration()
-            }
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────
     // Fragment lifecycle
     // ─────────────────────────────────────────────────────────────
 
@@ -202,10 +130,30 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
     private fun initControls() {
         binding.btnBack.setOnClickListener { savePositionAndExit() }
-        binding.btnRewind.setOnClickListener { seekBackward() }
-        binding.btnForward.setOnClickListener { seekForward() }
-        binding.btnPrevious.setOnClickListener { previousEpisode() }
-        binding.btnNext.setOnClickListener { nextEpisode() }
+
+        binding.btnRewind.setOnClickListener {
+            seekBackward()
+            // ИСПРАВЛЕНИЕ: возвращаем фокус на ту же кнопку
+            binding.btnRewind.requestFocus()
+        }
+
+        binding.btnForward.setOnClickListener {
+            seekForward()
+            // ИСПРАВЛЕНИЕ: возвращаем фокус на ту же кнопку
+            binding.btnForward.requestFocus()
+        }
+
+        binding.btnPrevious.setOnClickListener {
+            previousEpisode()
+            // ИСПРАВЛЕНИЕ: возвращаем фокус на ту же кнопку
+            binding.btnPrevious.requestFocus()
+        }
+
+        binding.btnNext.setOnClickListener {
+            nextEpisode()
+            // ИСПРАВЛЕНИЕ: возвращаем фокус на ту же кнопку
+            binding.btnNext.requestFocus()
+        }
 
         binding.playerView.setOnClickListener { toggleControls() }
 
@@ -232,6 +180,119 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 scheduleHide()
             }
         })
+    }
+
+    // ИСПРАВЛЕНИЕ: Правильное управление видимостью и доступностью кнопок
+    private fun updateEpisodeNavigationVisibility(episodeCount: Int) {
+        val showNavigation = episodeCount > 1
+
+        binding.btnPrevious.isVisible = showNavigation
+        binding.btnNext.isVisible = showNavigation
+
+        // НОВОЕ: обновляем доступность кнопок при отображении панели управления
+        updateNavigationButtonsState()
+    }
+
+    // НОВЫЙ МЕТОД: обновление состояния кнопок навигации
+    private fun updateNavigationButtonsState() {
+        val p = player ?: return
+
+        // Предыдущая серия доступна?
+        binding.btnPrevious.apply {
+            isEnabled = p.hasPreviousMediaItem()
+            alpha = if (isEnabled) 1.0f else 0.5f
+        }
+
+        // Следующая серия доступна?
+        binding.btnNext.apply {
+            isEnabled = p.hasNextMediaItem()
+            alpha = if (isEnabled) 1.0f else 0.5f
+        }
+    }
+
+    // ОБНОВИТЕ метод onMediaItemTransition
+    private val playerListener = object : Player.Listener {
+        override fun onPlaybackStateChanged(state: Int) {
+            when (state) {
+                Player.STATE_BUFFERING -> showLoading(true)
+                Player.STATE_READY -> {
+                    showLoading(false)
+                    updateDuration()
+                    startProgressUpdates()
+                    scheduleHide()
+                    // НОВОЕ: обновляем состояние кнопок
+                    updateNavigationButtonsState()
+                }
+                Player.STATE_ENDED -> {
+                    showLoading(false)
+                    stopProgressUpdates()
+                    if (player?.hasNextMediaItem() == true) {
+                        player?.seekToNextMediaItem()
+                        player?.play()
+                    } else {
+                        toast(getString(R.string.playback_complete))
+                    }
+                }
+                Player.STATE_IDLE -> {
+                    showLoading(false)
+                    stopProgressUpdates()
+                }
+            }
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) startProgressUpdates() else stopProgressUpdates()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            Timber.e(error, "ExoPlayer error")
+            showError("Ошибка: ${error.localizedMessage.orEmpty()}")
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            super.onMediaItemTransition(mediaItem, reason)
+
+            val newIndex = player?.currentMediaItemIndex ?: 0
+            Timber.d("Media transition: index $currentEpisodeIndex -> $newIndex, reason=$reason")
+
+            if (newIndex != currentEpisodeIndex) {
+                currentEpisodeIndex = newIndex
+                updateEpisodeInfoFromIndex(newIndex)
+                updateDuration()
+                // НОВОЕ: обновляем состояние кнопок при смене эпизода
+                updateNavigationButtonsState()
+            }
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int
+        ) {
+            super.onPositionDiscontinuity(oldPosition, newPosition, reason)
+
+            val newIndex = player?.currentMediaItemIndex ?: 0
+            if (newIndex != currentEpisodeIndex) {
+                currentEpisodeIndex = newIndex
+                updateEpisodeInfoFromIndex(newIndex)
+                updateDuration()
+                // НОВОЕ: обновляем состояние кнопок
+                updateNavigationButtonsState()
+            }
+        }
+    }
+
+    // ОБНОВИТЕ метод showControls
+    private fun showControls() {
+        binding.controlsGroup.visibility = View.VISIBLE
+        if (allEpisodes.isNotEmpty()) {
+            binding.tvEpisodeInfo.visibility = View.VISIBLE
+        }
+
+        // НОВОЕ: обновляем состояние кнопок при показе панели
+        updateNavigationButtonsState()
+
+        binding.btnRewind.requestFocus()
     }
 
     private fun setupDpadListener() {
@@ -535,12 +596,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
     }
 
-    private fun updateEpisodeNavigationVisibility(episodeCount: Int) {
-        val showNavigation = episodeCount > 1
-        binding.btnPrevious.isVisible = showNavigation
-        binding.btnNext.isVisible = showNavigation
-    }
-
     private fun hideEpisodeNavigation() {
         binding.btnPrevious.isVisible = false
         binding.btnNext.isVisible = false
@@ -619,14 +674,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             showControls()
             scheduleHide()
         }
-    }
-
-    private fun showControls() {
-        binding.controlsGroup.visibility = View.VISIBLE
-        if (allEpisodes.isNotEmpty()) {
-            binding.tvEpisodeInfo.visibility = View.VISIBLE
-        }
-        binding.btnRewind.requestFocus()
     }
 
     private fun hideControls() {

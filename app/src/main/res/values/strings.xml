@@ -293,4 +293,12 @@
     <string name="previous_episode">Предыдущая серия</string>
     <string name="next_episode">Следующая серия</string>
     <string name="playback_complete">Воспроизведение завершено</string>
+    <string name="select_source">Выбрать источник</string>
+    <string name="available_sources">Доступные источники</string>
+    <string name="source_format">Источник %1$d</string>
+    <string name="source_hd">HD</string>
+    <string name="click_to_play">Нажмите для воспроизведения</string>
+    <string name="no_description">Описание отсутствует</string>
+    <string name="added_to_favorites">Добавлено в избранное</string>
+    <string name="removed_from_favorites">Удалено из избранного</string>
 </resources>
