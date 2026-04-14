@@ -147,22 +147,31 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
             when (item) {
                 is ViewMovie -> findNavController().navigate(TvHomeFragmentDirections.actionToDetails(item.dbId))
                 is UpdateAction -> handleUpdateAction(item)
-                is MovieSortCategory -> {
-                    selectedSortCategory = item
-                    sortPresenter.setSelectedPosition(item.ordinal)
-                    sortRowAdapter.notifyArrayItemRangeChanged(0, sortRowAdapter.size())
-                    viewModel.setSortCategory(item)
-                }
+                is MovieSortCategory -> applySortCategory(item)
             }
         }
 
         onItemViewSelectedListener = OnItemViewSelectedListener { _, item, _, _ ->
-            if (item is ViewMovie) viewModel.onMovieSelected(item)
+            when (item) {
+                is ViewMovie -> viewModel.onMovieSelected(item)
+                is MovieSortCategory -> applySortCategory(item)
+            }
         }
 
         setOnSearchClickedListener {
             findNavController().navigate(TvHomeFragmentDirections.actionToSearch())
         }
+    }
+
+    private fun applySortCategory(category: MovieSortCategory) {
+        if (selectedSortCategory == category) {
+            return
+        }
+
+        selectedSortCategory = category
+        sortPresenter.setSelectedPosition(category.ordinal)
+        sortRowAdapter.notifyArrayItemRangeChanged(0, sortRowAdapter.size())
+        viewModel.setSortCategory(category)
     }
 
     private fun setupDialogResultListener() {

@@ -371,17 +371,17 @@
             binding.progressBar.isVisible = state.isLoading
 
             state.movie?.let { movie ->
-                // ИСПРАВЛЕНО: Обновляем UI если:
-                // 1. Другой фильм
-                // 2. View было пересоздано (например, при возврате с backstack)
                 val shouldRefreshUI = currentMovie?.dbId != movie.dbId || needsUIRefresh
 
-                if (shouldRefreshUI) {
+                val cinemaLinksChanged = currentMovie?.type == MovieType.CINEMA &&
+                    movie.type == MovieType.CINEMA &&
+                    getCinemaUrlsRaw(currentMovie) != getCinemaUrlsRaw(movie)
+
+                if (shouldRefreshUI || cinemaLinksChanged) {
                     needsUIRefresh = false
                     onMovieLoaded(movie)
                 }
 
-                // Всегда обновляем спиннеры если позиция изменилась
                 updateSpinnerPositionsIfNeeded(state)
             }
 
@@ -754,9 +754,18 @@
                     cardLinks.isVisible = sizeMoreOne
 
                     if (sizeMoreOne) {
+                        val previouslySelectedUrl = currentMovie?.cinemaUrlData?.let { data ->
+                            data.hdUrl?.urls?.firstOrNull { it.isNotBlank() }
+                                ?: data.cinemaUrl?.urls?.firstOrNull { it.isNotBlank() }
+                        }
+
                         spinLinks.updateSpinnerItems(linksChangeListener)
                         linksAdapter?.clear()
                         linksAdapter?.addAll(popupItems.map { it.first })
+
+                        val newIndex = popupItems.indexOfFirst { it.second == previouslySelectedUrl }
+                            .takeIf { it >= 0 } ?: 0
+                        spinLinks.setSelection(newIndex, false)
                     }
 
                     if (popupItems.isNotEmpty()) {
@@ -821,6 +830,15 @@
             }.takeIf {
                 movie.type == MovieType.CINEMA
             }.orEmpty()
+        }
+
+        private fun getCinemaUrlsRaw(movie: Movie?): List<String> {
+            if (movie?.type != MovieType.CINEMA) return emptyList()
+
+            val cinemaUrlData = movie.cinemaUrlData
+            val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
+            val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
+            return (hdUrls + cinemaUrls).filter { it.isNotBlank() }.distinct()
         }
 
         private fun onCache() {

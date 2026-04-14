@@ -40,7 +40,7 @@ class SortCategoryPresenter : Presenter() {
         textView.setTextColor(
             ContextCompat.getColor(
                 textView.context,
-                if (isSelected) R.color.textColorPrimary // Темный цвет для выбранной
+                if (isSelected) R.color.colorOnAccent // Темный цвет для выбранной
                 else R.color.sort_category_text // Светлый для невыбранной
             )
         )

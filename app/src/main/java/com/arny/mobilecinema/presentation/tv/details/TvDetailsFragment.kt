@@ -10,8 +10,20 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.os.bundleOf
 import androidx.leanback.app.DetailsSupportFragment
-import androidx.leanback.widget.*
+import androidx.leanback.widget.Action
+import androidx.leanback.widget.ArrayObjectAdapter
+import androidx.leanback.widget.ClassPresenterSelector
+import androidx.leanback.widget.DetailsOverviewRow
+import androidx.leanback.widget.FullWidthDetailsOverviewRowPresenter
+import androidx.leanback.widget.HeaderItem
+import androidx.leanback.widget.ListRow
+import androidx.leanback.widget.ListRowPresenter
+import androidx.leanback.widget.OnActionClickedListener
+import androidx.leanback.widget.OnItemViewClickedListener
+import androidx.leanback.widget.OnItemViewSelectedListener
+import androidx.leanback.widget.SparseArrayObjectAdapter
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
@@ -19,7 +31,12 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.getWithDomain
-import com.arny.mobilecinema.domain.models.*
+import com.arny.mobilecinema.domain.models.CinemaUrlData
+import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.PrefsConstants
+import com.arny.mobilecinema.domain.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsAction
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsViewModel
@@ -34,19 +51,23 @@ import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import timber.log.Timber
 
 data class EpisodeItem(
     val episode: SerialEpisode,
     val seasonIndex: Int,
-    val episodeIndex: Int
+    val episodeIndex: Int,
+)
+
+data class SeasonItem(
+    val season: SerialSeason,
+    val seasonIndex: Int,
 )
 
 data class SourceItem(
     val url: String,
     val label: String,
     val quality: String,
-    val index: Int
+    val index: Int,
 )
 
 class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
@@ -55,8 +76,13 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         private const val ACTION_PLAY = 1L
         private const val ACTION_FAVORITE = 2L
         private const val ACTION_UPDATE = 3L
+
         private const val POSTER_WIDTH = 274
         private const val POSTER_HEIGHT = 400
+
+        private const val ROW_ID_SEASONS = 1001L
+        private const val ROW_ID_EPISODES = 1002L
+        private const val ROW_ID_SOURCES = 1003L
     }
 
     private val viewModel: TvDetailsViewModel by viewModel()
@@ -65,8 +91,13 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     private lateinit var detailsAdapter: ArrayObjectAdapter
     private var detailsRow: DetailsOverviewRow? = null
+
     private var currentMovie: Movie? = null
     private var sources: List<SourceItem> = emptyList()
+
+    private var selectedSeasonIndex: Int = 0
+    private var selectedEpisodeIndex: Int = 0
+    private var selectedSourceIndex: Int = 0
 
     private val updateReceiver by lazy { makeBroadcastReceiver() }
 
@@ -111,17 +142,31 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     private fun setupClickListeners() {
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             when (item) {
+                is SeasonItem -> handleSeasonChanged(item.seasonIndex)
                 is EpisodeItem -> {
-                    navigateToPlayer(
-                        seasonIndex = item.seasonIndex,
-                        episodeIndex = item.episodeIndex
-                    )
+                    selectedSeasonIndex = item.seasonIndex
+                    selectedEpisodeIndex = item.episodeIndex
+                    navigateToPlayer(item.seasonIndex, item.episodeIndex)
                 }
+
                 is SourceItem -> {
+                    selectedSourceIndex = item.index
                     navigateToPlayerWithUrl(item.url)
                 }
             }
         }
+
+        setOnItemViewSelectedListener(OnItemViewSelectedListener { _, item, _, _ ->
+            when (item) {
+                is SeasonItem -> handleSeasonChanged(item.seasonIndex)
+                is EpisodeItem -> {
+                    selectedSeasonIndex = item.seasonIndex
+                    selectedEpisodeIndex = item.episodeIndex
+                }
+
+                is SourceItem -> selectedSourceIndex = item.index
+            }
+        })
     }
 
     private fun observeData() {
@@ -158,6 +203,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                     Toast.LENGTH_SHORT
                 ).show()
             }
+
             is TvDetailsAction.ShowError -> {
                 Toast.makeText(
                     requireContext(),
@@ -165,6 +211,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                     Toast.LENGTH_LONG
                 ).show()
             }
+
             is TvDetailsAction.NavigateToUpdate -> {
                 requireContext().sendServiceMessage(
                     Intent(requireContext().applicationContext, UpdateService::class.java),
@@ -177,6 +224,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     }
 
     private fun bindMovie(movie: Movie) {
+        syncSelectionState(movie)
+
         val row = DetailsOverviewRow(movie)
         detailsRow = row
 
@@ -203,16 +252,50 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         when (movie.type) {
             MovieType.SERIAL -> {
                 if (movie.seasons.isNotEmpty()) {
-                    addSeasonRows(movie)
+                    addSeasonsRow(movie)
+                    addEpisodesRow(movie)
                 }
             }
+
             MovieType.CINEMA -> {
                 sources = prepareSourcesList(movie)
-                if (sources.size > 1) {
+                if (sources.isNotEmpty()) {
                     addSourcesRow(sources)
                 }
             }
-            else -> {}
+
+            else -> Unit
+        }
+    }
+
+    private fun syncSelectionState(movie: Movie) {
+        when (movie.type) {
+            MovieType.SERIAL -> {
+                val seasons = movie.seasons
+                if (seasons.isEmpty()) {
+                    selectedSeasonIndex = 0
+                    selectedEpisodeIndex = 0
+                    return
+                }
+
+                val maxSeason = seasons.lastIndex
+                selectedSeasonIndex = (movie.seasonPosition ?: selectedSeasonIndex).coerceIn(0, maxSeason)
+
+                val episodes = seasons.getOrNull(selectedSeasonIndex)?.episodes.orEmpty()
+                selectedEpisodeIndex = if (episodes.isEmpty()) {
+                    0
+                } else {
+                    val maxEpisode = episodes.lastIndex
+                    (movie.episodePosition ?: selectedEpisodeIndex).coerceIn(0, maxEpisode)
+                }
+            }
+
+            MovieType.CINEMA -> {
+                val sourceCount = prepareSourcesList(movie).size
+                selectedSourceIndex = if (sourceCount == 0) 0 else selectedSourceIndex.coerceIn(0, sourceCount - 1)
+            }
+
+            else -> Unit
         }
     }
 
@@ -229,10 +312,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
             .centerCrop()
             .error(R.drawable.placeholder_movie)
             .into(object : CustomTarget<Bitmap>(POSTER_WIDTH, POSTER_HEIGHT) {
-                override fun onResourceReady(
-                    resource: Bitmap,
-                    transition: Transition<in Bitmap>?
-                ) {
+                override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
                     row.imageDrawable = BitmapDrawable(resources, resource)
                     val idx = detailsAdapter.indexOf(row)
                     if (idx >= 0) {
@@ -252,7 +332,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     }
 
     private fun prepareSourcesList(movie: Movie): List<SourceItem> {
-        val cinemaUrlData = movie.cinemaUrlData ?: return emptyList()
+        val cinemaUrlData: CinemaUrlData = movie.cinemaUrlData ?: return emptyList()
 
         val hdUrls = cinemaUrlData.hdUrl?.urls.orEmpty()
         val cinemaUrls = cinemaUrlData.cinemaUrl?.urls.orEmpty()
@@ -263,20 +343,13 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
             val afterProtocol = url.substringAfter("://")
             val host = afterProtocol.substringBefore("/")
-            val extension = afterProtocol.substringAfterLast(".").take(4)
+            val extension = afterProtocol.substringAfterLast(".", "").take(4)
 
             val label = buildString {
-                if (isHD) {
-                    append("🎬 HD • ")
-                } else {
-                    append("📺 SD • ")
-                }
+                append(if (isHD) "HD" else "SD")
+                append(" • ")
 
-                val shortHost = if (host.length > 20) {
-                    "${host.take(17)}..."
-                } else {
-                    host
-                }
+                val shortHost = if (host.length > 20) "${host.take(17)}..." else host
                 append(shortHost)
 
                 if (extension.isNotBlank()) {
@@ -289,29 +362,49 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                 url = url,
                 label = label,
                 quality = if (isHD) "HD" else "",
-                index = index
+                index = index,
             )
         }
     }
 
-    private fun addSeasonRows(movie: Movie) {
-        movie.seasons.sortedBy { it.id }.forEachIndexed { seasonIdx, season ->
-            val header = HeaderItem(
-                (season.id ?: seasonIdx).toLong(),
-                "${getString(R.string.spinner_season)} ${season.id ?: (seasonIdx + 1)}"
-            )
-            val rowAdapter = ArrayObjectAdapter(TvEpisodeCardPresenter())
+    private fun addSeasonsRow(movie: Movie) {
+        val header = HeaderItem(ROW_ID_SEASONS, getString(R.string.seasons))
+        val rowAdapter = ArrayObjectAdapter(TvSourceCardPresenter())
 
-            season.episodes.sortedBy { it.episode }.forEachIndexed { episodeIdx, ep ->
-                rowAdapter.add(EpisodeItem(ep, seasonIdx, episodeIdx))
+        movie.seasons.forEachIndexed { seasonIndex, season ->
+            rowAdapter.add(
+                SeasonItem(
+                    season = season,
+                    seasonIndex = seasonIndex,
+                )
+            )
+        }
+
+        detailsAdapter.add(ListRow(header, rowAdapter))
+    }
+
+    private fun addEpisodesRow(movie: Movie) {
+        val header = HeaderItem(ROW_ID_EPISODES, getString(R.string.episodes))
+        val rowAdapter = ArrayObjectAdapter(TvEpisodeCardPresenter())
+
+        val selectedSeason = movie.seasons.getOrNull(selectedSeasonIndex)
+        selectedSeason?.episodes
+            ?.sortedBy { it.episode }
+            ?.forEachIndexed { episodeIndex, episode ->
+                rowAdapter.add(
+                    EpisodeItem(
+                        episode = episode,
+                        seasonIndex = selectedSeasonIndex,
+                        episodeIndex = episodeIndex,
+                    )
+                )
             }
 
-            detailsAdapter.add(ListRow(header, rowAdapter))
-        }
+        detailsAdapter.add(ListRow(header, rowAdapter))
     }
 
     private fun addSourcesRow(sources: List<SourceItem>) {
-        val header = HeaderItem(1000, getString(R.string.available_sources))
+        val header = HeaderItem(ROW_ID_SOURCES, getString(R.string.available_sources))
         val rowAdapter = ArrayObjectAdapter(TvSourceCardPresenter())
 
         sources.forEach { source ->
@@ -323,10 +416,39 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     private fun onActionClicked(action: Action) {
         when (action.id) {
-            ACTION_PLAY -> navigateToPlayer()
+            ACTION_PLAY -> {
+                val movie = currentMovie
+                when (movie?.type) {
+                    MovieType.CINEMA -> {
+                        val selectedUrl = sources.getOrNull(selectedSourceIndex)?.url
+                            ?: sources.firstOrNull()?.url
+
+                        if (!selectedUrl.isNullOrBlank()) {
+                            navigateToPlayerWithUrl(selectedUrl)
+                        } else {
+                            navigateToPlayer()
+                        }
+                    }
+
+                    MovieType.SERIAL -> {
+                        navigateToPlayer(selectedSeasonIndex, selectedEpisodeIndex)
+                    }
+
+                    else -> navigateToPlayer()
+                }
+            }
+
             ACTION_FAVORITE -> viewModel.toggleFavorite(args.movieId)
             ACTION_UPDATE -> viewModel.updateMovieData(args.movieId)
         }
+    }
+
+    private fun handleSeasonChanged(newSeasonIndex: Int) {
+        if (selectedSeasonIndex == newSeasonIndex) return
+
+        selectedSeasonIndex = newSeasonIndex
+        selectedEpisodeIndex = 0
+        currentMovie?.let { bindMovie(it) }
     }
 
     private fun updateFavoriteLabel(isFav: Boolean) {
@@ -344,16 +466,24 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     private fun navigateToPlayer(seasonIndex: Int = 0, episodeIndex: Int = 0) {
         findNavController().navigate(
-            TvDetailsFragmentDirections.actionToPlayer(
-            args.movieId,
+            R.id.tvPlayerFragment,
+            bundleOf(
+                "movieId" to args.movieId,
+                "sharedUrl" to "",
+                "seasonIndex" to seasonIndex,
+                "episodeIndex" to episodeIndex,
             )
         )
     }
 
     private fun navigateToPlayerWithUrl(url: String) {
         findNavController().navigate(
-            TvDetailsFragmentDirections.actionToPlayer(
-             0L,
+            R.id.tvPlayerFragment,
+            bundleOf(
+                "movieId" to 0L,
+                "sharedUrl" to url,
+                "seasonIndex" to 0,
+                "episodeIndex" to 0,
             )
         )
     }
@@ -369,15 +499,15 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                         R.string.update_finished_success,
                         Toast.LENGTH_LONG
                     ).show()
-                    // Перезагружаем данные фильма
                     viewModel.loadMovie(args.movieId)
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
-                    val errorMsg = intent.getStringExtra("error_message") ?: "Неизвестная ошибка"
+                    val errorMsg = intent.getStringExtra("error_message")
+                        ?: getString(R.string.error_loading_data)
                     Toast.makeText(
                         requireContext(),
-                        "Ошибка обновления: $errorMsg",
+                        "?????? ??????????: $errorMsg",
                         Toast.LENGTH_LONG
                     ).show()
                 }

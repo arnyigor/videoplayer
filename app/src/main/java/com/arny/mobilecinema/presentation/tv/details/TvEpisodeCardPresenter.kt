@@ -2,6 +2,7 @@ package com.arny.mobilecinema.presentation.tv.details
 
 import android.view.ViewGroup
 import android.widget.ImageView
+import androidx.core.content.ContextCompat
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
@@ -34,19 +35,20 @@ class TvEpisodeCardPresenter(
         val episode = episodeItem.episode
         val cardView = viewHolder.view as ImageCardView
 
-        // Улучшенное отображение названия
-        cardView.titleText = when {
-            episode.title.isNotBlank() -> episode.title
-            else -> "Серия ${episode.episode}"
+        val seasonNumber = episodeItem.seasonIndex + 1
+        val episodeLabel = episode.episode.ifBlank { (episodeItem.episodeIndex + 1).toString() }
+
+        cardView.titleText = if (episode.title.isNotBlank()) {
+            episode.title
+        } else {
+            "Серия $episodeLabel"
         }
 
-        // Дополнительная информация
-        cardView.contentText = buildString {
-            append("Серия ${episode.episode}")
-            if (episode.title.isNotBlank() && episode.episode.isNotBlank()) {
-                // Если есть и номер и название, показываем номер в subtitle
-            }
-        }
+        cardView.contentText = "Сезон $seasonNumber • Серия $episodeLabel"
+
+        cardView.setInfoAreaBackgroundColor(
+            ContextCompat.getColor(cardView.context, R.color.card_dark_bg)
+        )
 
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
         val fullUrl = episode.poster.getWithDomain(baseUrl)
