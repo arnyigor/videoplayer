@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.DiffUtil
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.tv.presenters.MovieCardPresenter
 import kotlinx.coroutines.Job
@@ -89,6 +90,7 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
 
     private var searchJob: Job? = null
     private var selectedFilter = SearchFilter.ALL
+    private var initialQueryApplied = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -133,6 +135,29 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
 
         // Обязательная привязка провайдера результатов
         setSearchResultProvider(this)
+        updateSearchTypeTitle(AppConstants.SearchType.TITLE)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        if (initialQueryApplied) return
+
+        val initialSearchType = arguments?.getString("searchType")
+            .orEmpty()
+            .ifBlank { AppConstants.SearchType.TITLE }
+        viewModel.setSearchType(initialSearchType)
+        updateSearchTypeTitle(initialSearchType)
+
+        val initialQuery = arguments?.getString("query").orEmpty().trim()
+        if (initialQuery.length >= 2) {
+            view.post {
+                if (isAdded) {
+                    setSearchQuery(initialQuery, true)
+                }
+            }
+        }
+        initialQueryApplied = true
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
@@ -161,6 +186,16 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
         return true
     }
 
+    private fun updateSearchTypeTitle(searchType: String) {
+        val typeLabel = when (searchType) {
+            AppConstants.SearchType.ACTORS -> getString(R.string.search_by_actors)
+            AppConstants.SearchType.GENRES -> getString(R.string.search_by_genres)
+            AppConstants.SearchType.DIRECTORS -> getString(R.string.search_by_directors)
+            else -> getString(R.string.search_by_title)
+        }
+        title = "${getString(R.string.home_search)} - $typeLabel"
+    }
+
     private fun searchWithDebounce(query: String) {
         searchJob?.cancel()
         if (query.isBlank() || query.length < 2) {
@@ -174,3 +209,4 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
         }
     }
 }
+

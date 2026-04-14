@@ -38,6 +38,9 @@ import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.services.UpdateService
+import androidx.fragment.app.DialogFragment
+import com.arny.mobilecinema.presentation.tv.update.TvUpdateDialogFragment
+import com.arny.mobilecinema.presentation.tv.update.TvUpdateProgressDialogFragment
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsAction
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsViewModel
 import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
@@ -70,7 +73,13 @@ data class SourceItem(
     val index: Int,
 )
 
-class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
+data class TagItem(
+    val label: String,
+    val query: String,
+    val searchType: String,
+)
+
+class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgressDialogFragment.Callback {
 
     companion object {
         private const val ACTION_PLAY = 1L
@@ -83,6 +92,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         private const val ROW_ID_SEASONS = 1001L
         private const val ROW_ID_EPISODES = 1002L
         private const val ROW_ID_SOURCES = 1003L
+        private const val ROW_ID_GENRES = 1004L
+        private const val ROW_ID_ACTORS = 1005L
     }
 
     private val viewModel: TvDetailsViewModel by viewModel()
@@ -99,12 +110,16 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     private var selectedEpisodeIndex: Int = 0
     private var selectedSourceIndex: Int = 0
 
+    private var isUpdatingDb = false
+    private var isCancellingUpdate = false
+
     private val updateReceiver by lazy { makeBroadcastReceiver() }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         buildAdapter()
         setupClickListeners()
+        setupDialogResultListener()
         viewModel.loadMovie(args.movieId)
         observeData()
         observeActions()
@@ -153,6 +168,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                     selectedSourceIndex = item.index
                     navigateToPlayerWithUrl(item.url)
                 }
+
+                is TagItem -> navigateToSearch(item.query, item.searchType)
             }
         }
 
@@ -165,8 +182,78 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                 }
 
                 is SourceItem -> selectedSourceIndex = item.index
+                is TagItem -> Unit
             }
         })
+    }
+
+    private fun setupDialogResultListener() {
+        childFragmentManager.setFragmentResultListener(
+            TvUpdateDialogFragment.REQUEST_KEY,
+            viewLifecycleOwner
+        ) { _, bundle ->
+            if (bundle.getBoolean(TvUpdateDialogFragment.KEY_START_UPDATE, false)) {
+                viewModel.updateMovieData(args.movieId)
+            }
+        }
+    }
+
+    private fun showUpdateDialog() {
+        if (childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null) return
+        TvUpdateDialogFragment.newInstance().show(childFragmentManager, TvUpdateDialogFragment.TAG)
+    }
+
+
+    private fun showUpdateProgressDialog(progress: Int = -1, stage: String? = null) {
+        val existing = childFragmentManager.findFragmentByTag(
+            TvUpdateProgressDialogFragment.TAG
+        ) as? TvUpdateProgressDialogFragment
+
+        if (existing != null) {
+            existing.updateProgress(progress, stage)
+            return
+        }
+
+        TvUpdateProgressDialogFragment
+            .newInstance(progress, stage)
+            .show(childFragmentManager, TvUpdateProgressDialogFragment.TAG)
+    }
+
+    private fun updateUpdateProgressDialog(progress: Int = -1, stage: String? = null) {
+        val dialog = childFragmentManager.findFragmentByTag(
+            TvUpdateProgressDialogFragment.TAG
+        ) as? TvUpdateProgressDialogFragment
+
+        if (dialog != null) {
+            dialog.updateProgress(progress, stage)
+        } else {
+            showUpdateProgressDialog(progress, stage)
+        }
+    }
+
+    private fun hideUpdateProgressDialog() {
+        val existing = childFragmentManager.findFragmentByTag(
+            TvUpdateProgressDialogFragment.TAG
+        ) as? DialogFragment
+
+        existing?.dismissAllowingStateLoss()
+    }
+
+    override fun onCancelUpdateRequested() {
+        if (isCancellingUpdate) return
+
+        isCancellingUpdate = true
+        isUpdatingDb = false
+
+        val dialog = childFragmentManager.findFragmentByTag(
+            TvUpdateProgressDialogFragment.TAG
+        ) as? TvUpdateProgressDialogFragment
+        dialog?.markAsCancelled()
+
+        val intent = Intent(requireContext(), UpdateService::class.java).apply {
+            action = AppConstants.ACTION_UPDATE_ALL_CANCEL
+        }
+        requireContext().startService(intent)
     }
 
     private fun observeData() {
@@ -266,6 +353,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
             else -> Unit
         }
+
+        addSearchRows(movie)
     }
 
     private fun syncSelectionState(movie: Movie) {
@@ -414,6 +503,41 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         detailsAdapter.add(ListRow(header, rowAdapter))
     }
 
+    private fun addSearchRows(movie: Movie) {
+        val genres = movie.info.genres
+            .flatMap { it.split(",") }
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(12)
+
+        if (genres.isNotEmpty()) {
+            val header = HeaderItem(ROW_ID_GENRES, getString(R.string.genres))
+            val rowAdapter = ArrayObjectAdapter(TvSourceCardPresenter())
+            genres.forEach { genre ->
+                rowAdapter.add(TagItem(label = genre, query = genre, searchType = AppConstants.SearchType.GENRES))
+            }
+            detailsAdapter.add(ListRow(header, rowAdapter))
+        }
+
+        val actors = movie.info.actors
+            .flatMap { it.split(",") }
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .take(12)
+
+        if (actors.isNotEmpty()) {
+            val header = HeaderItem(ROW_ID_ACTORS, getString(R.string.actors))
+            val rowAdapter = ArrayObjectAdapter(TvSourceCardPresenter())
+            actors.forEach { actor ->
+                rowAdapter.add(TagItem(label = actor, query = actor, searchType = AppConstants.SearchType.ACTORS))
+            }
+            detailsAdapter.add(ListRow(header, rowAdapter))
+        }
+    }
+
+
     private fun onActionClicked(action: Action) {
         when (action.id) {
             ACTION_PLAY -> {
@@ -439,7 +563,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
             }
 
             ACTION_FAVORITE -> viewModel.toggleFavorite(args.movieId)
-            ACTION_UPDATE -> viewModel.updateMovieData(args.movieId)
+            ACTION_UPDATE -> showUpdateDialog()
         }
     }
 
@@ -488,12 +612,46 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         )
     }
 
+    private fun navigateToSearch(query: String, searchType: String) {
+        findNavController().navigate(
+            R.id.tvSearchFragment,
+            bundleOf(
+                "query" to query,
+                "searchType" to searchType
+            )
+        )
+    }
+
     private fun makeBroadcastReceiver() = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)
 
             when (action) {
+                AppConstants.ACTION_UPDATE_STATUS_STARTED -> {
+                    isUpdatingDb = true
+                    isCancellingUpdate = false
+                    showUpdateProgressDialog(
+                        progress = -1,
+                        stage = getString(R.string.updating_all)
+                    )
+                }
+
+                AppConstants.ACTION_UPDATE_STATUS_PROGRESS -> {
+                    if (!isUpdatingDb || isCancellingUpdate) return
+
+                    val percent = intent.getIntExtra("progress_percent", -1)
+                    val percentText = if (percent in 0..100) "$percent%" else null
+
+                    updateUpdateProgressDialog(
+                        progress = percent,
+                        stage = percentText,
+                    )
+                }
+
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+                    isUpdatingDb = false
+                    isCancellingUpdate = false
+                    hideUpdateProgressDialog()
                     Toast.makeText(
                         requireContext(),
                         R.string.update_finished_success,
@@ -503,11 +661,21 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
+                    isUpdatingDb = false
+                    isCancellingUpdate = false
+                    hideUpdateProgressDialog()
                     val errorMsg = intent.getStringExtra("error_message")
                         ?: getString(R.string.error_loading_data)
+                    Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show()
+                }
+
+                AppConstants.ACTION_UPDATE_STATUS_CANCELLED -> {
+                    isUpdatingDb = false
+                    isCancellingUpdate = false
+                    hideUpdateProgressDialog()
                     Toast.makeText(
                         requireContext(),
-                        "?????? ??????????: $errorMsg",
+                        R.string.update_canceled,
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -515,3 +683,5 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         }
     }
 }
+
+

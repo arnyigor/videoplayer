@@ -100,11 +100,21 @@ class TvHomeViewModel(
         }
         .cachedIn(viewModelScope)
 
+    val continueWatchingMoviesFlow: Flow<PagingData<ViewMovie>> = refreshTrigger
+        .flatMapLatest {
+            historyInteractor.getHistoryMovies(
+                search = "",
+                order = AppConstants.Order.LAST_TIME,
+                searchType = ""
+            )
+        }
+        .cachedIn(viewModelScope)
+
     val historyMoviesFlow: Flow<PagingData<ViewMovie>> = refreshTrigger
         .flatMapLatest {
             historyInteractor.getHistoryMovies(
                 search = "",
-                order = "",
+                order = AppConstants.Order.LAST_TIME,
                 searchType = ""
             )
         }

@@ -298,7 +298,9 @@
     <string name="source_format">Источник %1$d</string>
     <string name="source_hd">HD</string>
     <string name="click_to_play">Нажмите для воспроизведения</string>
+    <string name="click_to_search">Tap to search</string>
     <string name="no_description">Описание отсутствует</string>
     <string name="added_to_favorites">Добавлено в избранное</string>
     <string name="removed_from_favorites">Удалено из избранного</string>
+    <string name="continue_watching">Продолжить просмотр</string>
 </resources>

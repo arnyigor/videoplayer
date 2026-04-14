@@ -25,23 +25,25 @@ class TvSearchViewModel(
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
+    private val _searchType = MutableStateFlow(AppConstants.SearchType.TITLE)
     private val _filter = MutableStateFlow(SearchFilter.ALL)
     val filter = _filter.asStateFlow()
 
     @OptIn(FlowPreview::class)
     val searchResults: Flow<PagingData<ViewMovie>> = combine(
         _searchQuery.debounce(300).distinctUntilChanged(),
+        _searchType,
         _filter
-    ) { query, filterOption ->
-        Pair(query, filterOption)
-    }.flatMapLatest { (query, filterOption) ->
+    ) { query, searchType, filterOption ->
+        Triple(query, searchType, filterOption)
+    }.flatMapLatest { (query, searchType, filterOption) ->
         if (query.isBlank()) {
             flowOf(PagingData.empty())
         } else {
             moviesInteractor.getMovies(
                 search = query,
                 order = AppConstants.Order.NONE,
-                searchType = "",
+                searchType = searchType,
                 searchAddTypes = filterOption.searchTypes
             )
         }
@@ -49,6 +51,10 @@ class TvSearchViewModel(
 
     fun search(query: String) {
         _searchQuery.value = query
+    }
+
+    fun setSearchType(searchType: String) {
+        _searchType.value = searchType.ifBlank { AppConstants.SearchType.TITLE }
     }
 
     fun setFilter(filter: SearchFilter) {

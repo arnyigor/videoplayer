@@ -31,6 +31,7 @@ class TvSourceCardPresenter : Presenter() {
         when (item) {
             is SourceItem -> bindSource(binding, item)
             is SeasonItem -> bindSeason(binding, item)
+            is TagItem -> bindTag(binding, item)
             else -> {
                 binding.tvSourceLabel.text = ""
                 binding.tvQualityBadge.visibility = View.GONE
@@ -72,6 +73,13 @@ class TvSourceCardPresenter : Presenter() {
             episodesCount,
             episodesCount
         )
+    }
+
+    private fun bindTag(binding: ItemTvSourceCardBinding, tag: TagItem) {
+        binding.tvSourceLabel.text = tag.label
+        binding.tvQualityBadge.visibility = View.GONE
+        binding.tvSourceHint.visibility = View.VISIBLE
+        binding.tvSourceHint.text = binding.root.context.getString(R.string.click_to_search)
     }
 
     private fun applyState(binding: ItemTvSourceCardBinding, hasFocus: Boolean, selected: Boolean) {

@@ -61,6 +61,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     }
 
     private val allMoviesAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
+    private val continueWatchingAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
     private val historyAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
     private val favoritesAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
 
@@ -118,12 +119,13 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
         // Основные категории
         rowsAdapter.add(ListRow(HeaderItem(0, getString(R.string.all_movies)), allMoviesAdapter))
-        rowsAdapter.add(ListRow(HeaderItem(1, getString(R.string.history)), historyAdapter))
-        rowsAdapter.add(ListRow(HeaderItem(2, getString(R.string.favorites)), favoritesAdapter))
+        rowsAdapter.add(ListRow(HeaderItem(1, getString(R.string.continue_watching)), continueWatchingAdapter))
+        rowsAdapter.add(ListRow(HeaderItem(2, getString(R.string.history)), historyAdapter))
+        rowsAdapter.add(ListRow(HeaderItem(3, getString(R.string.favorites)), favoritesAdapter))
 
         updateRowAdapter = ArrayObjectAdapter(UpdateActionPresenter())
         updateRowAdapter.add(UpdateAction.CHECK_UPDATE)
-        rowsAdapter.add(ListRow(HeaderItem(3, getString(R.string.update_list)), updateRowAdapter))
+        rowsAdapter.add(ListRow(HeaderItem(4, getString(R.string.update_list)), updateRowAdapter))
 
         adapter = rowsAdapter
     }
@@ -243,6 +245,9 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     private fun observeData() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.moviesDataFlow.collectLatest { allMoviesAdapter.submitData(it) }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.continueWatchingMoviesFlow.collectLatest { continueWatchingAdapter.submitData(it) }
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.historyMoviesFlow.collectLatest { historyAdapter.submitData(it) }
