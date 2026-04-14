@@ -47,9 +47,11 @@
     import com.arny.mobilecinema.presentation.utils.navigateSafely
     import com.arny.mobilecinema.presentation.utils.printTime
     import com.arny.mobilecinema.presentation.utils.registerReceiver
+    import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
     import com.arny.mobilecinema.presentation.utils.sendServiceMessage
     import com.arny.mobilecinema.presentation.utils.toast
     import com.arny.mobilecinema.presentation.utils.unregisterReceiver
+    import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
     import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
     import com.arny.mobilecinema.presentation.utils.updateTitle
     import com.bumptech.glide.Glide
@@ -234,7 +236,7 @@
             super.onResume()
             registerReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
             registerReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
-            registerReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
+            registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
 
             // Инвалидируем кэш при возврате на экран
             viewModel.handleEvent(DetailsEvent.InvalidateCache)
@@ -244,7 +246,7 @@
             super.onPause()
             unregisterReceiver(downloadReceiver)
             unregisterReceiver(downloadUpdateReceiver)
-            unregisterReceiver(updateReceiver)
+            unregisterLocalReceiver(updateReceiver)
         }
 
         override fun onDestroyView() {
