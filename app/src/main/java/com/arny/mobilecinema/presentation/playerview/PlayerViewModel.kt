@@ -218,9 +218,22 @@ class PlayerViewModel(
                 }
                 hasAnyUrls = !nextCinemaUrl.isNullOrBlank()
             }
-            MovieType.SERIAL -> {
-                hasAnyUrls = !excludeUrls.contains(serialEpisode?.hls) ||
-                        !excludeUrls.contains(serialEpisode?.dash)
+MovieType.SERIAL -> {
+                val episode = serialEpisode
+                if (episode != null) {
+                    nextCinemaUrl = when {
+                        episode.hls.isNotBlank() && episode.hls !in excludeUrls -> episode.hls
+                        episode.dash.isNotBlank() && episode.dash !in excludeUrls -> episode.dash
+                        else -> null
+                    }
+                }
+                hasAnyUrls = nextCinemaUrl != null ||
+                        state.movie.seasons.any { season ->
+                            season.episodes.any { ep ->
+                                (ep.hls.isNotBlank() && ep.hls !in excludeUrls) ||
+                                        (ep.dash.isNotBlank() && ep.dash !in excludeUrls)
+                            }
+                        }
             }
             else -> {}
         }

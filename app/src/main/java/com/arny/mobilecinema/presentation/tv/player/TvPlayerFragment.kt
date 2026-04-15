@@ -25,6 +25,7 @@ import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
+import com.arny.mobilecinema.presentation.player.getAllCinemaUrls
 import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import com.arny.mobilecinema.presentation.utils.toast
 import com.google.android.exoplayer2.ExoPlayer
@@ -70,6 +71,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
     private var progressJob: Job? = null
     private var mediaLoaded = false
+    private var tvExcludeUrls: Set<String> = emptySet()
 
     // Fragment lifecycle
     // ─────────────────────────────────────────────────────────────
@@ -246,7 +248,33 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
         override fun onPlayerError(error: PlaybackException) {
             Timber.e(error, "ExoPlayer error")
-            showError("Ошибка: ${error.localizedMessage.orEmpty()}")
+            val errorUrl = error.localizedMessage ?: ""
+            val movie = currentMovie
+            if (movie != null) {
+                tvExcludeUrls = tvExcludeUrls + errorUrl
+                val hasMoreUrls = when (movie.type) {
+                    MovieType.CINEMA -> movie.getAllCinemaUrls().any { it.isNotBlank() && it !in tvExcludeUrls }
+                    MovieType.SERIAL -> {
+                        allEpisodes.any { ep ->
+                            (ep.hls.isNotBlank() && ep.hls !in tvExcludeUrls) ||
+                                    (ep.dash.isNotBlank() && ep.dash !in tvExcludeUrls)
+                        }
+                    }
+                    else -> false
+                }
+                if (hasMoreUrls) {
+                    toast(getString(R.string.try_open_next_link))
+                    when (movie.type) {
+                        MovieType.CINEMA -> playCinema(movie)
+                        MovieType.SERIAL -> playSerial(movie, args.seasonIndex, args.episodeIndex)
+                        else -> showError("Ошибка воспроизведения")
+                    }
+                } else {
+                    showError("Ошибка: ${error.localizedMessage.orEmpty()}")
+                }
+            } else {
+                showError("Ошибка: ${error.localizedMessage.orEmpty()}")
+            }
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -412,8 +440,10 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     }
 
     private fun playCinema(movie: Movie) {
-        val url = movie.getCinemaUrl()
-        if (url.isBlank()) {
+        val url = movie.getAllCinemaUrls().firstOrNull {
+            it.isNotBlank() && it !in tvExcludeUrls
+        }
+        if (url.isNullOrBlank()) {
             showError("Видео недоступно")
             return
         }
@@ -432,7 +462,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     seasonIndex = seasonIndex,
                     episodeIndex = episodeIndex,
                     position = 0L,
-                    excludeUrls = emptySet()
+                    excludeUrls = tvExcludeUrls
                 )
 
             } catch (e: Exception) {
