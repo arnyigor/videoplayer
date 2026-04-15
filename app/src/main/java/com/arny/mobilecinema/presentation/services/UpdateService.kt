@@ -196,6 +196,13 @@
         private fun actionUpdateByUrl(intent: Intent?) {
             lifecycleScope.launch {
                 try {
+                    sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                        putString(
+                            AppConstants.ACTION_UPDATE_STATUS,
+                            AppConstants.ACTION_UPDATE_STATUS_STARTED
+                        )
+                    }
+
                     val url = intent?.getStringExtra(SERVICE_PARAM_UPDATE_URL)
                     getPageData(url)
                 } catch (e: Exception) {
