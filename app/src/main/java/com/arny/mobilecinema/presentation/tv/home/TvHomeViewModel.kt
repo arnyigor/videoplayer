@@ -8,6 +8,7 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
+import com.arny.mobilecinema.domain.models.CacheChangeType
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -17,9 +18,7 @@ import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,20 +26,11 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
-
-enum class MovieSortCategory(val labelResId: Int, val order: String) {
-    NEW(R.string.new_movies, AppConstants.Order.YEAR_DESC),
-    POPULAR(R.string.popular_movies, AppConstants.Order.RATINGS),
-    ALPHABET(R.string.alphabet_movies, AppConstants.Order.TITLE),
-    RATING(R.string.by_rating_movies, AppConstants.Order.RATINGS)
-}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TvHomeViewModel(
@@ -55,28 +45,26 @@ class TvHomeViewModel(
     private val _downloadProgress = MutableStateFlow<Map<Long, Float>>(emptyMap())
     val downloadProgress = _downloadProgress.asStateFlow()
 
-    // Alert flow for update confirmation
     private val _alert = BufferedChannel<Alert>()
     val alert: Flow<Alert> = _alert.receiveAsFlow()
 
-    // URL flow for service update
     private val _urlData = BufferedSharedFlow<String>()
     val urlData: Flow<String> = _urlData.asSharedFlow()
 
     private val _loading = MutableStateFlow(false)
     val loading: Flow<Boolean> = _loading.asStateFlow()
 
-    // Текущая категория сортировки
     private val _sortCategory = MutableStateFlow(MovieSortCategory.NEW)
     val sortCategory = _sortCategory.asStateFlow()
 
-    // Paging flows с учетом сортировки
-    private val refreshTrigger = MutableStateFlow(0)
+    private val _refreshTrigger = MutableStateFlow(0)
 
     val moviesDataFlow: Flow<PagingData<ViewMovie>> = combine(
-        refreshTrigger,
+        _refreshTrigger,
         _sortCategory
-    ) { _, sort -> sort }
+    ) { refresh, sort ->
+        sort
+    }
         .flatMapLatest { sortCategory ->
             moviesInteractor.getMovies(
                 search = "",
@@ -90,8 +78,8 @@ class TvHomeViewModel(
         }
         .cachedIn(viewModelScope)
 
-    val favoriteMoviesFlow: Flow<PagingData<ViewMovie>> = refreshTrigger
-        .flatMapLatest {
+    val favoriteMoviesFlow: Flow<PagingData<ViewMovie>> = _refreshTrigger
+        .flatMapLatest { _ ->
             moviesInteractor.getFavoriteMovies(
                 search = "",
                 order = "",
@@ -100,18 +88,8 @@ class TvHomeViewModel(
         }
         .cachedIn(viewModelScope)
 
-    val continueWatchingMoviesFlow: Flow<PagingData<ViewMovie>> = refreshTrigger
-        .flatMapLatest {
-            historyInteractor.getHistoryMovies(
-                search = "",
-                order = AppConstants.Order.LAST_TIME,
-                searchType = ""
-            )
-        }
-        .cachedIn(viewModelScope)
-
-    val historyMoviesFlow: Flow<PagingData<ViewMovie>> = refreshTrigger
-        .flatMapLatest {
+    val historyMoviesFlow: Flow<PagingData<ViewMovie>> = _refreshTrigger
+        .flatMapLatest { _ ->
             historyInteractor.getHistoryMovies(
                 search = "",
                 order = AppConstants.Order.LAST_TIME,
@@ -122,16 +100,28 @@ class TvHomeViewModel(
 
     init {
         checkForUpdate()
+        observeHistoryChanges()
+    }
+
+    private fun observeHistoryChanges() {
+        viewModelScope.launch {
+            historyInteractor.cacheChange.collectLatest { change ->
+                if (change == CacheChangeType.CACHE || change == CacheChangeType.SERIAL_POSITION) {
+                    _refreshTrigger.value++
+                    historyInteractor.setCacheChanged(false)
+                }
+            }
+        }
     }
 
     fun refreshData() {
-        refreshTrigger.value++
+        _refreshTrigger.value++
     }
 
     fun setSortCategory(category: MovieSortCategory) {
         if (_sortCategory.value != category) {
             _sortCategory.value = category
-            refreshTrigger.value++
+            _refreshTrigger.value++
         }
     }
 
@@ -141,10 +131,13 @@ class TvHomeViewModel(
     private fun checkForUpdate() {
         viewModelScope.launch {
             dataUpdateInteractor.getUpdateDate(false)
-                .catch { }
+                .catch { error ->
+                }
                 .collectLatest { result ->
                     when (result) {
-                        is DataResult.Error -> {}
+                        is DataResult.Error -> {
+                        }
+
                         is DataResult.Success -> {
                             val updateTime = result.result.updateDateTime
                             if (updateTime.isNotBlank()) {
@@ -159,13 +152,17 @@ class TvHomeViewModel(
     fun downloadData(force: Boolean = false) {
         viewModelScope.launch {
             dataUpdateInteractor.getUpdateDate(force)
-                .onStart { _updateAvailable.value = false }
-                .onCompletion { }
-                .catch { }
+                .onStart {
+                    _updateAvailable.value = false
+                }
+                .onCompletion {
+                }
+                .catch { error ->
+                   error.printStackTrace()
+                }
                 .collect { result ->
                     when (result) {
                         is DataResult.Error -> {
-                            // Handle error if needed
                         }
 
                         is DataResult.Success -> {
@@ -192,7 +189,6 @@ class TvHomeViewModel(
                                     )
                                 )
                             } else {
-                                // No update available
                                 _updateAvailable.value = false
                             }
                         }
@@ -204,9 +200,12 @@ class TvHomeViewModel(
     fun checkIntent() {
         viewModelScope.launch {
             dataUpdateInteractor.intentUrl()
-                .onStart { }
-                .onCompletion { }
-                .catch { it.printStackTrace() }
+                .onStart {
+                }
+                .onCompletion {
+                }
+                .catch { error ->
+                }
                 .collect { url ->
                     _urlData.emit(url)
                 }
@@ -225,7 +224,8 @@ class TvHomeViewModel(
                     dataUpdateInteractor.updateAll()
                 }
 
-                else -> {}
+                else -> {
+                }
             }
         }
     }
@@ -237,7 +237,8 @@ class TvHomeViewModel(
                     dataUpdateInteractor.resetUpdate()
                 }
 
-                else -> {}
+                else -> {
+                }
             }
         }
     }
@@ -257,7 +258,8 @@ class TvHomeViewModel(
                     )
                 }
 
-                else -> {}
+                else -> {
+                }
             }
         }
     }
@@ -269,21 +271,19 @@ class TvHomeViewModel(
     fun startUpdateAfterUserConfirmation(force: Boolean = false) {
         viewModelScope.launch {
             _loading.value = true
+
             dataUpdateInteractor.getUpdateDate(force)
                 .catch { e ->
-                    Timber.e(e, "TV startUpdateAfterUserConfirmation error")
                     _loading.value = false
                 }
                 .collectLatest { result ->
                     when (result) {
                         is DataResult.Error -> {
-                            Timber.e(result.throwable, "TV getUpdateDate failed")
                             _loading.value = false
                         }
 
                         is DataResult.Success -> {
                             val hasPartUpdate = result.result.hasPartUpdate
-                            Timber.d("TV: starting update flow, hasPartUpdate=$hasPartUpdate")
                             dataUpdateInteractor.requestFile(force, hasPartUpdate)
                             checkIntent()
                             _loading.value = false

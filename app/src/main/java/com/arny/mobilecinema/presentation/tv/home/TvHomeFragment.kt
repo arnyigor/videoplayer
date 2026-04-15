@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
+import androidx.fragment.app.DialogFragment
 import androidx.leanback.app.BrowseSupportFragment
 import androidx.leanback.paging.PagingDataAdapter
 import androidx.leanback.widget.ArrayObjectAdapter
@@ -19,7 +20,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.paging.LoadState
 import androidx.recyclerview.widget.DiffUtil
-import androidx.fragment.app.DialogFragment
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -33,12 +33,6 @@ import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import timber.log.Timber
-
-enum class UpdateAction(val labelResId: Int) {
-    CHECK_UPDATE(R.string.check_update),
-    CANCEL_UPDATE(R.string.cancel_update)
-}
 
 class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.Callback {
 
@@ -49,23 +43,32 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     private lateinit var sortRowAdapter: ArrayObjectAdapter
     private lateinit var sortPresenter: SortCategoryPresenter
 
-    // Глобальный флаг состояния обновления
     private var isUpdatingDb = false
     private var isCancellingUpdate = false
 
     private var selectedSortCategory = MovieSortCategory.NEW
 
     private val movieDiffCallback = object : DiffUtil.ItemCallback<ViewMovie>() {
-        override fun areItemsTheSame(oldItem: ViewMovie, newItem: ViewMovie) = oldItem.dbId == newItem.dbId
-        override fun areContentsTheSame(oldItem: ViewMovie, newItem: ViewMovie) = oldItem == newItem
+        override fun areItemsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean = oldItem.dbId == newItem.dbId
+
+        override fun areContentsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean = oldItem == newItem
     }
 
-    private val allMoviesAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
-    private val continueWatchingAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
-    private val historyAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
-    private val favoritesAdapter by lazy { PagingDataAdapter(MovieCardPresenter(), movieDiffCallback) }
+    private val allMoviesAdapter by lazy {
+        PagingDataAdapter(MovieCardPresenter(), movieDiffCallback)
+    }
 
-    private val updateReceiver by lazy { makeBroadcastReceiver() }
+    private val historyAdapter by lazy {
+        PagingDataAdapter(MovieCardPresenter(), movieDiffCallback)
+    }
+
+    private val favoritesAdapter by lazy {
+        PagingDataAdapter(MovieCardPresenter(), movieDiffCallback)
+    }
+
+    private val updateReceiver by lazy {
+        makeBroadcastReceiver()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,12 +104,13 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     }
 
     private fun setupRowsAdapter() {
+
         val presenterSelector = ClassPresenterSelector().apply {
             addClassPresenter(ListRow::class.java, ListRowPresenter())
         }
+
         rowsAdapter = ArrayObjectAdapter(presenterSelector)
 
-        // Row сортировки (добавляем первым!)
         sortPresenter = SortCategoryPresenter()
         sortRowAdapter = ArrayObjectAdapter(sortPresenter).apply {
             add(MovieSortCategory.NEW)
@@ -114,18 +118,16 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
             add(MovieSortCategory.ALPHABET)
             add(MovieSortCategory.RATING)
         }
+
         sortPresenter.setSelectedPosition(selectedSortCategory.ordinal)
         rowsAdapter.add(ListRow(HeaderItem(-1, ""), sortRowAdapter))
-
-        // Основные категории
         rowsAdapter.add(ListRow(HeaderItem(0, getString(R.string.all_movies)), allMoviesAdapter))
-        rowsAdapter.add(ListRow(HeaderItem(1, getString(R.string.continue_watching)), continueWatchingAdapter))
         rowsAdapter.add(ListRow(HeaderItem(2, getString(R.string.history)), historyAdapter))
         rowsAdapter.add(ListRow(HeaderItem(3, getString(R.string.favorites)), favoritesAdapter))
 
         updateRowAdapter = ArrayObjectAdapter(UpdateActionPresenter())
         updateRowAdapter.add(UpdateAction.CHECK_UPDATE)
-        rowsAdapter.add(ListRow(HeaderItem(4, getString(R.string.update_list)), updateRowAdapter))
+        rowsAdapter.add(ListRow(HeaderItem(3, getString(R.string.update_list)), updateRowAdapter))
 
         adapter = rowsAdapter
     }
@@ -136,7 +138,6 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
             if (isLoading) {
                 progressBarManager.show()
             } else {
-                // Если база качается, не прячем спиннер!
                 if (!isUpdatingDb) {
                     progressBarManager.hide()
                 }
@@ -145,18 +146,37 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     }
 
     private fun setupClickListeners() {
+
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             when (item) {
-                is ViewMovie -> findNavController().navigate(TvHomeFragmentDirections.actionToDetails(item.dbId))
-                is UpdateAction -> handleUpdateAction(item)
-                is MovieSortCategory -> applySortCategory(item)
+                is ViewMovie -> {
+                    findNavController().navigate(TvHomeFragmentDirections.actionToDetails(item.dbId))
+                }
+                is UpdateAction -> {
+                    handleUpdateAction(item)
+                }
+
+                is MovieSortCategory -> {
+                    applySortCategory(item)
+                }
+
+                else -> {
+                }
             }
         }
 
         onItemViewSelectedListener = OnItemViewSelectedListener { _, item, _, _ ->
             when (item) {
-                is ViewMovie -> viewModel.onMovieSelected(item)
-                is MovieSortCategory -> applySortCategory(item)
+                is ViewMovie -> {
+                    viewModel.onMovieSelected(item)
+                }
+
+                is MovieSortCategory -> {
+                    applySortCategory(item)
+                }
+
+                else -> {
+                }
             }
         }
 
@@ -181,9 +201,8 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
             TvUpdateDialogFragment.REQUEST_KEY,
             viewLifecycleOwner
         ) { _, bundle ->
-            if (bundle.getBoolean(TvUpdateDialogFragment.KEY_START_UPDATE, false)) {
-                // Для TV сразу запускаем update-flow после подтверждения
-                // Пропускаем второй alert диалог
+            val startUpdate = bundle.getBoolean(TvUpdateDialogFragment.KEY_START_UPDATE, false)
+            if (startUpdate) {
                 viewModel.startUpdateAfterUserConfirmation(force = false)
             }
         }
@@ -191,22 +210,16 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
     private fun showUpdateProgressDialog(
         progress: Int = -1,
-        stage: String? = null,
-        title: String? = null
+        stage: String? = null
     ) {
         val existing = childFragmentManager.findFragmentByTag(
             TvUpdateProgressDialogFragment.TAG
         ) as? TvUpdateProgressDialogFragment
-
-        Timber.d("showUpdateProgressDialog: progress=$progress, stage=$stage, title=$title")
-
         if (existing != null) {
-            Timber.d("showUpdateProgressDialog: updating existing dialog with progress=$progress, stage=$stage")
             existing.updateProgress(progress, stage)
             return
         }
 
-        Timber.d("showUpdateProgressDialog: creating new dialog with progress=$progress, stage=$stage, title=$title")
         TvUpdateProgressDialogFragment
             .newInstance(progress, stage)
             .show(childFragmentManager, TvUpdateProgressDialogFragment.TAG)
@@ -219,47 +232,43 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         val dialog = childFragmentManager.findFragmentByTag(
             TvUpdateProgressDialogFragment.TAG
         ) as? TvUpdateProgressDialogFragment
-
-        Timber.d("updateUpdateProgressDialog: progress=$progress, stage=$stage")
-
         if (dialog != null) {
-            Timber.d("updateUpdateProgressDialog: updating existing dialog with progress=$progress, stage=$stage")
             dialog.updateProgress(progress, stage)
         } else {
-            Timber.d("updateUpdateProgressDialog: creating new dialog via showUpdateProgressDialog")
             showUpdateProgressDialog(progress, stage)
         }
     }
 
     private fun hideUpdateProgressDialog() {
-        val existing = (childFragmentManager.findFragmentByTag(
+        val existing = childFragmentManager.findFragmentByTag(
             TvUpdateProgressDialogFragment.TAG
-        ) as? DialogFragment)
-
-        Timber.d("hideUpdateProgressDialog: dismissing dialog")
+        ) as? DialogFragment
 
         existing?.dismissAllowingStateLoss()
     }
 
-
     private fun observeData() {
+
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.moviesDataFlow.collectLatest { allMoviesAdapter.submitData(it) }
+            viewModel.moviesDataFlow.collectLatest { pagingData ->
+                allMoviesAdapter.submitData(pagingData)
+            }
         }
+
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.continueWatchingMoviesFlow.collectLatest { continueWatchingAdapter.submitData(it) }
+            viewModel.historyMoviesFlow.collectLatest { pagingData ->
+                historyAdapter.submitData(pagingData)
+            }
         }
+
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.historyMoviesFlow.collectLatest { historyAdapter.submitData(it) }
+            viewModel.favoriteMoviesFlow.collectLatest { pagingData ->
+                favoritesAdapter.submitData(pagingData)
+            }
         }
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.favoriteMoviesFlow.collectLatest { favoritesAdapter.submitData(it) }
-        }
-        // Наблюдаем URL flow для запуска UpdateService
-        // Progress dialog показывается по broadcast из сервиса
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.urlData.collectLatest { url ->
-                Timber.d("URL received for update: $url")
                 requireContext().sendServiceMessage(
                     Intent(requireContext().applicationContext, UpdateService::class.java),
                     AppConstants.ACTION_UPDATE_BY_URL
@@ -268,6 +277,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
                 }
             }
         }
+
     }
 
     private fun handleUpdateAction(action: UpdateAction) {
@@ -278,24 +288,26 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     }
 
     override fun onCancelUpdateRequested() {
-        if (isCancellingUpdate) return
+        if (isCancellingUpdate) {
+            return
+        }
 
         isCancellingUpdate = true
         isUpdatingDb = false
         progressBarManager.hide()
-
-        // Останавливаем spinner и показываем "Отменено"
         val dialog = childFragmentManager.findFragmentByTag(
             TvUpdateProgressDialogFragment.TAG
         ) as? TvUpdateProgressDialogFragment
+
         dialog?.markAsCancelled()
 
         viewModel.stopUpdate()
     }
 
     private fun showUpdateDialog() {
-        if (childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null) return
-        Timber.d("showUpdateDialog: new dialog shown")
+        val exists = childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null
+        if (exists) return
+
         TvUpdateDialogFragment.newInstance().show(childFragmentManager, TvUpdateDialogFragment.TAG)
     }
 
@@ -303,24 +315,20 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         override fun onReceive(context: Context?, intent: Intent?) {
             val action = intent?.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)
 
-            Timber.d("BroadcastReceiver received ACTION=$action")
-
             when (action) {
                 AppConstants.ACTION_UPDATE_STATUS_STARTED -> {
                     isUpdatingDb = true
                     progressBarManager.initialDelay = 0
                     progressBarManager.show()
+
                     showUpdateProgressDialog(
                         progress = -1,
-                        stage = getString(R.string.updating_all),
-                        title = null
+                        stage = getString(R.string.updating_all)
                     )
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_PROGRESS -> {
-                    // Игнорируем поздние PROGRESS после отмены
                     if (!isUpdatingDb || isCancellingUpdate) {
-                        Timber.d("PROGRESS ignored: isUpdatingDb=$isUpdatingDb, isCancellingUpdate=$isCancellingUpdate")
                         return
                     }
 
@@ -330,13 +338,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
                     val percent = intent.getIntExtra("progress_percent", -1)
                     val current = intent.getIntExtra("progress_current", -1)
                     val total = intent.getIntExtra("progress_total", -1)
-
                     val percentText = if (percent in 0..100) "$percent%" else null
-
-                    Timber.d(
-                        "PROGRESS_UPDATE: percent=$percent, current=$current, total=$total, " +
-                                "percentText=$percentText"
-                    )
 
                     updateUpdateProgressDialog(
                         progress = percent,
@@ -345,20 +347,23 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+
                     isUpdatingDb = false
                     isCancellingUpdate = false
                     progressBarManager.hide()
                     hideUpdateProgressDialog()
-                    Timber.d("UPDATE_COMPLETE_SUCCESS: showing success toast")
+
                     Toast.makeText(
                         requireContext(),
                         R.string.update_finished_success,
                         Toast.LENGTH_LONG
                     ).show()
+
                     allMoviesAdapter.refresh()
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
+
                     isUpdatingDb = false
                     isCancellingUpdate = false
                     progressBarManager.hide()
@@ -367,7 +372,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
                     val errorMsg = intent.getStringExtra("error_message")
                         ?: "Неизвестная ошибка"
 
-                    Timber.d("UPDATE_COMPLETE_ERROR: error=$errorMsg")
+
                     Toast.makeText(
                         requireContext(),
                         "Ошибка: $errorMsg",
@@ -376,16 +381,21 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_CANCELLED -> {
+
                     isUpdatingDb = false
                     isCancellingUpdate = false
                     progressBarManager.hide()
                     hideUpdateProgressDialog()
+
 
                     Toast.makeText(
                         requireContext(),
                         R.string.update_canceled,
                         Toast.LENGTH_LONG
                     ).show()
+                }
+
+                else -> {
                 }
             }
         }
