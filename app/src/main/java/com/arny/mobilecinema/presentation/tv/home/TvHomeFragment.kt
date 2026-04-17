@@ -24,6 +24,7 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.services.UpdateService
+import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.tv.presenters.MovieCardPresenter
 import com.arny.mobilecinema.presentation.tv.update.TvUpdateDialogFragment
 import com.arny.mobilecinema.presentation.tv.update.TvUpdateProgressDialogFragment
@@ -47,11 +48,14 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     private var isCancellingUpdate = false
 
     private var selectedSortCategory = MovieSortCategory.NEW
+    private var force = false
 
     private val movieDiffCallback = object : DiffUtil.ItemCallback<ViewMovie>() {
-        override fun areItemsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean = oldItem.dbId == newItem.dbId
+        override fun areItemsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean =
+            oldItem.dbId == newItem.dbId
 
-        override fun areContentsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean = oldItem == newItem
+        override fun areContentsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean =
+            oldItem == newItem
     }
 
     private val allMoviesAdapter by lazy {
@@ -149,9 +153,13 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             when (item) {
-                is ViewMovie -> {
-                    findNavController().navigate(TvHomeFragmentDirections.actionToDetails(item.dbId))
+is ViewMovie -> {
+                    val bundle = Bundle().apply {
+                        putLong("movieId", item.dbId)
+                    }
+                    findNavController().navigate(R.id.actionToDetails, bundle)
                 }
+
                 is UpdateAction -> {
                     handleUpdateAction(item)
                 }
@@ -180,8 +188,8 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
             }
         }
 
-        setOnSearchClickedListener {
-            findNavController().navigate(TvHomeFragmentDirections.actionToSearch())
+setOnSearchClickedListener {
+            findNavController().navigate(R.id.actionToSearch)
         }
     }
 
@@ -278,11 +286,25 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
             }
         }
 
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.updateAvailable.collectLatest { available ->
+                if (available) {
+                    viewModel.downloadData(force = false)
+                }
+            }
+        }
+
+viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.alert.collectLatest { alert ->
+                showUpdateAlertDialog(alert)
+            }
+        }
+
     }
 
     private fun handleUpdateAction(action: UpdateAction) {
         when (action) {
-            UpdateAction.CHECK_UPDATE -> showUpdateDialog()
+            UpdateAction.CHECK_UPDATE -> viewModel.downloadData(force = true)
             UpdateAction.CANCEL_UPDATE -> viewModel.stopUpdate()
         }
     }
@@ -304,7 +326,32 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         viewModel.stopUpdate()
     }
 
+    private fun showUpdateAlertDialog(alert: Alert) {
+        if (!isAdded) return
+        val exists = childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null
+        if (exists) return
+
+        when (alert.type) {
+            is com.arny.mobilecinema.presentation.uimodels.AlertType.Update -> {
+                showUpdateDialogWithData(alert.content?.toString(requireContext()) ?: "", alert.type.hasPartUpdate)
+            }
+            is com.arny.mobilecinema.presentation.uimodels.AlertType.SimpleAlert -> {
+                showUpdateDialog()
+            }
+            else -> {}
+        }
+    }
+
+    private fun showUpdateDialogWithData(updateTime: String, hasPartUpdate: Boolean) {
+        if (!isAdded) return
+        val exists = childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null
+        if (exists) return
+
+        TvUpdateDialogFragment.newInstance(updateTime, hasPartUpdate).show(childFragmentManager, TvUpdateDialogFragment.TAG)
+    }
+
     private fun showUpdateDialog() {
+        if (!isAdded) return
         val exists = childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null
         if (exists) return
 

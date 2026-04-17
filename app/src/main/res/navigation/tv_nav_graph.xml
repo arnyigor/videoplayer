@@ -63,6 +63,14 @@
                 android:name="episodeIndex"
                 app:argType="integer"
                 android:defaultValue="0" />
+        <action
+                android:id="@+id/actionToHome"
+                app:destination="@id/tvHomeFragment"
+                app:popUpTo="@id/tvHomeFragment"
+                app:popUpToInclusive="true" />
+        <action
+                android:id="@+id/actionToDetails"
+                app:destination="@id/tvDetailsFragment" />
     </fragment>
 
     <fragment

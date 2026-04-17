@@ -269,6 +269,17 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                         MovieType.SERIAL -> playSerial(movie, args.seasonIndex, args.episodeIndex)
                         else -> showError("Ошибка воспроизведения")
                     }
+                } else if (when (movie.type) {
+                    MovieType.CINEMA -> movie.getAllCinemaUrls().all { it.isBlank() || it in tvExcludeUrls }
+                    MovieType.SERIAL -> allEpisodes.all { ep ->
+                        (ep.hls.isBlank() || ep.hls in tvExcludeUrls) &&
+                                (ep.dash.isBlank() || ep.dash in tvExcludeUrls)
+                    }
+                    else -> true
+                }) {
+                    // Все ссылки пустые или недоступны - запускаем обновление
+                    toast(getString(R.string.update_available_title))
+                    findNavController().navigate(R.id.actionToHome)
                 } else {
                     showError("Ошибка: ${error.localizedMessage.orEmpty()}")
                 }

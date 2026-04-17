@@ -862,8 +862,13 @@ override fun onDestroyView() {
                         toast(toastRes.toString(requireContext()))
                     }
                 }
-                launch {
+launch {
                     viewModel.back.collectLatest {
+                        findNavController().navigateUp()
+                    }
+                }
+                launch {
+                    viewModel.requestUpdate.collectLatest {
                         findNavController().navigateUp()
                     }
                 }

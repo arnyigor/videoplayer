@@ -58,8 +58,10 @@ class PlayerViewModel(
     val error = _error.receiveAsFlow()
     private val _toast = BufferedChannel<IWrappedString>()
     val toast = _toast.receiveAsFlow()
-    private val _back = MutableSharedFlow<Unit>()
+private val _back = MutableSharedFlow<Unit>()
     val back = _back.asSharedFlow()
+    private val _requestUpdate = MutableSharedFlow<Unit>()
+    val requestUpdate = _requestUpdate.asSharedFlow()
     private val _cachedResizeModeIndex = MutableStateFlow(0)
     val cachedResizeModeIndex = _cachedResizeModeIndex.asStateFlow()
 
@@ -237,13 +239,27 @@ MovieType.SERIAL -> {
             }
             else -> {}
         }
-        if (hasAnyUrls) {
+if (hasAnyUrls) {
             _toast.trySend(ResourceString(R.string.try_open_next_link))
             _uiState.value = state.copy(
                 path = nextCinemaUrl,
                 excludeUrls = excludeUrls,
                 version = state.version + 1,
             )
+        } else if (state.movie?.let { movie ->
+                when (movie.type) {
+                    MovieType.CINEMA -> movie.getAllCinemaUrls().all { it.isBlank() }
+                    MovieType.SERIAL -> movie.seasons.all { season ->
+                        season.episodes.all { ep -> ep.hls.isBlank() && ep.dash.isBlank() }
+                    }
+                    else -> true
+                }
+            } == true) {
+            // Все ссылки пустые - запускаем обновление
+            _toast.trySend(ResourceString(R.string.update_available_title))
+            viewModelScope.launch {
+                _requestUpdate.emit(Unit)
+            }
         } else {
             _toast.trySend(ResourceString(R.string.no_any_links_to_open))
             viewModelScope.launch {
