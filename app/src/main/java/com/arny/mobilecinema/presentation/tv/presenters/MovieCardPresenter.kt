@@ -40,7 +40,6 @@ class MovieCardPresenter : Presenter(), KoinComponent {
 
         cardView.apply {
             titleText = movie.title
-            // Используем year напрямую (Int) и конвертируем в String
             contentText = if (movie.year > 0) movie.year.toString() else ""
 
             if (movie.img.isNotBlank()) {

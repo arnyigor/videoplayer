@@ -1,0 +1,35 @@
+package com.arny.mobilecinema.presentation.tv.home
+
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.leanback.widget.Presenter
+import com.arny.mobilecinema.R
+
+class HistoryActionPresenter : Presenter() {
+
+    override fun onCreateViewHolder(parent: ViewGroup): ViewHolder {
+        val textView = TextView(parent.context).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            isFocusable = true
+            isFocusableInTouchMode = true
+            setPadding(48, 24, 48, 24)
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setBackgroundResource(R.drawable.tv_button_background)
+            setTextColor(context.getColor(R.color.textColorPrimary))
+        }
+        return ViewHolder(textView)
+    }
+
+    override fun onBindViewHolder(viewHolder: ViewHolder, item: Any?) {
+        val action = item as? HistoryAction ?: return
+        val textView = viewHolder.view as TextView
+        textView.text = textView.context.getString(action.labelResId)
+    }
+
+    override fun onUnbindViewHolder(viewHolder: ViewHolder) {}
+}

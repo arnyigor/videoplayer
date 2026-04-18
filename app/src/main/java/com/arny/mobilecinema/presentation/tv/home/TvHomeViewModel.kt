@@ -148,6 +148,19 @@ class TvHomeViewModel(
     fun onMovieSelected(movie: ViewMovie) {
     }
 
+    fun clearAllHistory() {
+        viewModelScope.launch {
+            historyInteractor.clearAllViewHistory().collectLatest { result ->
+                when (result) {
+                    is DataResult.Success -> reloadHistory()
+                    is DataResult.Error -> {
+                        Log.e(TAG, "clearAllHistory failed", result.throwable)
+                    }
+                }
+            }
+        }
+    }
+
     private fun checkForUpdate() {
         viewModelScope.launch {
             dataUpdateInteractor.getUpdateDate(false)

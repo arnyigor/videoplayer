@@ -32,6 +32,7 @@ import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
+import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -67,6 +68,8 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     private val historyAdapter by lazy {
         PagingDataAdapter(MovieCardPresenter(), movieDiffCallback)
     }
+
+    private lateinit var historyActionAdapter: ArrayObjectAdapter
 
     private val favoritesAdapter by lazy {
         PagingDataAdapter(MovieCardPresenter(), movieDiffCallback)
@@ -136,7 +139,12 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         sortPresenter.setSelectedPosition(selectedSortCategory.ordinal)
         rowsAdapter.add(ListRow(HeaderItem(-1, ""), sortRowAdapter))
         rowsAdapter.add(ListRow(HeaderItem(0, getString(R.string.all_movies)), allMoviesAdapter))
-        rowsAdapter.add(ListRow(HeaderItem(2, getString(R.string.history)), historyAdapter))
+
+        historyActionAdapter = ArrayObjectAdapter(HistoryActionPresenter()).apply {
+            add(HistoryAction.CLEAR_ALL)
+        }
+        rowsAdapter.add(ListRow(HeaderItem(2, getString(R.string.history)), historyActionAdapter))
+        rowsAdapter.add(ListRow(HeaderItem(2, ""), historyAdapter))
         rowsAdapter.add(ListRow(HeaderItem(3, getString(R.string.favorites)), favoritesAdapter))
 
         updateRowAdapter = ArrayObjectAdapter(UpdateActionPresenter())
@@ -178,6 +186,12 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
                     applySortCategory(item)
                 }
 
+                is HistoryAction -> {
+                    when (item) {
+                        HistoryAction.CLEAR_ALL -> showClearHistoryDialog()
+                    }
+                }
+
                 else -> {
                 }
             }
@@ -203,6 +217,20 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         }
     }
 
+    private fun showClearHistoryDialog() {
+        TvConfirmDialogFragment.newInstance(
+            title = getString(R.string.clear_history),
+            message = getString(R.string.question_remove_all_history),
+            btnOkText = getString(android.R.string.ok),
+            btnCancelText = getString(android.R.string.cancel),
+            requestKey = REQUEST_KEY_CLEAR_HISTORY
+        ).show(childFragmentManager, TvConfirmDialogFragment.TAG)
+    }
+
+    companion object {
+        const val REQUEST_KEY_CLEAR_HISTORY = "CLEAR_HISTORY_REQUEST"
+    }
+
     private fun applySortCategory(category: MovieSortCategory) {
         if (selectedSortCategory == category) {
             return
@@ -222,6 +250,16 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
             val startUpdate = bundle.getBoolean(TvUpdateDialogFragment.KEY_START_UPDATE, false)
             if (startUpdate) {
                 viewModel.startUpdateAfterUserConfirmation(force = false)
+            }
+        }
+
+        childFragmentManager.setFragmentResultListener(
+            REQUEST_KEY_CLEAR_HISTORY,
+            viewLifecycleOwner
+        ) { _, bundle ->
+            val confirmed = bundle.getBoolean(TvConfirmDialogFragment.KEY_CONFIRMED, false)
+            if (confirmed) {
+                viewModel.clearAllHistory()
             }
         }
     }
