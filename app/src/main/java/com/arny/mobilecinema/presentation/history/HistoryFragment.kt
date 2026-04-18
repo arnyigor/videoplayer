@@ -4,15 +4,12 @@ import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.Menu
-import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SearchView
-import androidx.core.view.MenuProvider
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.paging.LoadState
 import com.arny.mobilecinema.R
@@ -22,7 +19,6 @@ import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHistoryBinding
-import com.arny.mobilecinema.presentation.favorite.FavoritesFragmentDirections
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.uimodels.ListScreenState
@@ -32,7 +28,6 @@ import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.setupSearchView
-import com.arny.mobilecinema.presentation.utils.updateTitle
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.component.KoinComponent
@@ -92,73 +87,76 @@ class HistoryFragment : Fragment(), OnSearchListener {
     }
 
     private fun initMenu() {
-        requireActivity().addMenuProvider(object : MenuProvider {
-            override fun onPrepareMenu(menu: Menu) {
-                menu.findItem(R.id.action_search).isVisible = hasSavedData
-                menu.findItem(R.id.action_search_settings).isVisible = hasSavedData && !emptySearch
-                menu.findItem(R.id.action_order_settings).isVisible = hasSavedData
-                menu.findItem(R.id.menu_action_clear_cache).isVisible = hasSavedData
+        binding.toolbar.inflateMenu(R.menu.history_menu)
+        binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back)
+        val menu = binding.toolbar.menu
+        searchMenuItem = menu.findItem(R.id.action_search)
+        searchView = setupSearchView(
+            menuItem = searchMenuItem!!,
+            onQueryChange = { query ->
+                emptySearch = query?.isBlank() == true
+                viewModel.loadHistory(query.orEmpty(), onQueryChangeSubmit)
+                onQueryChangeSubmit = true
+                updateMenuVisibility()
+            },
+            onMenuCollapse = {
+                viewModel.loadHistory()
+                emptySearch = true
+                requireActivity().hideKeyboard()
+                updateMenuVisibility()
+            },
+            onSubmitAvailable = true,
+            onQuerySubmit = { query ->
+                emptySearch = query?.isBlank() == true
+                viewModel.loadHistory(query.orEmpty())
             }
+        )
 
-            override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
-                menuInflater.inflate(R.menu.history_menu, menu)
-                searchMenuItem = menu.findItem(R.id.action_search)
-                searchView = setupSearchView(
-                    menuItem = searchMenuItem!!,
-                    onQueryChange = { query ->
-                        emptySearch = query?.isBlank() == true
-                        viewModel.loadHistory(query.orEmpty(), onQueryChangeSubmit)
-                        onQueryChangeSubmit = true
-                    },
-                    onMenuCollapse = {
-                        viewModel.loadHistory()
-                        emptySearch = true
-                        requireActivity().hideKeyboard()
-                        requireActivity().invalidateOptionsMenu()
-                    },
-                    onSubmitAvailable = true,
-                    onQuerySubmit = { query ->
-                        emptySearch = query?.isBlank() == true
-                        viewModel.loadHistory(query.orEmpty())
-                    }
-                )
-            }
-
-            override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
-                when (menuItem.itemId) {
-                    android.R.id.home -> {
-                        findNavController().popBackStack()
-                        true
-                    }
-
-                    R.id.action_order_settings -> {
-                        showCustomOrderDialog()
-                        true
-                    }
-
-                    R.id.action_search_settings -> {
-                        showCustomSearchDialog()
-                        true
-                    }
-
-                    R.id.menu_action_clear_cache -> {
-                        alertDialog(
-                            getString(R.string.question_remove),
-                            getString(
-                                R.string.question_remove_all_history,
-                            ),
-                            getString(android.R.string.ok),
-                            getString(android.R.string.cancel),
-                            onConfirm = {
-                                viewModel.clearAllViewHistory()
-                            }
-                        )
-                        true
-                    }
-
-                    else -> false
+        binding.toolbar.setOnMenuItemClickListener { menuItem ->
+            when (menuItem.itemId) {
+                android.R.id.home -> {
+                    findNavController().popBackStack()
+                    true
                 }
-        }, viewLifecycleOwner, Lifecycle.State.RESUMED)
+
+                R.id.action_order_settings -> {
+                    showCustomOrderDialog()
+                    true
+                }
+
+                R.id.action_search_settings -> {
+                    showCustomSearchDialog()
+                    true
+                }
+
+                R.id.menu_action_clear_cache -> {
+                    alertDialog(
+                        getString(R.string.question_remove),
+                        getString(
+                            R.string.question_remove_all_history,
+                        ),
+                        getString(android.R.string.ok),
+                        getString(android.R.string.cancel),
+                        onConfirm = {
+                            viewModel.clearAllViewHistory()
+                        }
+                    )
+                    true
+                }
+
+                else -> false
+            }
+        }
+
+        updateMenuVisibility()
+    }
+
+    private fun updateMenuVisibility() {
+        val menu = binding.toolbar.menu
+        menu.findItem(R.id.action_search).isVisible = hasSavedData
+        menu.findItem(R.id.action_search_settings).isVisible = hasSavedData && !emptySearch
+        menu.findItem(R.id.action_order_settings).isVisible = hasSavedData
+        menu.findItem(R.id.menu_action_clear_cache).isVisible = hasSavedData
     }
 
     private fun showCustomOrderDialog() {
@@ -278,7 +276,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
                     val isEmpty = (itemsAdapter?.itemCount ?: 0) == 0
                     binding.tvEmptyView.isVisible = isEmpty
                     hasSavedData = !isEmpty
-                    requireActivity().invalidateOptionsMenu()
+                    updateMenuVisibility()
                 }
             }
         }
@@ -308,7 +306,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
                         binding.tvEmptyView.isVisible = true
                         binding.errorView.isVisible = false
                         hasSavedData = false
-                        requireActivity().invalidateOptionsMenu()
+                        updateMenuVisibility()
                     }
                     is ListScreenState.Error -> {
                         binding.progressBar.isVisible = false
