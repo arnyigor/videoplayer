@@ -38,9 +38,7 @@ class TvEpisodeCardPresenter(
         val seasonNumber = episodeItem.seasonIndex + 1
         val episodeLabel = episode.episode.ifBlank { (episodeItem.episodeIndex + 1).toString() }
 
-        cardView.titleText = if (episode.title.isNotBlank()) {
-            episode.title
-        } else {
+        cardView.titleText = episode.title.ifBlank {
             "Серия $episodeLabel"
         }
 
