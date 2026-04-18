@@ -6,7 +6,6 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.isNotEmpty
-import timber.log.Timber
 
 fun getMoviesSQL(
     search: String,

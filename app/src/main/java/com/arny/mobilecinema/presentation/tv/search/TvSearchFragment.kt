@@ -14,7 +14,6 @@ import androidx.leanback.widget.HeaderItem
 import androidx.leanback.widget.ListRow
 import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.ObjectAdapter
-import androidx.leanback.widget.OnItemViewClickedListener
 import androidx.leanback.widget.Presenter
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -28,7 +27,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import timber.log.Timber
 
 /**
  * Presenter для отображения фильтров поиска
@@ -124,6 +122,7 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
                         TvSearchFragmentDirections.actionToDetails(item.dbId)
                     )
                 }
+
                 is SearchFilter -> {
                     selectedFilter = item
                     filterPresenter.setSelectedPosition(item.ordinal)
@@ -160,7 +159,11 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
         initialQueryApplied = true
     }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
         // Подписываемся на результаты поиска
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.searchResults.collectLatest { pagingData ->
@@ -204,7 +207,6 @@ class TvSearchFragment : SearchSupportFragment(), SearchSupportFragment.SearchRe
         }
         searchJob = viewLifecycleOwner.lifecycleScope.launch {
             delay(500)
-            Timber.d("Searching: %s", query)
             viewModel.search(query)
         }
     }

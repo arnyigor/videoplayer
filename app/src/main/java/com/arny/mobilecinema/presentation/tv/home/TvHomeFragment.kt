@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.fragment.app.DialogFragment
@@ -32,7 +31,6 @@ import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
-import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -51,7 +49,6 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     private var isCancellingUpdate = false
 
     private var selectedSortCategory = MovieSortCategory.NEW
-    private var force = false
 
     private val movieDiffCallback = object : DiffUtil.ItemCallback<ViewMovie>() {
         override fun areItemsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean =
@@ -81,14 +78,12 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("TV_HOME_FRAG", "onCreate | Initializing UI components")
         setupUI()
         setupRowsAdapter()
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        Log.d("TV_HOME_FRAG", "onViewCreated | Setting up listeners and observing data")
         adapter = rowsAdapter
         setupLoadStateListener()
         setupClickListeners()
@@ -99,7 +94,6 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     override fun onResume() {
         super.onResume()
         registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
-        Log.d("TV_HOME_FRAG", "onResume | Calling refreshData")
         viewModel.refreshData()
         viewLifecycleOwner.lifecycleScope.launch {
             delay(200)
@@ -199,10 +193,6 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
         onItemViewSelectedListener = OnItemViewSelectedListener { _, item, _, _ ->
             when (item) {
-                is ViewMovie -> {
-                    viewModel.onMovieSelected(item)
-                }
-
                 is MovieSortCategory -> {
                     applySortCategory(item)
                 }
@@ -311,9 +301,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            Log.d("TV_HISTORY_COLLECTOR", "Starting collection for historyMoviesFlow")
             viewModel.historyMoviesFlow.collect { pagingData ->
-                Log.d("TV_HISTORY_COLLECTOR", "historyMoviesFlow emitted | Submitting to adapter")
                 historyAdapter.submitData(pagingData)
             }
         }
@@ -438,8 +426,6 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
                     progressBarManager.show()
 
                     val percent = intent.getIntExtra("progress_percent", -1)
-                    val current = intent.getIntExtra("progress_current", -1)
-                    val total = intent.getIntExtra("progress_total", -1)
                     val percentText = if (percent in 0..100) "$percent%" else null
 
                     updateUpdateProgressDialog(

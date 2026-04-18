@@ -12,17 +12,15 @@ import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.presentation.player.PlayerSource
-import timber.log.Timber
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
-class HistoryInteractorImpl constructor(
+class HistoryInteractorImpl(
     private val repository: MoviesRepository,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val playerSource: PlayerSource,
@@ -146,9 +144,7 @@ private fun getResultAddToViewHistory(
         position: Long = 0,
         currentTimeMs: Long,
     ): Boolean {
-        Timber.d("getResultAddToViewHistory: movieDbId=$movieDbId, position=$position")
         val data = getHistoryData(movieDbId)
-        Timber.d("getResultAddToViewHistory: existing data movieDbId=${data.movieDbId}")
         return if (data.movieDbId != null) {
             repository.updateCinemaPosition(data.movieDbId, position, currentTimeMs)
         } else {
