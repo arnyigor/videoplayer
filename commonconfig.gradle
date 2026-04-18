@@ -17,9 +17,18 @@ android {
     }
     compileSdkVersion versions.compileSdkVersion
     buildToolsVersion versions.buildToolsVersion
-    def vMajor = 1
-    def vMinor = 4
-    def vBuild = 5
+    def versionPropsFile = rootProject.file("version.properties")
+    def versionProps = new Properties()
+    if (versionPropsFile.canRead()) {
+        versionProps.load(new FileInputStream(versionPropsFile))
+    } else {
+        versionProps.setProperty("VERSION_MAJOR", "1")
+        versionProps.setProperty("VERSION_MINOR", "0")
+        versionProps.setProperty("VERSION_BUILD", "0")
+    }
+    def vMajor = versionProps['VERSION_MAJOR'].toInteger()
+    def vMinor = versionProps['VERSION_MINOR'].toInteger()
+    def vBuild = versionProps['VERSION_BUILD'].toInteger()
     defaultConfig {
         applicationId "com.arny.mobilecinema"
         minSdkVersion versions.minSdkVersion
