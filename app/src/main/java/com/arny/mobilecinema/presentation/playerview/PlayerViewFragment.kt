@@ -1150,7 +1150,6 @@ private fun initListener() {
             }
             
             player = ExoPlayer.Builder(requireContext())
-                .setLoadControl(loadControl)
                 .setRenderersFactory(renderersFactory)
                 .setTrackSelector(trackSelector!!)
                 .setSeekBackIncrementMs(secToMs(5))
