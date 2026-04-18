@@ -12,9 +12,12 @@ import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.presentation.player.PlayerSource
+import timber.log.Timber
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
@@ -36,11 +39,20 @@ class HistoryInteractorImpl constructor(
         _cacheChange.value = if (change) CacheChangeType.SERIAL_POSITION else CacheChangeType.NONE
     }
 
-    override fun addToViewHistory(movieDbId: Long): Flow<DataResult<Boolean>> = doAsync {
-        getResultAddToViewHistory(
-            movieDbId = movieDbId,
-            currentTimeMs = System.currentTimeMillis(),
-        )
+override fun addToViewHistory(movieDbId: Long): Flow<DataResult<Boolean>> = flow {
+        try {
+            val result = withContext(dispatcher) {
+                getResultAddToViewHistory(
+                    movieDbId = movieDbId,
+                    currentTimeMs = System.currentTimeMillis(),
+                )
+            }
+            setCacheChanged(true)
+            emit(DataResult.Success(result))
+        } catch (e: Exception) {
+            @Suppress("UNCHECKED_CAST")
+            emit(DataResult.Error(e) as DataResult<Boolean>)
+        }
     }
 
     override fun isHistoryEmpty(): Flow<DataResult<Boolean>> = doAsync {
@@ -129,12 +141,14 @@ class HistoryInteractorImpl constructor(
         return repository.getHistoryMovies(search, order, type).flow
     }
 
-    private fun getResultAddToViewHistory(
+private fun getResultAddToViewHistory(
         movieDbId: Long,
         position: Long = 0,
         currentTimeMs: Long,
     ): Boolean {
+        Timber.d("getResultAddToViewHistory: movieDbId=$movieDbId, position=$position")
         val data = getHistoryData(movieDbId)
+        Timber.d("getResultAddToViewHistory: existing data movieDbId=${data.movieDbId}")
         return if (data.movieDbId != null) {
             repository.updateCinemaPosition(data.movieDbId, position, currentTimeMs)
         } else {

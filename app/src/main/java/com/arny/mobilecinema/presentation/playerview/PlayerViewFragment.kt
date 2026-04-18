@@ -2,13 +2,11 @@ package com.arny.mobilecinema.presentation.playerview
 
 import android.annotation.SuppressLint
 import android.app.PictureInPictureParams
-import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.database.ContentObserver
-import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.audiofx.LoudnessEnhancer
@@ -53,14 +51,12 @@ import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.utils.getOrientation
-import com.arny.mobilecinema.presentation.utils.hideSystemUI
 import com.arny.mobilecinema.presentation.utils.initAudioManager
 import com.arny.mobilecinema.presentation.utils.isPiPAvailable
 import com.arny.mobilecinema.presentation.utils.registerContentResolver
 import com.arny.mobilecinema.presentation.utils.secToMs
 import com.arny.mobilecinema.presentation.utils.setScreenBrightness
 import com.arny.mobilecinema.presentation.utils.setTextColorRes
-import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterContentResolver
 import com.github.vkay94.dtpv.youtube.YouTubeOverlay
@@ -81,11 +77,10 @@ import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 import kotlin.math.abs
 import kotlin.properties.Delegates
-import org.koin.androidx.viewmodel.ext.android.viewModel
-import org.koin.core.component.KoinComponent
-import org.koin.android.ext.android.inject
 
 class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureListener {
     private companion object {
@@ -373,11 +368,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    override fun onAttach(context: Context) {
-        // Koin injection
-        super.onAttach(context)
-    }
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -424,7 +414,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-override fun onPause() {
+    override fun onPause() {
         super.onPause()
         volumeObserver?.let { unregisterContentResolver(it) }
         with((requireActivity() as AppCompatActivity)) {
@@ -441,7 +431,7 @@ override fun onPause() {
         }
     }
 
-override fun onStop() {
+    override fun onStop() {
         super.onStop()
         if (Util.SDK_INT >= Build.VERSION_CODES.N) {
             player?.let { exoPlayer ->
@@ -455,14 +445,18 @@ override fun onStop() {
                             viewModel.updatePlaybackPosition(currentPosition, 0, 0)
                             viewModel.saveMoviePosition(dbId, currentPosition, 0, 0)
                         }
+
                         MovieType.SERIAL -> {
                             val metadata = exoPlayer.currentMediaItem?.mediaMetadata
                             val bundle = metadata?.extras
-                            val season = bundle?.getInt(AppConstants.Player.SEASON) ?: state.season ?: 0
-                            val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: state.episode ?: 0
+                            val season =
+                                bundle?.getInt(AppConstants.Player.SEASON) ?: state.season ?: 0
+                            val episode =
+                                bundle?.getInt(AppConstants.Player.EPISODE) ?: state.episode ?: 0
                             viewModel.updatePlaybackPosition(currentPosition, season, episode)
                             viewModel.saveMoviePosition(dbId, currentPosition, season, episode)
                         }
+
                         else -> {}
                     }
                 }
@@ -472,7 +466,7 @@ override fun onStop() {
         requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
-override fun onDestroyView() {
+    override fun onDestroyView() {
         super.onDestroyView()
         btnsHandler.removeCallbacksAndMessages(null)
         volumeHandler.removeCallbacksAndMessages(null)
@@ -716,13 +710,13 @@ override fun onDestroyView() {
         } else {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                        or View.SYSTEM_UI_FLAG_FULLSCREEN
-            )
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            or View.SYSTEM_UI_FLAG_FULLSCREEN
+                    )
         }
         isSystemUIHidden = true
     }
@@ -742,8 +736,9 @@ override fun onDestroyView() {
                     android.view.WindowInsets.Type.statusBars() or
                             android.view.WindowInsets.Type.navigationBars()
                 )
-                // Сбрасываем поведение на дефолтное
-                systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_DEFAULT
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_DEFAULT
+                }
             }
         } else {
             @Suppress("DEPRECATION")
@@ -805,11 +800,12 @@ override fun onDestroyView() {
      */
     private fun toggleScreenOrientation() {
         val currentOrientation = resources.configuration.orientation
-        requireActivity().requestedOrientation = if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        }
+        requireActivity().requestedOrientation =
+            if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            } else {
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            }
 
         // Через небольшую задержку сбрасываем на автоматическую ориентацию
         // чтобы автоповорот продолжал работать
@@ -862,7 +858,7 @@ override fun onDestroyView() {
                         toast(toastRes.toString(requireContext()))
                     }
                 }
-launch {
+                launch {
                     viewModel.back.collectLatest {
                         findNavController().navigateUp()
                     }
@@ -881,19 +877,6 @@ launch {
                     }
                 }
             }
-        }
-    }
-
-    private fun getTitle(movieTitle: String?): String {
-        val savedTitle = this.title
-        return when {
-            !movieTitle.isNullOrBlank() && savedTitle.isNotBlank() && savedTitle != "null" ->
-                savedTitle
-
-            !movieTitle.isNullOrBlank() && (savedTitle.isBlank() || savedTitle == "null") ->
-                movieTitle
-
-            else -> getString(R.string.no_movie_title)
         }
     }
 
@@ -983,7 +966,7 @@ launch {
             )
             binding.playerView.setShowNextButton(size > 0)
             binding.playerView.setShowPreviousButton(size > 0)
-player?.apply {
+            player?.apply {
                 player?.seekTo(currentEpisodeIndex, position)
                 prepare()
             }
@@ -1030,7 +1013,7 @@ player?.apply {
                 }
             }
         }
-player?.clearMediaItems()
+        player?.clearMediaItems()
         player?.setMediaSources(mediaSources)
         return currentIndexEpisode
     }
@@ -1071,6 +1054,7 @@ player?.clearMediaItems()
                     episode = 0
                 )
             }
+
             MovieType.SERIAL -> {
                 // Для сериалов берём позицию из metadata или из текущего state
                 val metadata = exoPlayer.currentMediaItem?.mediaMetadata
@@ -1090,6 +1074,7 @@ player?.clearMediaItems()
                     episode = currentEpisode
                 )
             }
+
             else -> {
                 // Для других типов не сохраняем
             }
@@ -1136,7 +1121,7 @@ player?.clearMediaItems()
         }
     }
 
-@SuppressLint("ClickableViewAccessibility")
+    @SuppressLint("ClickableViewAccessibility")
     private fun preparePlayer() {
         val currentBinding = _binding ?: return
 
@@ -1158,7 +1143,7 @@ player?.clearMediaItems()
                         DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
                         DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
                         DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
-                    )                    .build()
+                    ).build()
             trackSelector =
                 DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory()).apply {
                     parameters = parameters.buildUpon()
@@ -1339,7 +1324,7 @@ player?.clearMediaItems()
         }
     }
 
-private fun setPlayerSource(time: Long = 0, source: MediaSource?) {
+    private fun setPlayerSource(time: Long = 0, source: MediaSource?) {
         player?.apply {
             source?.let {
                 setMediaSource(source)
@@ -1445,7 +1430,7 @@ private fun setPlayerSource(time: Long = 0, source: MediaSource?) {
         }
     }
 
-private fun releasePlayer() {
+    private fun releasePlayer() {
         mediaSession?.release()
         mediaSession = null
         releaseEnhancer()

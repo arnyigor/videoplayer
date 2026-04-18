@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.fragment.app.DialogFragment
@@ -24,13 +25,14 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.services.UpdateService
-import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.tv.presenters.MovieCardPresenter
 import com.arny.mobilecinema.presentation.tv.update.TvUpdateDialogFragment
 import com.arny.mobilecinema.presentation.tv.update.TvUpdateProgressDialogFragment
+import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -76,12 +78,15 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d("TV_HOME_FRAG", "onCreate | Initializing UI components")
         setupUI()
         setupRowsAdapter()
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        Log.d("TV_HOME_FRAG", "onViewCreated | Setting up listeners and observing data")
+        adapter = rowsAdapter
         setupLoadStateListener()
         setupClickListeners()
         setupDialogResultListener()
@@ -91,7 +96,12 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     override fun onResume() {
         super.onResume()
         registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
+        Log.d("TV_HOME_FRAG", "onResume | Calling refreshData")
         viewModel.refreshData()
+        viewLifecycleOwner.lifecycleScope.launch {
+            delay(200)
+            viewModel.reloadHistory()
+        }
     }
 
     override fun onPause() {
@@ -153,7 +163,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             when (item) {
-is ViewMovie -> {
+                is ViewMovie -> {
                     val bundle = Bundle().apply {
                         putLong("movieId", item.dbId)
                     }
@@ -188,7 +198,7 @@ is ViewMovie -> {
             }
         }
 
-setOnSearchClickedListener {
+        setOnSearchClickedListener {
             findNavController().navigate(R.id.actionToSearch)
         }
     }
@@ -248,9 +258,8 @@ setOnSearchClickedListener {
     }
 
     private fun hideUpdateProgressDialog() {
-        val existing = childFragmentManager.findFragmentByTag(
-            TvUpdateProgressDialogFragment.TAG
-        ) as? DialogFragment
+        val existing =
+            childFragmentManager.findFragmentByTag(TvUpdateProgressDialogFragment.TAG) as? DialogFragment
 
         existing?.dismissAllowingStateLoss()
     }
@@ -264,7 +273,9 @@ setOnSearchClickedListener {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.historyMoviesFlow.collectLatest { pagingData ->
+            Log.d("TV_HISTORY_COLLECTOR", "Starting collection for historyMoviesFlow")
+            viewModel.historyMoviesFlow.collect { pagingData ->
+                Log.d("TV_HISTORY_COLLECTOR", "historyMoviesFlow emitted | Submitting to adapter")
                 historyAdapter.submitData(pagingData)
             }
         }
@@ -294,7 +305,7 @@ setOnSearchClickedListener {
             }
         }
 
-viewLifecycleOwner.lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.alert.collectLatest { alert ->
                 showUpdateAlertDialog(alert)
             }
@@ -333,11 +344,16 @@ viewLifecycleOwner.lifecycleScope.launch {
 
         when (alert.type) {
             is com.arny.mobilecinema.presentation.uimodels.AlertType.Update -> {
-                showUpdateDialogWithData(alert.content?.toString(requireContext()) ?: "", alert.type.hasPartUpdate)
+                showUpdateDialogWithData(
+                    alert.content?.toString(requireContext()) ?: "",
+                    alert.type.hasPartUpdate
+                )
             }
+
             is com.arny.mobilecinema.presentation.uimodels.AlertType.SimpleAlert -> {
                 showUpdateDialog()
             }
+
             else -> {}
         }
     }
@@ -347,7 +363,8 @@ viewLifecycleOwner.lifecycleScope.launch {
         val exists = childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null
         if (exists) return
 
-        TvUpdateDialogFragment.newInstance(updateTime, hasPartUpdate).show(childFragmentManager, TvUpdateDialogFragment.TAG)
+        TvUpdateDialogFragment.newInstance(updateTime, hasPartUpdate)
+            .show(childFragmentManager, TvUpdateDialogFragment.TAG)
     }
 
     private fun showUpdateDialog() {

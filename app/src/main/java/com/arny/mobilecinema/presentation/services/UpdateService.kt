@@ -585,7 +585,21 @@
          */
         private suspend fun readFile(filePath: String, forceAll: Boolean) {
             val file = File(filePath)
-            val dataFiles = applicationContext.unzipData(file, extension = ".json")
+            val dataFiles = try {
+                applicationContext.unzipData(file, extension = ".json")
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to unzip data file")
+                sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                    putString(AppConstants.ACTION_UPDATE_STATUS, AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR)
+                }
+                updateNotification(
+                    title = getString(R.string.update_finished_error, e.message ?: "Zip error"),
+                    text = "", silent = false
+                )
+                delay(3000)
+                stop()
+                return@readFile
+            }
 
             if (dataFiles.isNotEmpty()) {
                 var success = false

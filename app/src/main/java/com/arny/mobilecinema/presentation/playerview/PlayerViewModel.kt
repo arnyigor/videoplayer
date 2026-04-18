@@ -186,6 +186,7 @@ private val _back = MutableSharedFlow<Unit>()
                         if (!save) {
                             _error.trySend(ResourceString(R.string.movie_save_error))
                         }
+                        historyInteractor.setCacheChanged(true)
                     }
                     else -> {}
                 }

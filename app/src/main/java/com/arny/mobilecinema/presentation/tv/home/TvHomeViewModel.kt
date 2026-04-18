@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.presentation.tv.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
@@ -8,9 +9,9 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
-import com.arny.mobilecinema.domain.models.CacheChangeType
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
+import com.arny.mobilecinema.domain.models.CacheChangeType
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
@@ -27,6 +28,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -38,6 +40,8 @@ class TvHomeViewModel(
     private val moviesInteractor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
 ) : ViewModel() {
+
+    private val TAG = "TV_HISTORY_VM"
 
     private val _updateAvailable = MutableStateFlow(false)
     val updateAvailable = _updateAvailable.asStateFlow()
@@ -57,12 +61,13 @@ class TvHomeViewModel(
     private val _sortCategory = MutableStateFlow(MovieSortCategory.NEW)
     val sortCategory = _sortCategory.asStateFlow()
 
-    private val _refreshTrigger = MutableStateFlow(0)
+    private val _refreshTrigger = MutableStateFlow(0L)
+    private val _historyTrigger = MutableStateFlow(System.currentTimeMillis())
 
     val moviesDataFlow: Flow<PagingData<ViewMovie>> = combine(
         _refreshTrigger,
         _sortCategory
-    ) { refresh, sort ->
+    ) { _, sort ->
         sort
     }
         .flatMapLatest { sortCategory ->
@@ -86,15 +91,19 @@ class TvHomeViewModel(
                 searchType = ""
             )
         }
-        .cachedIn(viewModelScope)
 
-    val historyMoviesFlow: Flow<PagingData<ViewMovie>> = _refreshTrigger
+    val historyMoviesFlow: Flow<PagingData<ViewMovie>> = _historyTrigger
+        .onEach { Log.d(TAG, "history trigger emitted | value: $it") }
         .flatMapLatest { _ ->
+            Log.d(TAG, "Calling historyInteractor.getHistoryMovies()")
             historyInteractor.getHistoryMovies(
                 search = "",
                 order = AppConstants.Order.LAST_TIME,
                 searchType = ""
             )
+        }
+        .onEach { pagingData ->
+            Log.d(TAG, "historyInteractor returned PagingData | submitting to cache")
         }
         .cachedIn(viewModelScope)
 
@@ -105,9 +114,10 @@ class TvHomeViewModel(
 
     private fun observeHistoryChanges() {
         viewModelScope.launch {
-            historyInteractor.cacheChange.collectLatest { change ->
+            historyInteractor.cacheChange.collect { change ->
                 if (change == CacheChangeType.CACHE || change == CacheChangeType.SERIAL_POSITION) {
-                    _refreshTrigger.value++
+                    Log.d(TAG, "cacheChange received: $change | Triggering history reload")
+                    reloadHistory()
                     historyInteractor.setCacheChanged(false)
                 }
             }
@@ -115,12 +125,22 @@ class TvHomeViewModel(
     }
 
     fun refreshData() {
+        Log.d(
+            TAG,
+            "refreshData() called | Incrementing _refreshTrigger to ${_refreshTrigger.value + 1}"
+        )
         _refreshTrigger.value++
+    }
+
+    fun reloadHistory() {
+        Log.d(TAG, "reloadHistory() called | Triggering history reload")
+        _historyTrigger.value = System.currentTimeMillis()
     }
 
     fun setSortCategory(category: MovieSortCategory) {
         if (_sortCategory.value != category) {
             _sortCategory.value = category
+            Log.d(TAG, "setSortCategory called | New sort: $category")
             _refreshTrigger.value++
         }
     }
@@ -132,16 +152,19 @@ class TvHomeViewModel(
         viewModelScope.launch {
             dataUpdateInteractor.getUpdateDate(false)
                 .catch { error ->
+                    Log.e(TAG, "checkForUpdate failed", error)
                 }
                 .collectLatest { result ->
                     when (result) {
                         is DataResult.Error -> {
+                            Log.d(TAG, "checkForUpdate: Error")
                         }
 
                         is DataResult.Success -> {
                             val updateTime = result.result.updateDateTime
                             if (updateTime.isNotBlank()) {
                                 _updateAvailable.value = true
+                                Log.d(TAG, "checkForUpdate: Update available at $updateTime")
                             }
                         }
                     }
@@ -150,19 +173,23 @@ class TvHomeViewModel(
     }
 
     fun downloadData(force: Boolean = false) {
+        Log.d(TAG, "downloadData called | force: $force")
         viewModelScope.launch {
             dataUpdateInteractor.getUpdateDate(force)
                 .onStart {
                     _updateAvailable.value = false
+                    Log.d(TAG, "downloadData started | Hiding update available flag")
                 }
                 .onCompletion {
+                    Log.d(TAG, "downloadData completed")
                 }
                 .catch { error ->
-                   error.printStackTrace()
+                    Log.e(TAG, "downloadData failed", error)
                 }
                 .collect { result ->
                     when (result) {
                         is DataResult.Error -> {
+                            Log.d(TAG, "downloadData: Error result")
                         }
 
                         is DataResult.Success -> {
@@ -171,6 +198,10 @@ class TvHomeViewModel(
                             val updateTime = updateResult.updateDateTime
 
                             if (updateTime.isNotBlank() && !updateTime.contains("""[/|\\]""".toRegex())) {
+                                Log.d(
+                                    TAG,
+                                    "downloadData: Showing update dialog | Time: $updateTime"
+                                )
                                 _alert.trySend(
                                     Alert(
                                         title = ResourceString(R.string.new_films_update),
@@ -189,7 +220,16 @@ class TvHomeViewModel(
                                     )
                                 )
                             } else {
+                                Log.d(TAG, "downloadData: No valid update found")
                                 _updateAvailable.value = false
+                                _alert.trySend(
+                                    Alert(
+                                        title = ResourceString(R.string.new_films_update_not_found_title),
+                                        content = ResourceString(R.string.new_films_update_not_found_content),
+                                        btnOk = ResourceString(android.R.string.ok),
+                                        type = AlertType.SimpleAlert
+                                    )
+                                )
                             }
                         }
                     }
@@ -201,12 +241,16 @@ class TvHomeViewModel(
         viewModelScope.launch {
             dataUpdateInteractor.intentUrl()
                 .onStart {
+                    Log.d(TAG, "checkIntent started")
                 }
                 .onCompletion {
+                    Log.d(TAG, "checkIntent completed")
                 }
                 .catch { error ->
+                    Log.e(TAG, "checkIntent failed", error)
                 }
                 .collect { url ->
+                    Log.d(TAG, "checkIntent emitted URL: $url")
                     _urlData.emit(url)
                 }
         }
@@ -216,11 +260,16 @@ class TvHomeViewModel(
         viewModelScope.launch {
             when (type) {
                 is AlertType.Update -> {
+                    Log.d(
+                        TAG,
+                        "onConfirmAlert: Update confirmed | force: ${type.force}, hasPartUpdate: ${type.hasPartUpdate}"
+                    )
                     dataUpdateInteractor.requestFile(type.force, type.hasPartUpdate)
                     checkIntent()
                 }
 
                 is AlertType.UpdateAll -> {
+                    Log.d(TAG, "onConfirmAlert: UpdateAll confirmed")
                     dataUpdateInteractor.updateAll()
                 }
 
@@ -234,6 +283,7 @@ class TvHomeViewModel(
         viewModelScope.launch {
             when (type) {
                 is AlertType.Update -> {
+                    Log.d(TAG, "onCancelAlert: Update cancelled")
                     dataUpdateInteractor.resetUpdate()
                 }
 
@@ -247,6 +297,7 @@ class TvHomeViewModel(
         viewModelScope.launch {
             when (type) {
                 is AlertType.Update -> {
+                    Log.d(TAG, "onNeutralAlert: Requesting full update")
                     _alert.trySend(
                         Alert(
                             title = ResourceString(R.string.full_update_title),
@@ -269,21 +320,28 @@ class TvHomeViewModel(
      * Пропускает второй alert и сразу запускает update-flow.
      */
     fun startUpdateAfterUserConfirmation(force: Boolean = false) {
+        Log.d(TAG, "startUpdateAfterUserConfirmation called | force: $force")
         viewModelScope.launch {
             _loading.value = true
 
             dataUpdateInteractor.getUpdateDate(force)
                 .catch { e ->
+                    Log.e(TAG, "startUpdateAfterUserConfirmation failed", e)
                     _loading.value = false
                 }
                 .collectLatest { result ->
                     when (result) {
                         is DataResult.Error -> {
+                            Log.d(TAG, "startUpdateAfterUserConfirmation: Error")
                             _loading.value = false
                         }
 
                         is DataResult.Success -> {
                             val hasPartUpdate = result.result.hasPartUpdate
+                            Log.d(
+                                TAG,
+                                "startUpdateAfterUserConfirmation: Success | Requesting file"
+                            )
                             dataUpdateInteractor.requestFile(force, hasPartUpdate)
                             checkIntent()
                             _loading.value = false
@@ -294,18 +352,21 @@ class TvHomeViewModel(
     }
 
     fun stopUpdate() {
+        Log.d(TAG, "stopUpdate called")
         dataUpdateInteractor.cancelUpdate()
     }
 
     fun updateDownloadProgress(movieId: Long, percent: Float) {
         _downloadProgress.update { current ->
-            current.toMutableMap().apply {
+            val newMap = current.toMutableMap().apply {
                 if (percent >= 100f) {
                     remove(movieId)
                 } else {
                     put(movieId, percent)
                 }
             }
+            Log.d(TAG, "updateDownloadProgress | movieId: $movieId, percent: $percent")
+            newMap
         }
     }
 }

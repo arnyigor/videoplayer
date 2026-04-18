@@ -22,6 +22,7 @@ import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import kotlinx.coroutines.flow.Flow
+import timber.log.Timber
 
 class MoviesRepositoryImpl constructor(
     private val movieMapper: MovieMapper,
@@ -138,22 +139,26 @@ class MoviesRepositoryImpl constructor(
 
     override fun getMinMaxYears(): SimpleIntRange = movieDao.getYearsMinMax()
 
-    override fun getCountries(): List<String> = appResources.getStringArray(R.array.countries)
+override fun getCountries(): List<String> = appResources.getStringArray(R.array.countries)
 
     override fun getSaveData(movieDbId: Long?): HistoryEntity? = historyDao.getHistory(movieDbId)
 
-    override fun insertCinemaPosition(
+override fun insertCinemaPosition(
         movieDbId: Long,
         position: Long,
         currentTimeMillis: Long
-    ): Boolean =
-        historyDao.insert(
+    ): Boolean {
+        Timber.d("insertCinemaPosition: movieDbId=$movieDbId, position=$position")
+        val result = historyDao.insert(
             HistoryEntity(
                 movieDbId = movieDbId,
                 position = position,
                 latestTime = currentTimeMillis
             )
         ) > 0L
+        Timber.d("insertCinemaPosition: result=$result")
+        return result
+    }
 
     override fun updateCinemaPosition(
         movieDbId: Long?,

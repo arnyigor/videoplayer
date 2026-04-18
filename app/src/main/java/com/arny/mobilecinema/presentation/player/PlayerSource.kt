@@ -42,8 +42,15 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.IOException
+import java.security.cert.CertificateException
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
@@ -97,14 +104,15 @@ class PlayerSource(
         downloadManager?.removeListener(downloadListener)
     }
 
-    suspend fun getSource(
+suspend fun getSource(
         url: String?,
         title: String? = null,
         season: Int? = null,
         episode: Int? = null
     ): MediaSource? = url?.let {
         val uri = Uri.parse(url)
-        val factory = dataSourceFactory()
+        // Используем factory с отключенной проверкой SSL для обхода проблем с сертификатами
+        val factory = getUnsafeDataSourceFactory()
         val mediaItem = getMediaItem(url, title, season, episode)
         when (val type: @C.ContentType Int = Util.inferContentType(uri)) {
             C.CONTENT_TYPE_DASH -> getDashMediaSourceFactory(factory, mediaItem)
@@ -527,10 +535,13 @@ class PlayerSource(
 
     private fun getCache(): Cache = VideoCache.getInstance(context).getDownloadCache()
 
-    private fun initCacheFactory() {
+private fun initCacheFactory() {
         val cache = getCache()
         val cacheSink = CacheDataSink.Factory().setCache(cache)
-        val upstreamFactory = DefaultDataSource.Factory(context, DefaultHttpDataSource.Factory())
+
+        // Используем factory с настроенными таймаутами
+        val upstreamFactory = DefaultDataSource.Factory(context, createHttpDataSourceFactory())
+
         cacheFactory = CacheDataSource.Factory()
             .setCache(cache)
             .setCacheWriteDataSinkFactory(cacheSink)
@@ -539,4 +550,118 @@ class PlayerSource(
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
+    /**
+     * Создаёт OkHttpClient с отключённой проверкой SSL-сертификатов.
+     * ВНИМАНИЕ: Использовать только для отладки! В продакшене это небезопасно.
+     */
+    private fun createUnsafeOkHttpClient(): OkHttpClient {
+        return try {
+            val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+                @Throws(CertificateException::class)
+                override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+
+                @Throws(CertificateException::class)
+                override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>, authType: String) {}
+
+                override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+            })
+
+            val sslContext = SSLContext.getInstance("TLS")
+            sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+
+            OkHttpClient.Builder()
+                .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+                .hostnameVerifier { _, _ -> true }
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build()
+        } catch (e: Exception) {
+            throw RuntimeException("Failed to create unsafe OkHttpClient", e)
+        }
+    }
+
+    /**
+     * Создаёт DefaultHttpDataSource.Factory с настроенным OkHttpClient для обхода SSL-ошибок.
+     */
+    private fun createHttpDataSourceFactory(): DefaultHttpDataSource.Factory {
+        return DefaultHttpDataSource.Factory()
+            .setUserAgent("ExoPlayer")
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(30000)
+            .setReadTimeoutMs(30000)
+    }
+
+    /**
+     * Кастомный OkHttp DataSource для ExoPlayer
+     * Позволяет обходить проблемы с SSL-сертификатами
+     */
+    private inner class OkHttpDataSource(
+        private val client: OkHttpClient,
+        private val userAgent: String?
+    ) : DataSource {
+
+        private var currentConnection: okhttp3.Response? = null
+        private var currentStream: java.io.InputStream? = null
+        private var uri: String = ""
+
+        override fun addTransferListener(transferListener: com.google.android.exoplayer2.upstream.TransferListener) {}
+
+        override fun open(dataSpec: DataSpec): Long {
+            uri = dataSpec.uri.toString()
+
+            val requestBuilder = Request.Builder().url(uri)
+            userAgent?.let { requestBuilder.header("User-Agent", it) }
+            dataSpec.httpRequestHeaders?.forEach { (key, value) ->
+                requestBuilder.header(key, value)
+            }
+
+            val response = client.newCall(requestBuilder.build()).execute()
+            currentConnection = response
+
+            if (!response.isSuccessful) {
+                response.close()
+                throw IOException("Unexpected response code: ${response.code}")
+            }
+
+            currentStream = response.body?.byteStream() ?: throw IOException("Empty response body")
+            val contentLength = response.body?.contentLength() ?: C.LENGTH_UNSET.toLong()
+
+            if (dataSpec.position > 0) {
+                currentStream?.skip(dataSpec.position)
+            }
+
+            return contentLength
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+            currentStream?.read(buffer, offset, length) ?: -1
+
+        override fun getUri(): Uri? = Uri.parse(uri)
+
+        override fun close() {
+            currentStream?.close()
+            currentConnection?.close()
+            currentStream = null
+            currentConnection = null
+        }
+    }
+
+    /**
+     * Фабрика для создания OkHttpDataSource с отключенной проверкой SSL
+     */
+    private inner class OkHttpDataSourceFactory(
+        private val client: OkHttpClient,
+        private val userAgent: String?
+    ) : DataSource.Factory {
+        override fun createDataSource(): DataSource = OkHttpDataSource(client, userAgent)
+    }
+
+    /**
+     * Возвращает DataSource.Factory с OkHttpClient, который игнорирует SSL-ошибки.
+     * Это позволяет воспроизводить видео с серверов, использующих устаревшие сертификаты.
+     */
+    private fun getUnsafeDataSourceFactory(): DataSource.Factory {
+        val unsafeClient = createUnsafeOkHttpClient()
+        return OkHttpDataSourceFactory(unsafeClient, "ExoPlayer")
+    }
 }

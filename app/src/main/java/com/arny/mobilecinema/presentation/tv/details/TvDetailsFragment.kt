@@ -604,7 +604,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
         findNavController().navigate(
             R.id.tvPlayerFragment,
             bundleOf(
-                "movieId" to 0L,
+                "movieId" to args.movieId,
                 "sharedUrl" to url,
                 "seasonIndex" to 0,
                 "episodeIndex" to 0,
