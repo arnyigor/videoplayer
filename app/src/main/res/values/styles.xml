@@ -110,11 +110,21 @@
         <item name="cornerRadius">16dp</item>
     </style>
 
-    <style name="Widget.App.Chip.Selected" parent="Widget.Material3.Chip.Filter">
+<style name="Widget.App.Chip.Selected" parent="Widget.Material3.Chip.Filter">
         <item name="chipBackgroundColor">@color/chip_selected_bg</item>
         <item name="chipStrokeWidth">0dp</item>
         <item name="android:textColor">@android:color/white</item>
         <item name="cornerRadius">16dp</item>
+    </style>
+
+    <!-- Слайдеры для Extended Search -->
+    <style name="App.RangeSlider" parent="Widget.MaterialComponents.Slider">
+        <item name="trackColorActive">@color/colorAccent</item>
+        <item name="trackColorInactive">@color/chip_dark_bg</item>
+        <item name="thumbColor">@color/colorAccent</item>
+        <item name="haloColor">@color/colorAccent</item>
+        <item name="tickColorActive">@color/colorAccent</item>
+        <item name="tickColorInactive">@color/textColorSecondary</item>
     </style>
 
 </resources>

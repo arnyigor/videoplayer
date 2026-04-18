@@ -145,13 +145,17 @@
                     android:visibility="gone"
                     tools:visibility="visible" />
 
-                <com.google.android.material.slider.RangeSlider
+<com.google.android.material.slider.RangeSlider
                     android:id="@+id/rslYears"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="@dimen/margin"
                     android:stepSize="1.0"
                     android:visibility="gone"
+                    app:trackColorActive="@color/colorAccent"
+                    app:trackColorInactive="@color/chip_dark_bg"
+                    app:thumbColor="@color/colorAccent"
+                    app:haloColor="@color/colorAccent"
                     tools:visibility="visible" />
 
                 <TextView
@@ -165,13 +169,17 @@
                     tools:text="Рейтинг IMBT с 0.0 по 10.0"
                     tools:visibility="visible" />
 
-                <com.google.android.material.slider.RangeSlider
+<com.google.android.material.slider.RangeSlider
                     android:id="@+id/rslImdb"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="@dimen/margin"
                     android:stepSize="1.0"
                     android:visibility="gone"
+                    app:trackColorActive="@color/colorAccent"
+                    app:trackColorInactive="@color/chip_dark_bg"
+                    app:thumbColor="@color/colorAccent"
+                    app:haloColor="@color/colorAccent"
                     tools:visibility="visible" />
 
                 <TextView
@@ -185,13 +193,17 @@
                     tools:text="Рейтинг KP с 0.0 по 10.0"
                     tools:visibility="visible" />
 
-                <com.google.android.material.slider.RangeSlider
+<com.google.android.material.slider.RangeSlider
                     android:id="@+id/rslKp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginHorizontal="@dimen/margin"
                     android:stepSize="1.0"
                     android:visibility="gone"
+                    app:trackColorActive="@color/colorAccent"
+                    app:trackColorInactive="@color/chip_dark_bg"
+                    app:thumbColor="@color/colorAccent"
+                    app:haloColor="@color/colorAccent"
                     tools:visibility="visible" />
 
             </LinearLayout>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_indicator"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="24dp">
+
+    <!-- Иконка сверху -->
+    <ImageView
+        android:id="@+id/ivIcon"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginBottom="20dp"
+        app:tint="@android:color/white"
+        tools:src="@drawable/ic_brightness" />
+
+    <!-- Вертикальный слайдер -->
+    <com.arny.mobilecinema.presentation.playerview.VerticalSliderView
+        android:id="@+id/sliderView"
+        android:layout_width="56dp"
+        android:layout_height="160dp" />
+
+    <!-- Текст значения -->
+    <TextView
+        android:id="@+id/tvValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        tools:text="75%" />
+
+    <!-- Boost (только для громкости) -->
+    <TextView
+        android:id="@+id/tvBoost"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/colorAccent"
+        android:textSize="14sp"
+        android:visibility="gone"
+        tools:text="+100%"
+        tools:visibility="visible" />
+
+</LinearLayout>

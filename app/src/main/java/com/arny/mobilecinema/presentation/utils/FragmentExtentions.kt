@@ -75,10 +75,37 @@ fun Fragment.initAudioManager(
 }
 
 fun Fragment.setScreenBrightness(value: Int) {
-    val window = requireActivity().window
+    setScreenBrightness(requireActivity().window, value)
+}
+
+/**
+ * Установить яркость экрана.
+ * @param window - Activity window
+ * @param value - яркость в диапазоне 0-30
+ */
+fun setScreenBrightness(window: Window, value: Int) {
     val lp = window.attributes
     lp.screenBrightness = (1.0f / 30) * value
     window.attributes = lp
+}
+
+/**
+ * Получить текущую яркость экрана в диапазоне 0-30.
+ */
+fun Fragment.getScreenBrightness(): Int {
+    return try {
+        val resolver = requireContext().contentResolver
+        // Читаем из Settings.System - это реальное значение яркости экрана
+        val brightness = android.provider.Settings.System.getInt(
+            resolver,
+            android.provider.Settings.System.SCREEN_BRIGHTNESS,
+            128 //默认值 (средняя яркость)
+        )
+        // Конвертируем 0-255 в 0-30
+        (brightness * 30 / 255).coerceIn(0, 30)
+    } catch (e: Exception) {
+        15 // По умолчанию средняя яркость
+    }
 }
 
 fun Window.hideSystemBar() {

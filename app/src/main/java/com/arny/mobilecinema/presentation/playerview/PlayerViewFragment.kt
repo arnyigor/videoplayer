@@ -56,6 +56,7 @@ import com.arny.mobilecinema.presentation.utils.isPiPAvailable
 import com.arny.mobilecinema.presentation.utils.registerContentResolver
 import com.arny.mobilecinema.presentation.utils.secToMs
 import com.arny.mobilecinema.presentation.utils.setScreenBrightness
+import com.arny.mobilecinema.presentation.utils.getScreenBrightness
 import com.arny.mobilecinema.presentation.utils.setTextColorRes
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterContentResolver
@@ -107,6 +108,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var langVisible: Boolean = false
     private var mediaItemIndex: Int = 0
     private var movie: Movie? = null
+    
+    // Brightness/Volume controller
+    private var brightnessVolumeController: BrightnessVolumeController? = null
 
     private val btnsHandler = Handler(Looper.getMainLooper())
     private val volumeHandler = Handler(Looper.getMainLooper())
@@ -146,9 +150,24 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var gestureDetectorCompat: GestureDetectorCompat? = null
     private var audioManager: AudioManager? = null
     private var minSwipeY: Float = 0f
-    private var brightness: Int = 0
+    private var brightness: Int = -1  // -1 = не инициализировано
     private var volume: Int = -1
     private var boost: Int = -1
+    
+    // Touch tracking state для предотвращения лагов
+    private var lastGestureTime: Long = 0
+    private val GESTURE_THROTTLE_MS = 25L // 40fps достаточно для плавности
+    
+    // Touch tracking state
+    private var touchStartX: Float = 0f
+    private var touchStartY: Float = 0f
+    private var isVerticalScroll: Boolean = false
+    private var lastTouchTime: Long = 0
+    private val TOUCH_DEBOUNCE_MS = 16L // ~60fps throttle
+    
+    // Сенсорные зоны для жестов (проценты от ширины экрана)
+    private val LEFT_ZONE_RATIO = 0.5f  // Левая половина = brightness
+    private val RIGHT_ZONE_RATIO = 0.5f // Правая половина = volume
 
     // Флаг для предотвращения повторной инициализации
     private var isPlayerPrepared = false
@@ -179,7 +198,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             ?: MAX_BOOST_DEFAULT
     }
 
-    private val gestureDetectListener: GestureDetector.OnGestureListener = object :
+private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         GestureDetector.OnGestureListener {
         override fun onDown(e: MotionEvent): Boolean {
             minSwipeY = 0f
@@ -197,95 +216,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             distanceX: Float,
             distanceY: Float
         ): Boolean {
-            resetVolumeHandlerState()
-            minSwipeY += distanceY
-            val sWidth = Resources.getSystem().displayMetrics.widthPixels
-            val sHeight = Resources.getSystem().displayMetrics.heightPixels
-            val border = 100 * Resources.getSystem().displayMetrics.density.toInt()
-            if (event.x < border || event.y < border || event.x > sWidth - border || event.y > sHeight - border)
-                return false
-
-            if (abs(distanceX) < abs(distanceY) && abs(minSwipeY) > 50) {
-                val increase = distanceY > 0
-                if (event.x < sWidth / 2) {
-                    //brightness
-                    binding.tvBrightness.text = brightness.toString()
-                    showBrightnessIndicator()
-                    val newValue = if (increase) {
-                        brightness + 1
-                    } else {
-                        brightness - 1
-                    }
-                    val brightDiv = 30
-                    if (newValue in 0..brightDiv) {
-                        brightness = newValue
-                    }
-                    binding.tvVolume.visibility = View.GONE
-                    setScreenBrightness(brightness)
-                } else {
-                    //volume
-                    binding.tvBrightness.visibility = View.GONE
-                    showVolumeIndicator()
-                    val curVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC)
-                    if (volume == -1 && curVolume != null) {
-                        volume = curVolume
-                    }
-                    val maxVolume = getMaxVolume()
-                    val targetGain = enhancer?.targetGain
-                    if (boost == -1 && targetGain != null) {
-                        boost = targetGain.toInt()
-                    }
-                    val newVolume = when {
-                        increase -> volume + 1
-                        else -> if (boost == 0) volume - 1 else volume
-                    }
-                    val isVolumeChanges = newVolume in 1..maxVolume
-                    if (isVolumeChanges) {
-                        volume = newVolume
-                    }
-                    val newBoost: Int = when {
-                        increase -> if (volume == maxVolume) boost + getBoostDiff(boost) else boost
-                        else -> if (volume == maxVolume) boost - getBoostDiff(boost) else boost
-                    }
-                    val isBoostChanges = newBoost in 1..maxBoost
-                    if (isBoostChanges) {
-                        boost = newBoost
-                    }
-                    when {
-                        isVolumeChanges && !isBoostChanges -> {
-                            boost = 0
-                            updateGain()
-                            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
-                            updateUIByVolume()
-                        }
-
-                        isBoostChanges -> {
-                            updateGain()
-                            val volumeWithBoost = boost.toFloat() / 10
-                            val boostVolume = volume + volumeWithBoost.toInt()
-                            binding.tvVolume.text = boostVolume.toString()
-                            binding.tvVolume.setTextColorRes(R.color.colorAccent)
-                        }
-                    }
-                }
-                hideVolumeBrightViews()
-                minSwipeY = 0f
-            }
-            hideControlsDelayed()
-            return true
+            // Свайпы для brightness/volume убраны - теперь управление через иконки
+            return false
         }
-
-        private fun getBoostDiff(boost: Int): Int = when {
-            boost < 100 -> 10
-            boost < 120 -> 20
-            boost < 150 -> 30
-            boost < 175 -> 50
-            boost < 200 -> 75
-            else -> 10
-        }
-
-        private fun getMaxVolume() =
-            audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 30
 
         override fun onLongPress(e: MotionEvent) {}
         override fun onFling(
@@ -382,12 +315,14 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         binding.progressBar.isVisible = true
         // Сбрасываем version чтобы state обработался заново
         lastProcessedVersion = -1
+        
         observeState()
         initListener()
         initSystemUI()
         initPlayerTouchListener()
-        initAudioManager()
+        initAudioManager()                       // ← СНАЧАЛА AudioManager
         initVolumeObserver()
+        initBrightnessVolumeController()    // ← ПОТОМ Controller
     }
 
     override fun onStart() {
@@ -550,6 +485,43 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private fun updateUIByVolume() {
         binding.tvVolume.text = volume.toString()
         binding.tvVolume.setTextColorRes(R.color.textColorPrimary)
+    }
+    
+    private fun initBrightnessVolumeController() {
+        val window = requireActivity().window
+        val maxVol = audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15
+        
+        brightnessVolumeController = BrightnessVolumeController(
+            rootView = binding.root,
+            window = window,
+            maxBoost = maxBoost,  // ← передаём из prefs
+            onVolumeChanged = { newVolumeAbsolute ->
+                audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, newVolumeAbsolute, 0)
+                volume = newVolumeAbsolute
+            },
+            onBoostChanged = { boostMb ->
+                boost = boostMb
+                updateGain()
+            }
+        )
+        
+        // Яркость: читаем из window (0.0-1.0)
+        val windowBrightness = window.attributes.screenBrightness
+        val brightnessFloat = if (windowBrightness > 0f) windowBrightness else 0.5f
+        brightnessVolumeController?.initializeBrightness(brightnessFloat)
+        brightness = (brightnessFloat * 255).toInt()
+        
+        // Громкость
+        val curVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0
+        volume = curVolume
+        brightnessVolumeController?.initializeVolume(curVolume, maxVol)
+        
+        // Boost
+        val targetGain = try {
+            enhancer?.targetGain?.toInt() ?: 0
+        } catch (e: Exception) { 0 }
+        boost = targetGain
+        brightnessVolumeController?.initializeBoost(targetGain)
     }
 
     private fun initVolumeObserver() {
@@ -778,7 +750,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    private fun initListener() {
+private fun initListener() {
         // Проверяем binding перед использованием
         val currentBinding = _binding ?: return
 
@@ -792,7 +764,22 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             ivScreenRotation.setOnClickListener {
                 toggleScreenOrientation()
             }
+            // Показ слайдеров по клику
+            ivBrightness.setOnClickListener {
+                showBrightnessSlider()
+            }
+            ivVolume.setOnClickListener {
+                showVolumeSlider()
+            }
         }
+    }
+    
+    private fun showBrightnessSlider() {
+        brightnessVolumeController?.showBrightness()
+    }
+    
+    private fun showVolumeSlider() {
+        brightnessVolumeController?.showVolume()
     }
 
     /**
@@ -1121,7 +1108,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
+@SuppressLint("ClickableViewAccessibility")
     private fun preparePlayer() {
         val currentBinding = _binding ?: return
 
@@ -1136,23 +1123,35 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         isPlayerPrepared = true
 
         with(currentBinding) {
-            val loadControl =
-                DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(
-                        DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
-                        DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
-                        DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
-                        DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
-                    ).build()
-            trackSelector =
-                DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory()).apply {
-                    parameters = parameters.buildUpon()
-                        .setPreferredAudioLanguage("rus")
-                        .build()
-                }
+            // Оптимизированный LoadControl для быстрого старта
+            val loadControl = DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    15_000,   // MIN_BUFFER: минимум в буфере (15 сек)
+                    50_000,   // MAX_BUFFER: максимум накапливаем (50 сек)
+                    800,      // START_PLAYBACK: ждём всего 800мс перед стартом (было 2500!)
+                    1_500     // AFTER_REBUFFER: после буферизации ждём 1.5 сек (было 5000!)
+                )
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build()
+            
+            // TrackSelector с адаптивной выборкой
+            trackSelector = DefaultTrackSelector(
+                requireContext(),
+                AdaptiveTrackSelection.Factory()
+            ).apply {
+                parameters = parameters.buildUpon()
+                    .setPreferredAudioLanguage("rus")
+                    .build()
+            }
+            
+            // Оптимизированный рендерер
+            val renderersFactory = DefaultRenderersFactory(requireContext()).apply {
+                setEnableDecoderFallback(true)
+            }
+            
             player = ExoPlayer.Builder(requireContext())
                 .setLoadControl(loadControl)
-                .setRenderersFactory(DefaultRenderersFactory(requireContext()))
+                .setRenderersFactory(renderersFactory)
                 .setTrackSelector(trackSelector!!)
                 .setSeekBackIncrementMs(secToMs(5))
                 .setSeekForwardIncrementMs(secToMs(5))
@@ -1274,14 +1273,14 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             false
         }
 
-    private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
+private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
         // Дополнительная проверка
         if (_binding == null) return
 
         val targetAlpha = if (visible) 1f else 0f
         val views = listOf(
             tvTitle, ivQuality, ivResizes, ivScreenRotation,
-            ivBack, ivLang
+            ivBack, ivLang, ivBrightness, ivVolume
         )
 
         if (visible) {
