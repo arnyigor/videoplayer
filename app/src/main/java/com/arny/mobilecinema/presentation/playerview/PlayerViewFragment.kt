@@ -76,6 +76,7 @@ import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -816,11 +817,13 @@ private fun initListener() {
                 launch {
                     viewModel.uiState.collect { state ->
                         // Проверяем version чтобы не пересоздавать MediaSources без необходимости
-                        if (state.version > lastProcessedVersion
+if (state.version > lastProcessedVersion
                             && (state.path != null || state.movie != null)
                         ) {
                             lastProcessedVersion = state.version
                             movie = state.movie
+                            binding.progressBar.isVisible = true
+                            delay(50) // Даем UI время показать spinner
                             setCurrentTitle()
                             setMediaSources(
                                 path = state.path,
@@ -1123,15 +1126,14 @@ private fun initListener() {
         isPlayerPrepared = true
 
         with(currentBinding) {
-            // Оптимизированный LoadControl для быстрого старта
+// Умеренный LoadControl - баланс между быстрым стартом и стабильностью
             val loadControl = DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                    15_000,   // MIN_BUFFER: минимум в буфере (15 сек)
-                    50_000,   // MAX_BUFFER: максимум накапливаем (50 сек)
-                    800,      // START_PLAYBACK: ждём всего 800мс перед стартом (было 2500!)
-                    1_500     // AFTER_REBUFFER: после буферизации ждём 1.5 сек (было 5000!)
+                    30_000,   // MIN_BUFFER: минимум в буфере (30 сек)
+                    60_000,   // MAX_BUFFER: максимум накапливаем (60 сек)
+                    1_500,     // START_PLAYBACK: ждём 1.5 сек перед стартом
+                    2_500     // AFTER_REBUFFER: после буферизации ждём 2.5 сек
                 )
-                .setPrioritizeTimeOverSizeThresholds(true)
                 .build()
             
             // TrackSelector с адаптивной выборкой

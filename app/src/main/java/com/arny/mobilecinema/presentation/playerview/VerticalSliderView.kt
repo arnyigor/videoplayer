@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
+import android.os.Handler
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -32,10 +34,9 @@ class VerticalSliderView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
-    private val thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+private val thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, android.R.color.white)
         style = Paint.Style.FILL
-        setShadowLayer(8f, 0f, 2f, 0x40000000)
     }
 
     // Размеры
@@ -49,8 +50,11 @@ class VerticalSliderView @JvmOverloads constructor(
     private var minProgress = 0
     
     // Touch tracking
-    private var lastTouchY = 0f
+private var lastTouchY = 0f
     private var isDragging = false
+    private var lastCallbackTime = 0L
+    private val handler = Handler(Looper.getMainLooper())
+    private val throttleInterval = 32L // ms
     
     // Callbacks
     var onProgressChanged: ((Int) -> Unit)? = null
@@ -60,9 +64,8 @@ class VerticalSliderView @JvmOverloads constructor(
     private val trackRect = RectF()
     private val progressRect = RectF()
 
-    init {
-        // Включаем software layer для shadow
-        setLayerType(LAYER_TYPE_SOFTWARE, null)
+init {
+        // Hardware accelerated - по умолчанию
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -116,7 +119,7 @@ class VerticalSliderView @JvmOverloads constructor(
                 return true
             }
             
-            MotionEvent.ACTION_MOVE -> {
+MotionEvent.ACTION_MOVE -> {
                 if (isDragging) {
                     val deltaY = lastTouchY - event.y  // Инвертируем: вверх = увеличить
                     val deltaProgress = (deltaY / (height - 2 * thumbRadius) * maxProgress).toInt()
@@ -125,7 +128,12 @@ class VerticalSliderView @JvmOverloads constructor(
                         val newProgress = (progress + deltaProgress).coerceIn(minProgress, maxProgress)
                         if (newProgress != progress) {
                             progress = newProgress
-                            onProgressChanged?.invoke(progress)
+                            // Throttle: применяем callback не чаще чем раз в 32ms
+                            val now = System.currentTimeMillis()
+                            if (now - lastCallbackTime >= throttleInterval) {
+                                lastCallbackTime = now
+                                onProgressChanged?.invoke(progress)
+                            }
                             invalidate()
                         }
                         lastTouchY = event.y
