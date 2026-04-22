@@ -56,8 +56,8 @@ import com.arny.mobilecinema.presentation.utils.isPiPAvailable
 import com.arny.mobilecinema.presentation.utils.registerContentResolver
 import com.arny.mobilecinema.presentation.utils.secToMs
 import com.arny.mobilecinema.presentation.utils.setScreenBrightness
-import com.arny.mobilecinema.presentation.utils.getScreenBrightness
 import com.arny.mobilecinema.presentation.utils.setTextColorRes
+import com.arny.mobilecinema.presentation.utils.showSystemUI
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterContentResolver
 import com.github.vkay94.dtpv.youtube.YouTubeOverlay
@@ -76,7 +76,6 @@ import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import com.google.android.exoplayer2.util.Util
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -151,24 +150,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var gestureDetectorCompat: GestureDetectorCompat? = null
     private var audioManager: AudioManager? = null
     private var minSwipeY: Float = 0f
-    private var brightness: Int = -1  // -1 = не инициализировано
+    private var brightness: Int = 0
     private var volume: Int = -1
     private var boost: Int = -1
-    
-    // Touch tracking state для предотвращения лагов
-    private var lastGestureTime: Long = 0
-    private val GESTURE_THROTTLE_MS = 25L // 40fps достаточно для плавности
-    
-    // Touch tracking state
-    private var touchStartX: Float = 0f
-    private var touchStartY: Float = 0f
-    private var isVerticalScroll: Boolean = false
-    private var lastTouchTime: Long = 0
-    private val TOUCH_DEBOUNCE_MS = 16L // ~60fps throttle
-    
-    // Сенсорные зоны для жестов (проценты от ширины экрана)
-    private val LEFT_ZONE_RATIO = 0.5f  // Левая половина = brightness
-    private val RIGHT_ZONE_RATIO = 0.5f // Правая половина = volume
 
     // Флаг для предотвращения повторной инициализации
     private var isPlayerPrepared = false
@@ -199,7 +183,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             ?: MAX_BOOST_DEFAULT
     }
 
-private val gestureDetectListener: GestureDetector.OnGestureListener = object :
+    private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         GestureDetector.OnGestureListener {
         override fun onDown(e: MotionEvent): Boolean {
             minSwipeY = 0f
@@ -316,7 +300,6 @@ private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         binding.progressBar.isVisible = true
         // Сбрасываем version чтобы state обработался заново
         lastProcessedVersion = -1
-        
         observeState()
         initListener()
         initSystemUI()
@@ -350,7 +333,7 @@ private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         }
     }
 
-    override fun onPause() {
+override fun onPause() {
         super.onPause()
         volumeObserver?.let { unregisterContentResolver(it) }
         with((requireActivity() as AppCompatActivity)) {
@@ -367,7 +350,7 @@ private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         }
     }
 
-    override fun onStop() {
+override fun onStop() {
         super.onStop()
         if (Util.SDK_INT >= Build.VERSION_CODES.N) {
             player?.let { exoPlayer ->
@@ -381,18 +364,14 @@ private val gestureDetectListener: GestureDetector.OnGestureListener = object :
                             viewModel.updatePlaybackPosition(currentPosition, 0, 0)
                             viewModel.saveMoviePosition(dbId, currentPosition, 0, 0)
                         }
-
                         MovieType.SERIAL -> {
                             val metadata = exoPlayer.currentMediaItem?.mediaMetadata
                             val bundle = metadata?.extras
-                            val season =
-                                bundle?.getInt(AppConstants.Player.SEASON) ?: state.season ?: 0
-                            val episode =
-                                bundle?.getInt(AppConstants.Player.EPISODE) ?: state.episode ?: 0
+                            val season = bundle?.getInt(AppConstants.Player.SEASON) ?: state.season ?: 0
+                            val episode = bundle?.getInt(AppConstants.Player.EPISODE) ?: state.episode ?: 0
                             viewModel.updatePlaybackPosition(currentPosition, season, episode)
                             viewModel.saveMoviePosition(dbId, currentPosition, season, episode)
                         }
-
                         else -> {}
                     }
                 }
@@ -402,7 +381,7 @@ private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
-    override fun onDestroyView() {
+override fun onDestroyView() {
         super.onDestroyView()
         btnsHandler.removeCallbacksAndMessages(null)
         volumeHandler.removeCallbacksAndMessages(null)
@@ -683,13 +662,13 @@ private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         } else {
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = (
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                            or View.SYSTEM_UI_FLAG_FULLSCREEN
-                    )
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                        or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                        or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        or View.SYSTEM_UI_FLAG_FULLSCREEN
+            )
         }
         isSystemUIHidden = true
     }
@@ -709,9 +688,8 @@ private val gestureDetectListener: GestureDetector.OnGestureListener = object :
                     android.view.WindowInsets.Type.statusBars() or
                             android.view.WindowInsets.Type.navigationBars()
                 )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_DEFAULT
-                }
+                // Сбрасываем поведение на дефолтное
+                systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_DEFAULT
             }
         } else {
             @Suppress("DEPRECATION")
@@ -751,7 +729,7 @@ private val gestureDetectListener: GestureDetector.OnGestureListener = object :
         }
     }
 
-private fun initListener() {
+    private fun initListener() {
         // Проверяем binding перед использованием
         val currentBinding = _binding ?: return
 
@@ -788,12 +766,11 @@ private fun initListener() {
      */
     private fun toggleScreenOrientation() {
         val currentOrientation = resources.configuration.orientation
-        requireActivity().requestedOrientation =
-            if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
-                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            } else {
-                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            }
+        requireActivity().requestedOrientation = if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
 
         // Через небольшую задержку сбрасываем на автоматическую ориентацию
         // чтобы автоповорот продолжал работать
@@ -817,13 +794,11 @@ private fun initListener() {
                 launch {
                     viewModel.uiState.collect { state ->
                         // Проверяем version чтобы не пересоздавать MediaSources без необходимости
-if (state.version > lastProcessedVersion
+                        if (state.version > lastProcessedVersion
                             && (state.path != null || state.movie != null)
                         ) {
                             lastProcessedVersion = state.version
                             movie = state.movie
-                            binding.progressBar.isVisible = true
-                            delay(50) // Даем UI время показать spinner
                             setCurrentTitle()
                             setMediaSources(
                                 path = state.path,
@@ -854,11 +829,6 @@ if (state.version > lastProcessedVersion
                     }
                 }
                 launch {
-                    viewModel.requestUpdate.collectLatest {
-                        findNavController().navigateUp()
-                    }
-                }
-                launch {
                     viewModel.cachedResizeModeIndex.collectLatest { cachedIndex ->
                         if (cachedIndex != resizeModeIndex) {
                             resizeModeIndex = cachedIndex
@@ -867,6 +837,19 @@ if (state.version > lastProcessedVersion
                     }
                 }
             }
+        }
+    }
+
+    private fun getTitle(movieTitle: String?): String {
+        val savedTitle = this.title
+        return when {
+            !movieTitle.isNullOrBlank() && savedTitle.isNotBlank() && savedTitle != "null" ->
+                savedTitle
+
+            !movieTitle.isNullOrBlank() && (savedTitle.isBlank() || savedTitle == "null") ->
+                movieTitle
+
+            else -> getString(R.string.no_movie_title)
         }
     }
 
@@ -956,7 +939,7 @@ if (state.version > lastProcessedVersion
             )
             binding.playerView.setShowNextButton(size > 0)
             binding.playerView.setShowPreviousButton(size > 0)
-            player?.apply {
+player?.apply {
                 player?.seekTo(currentEpisodeIndex, position)
                 prepare()
             }
@@ -1003,7 +986,7 @@ if (state.version > lastProcessedVersion
                 }
             }
         }
-        player?.clearMediaItems()
+player?.clearMediaItems()
         player?.setMediaSources(mediaSources)
         return currentIndexEpisode
     }
@@ -1044,7 +1027,6 @@ if (state.version > lastProcessedVersion
                     episode = 0
                 )
             }
-
             MovieType.SERIAL -> {
                 // Для сериалов берём позицию из metadata или из текущего state
                 val metadata = exoPlayer.currentMediaItem?.mediaMetadata
@@ -1064,7 +1046,6 @@ if (state.version > lastProcessedVersion
                     episode = currentEpisode
                 )
             }
-
             else -> {
                 // Для других типов не сохраняем
             }
@@ -1126,33 +1107,19 @@ if (state.version > lastProcessedVersion
         isPlayerPrepared = true
 
         with(currentBinding) {
-// Умеренный LoadControl - баланс между быстрым стартом и стабильностью
-            val loadControl = DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                    30_000,   // MIN_BUFFER: минимум в буфере (30 сек)
-                    60_000,   // MAX_BUFFER: максимум накапливаем (60 сек)
-                    1_500,     // START_PLAYBACK: ждём 1.5 сек перед стартом
-                    2_500     // AFTER_REBUFFER: после буферизации ждём 2.5 сек
-                )
-                .build()
-            
-            // TrackSelector с адаптивной выборкой
-            trackSelector = DefaultTrackSelector(
-                requireContext(),
-                AdaptiveTrackSelection.Factory()
-            ).apply {
-                parameters = parameters.buildUpon()
-                    .setPreferredAudioLanguage("rus")
+            val loadControl =
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
                     .build()
-            }
-            
-            // Оптимизированный рендерер
-            val renderersFactory = DefaultRenderersFactory(requireContext()).apply {
-                setEnableDecoderFallback(true)
-            }
-            
+            trackSelector =
+                DefaultTrackSelector(requireContext(), AdaptiveTrackSelection.Factory()).apply {
+                    parameters = parameters.buildUpon()
+                        .setPreferredAudioLanguage("rus")
+                        .build()
+                }
             player = ExoPlayer.Builder(requireContext())
-                .setRenderersFactory(renderersFactory)
+                .setLoadControl(DefaultLoadControl())
+                .setRenderersFactory(DefaultRenderersFactory(requireContext()))
                 .setTrackSelector(trackSelector!!)
                 .setSeekBackIncrementMs(secToMs(5))
                 .setSeekForwardIncrementMs(secToMs(5))
@@ -1266,7 +1233,8 @@ if (state.version > lastProcessedVersion
     }
 
     override fun isPiPAvailable(): Boolean =
-        if (requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+            && requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
         ) {
             pipMode()
             true
@@ -1274,14 +1242,14 @@ if (state.version > lastProcessedVersion
             false
         }
 
-private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
+    private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
         // Дополнительная проверка
         if (_binding == null) return
 
         val targetAlpha = if (visible) 1f else 0f
         val views = listOf(
             tvTitle, ivQuality, ivResizes, ivScreenRotation,
-            ivBack, ivLang, ivBrightness, ivVolume
+            ivBack, ivLang
         )
 
         if (visible) {
@@ -1324,7 +1292,7 @@ private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
         }
     }
 
-    private fun setPlayerSource(time: Long = 0, source: MediaSource?) {
+private fun setPlayerSource(time: Long = 0, source: MediaSource?) {
         player?.apply {
             source?.let {
                 setMediaSource(source)
@@ -1430,7 +1398,7 @@ private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
         }
     }
 
-    private fun releasePlayer() {
+private fun releasePlayer() {
         mediaSession?.release()
         mediaSession = null
         releaseEnhancer()
