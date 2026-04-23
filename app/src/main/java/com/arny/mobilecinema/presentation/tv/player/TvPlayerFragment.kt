@@ -49,7 +49,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
     companion object {
         private const val TAG = "TvPlayerFragment"
-        private const val SEEK_STEP_MS = 10_000L
+        private const val SEEK_STEP_MS = 5_000L
         private const val HIDE_DELAY_MS = 5_000L
         private const val PROGRESS_INTERVAL_MS = 1_000L
     }

@@ -21,9 +21,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class PlayerUiState(
@@ -41,6 +41,7 @@ class PlayerViewModel(
     private val historyInteractor: HistoryInteractor,
     private val feedbackInteractor: FeedbackInteractor,
 ) : ViewModel() {
+
     private val _uiState = MutableStateFlow(PlayerUiState())
     val uiState = _uiState.asStateFlow()
 
@@ -51,14 +52,22 @@ class PlayerViewModel(
     private val _isPipModeEnable = MutableStateFlow(false)
     private val _pipMode = BufferedChannel<Boolean>()
     val pipMode = _pipMode.receiveAsFlow()
+
     private val _loading = MutableStateFlow(false)
     val loading = _loading.asStateFlow()
+
     private val _error = BufferedChannel<IWrappedString>()
     val error = _error.receiveAsFlow()
+
     private val _toast = BufferedChannel<IWrappedString>()
     val toast = _toast.receiveAsFlow()
+
     private val _back = MutableSharedFlow<Unit>()
     val back = _back.asSharedFlow()
+
+    private val _requestUpdate = MutableSharedFlow<Unit>()
+    val requestUpdate = _requestUpdate.asSharedFlow()
+
     private val _cachedResizeModeIndex = MutableStateFlow(0)
     val cachedResizeModeIndex = _cachedResizeModeIndex.asStateFlow()
 
@@ -68,15 +77,9 @@ class PlayerViewModel(
         seasonIndex: Int,
         episodeIndex: Int,
     ) {
-        // Если state уже заполнен для этого фильма - не перезагружаем
-        val currentState = _uiState.value
-        if (currentState.version > 0 && currentState.movie?.dbId == movie?.dbId) {
-            return
-        }
-
         val movieId = movie?.dbId
 
-viewModelScope.launch {
+        viewModelScope.launch {
             val dataResult = historyInteractor.getSaveData(movieId)
                 .catch { _error.trySend(ThrowableString(it)) }
                 .first()
@@ -85,6 +88,7 @@ viewModelScope.launch {
                 is DataResult.Error -> {
                     _error.trySend(ThrowableString(dataResult.throwable))
                 }
+
                 is DataResult.Success -> {
                     val saveData = dataResult.result
 
@@ -92,34 +96,33 @@ viewModelScope.launch {
                         movie = movie,
                         saveData = saveData,
                         argsSeason = seasonIndex,
-                        argsEpisode = episodeIndex
+                        argsEpisode = episodeIndex,
                     )
 
                     lastKnownPosition = resolvedTime
                     lastKnownSeason = resolvedSeason
                     lastKnownEpisode = resolvedEpisode
 
-                    _uiState.value = PlayerUiState(
-                        path = path,
-                        movie = movie,
-                        time = resolvedTime,
-                        season = resolvedSeason,
-                        episode = resolvedEpisode,
-                        version = 1,
-                    )
+                    _uiState.update { current ->
+                        PlayerUiState(
+                            path = path,
+                            movie = movie,
+                            time = resolvedTime,
+                            season = resolvedSeason,
+                            episode = resolvedEpisode,
+                            version = current.version + 1,
+                        )
+                    }
                 }
             }
         }
     }
 
-    /**
-     * Определяет правильную позицию для воспроизведения
-     */
     private fun resolvePosition(
         movie: Movie?,
         saveData: SaveData,
         argsSeason: Int,
-        argsEpisode: Int
+        argsEpisode: Int,
     ): Triple<Int, Int, Long> {
         if (movie == null) {
             return Triple(0, 0, 0L)
@@ -127,22 +130,19 @@ viewModelScope.launch {
 
         return when (movie.type) {
             MovieType.CINEMA -> {
-                // Для фильма - всегда берём сохранённое время
                 Triple(0, 0, saveData.time)
             }
+
             MovieType.SERIAL -> {
-                // Для сериала - проверяем, есть ли сохранённая позиция
                 val hasSavedPosition = saveData.movieDbId != null && saveData.time > 0
 
-                if (hasSavedPosition) {
-                    // Используем сохранённую позицию
+               if (hasSavedPosition) {
                     Triple(
                         saveData.seasonPosition.coerceAtLeast(0),
                         saveData.episodePosition.coerceAtLeast(0),
                         saveData.time
                     )
                 } else {
-                    // Используем позицию из аргументов
                     Triple(
                         argsSeason.coerceAtLeast(0),
                         argsEpisode.coerceAtLeast(0),
@@ -150,6 +150,7 @@ viewModelScope.launch {
                     )
                 }
             }
+
             else -> Triple(0, 0, 0L)
         }
     }
@@ -169,9 +170,9 @@ viewModelScope.launch {
                         if (!save) {
                             _error.trySend(ResourceString(R.string.movie_save_error))
                         }
-                        // Уведомляем об изменении ПОСЛЕ сохранения
                         historyInteractor.setCacheChanged(true)
                     }
+
                     MovieType.SERIAL -> {
                         val save = historyInteractor.saveSerialPosition(
                             movieDbId = dbId,
@@ -184,22 +185,20 @@ viewModelScope.launch {
                         if (!save) {
                             _error.trySend(ResourceString(R.string.movie_save_error))
                         }
-                        // Для сериалов setCacheChanged вызывается внутри saveSerialPosition
+                        historyInteractor.setCacheChanged(true)
                     }
+
                     else -> {}
                 }
             }
         }
     }
 
-    /**
-     * Обновить текущую серию при переключении в плеере
-     */
     fun updateCurrentEpisode(season: Int, episode: Int) {
         _uiState.update { state ->
             state.copy(
                 season = season,
-                episode = episode,
+                episode = episode
             )
         }
     }
@@ -210,11 +209,14 @@ viewModelScope.launch {
     ) {
         val state = _uiState.value
         val excludeUrls = state.excludeUrls.toMutableSet()
+
         if (!errorUrl.isNullOrBlank()) {
             excludeUrls.add(errorUrl)
         }
+
         var nextCinemaUrl: String? = null
         var hasAnyUrls = false
+
         when (state.movie?.type) {
             MovieType.CINEMA -> {
                 nextCinemaUrl = state.movie.getAllCinemaUrls().firstOrNull {
@@ -222,12 +224,28 @@ viewModelScope.launch {
                 }
                 hasAnyUrls = !nextCinemaUrl.isNullOrBlank()
             }
+
             MovieType.SERIAL -> {
-                hasAnyUrls = !excludeUrls.contains(serialEpisode?.hls) ||
-                        !excludeUrls.contains(serialEpisode?.dash)
+                if (serialEpisode != null) {
+                    nextCinemaUrl = when {
+                        serialEpisode.hls.isNotBlank() && serialEpisode.hls !in excludeUrls -> serialEpisode.hls
+                        serialEpisode.dash.isNotBlank() && serialEpisode.dash !in excludeUrls -> serialEpisode.dash
+                        else -> null
+                    }
+                }
+
+                hasAnyUrls = nextCinemaUrl != null ||
+                        state.movie.seasons.any { season ->
+                            season.episodes.any { ep ->
+                                (ep.hls.isNotBlank() && ep.hls !in excludeUrls) ||
+                                        (ep.dash.isNotBlank() && ep.dash !in excludeUrls)
+                            }
+                        }
             }
+
             else -> {}
         }
+
         if (hasAnyUrls) {
             _toast.trySend(ResourceString(R.string.try_open_next_link))
             _uiState.value = state.copy(
@@ -235,6 +253,21 @@ viewModelScope.launch {
                 excludeUrls = excludeUrls,
                 version = state.version + 1,
             )
+        } else if (state.movie?.let { movie ->
+                when (movie.type) {
+                    MovieType.CINEMA -> movie.getAllCinemaUrls().all { it.isBlank() }
+                    MovieType.SERIAL -> movie.seasons.all { season ->
+                        season.episodes.all { ep -> ep.hls.isBlank() && ep.dash.isBlank() }
+                    }
+
+                    else -> true
+                }
+            } == true
+        ) {
+            _toast.trySend(ResourceString(R.string.update_available_title))
+            viewModelScope.launch {
+                _requestUpdate.emit(Unit)
+            }
         } else {
             _toast.trySend(ResourceString(R.string.no_any_links_to_open))
             viewModelScope.launch {
@@ -259,7 +292,7 @@ viewModelScope.launch {
         }
     }
 
-fun setLastPlayerError(error: String) {
+    fun setLastPlayerError(error: String) {
         feedbackInteractor.setLastError(error)
     }
 

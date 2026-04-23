@@ -1,254 +1,252 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/rootLayout"
-    android:layout_width="match_parent"
-    android:keepScreenOn="true"
-    android:background="@android:color/black"
-    android:layout_height="match_parent">
-
-    <!-- Градиент сверху -->
-    <View
-        android:id="@+id/topGradient"
-        android:layout_width="0dp"
-        android:layout_height="140dp"
-        android:alpha="0"
-        android:background="@drawable/gradient_top"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <!-- Градиент снизу -->
-    <View
-        android:id="@+id/bottomGradient"
-        android:layout_width="0dp"
-        android:layout_height="140dp"
-        android:alpha="0"
-        android:background="@drawable/gradient_bottom"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
-    <com.github.vkay94.dtpv.DoubleTapPlayerView
-        android:id="@+id/playerView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:show_timeout="5000"
-        app:resize_mode="fit"
-        app:show_buffering="when_playing"
-        app:show_fastforward_button="true"
-        app:show_next_button="false"
-        app:show_previous_button="false"
-        app:show_rewind_button="true"
-        app:show_subtitle_button="false"
-        app:use_artwork="true"
-        app:dtpv_controller="@+id/youtube_overlay"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <com.github.vkay94.dtpv.youtube.YouTubeOverlay
-        android:id="@+id/youtube_overlay"
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:visibility="invisible"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:yt_playerView="@+id/playerView" />
-
-    <TextView
-        android:id="@+id/tvTitle"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:gravity="top|center_horizontal"
-        android:padding="8dp"
-        android:layout_marginTop="56dp"
-        android:textColor="@android:color/white"
-        android:textSize="16sp"
-        android:maxLines="2"
-        android:ellipsize="end"
-        android:shadowColor="@android:color/black"
-        android:shadowDx="1"
-        android:shadowDy="1"
-        android:shadowRadius="3"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="Название" />
-
-    <com.google.android.exoplayer2.ui.SubtitleView
-        android:id="@+id/sbtvSubtitles"
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:id="@+id/rootLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:background="@android:color/black"
+        android:keepScreenOn="true">
 
-    <ImageView
-        android:id="@+id/ivQuality"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_player_icon"
-        android:contentDescription="@string/quality"
-        android:padding="10dp"
-        android:visibility="gone"
-        tools:visibility="visible"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/ic_hd"
-        app:tint="@android:color/white" />
+    <View
+            android:id="@+id/topGradient"
+            android:layout_width="0dp"
+            android:layout_height="140dp"
+            android:alpha="0"
+            android:background="@drawable/gradient_top"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-    <ImageView
-        android:id="@+id/ivBack"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:background="@drawable/bg_player_icon"
-        android:contentDescription="@string/back"
-        android:padding="10dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:srcCompat="@drawable/icon_back_white" />
+    <View
+            android:id="@+id/bottomGradient"
+            android:layout_width="0dp"
+            android:layout_height="140dp"
+            android:alpha="0"
+            android:background="@drawable/gradient_bottom"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
 
-    <ImageView
-        android:id="@+id/ivLang"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_player_icon"
-        android:contentDescription="@string/language"
-        android:padding="10dp"
-        android:visibility="gone"
-        tools:visibility="visible"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ivResizes"
-        app:srcCompat="@drawable/ic_language" />
+    <com.github.vkay94.dtpv.DoubleTapPlayerView
+            android:id="@+id/playerView"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            app:dtpv_controller="@+id/youtube_overlay"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:resize_mode="fit"
+            app:show_buffering="when_playing"
+            app:show_fastforward_button="true"
+            app:show_next_button="false"
+            app:show_previous_button="false"
+            app:show_rewind_button="true"
+            app:show_subtitle_button="false"
+            app:show_timeout="5000"
+            app:use_artwork="true" />
 
-    <ImageView
-        android:id="@+id/ivScreenRotation"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_player_icon"
-        android:contentDescription="@string/screen_rotation"
-        android:padding="10dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ivLang"
-        app:srcCompat="@drawable/ic_screen_rotation" />
-
-<ImageView
-        android:id="@+id/ivResizes"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_player_icon"
-        android:contentDescription="@string/resize"
-        android:padding="10dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ivQuality"
-        app:srcCompat="@drawable/ic_overscan" />
-
-    <!-- Иконка яркости -->
-    <ImageView
-        android:id="@+id/ivBrightness"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_player_icon"
-        android:contentDescription="@string/brightness"
-        android:padding="10dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ivScreenRotation"
-        app:srcCompat="@drawable/ic_brightness"
-        app:tint="@android:color/white" />
-
-    <!-- Иконка громкости -->
-    <ImageView
-        android:id="@+id/ivVolume"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_player_icon"
-        android:contentDescription="@string/volume"
-        android:padding="10dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/ivBrightness"
-        app:srcCompat="@drawable/ic_volume"
-        app:tint="@android:color/white" />
+    <com.github.vkay94.dtpv.youtube.YouTubeOverlay
+            android:id="@+id/youtube_overlay"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:visibility="invisible"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:yt_playerView="@+id/playerView" />
 
     <TextView
-        android:id="@+id/tvBrightness"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_indicator"
-        android:drawablePadding="@dimen/margin_small"
-        android:paddingHorizontal="20dp"
-        android:paddingVertical="12dp"
-        android:text="@string/volume_zero"
-        android:textColor="@android:color/white"
-        android:textSize="18sp"
-        android:visibility="gone"
-        tools:visibility="visible"
-        app:drawableStartCompat="@drawable/ic_brightness"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+            android:id="@+id/tvTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="56dp"
+            android:ellipsize="end"
+            android:gravity="top|center_horizontal"
+            android:maxLines="2"
+            android:padding="8dp"
+            android:shadowColor="@android:color/black"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="3"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Название" />
+
+    <com.google.android.exoplayer2.ui.SubtitleView
+            android:id="@+id/sbtvSubtitles"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageView
+            android:id="@+id/ivQuality"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_player_icon"
+            android:contentDescription="@string/quality"
+            android:padding="10dp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/ic_hd"
+            app:tint="@android:color/white"
+            tools:visibility="visible" />
+
+    <ImageView
+            android:id="@+id/ivBack"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_player_icon"
+            android:contentDescription="@string/back"
+            android:padding="10dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/icon_back_white" />
+
+    <ImageView
+            android:id="@+id/ivLang"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_player_icon"
+            android:contentDescription="@string/language"
+            android:padding="10dp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/ivResizes"
+            app:srcCompat="@drawable/ic_language"
+            app:tint="@android:color/white"
+            tools:visibility="visible" />
+
+    <ImageView
+            android:id="@+id/ivScreenRotation"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_player_icon"
+            android:contentDescription="@string/screen_rotation"
+            android:padding="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/ivLang"
+            app:srcCompat="@drawable/ic_screen_rotation"
+            app:tint="@android:color/white" />
+
+    <ImageView
+            android:id="@+id/ivResizes"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_player_icon"
+            android:contentDescription="@string/resize"
+            android:padding="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/ivQuality"
+            app:srcCompat="@drawable/ic_overscan"
+            app:tint="@android:color/white" />
+
+    <ImageView
+            android:id="@+id/ivBrightness"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_player_icon"
+            android:contentDescription="@string/brightness"
+            android:padding="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/ivScreenRotation"
+            app:srcCompat="@drawable/ic_brightness"
+            app:tint="@android:color/white" />
+
+    <ImageView
+            android:id="@+id/ivVolume"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_player_icon"
+            android:contentDescription="@string/volume"
+            android:padding="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/ivBrightness"
+            app:srcCompat="@drawable/ic_volume"
+            app:tint="@android:color/white" />
 
     <TextView
-        android:id="@+id/tvVolume"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:background="@drawable/bg_indicator"
-        android:drawablePadding="@dimen/margin_small"
-        android:paddingHorizontal="20dp"
-        android:paddingVertical="12dp"
-        android:text="@string/volume_zero"
-        android:textColor="@android:color/white"
-        android:textSize="18sp"
-        android:visibility="gone"
-        tools:visibility="visible"
-        app:drawableStartCompat="@drawable/ic_volume"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+            android:id="@+id/tvBrightness"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_indicator"
+            android:drawablePadding="@dimen/margin_small"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="12dp"
+            android:text="@string/volume_zero"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:visibility="gone"
+            app:drawableStartCompat="@drawable/ic_brightness"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:visibility="visible" />
+
+    <TextView
+            android:id="@+id/tvVolume"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_indicator"
+            android:drawablePadding="@dimen/margin_small"
+            android:paddingHorizontal="20dp"
+            android:paddingVertical="12dp"
+            android:text="@string/volume_zero"
+            android:textColor="@android:color/white"
+            android:textSize="18sp"
+            android:visibility="gone"
+            app:drawableStartCompat="@drawable/ic_volume"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:visibility="visible" />
 
     <ProgressBar
-        android:id="@+id/progressBar"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="center"
-        android:visibility="invisible"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+            android:id="@+id/progressBar"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center"
+            android:visibility="invisible"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Overlay для brightness/volume слайдеров -->
     <include
-        android:id="@+id/brightnessVolumeOverlay"
-        layout="@layout/view_brightness_volume_overlay"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+            android:id="@+id/brightnessVolumeOverlay"
+            layout="@layout/view_brightness_volume_overlay"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
