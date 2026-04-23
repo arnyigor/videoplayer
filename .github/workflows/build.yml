@@ -58,58 +58,76 @@ jobs:
           MINOR="${{ inputs.version_minor }}"
           BUILD="${{ inputs.version_build }}"
           PROPS="version.properties"
-          if [ -n "$MAJOR" ]; then sed -i "s/VERSION_MAJOR=.*/VERSION_MAJOR=$MAJOR/" "$PROPS"; fi
-          if [ -n "$MINOR" ]; then sed -i "s/VERSION_MINOR=.*/VERSION_MINOR=$MINOR/" "$PROPS"; fi
-          if [ -n "$BUILD" ]; then sed -i "s/VERSION_BUILD=.*/VERSION_BUILD=$BUILD/" "$PROPS"; fi
+
+          if [ -n "$MAJOR" ]; then sed -i "s/^VERSION_MAJOR=.*/VERSION_MAJOR=$MAJOR/" "$PROPS"; fi
+          if [ -n "$MINOR" ]; then sed -i "s/^VERSION_MINOR=.*/VERSION_MINOR=$MINOR/" "$PROPS"; fi
+          if [ -n "$BUILD" ]; then sed -i "s/^VERSION_BUILD=.*/VERSION_BUILD=$BUILD/" "$PROPS"; fi
+
           echo "Overridden version:"
           cat "$PROPS"
 
       - name: Read version from properties
         id: version
         run: |
-          MAJOR=$(grep VERSION_MAJOR version.properties | cut -d'=' -f2)
-          MINOR=$(grep VERSION_MINOR version.properties | cut -d'=' -f2)
-          BUILD=$(grep VERSION_BUILD version.properties | cut -d'=' -f2)
+          MAJOR=$(grep '^VERSION_MAJOR=' version.properties | cut -d'=' -f2)
+          MINOR=$(grep '^VERSION_MINOR=' version.properties | cut -d'=' -f2)
+          BUILD=$(grep '^VERSION_BUILD=' version.properties | cut -d'=' -f2)
+
           VERSION_NAME="${MAJOR}.${MINOR}.${BUILD}"
           VERSION_CODE=$((MAJOR * 100 + MINOR * 10 + BUILD))
-          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
-          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "Building version: $VERSION_NAME ($VERSION_CODE)"
 
-      - name: Decode keystore
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Create secrets.properties
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > app/release.keystore
+          cat > secrets.properties <<EOF
+          DATA_LINK=${{ secrets.DATA_LINK }}
+          DATA_0_LINK=${{ secrets.DATA_0_LINK }}
+          BASE_LINK_FILE=${{ secrets.BASE_LINK_FILE }}
+          UPDATE_LINK=${{ secrets.UPDATE_LINK }}
+          BASE_LINK=${{ secrets.BASE_LINK }}
+          EOF
+
+          echo "Created secrets.properties in project root"
+          ls -la
+          test -f secrets.properties
+
+      - name: Decode keystore
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
+          test -f app/release.keystore
 
       - name: Create signing.properties
-        if: ${{ env.KEYSTORE_BASE64 != '' }}
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
-          echo "STORE_FILE=release.keystore" > signing.properties
-          echo "STORE_PASSWORD=$KEYSTORE_PASSWORD" >> signing.properties
-          echo "KEY_ALIAS=$KEY_ALIAS" >> signing.properties
-          echo "KEY_PASSWORD=$KEY_PASSWORD" >> signing.properties
+          cat > signing.properties <<EOF
+          STORE_FILE=release.keystore
+          STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS=${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+          echo "Created signing.properties in project root"
+          test -f signing.properties
 
       - name: Build release APK
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_type == 'release') || (github.event_name != 'workflow_dispatch' && !contains(github.ref, 'debug')) }}
-        run: ./gradlew assembleRelease
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_type == 'release') || (github.event_name != 'workflow_dispatch') }}
+        run: ./gradlew assembleRelease --stacktrace
 
       - name: Build debug APK
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_type == 'debug' }}
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload release APK
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_type == 'release') || (github.event_name != 'workflow_dispatch' && !contains(github.ref, 'debug')) }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_type == 'release') || (github.event_name != 'workflow_dispatch') }}
         uses: actions/upload-artifact@v4
         with:
           name: mobilecinema-v${{ steps.version.outputs.version_name }}-release
           path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
       - name: Upload debug APK
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_type == 'debug' }}
@@ -117,6 +135,7 @@ jobs:
         with:
           name: mobilecinema-v${{ steps.version.outputs.version_name }}-debug
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
 
       - name: Create GitHub Release
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
@@ -125,3 +144,10 @@ jobs:
           files: app/build/outputs/apk/release/*.apk
           generate_release_notes: true
           name: Release v${{ steps.version.outputs.version_name }}
+
+      - name: Cleanup temporary files
+        if: always()
+        run: |
+          rm -f secrets.properties
+          rm -f signing.properties
+          rm -f app/release.keystore
