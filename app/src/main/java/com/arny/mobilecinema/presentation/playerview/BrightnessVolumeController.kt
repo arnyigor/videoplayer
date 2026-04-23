@@ -143,9 +143,13 @@ class BrightnessVolumeController(
         if (currentBoostMb > 0) {
             volumeBoost.visibility = View.VISIBLE
             val boostPercent = (currentBoostMb * 100 / maxBoost).coerceIn(0, 100)
-            volumeBoost.text = "+$boostPercent%"
+            volumeBoost.text = buildString {
+                append("+")
+                append(boostPercent)
+                append("%")
+            }
         } else {
-            volumeBoost.visibility = View.GONE
+            volumeBoost.visibility = View.INVISIBLE
         }
     }
 

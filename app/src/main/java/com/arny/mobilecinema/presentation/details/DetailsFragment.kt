@@ -11,7 +11,8 @@
     import android.widget.AdapterView
     import androidx.core.content.ContextCompat
     import androidx.core.view.isVisible
-    import androidx.core.widget.doAfterTextChanged
+    import androidx.core.os.bundleOf
+import androidx.core.widget.doAfterTextChanged
     import androidx.fragment.app.Fragment
     import androidx.navigation.fragment.findNavController
     import androidx.navigation.fragment.navArgs
@@ -23,6 +24,7 @@
     import com.arny.mobilecinema.data.utils.findByGroup
     import com.arny.mobilecinema.data.utils.formatFileSize
     import com.arny.mobilecinema.data.utils.getConnectionType
+    import com.arny.mobilecinema.data.utils.printTime
     import com.arny.mobilecinema.databinding.DFeedbackLayoutBinding
     import com.arny.mobilecinema.databinding.FDetailsBinding
     import com.arny.mobilecinema.domain.models.Movie
@@ -44,8 +46,7 @@
     import com.arny.mobilecinema.presentation.utils.getWithDomain
     import com.arny.mobilecinema.presentation.utils.launchWhenCreated
     import com.arny.mobilecinema.presentation.utils.makeTextViewResizable
-    import com.arny.mobilecinema.presentation.utils.navigateSafely
-    import com.arny.mobilecinema.presentation.utils.printTime
+import com.arny.mobilecinema.presentation.utils.navigateSafely
     import com.arny.mobilecinema.presentation.utils.registerReceiver
     import com.arny.mobilecinema.presentation.utils.registerLocalReceiver
     import com.arny.mobilecinema.presentation.utils.sendServiceMessage
@@ -232,14 +233,14 @@
             }
         }
 
-        override fun onResume() {
+override fun onResume() {
             super.onResume()
             registerReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
             registerReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
             registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
 
-            // Инвалидируем кэш при возврате на экран
-            viewModel.handleEvent(DetailsEvent.InvalidateCache)
+            // Обновляем статус загрузки (download), но НЕ перезаписываем позицию
+            viewModel.refreshDownloadStatus()
         }
 
         override fun onPause() {
@@ -1050,13 +1051,20 @@
                 currentLinkPosition = 0
             }
 
-            if (movie.type == MovieType.CINEMA) {
-                findNavController().navigateSafely(
-                    DetailsFragmentDirections.actionNavDetailsToNavPlayerView(null, movie)
+if (movie.type == MovieType.CINEMA) {
+                findNavController().navigate(
+                    R.id.nav_player_view,
+                    bundleOf("path" to null, "movie" to movie)
                 )
             } else {
-                findNavController().navigateSafely(
-                    DetailsFragmentDirections.actionNavDetailsToNavPlayerView(null, movie)
+                findNavController().navigate(
+                    R.id.nav_player_view,
+                    bundleOf(
+                        "path" to null,
+                        "movie" to movie,
+                        "seasonIndex" to currentSeasonPosition,
+                        "episodeIndex" to currentEpisodePosition
+                    )
                 )
             }
         }

@@ -515,7 +515,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             topInset = insets.top
             bottomInset = insets.bottom
-            updateControlsPadding()
+//            updateControlsPadding()
             windowInsets
         }
 
@@ -1054,7 +1054,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
         with(currentBinding) {
             val loadControl = DefaultLoadControl.Builder()
-                .setBufferDurationsMs(64 * 1024, 128 * 1024, 1024, 1024)
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .setBufferDurationsMs(20000, 20000, 1000, 1000)
                 .build()
 
             trackSelector = DefaultTrackSelector(
@@ -1117,10 +1118,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             qualityPopUp = null
             langPopUp = null
 
-            val currentState = viewModel.uiState.value
+val currentState = viewModel.uiState.value
             if (currentState.version > 0) {
                 viewModel.forceReEmit()
-            } else {
+} else {
                 viewModel.setPlayData(
                     path = args.path,
                     movie = args.movie,

@@ -71,7 +71,7 @@ class PlayerViewModel(
     private val _cachedResizeModeIndex = MutableStateFlow(0)
     val cachedResizeModeIndex = _cachedResizeModeIndex.asStateFlow()
 
-    fun setPlayData(
+fun setPlayData(
         path: String?,
         movie: Movie?,
         seasonIndex: Int,
@@ -118,7 +118,7 @@ class PlayerViewModel(
         }
     }
 
-    private fun resolvePosition(
+private fun resolvePosition(
         movie: Movie?,
         saveData: SaveData,
         argsSeason: Int,
@@ -135,15 +135,29 @@ class PlayerViewModel(
 
             MovieType.SERIAL -> {
                 val hasSavedPosition = saveData.movieDbId != null && saveData.time > 0
+                val savedSeason = saveData.seasonPosition.coerceAtLeast(0)
+                val savedEpisode = saveData.episodePosition.coerceAtLeast(0)
 
-               if (hasSavedPosition) {
-                    Triple(
-                        saveData.seasonPosition.coerceAtLeast(0),
-                        saveData.episodePosition.coerceAtLeast(0),
+                // Проверяем, выбрал ли пользователь тот же эпизод что сохранён
+                val sameAsSaved = argsSeason == savedSeason && argsEpisode == savedEpisode
+
+                when {
+                    // Нет сохранённой позиции - начинаем сначала
+                    !hasSavedPosition -> Triple(
+                        argsSeason.coerceAtLeast(0),
+                        argsEpisode.coerceAtLeast(0),
+                        0L
+                    )
+
+                    // Пользователь выбрал ТОТ ЖЕ эпизод что сохранён - продолжаем с времени
+                    sameAsSaved -> Triple(
+                        savedSeason,
+                        savedEpisode,
                         saveData.time
                     )
-                } else {
-                    Triple(
+
+                    // Пользователь выбрал ДРУГОЙ эпизод - начинаем сначала (с time=0)
+                    else -> Triple(
                         argsSeason.coerceAtLeast(0),
                         argsEpisode.coerceAtLeast(0),
                         0L

@@ -166,6 +166,13 @@ class DetailsViewModel constructor(
             is DetailsEvent.ToggleFavorite -> onToggleFavorite()
             is DetailsEvent.CopyMp4Link -> onCopyMp4Link()
         }
+}
+
+    /**
+     * Обновляет статус загрузки (download), НЕ трогая позицию сезона/эпизода
+     */
+    fun refreshDownloadStatus() {
+        reloadSaveData()
     }
 
     private fun onToggleFavorite() {
@@ -291,7 +298,7 @@ class DetailsViewModel constructor(
         }
     }
 
-    private suspend fun handleSaveDataResult(saveResult: DataResult<SaveData>) {
+private suspend fun handleSaveDataResult(saveResult: DataResult<SaveData>, updatePosition: Boolean = true) {
         when (saveResult) {
             is DataResult.Error -> {
                 _actions.send(DetailsAction.ShowError(ThrowableString(saveResult.throwable)))
@@ -300,23 +307,34 @@ class DetailsViewModel constructor(
             is DataResult.Success -> {
                 val data = saveResult.result
                 _uiState.update { state ->
-                    // Обновляем позицию только если она больше текущей или это первая загрузка
-                    val newSeason = if (!isInitialLoadComplete || data.seasonPosition > state.currentSeasonPosition) {
-                        data.seasonPosition
-                    } else {
-                        state.currentSeasonPosition
+                    // Логика приоритета:
+                    // 1. При updatePosition=false - НЕ обновляем позицию, только данные загрузки
+                    // 2. При первой загрузке - используем позицию из БД
+                    // 3. При обновлении с валидными данными - используем SaveData
+                    // 4. Иначе - оставляем выбор пользователя
+
+                    val hasValidSaveData = data.movieDbId != null && data.time > 0
+                    val savedSeason = data.seasonPosition.coerceAtLeast(0)
+                    val savedEpisode = data.episodePosition.coerceAtLeast(0)
+
+                    val finalSeason = when {
+                        !updatePosition -> state.currentSeasonPosition
+                        !isInitialLoadComplete && hasValidSaveData -> savedSeason
+                        isInitialLoadComplete && hasValidSaveData -> savedSeason
+                        else -> state.currentSeasonPosition
                     }
-                    val newEpisode = if (!isInitialLoadComplete ||
-                        (data.seasonPosition == state.currentSeasonPosition && data.episodePosition > state.currentEpisodePosition)) {
-                        data.episodePosition
-                    } else {
-                        state.currentEpisodePosition
+
+                    val finalEpisode = when {
+                        !updatePosition -> state.currentEpisodePosition
+                        !isInitialLoadComplete && hasValidSaveData -> savedEpisode
+                        isInitialLoadComplete && hasValidSaveData -> savedEpisode
+                        else -> state.currentEpisodePosition
                     }
 
                     state.copy(
-                        currentSeasonPosition = newSeason.coerceAtLeast(0),
-                        currentEpisodePosition = newEpisode.coerceAtLeast(0),
-                        movieTime = data.time,
+                        currentSeasonPosition = finalSeason,
+                        currentEpisodePosition = finalEpisode,
+                        movieTime = if (hasValidSaveData) data.time else state.movieTime,
                         hasSavedData = data.movieDbId != null
                     )
                 }
@@ -324,6 +342,20 @@ class DetailsViewModel constructor(
             }
         }
     }
+
+    /**
+     * Перезагружает данные о загрузке (download), НЕ трогая позицию
+     */
+    private fun reloadDownloadStatusOnly() {
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(downloadedData = MovieDownloadedData(loading = true)) }
+                onReloadCache()
+            } catch (e: Exception) {
+                _actions.send(DetailsAction.ShowError(ThrowableString(e)))
+            }
+        }
+}
 
     private suspend fun handleMovieResult(movieResult: DataResult<Movie>) {
         when (movieResult) {
@@ -364,7 +396,7 @@ class DetailsViewModel constructor(
         }
     }
 
-    private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChanged) {
+private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChanged) {
         _uiState.update {
             it.copy(
                 currentSeasonPosition = event.seasonPosition,
@@ -372,7 +404,7 @@ class DetailsViewModel constructor(
                 canDownload = false
             )
         }
-        invalidateCache()
+        // Не перезаписываем позицию из БД - оставляем выбор пользователя
         updateSerialDownloadedData()
     }
 
@@ -400,14 +432,15 @@ class DetailsViewModel constructor(
         }
     }
 
-    /**
-     * Перезагружает только сохранённые данные (позицию просмотра)
+/**
+     * Перезагружает данные загрузки, НЕ трогая позицию
      */
     private fun reloadSaveData() {
         viewModelScope.launch {
             try {
                 val saveResult = historyInteractor.getSaveData(id).first()
-                handleSaveDataResult(saveResult)
+                // updatePosition = false - НЕ обновляем позицию
+                handleSaveDataResult(saveResult, updatePosition = false)
 
                 // Обновляем данные о загрузке
                 onReloadCache()
