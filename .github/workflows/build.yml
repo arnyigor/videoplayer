@@ -2,7 +2,8 @@ name: Build APK
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
     tags:
       - 'v*'
   workflow_dispatch:
@@ -31,10 +32,11 @@ on:
 env:
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'temurin'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
 
@@ -50,6 +52,20 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Ensure gradlew is executable
+        run: chmod +x ./gradlew
+
+      - name: Resolve build type
+        id: build_meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUILD_TYPE="${{ inputs.build_type }}"
+          else
+            BUILD_TYPE="release"
+          fi
+          echo "build_type=$BUILD_TYPE" >> "$GITHUB_OUTPUT"
+          echo "Resolved build type: $BUILD_TYPE"
 
       - name: Override version from workflow inputs
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.version_major != '' }}
@@ -80,49 +96,104 @@ jobs:
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "Building version: $VERSION_NAME ($VERSION_CODE)"
 
-      - name: Create secrets.properties
+      - name: Validate required app secrets
+        env:
+          DATA_LINK: ${{ secrets.DATA_LINK }}
+          DATA_0_LINK: ${{ secrets.DATA_0_LINK }}
+          BASE_LINK_FILE: ${{ secrets.BASE_LINK_FILE }}
+          UPDATE_LINK: ${{ secrets.UPDATE_LINK }}
+          BASE_LINK: ${{ secrets.BASE_LINK }}
         run: |
-          cat > secrets.properties <<EOF
-          DATA_LINK=${{ secrets.DATA_LINK }}
-          DATA_0_LINK=${{ secrets.DATA_0_LINK }}
-          BASE_LINK_FILE=${{ secrets.BASE_LINK_FILE }}
-          UPDATE_LINK=${{ secrets.UPDATE_LINK }}
-          BASE_LINK=${{ secrets.BASE_LINK }}
-          EOF
+          missing=0
 
-          echo "Created secrets.properties in project root"
-          ls -la
+          for var in DATA_LINK DATA_0_LINK BASE_LINK_FILE UPDATE_LINK BASE_LINK; do
+            if [ -z "${!var}" ]; then
+              echo "::error title=Missing secret::$var is not set"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            echo "Required app secrets are missing."
+            exit 1
+          fi
+
+      - name: Create secrets.properties
+        env:
+          DATA_LINK: ${{ secrets.DATA_LINK }}
+          DATA_0_LINK: ${{ secrets.DATA_0_LINK }}
+          BASE_LINK_FILE: ${{ secrets.BASE_LINK_FILE }}
+          UPDATE_LINK: ${{ secrets.UPDATE_LINK }}
+          BASE_LINK: ${{ secrets.BASE_LINK }}
+        run: |
+          {
+            printf 'DATA_LINK=%s\n' "$DATA_LINK"
+            printf 'DATA_0_LINK=%s\n' "$DATA_0_LINK"
+            printf 'BASE_LINK_FILE=%s\n' "$BASE_LINK_FILE"
+            printf 'UPDATE_LINK=%s\n' "$UPDATE_LINK"
+            printf 'BASE_LINK=%s\n' "$BASE_LINK"
+          } > secrets.properties
+
+          echo "Created secrets.properties"
           test -f secrets.properties
 
-      - name: Decode keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: Validate release signing secrets
+        if: ${{ steps.build_meta.outputs.build_type == 'release' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
+          missing=0
+
+          for var in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!var}" ]; then
+              echo "::error title=Missing release secret::$var is not set"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            echo "Release signing secrets are missing."
+            exit 1
+          fi
+
+      - name: Decode keystore
+        if: ${{ steps.build_meta.outputs.build_type == 'release' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > app/release.keystore
           test -f app/release.keystore
 
       - name: Create signing.properties
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: ${{ steps.build_meta.outputs.build_type == 'release' }}
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          cat > signing.properties <<EOF
-          STORE_FILE=release.keystore
-          STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS=${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
-          EOF
+          {
+            printf 'STORE_FILE=%s\n' 'release.keystore'
+            printf 'STORE_PASSWORD=%s\n' "$KEYSTORE_PASSWORD"
+            printf 'KEY_ALIAS=%s\n' "$KEY_ALIAS"
+            printf 'KEY_PASSWORD=%s\n' "$KEY_PASSWORD"
+          } > signing.properties
 
-          echo "Created signing.properties in project root"
+          echo "Created signing.properties"
           test -f signing.properties
 
       - name: Build release APK
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_type == 'release') || (github.event_name != 'workflow_dispatch') }}
-        run: ./gradlew assembleRelease --stacktrace
+        if: ${{ steps.build_meta.outputs.build_type == 'release' }}
+        run: ./gradlew assembleRelease --stacktrace --warning-mode all
 
       - name: Build debug APK
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_type == 'debug' }}
-        run: ./gradlew assembleDebug --stacktrace
+        if: ${{ steps.build_meta.outputs.build_type == 'debug' }}
+        run: ./gradlew assembleDebug --stacktrace --warning-mode all
 
       - name: Upload release APK
-        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.build_type == 'release') || (github.event_name != 'workflow_dispatch') }}
+        if: ${{ steps.build_meta.outputs.build_type == 'release' }}
         uses: actions/upload-artifact@v4
         with:
           name: mobilecinema-v${{ steps.version.outputs.version_name }}-release
@@ -130,7 +201,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload debug APK
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.build_type == 'debug' }}
+        if: ${{ steps.build_meta.outputs.build_type == 'debug' }}
         uses: actions/upload-artifact@v4
         with:
           name: mobilecinema-v${{ steps.version.outputs.version_name }}-debug
@@ -138,7 +209,7 @@ jobs:
           if-no-files-found: error
 
       - name: Create GitHub Release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && steps.build_meta.outputs.build_type == 'release' }}
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/release/*.apk
