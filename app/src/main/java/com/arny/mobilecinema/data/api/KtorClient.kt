@@ -10,7 +10,7 @@ import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.plugins.logging.SIMPLE
 import io.ktor.serialization.gson.gson
 
-class KtorClient constructor() {
+class KtorClient {
     val client = HttpClient(OkHttp) {
         install(ContentNegotiation) {
             gson()

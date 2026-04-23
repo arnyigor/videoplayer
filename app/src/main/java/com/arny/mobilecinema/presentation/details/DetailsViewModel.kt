@@ -956,7 +956,11 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
                         }
 
                         is DataResult.Success -> {
-                            _actions.send(DetailsAction.ShowToast(ResourceString(R.string.feedback_dialog_result_ok)))
+                            if (result.result) {
+                                _actions.send(DetailsAction.ShowToast(ResourceString(R.string.feedback_dialog_result_ok)))
+                            }else{
+                                _actions.send(DetailsAction.ShowError(ResourceString(R.string.feedback_dialog_result_failed)))
+                            }
                         }
                     }
                 }

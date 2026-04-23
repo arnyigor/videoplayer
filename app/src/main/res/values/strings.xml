@@ -226,6 +226,7 @@
     <string name="menu_send_feedback">Сообщить об ошибке</string>
     <string name="menu_copy_mp4_link">Ссылка на mp4</string>
     <string name="feedback_dialog_result_ok">Сообщение отправлено!</string>
+    <string name="feedback_dialog_result_failed">Сообщение не отправлено!</string>
     <string name="f_favorites_title">Избранное</string>
     <string name="history_empty_title">История просмотра пуста</string>
     <string name="favorites_empty_title">Нет избранного</string>

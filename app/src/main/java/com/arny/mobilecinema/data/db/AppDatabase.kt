@@ -13,7 +13,7 @@ import com.arny.mobilecinema.data.db.models.MovieEntity
 
 @Database(
     entities = [MovieEntity::class, HistoryEntity::class, FavoriteEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -84,6 +84,38 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_favorites_movie_dbid` ON `favorites` (`movie_dbid`)"
                 )
                 // индекс для сортировки по latest_time
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_favorites_latest_time` ON `favorites` (`latest_time`)"
+                )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+            CREATE TABLE IF NOT EXISTS `favorites_new` (
+                `dbId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `movie_dbid` INTEGER NOT NULL,
+                `latest_time` INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent()
+                )
+
+                db.execSQL(
+                    """
+            INSERT INTO `favorites_new` (`dbId`, `movie_dbid`, `latest_time`)
+            SELECT `dbId`, `movie_dbid`, COALESCE(`latest_time`, 0)
+            FROM `favorites`
+            """.trimIndent()
+                )
+
+                db.execSQL("DROP TABLE `favorites`")
+                db.execSQL("ALTER TABLE `favorites_new` RENAME TO `favorites`")
+
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS `index_favorites_movie_dbid` ON `favorites` (`movie_dbid`)"
+                )
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_favorites_latest_time` ON `favorites` (`latest_time`)"
                 )

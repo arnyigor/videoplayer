@@ -7,6 +7,7 @@ import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.api.KtorClient
 import io.ktor.client.HttpClient
 import com.arny.mobilecinema.data.db.AppDatabase
+import com.arny.mobilecinema.data.feedback.FeedbackDatabaseImpl
 import com.arny.mobilecinema.data.models.MovieMapper
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.network.jsoup.JsoupServiceHelper
@@ -16,6 +17,7 @@ import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProviderImpl
 import com.arny.mobilecinema.data.repository.update.UpdateRepositoryImpl
+import com.arny.mobilecinema.domain.interactors.feedback.FeedbackDatabase
 import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
 import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractorImpl
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
@@ -71,12 +73,14 @@ val dataModule = module {
                 AppDatabase.MIGRATION_1_2,
                 AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
             )
             .build()
     }
     single { get<AppDatabase>().movieDao() }
     single { get<AppDatabase>().historyDao() }
     single { get<AppDatabase>().favoritesDao() }
+    single<FeedbackDatabase> { FeedbackDatabaseImpl(get(),get()) }
     single<UpdateRepository> { UpdateRepositoryImpl(get(), get(), get(), androidContext(), get()) }
     single<MoviesRepository> { MoviesRepositoryImpl(get(), get(), get(), get(), get(), get()) }
     single<JsoupUpdateRepository> { JsoupUpdateRepositoryImpl(get(), get()) }
@@ -88,7 +92,7 @@ val domainModule = module {
     single<MoviesInteractor> { MoviesInteractorImpl(get(), get(), get<CoroutineDispatcher>()) }
     single<HistoryInteractor> { HistoryInteractorImpl(get(), get<CoroutineDispatcher>(), get()) }
     single<DataUpdateInteractor> { DataUpdateInteractorImpl(get()) }
-    single<FeedbackInteractor> { FeedbackInteractorImpl(androidContext()) }
+    single<FeedbackInteractor> { FeedbackInteractorImpl(get(),get(),androidContext()) }
     single<JsoupUpdateInteractor> { JsoupUpdateInteractorImpl(get(), get(), get(), get()) }
 }
 

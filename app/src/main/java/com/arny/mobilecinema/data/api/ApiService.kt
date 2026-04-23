@@ -38,7 +38,7 @@ class ApiService(
         }
     }
 
-    suspend fun downloadFileWithProgress(
+    fun downloadFileWithProgress(
         file: File,
         url: String
     ): Flow<DataResultWithProgress<DownloadFileResult>> {

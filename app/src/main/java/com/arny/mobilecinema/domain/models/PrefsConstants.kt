@@ -2,6 +2,7 @@ package com.arny.mobilecinema.domain.models
 
 object PrefsConstants {
     const val LAST_DATA_UPDATE = "last_data_update"
+    const val DEVICE_UUID = "DEVICE_UUID"
     const val BASE_URL          = "anwap_base_url"
 
     // Порядки списков
