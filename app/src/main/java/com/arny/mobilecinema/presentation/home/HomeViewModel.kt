@@ -160,6 +160,14 @@ class HomeViewModel constructor(
                     when (result) {
                         is DataResult.Error -> {
                             result.throwable.printStackTrace()
+                            _alert.trySend(
+                                Alert(
+                                    title = ResourceString(R.string.new_films_update_not_found_title),
+                                    content = ResourceString(R.string.new_films_update_not_found_content),
+                                    btnOk = ResourceString(android.R.string.ok),
+                                    type = AlertType.SimpleAlert
+                                )
+                            )
                         }
 
                         is DataResult.Success -> {

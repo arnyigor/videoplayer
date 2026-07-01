@@ -606,9 +606,7 @@ override fun onResume() {
 
             for (director in directors.filter { it.isNotBlank() }) {
                 val chip = createFilterChip(director) {
-                    findNavController().navigateSafely(
-                        DetailsFragmentDirections.actionNavDetailsToNavHome()
-                    )
+                    navigateToHomeSearch(AppConstants.PARAMS.DIRECTOR, director)
                 }
                 chgrDirectors.addView(chip)
             }
@@ -622,12 +620,17 @@ override fun onResume() {
 
             for (genre in genresMap) {
                 val chip = createFilterChip(genre) {
-                    findNavController().navigateSafely(
-                        DetailsFragmentDirections.actionNavDetailsToNavHome()
-                    )
+                    navigateToHomeSearch(AppConstants.PARAMS.GENRE, genre)
                 }
                 chgrGenres.addView(chip)
             }
+        }
+
+        private fun navigateToHomeSearch(param: String, value: String) {
+            findNavController().navigate(
+                R.id.action_nav_details_to_nav_home,
+                bundleOf(param to value)
+            )
         }
 
         /**
@@ -660,9 +663,7 @@ override fun onResume() {
 
             for (actor in actors.filter { it.isNotBlank() }) {
                 val chip = createFilterChip(actor) {
-                    findNavController().navigateSafely(
-                        DetailsFragmentDirections.actionNavDetailsToNavHome()
-                    )
+                    navigateToHomeSearch(AppConstants.PARAMS.ACTOR, actor)
                 }
                 chgrActors.addView(chip)
             }

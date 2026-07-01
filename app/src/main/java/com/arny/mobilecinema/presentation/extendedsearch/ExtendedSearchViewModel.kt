@@ -82,10 +82,9 @@ class ExtendedSearchViewModel constructor(
 
     fun onGenreSelectChanged(indices: IntArray) {
         viewModelScope.launch {
-            genres = genres.toMutableList().apply {
-                for (index in indices) {
-                    this[index] = this[index].copy(selected = true)
-                }
+            val selectedIndices = indices.toSet()
+            genres = genres.mapIndexed { index, model ->
+                model.copy(selected = index in selectedIndices)
             }
             _selectedGenres.value = genres.filter { it.selected }.toList()
         }
@@ -93,10 +92,9 @@ class ExtendedSearchViewModel constructor(
 
     fun onCountriesSelectChanged(indices: IntArray) {
         viewModelScope.launch {
-            countries = countries.toMutableList().apply {
-                for (index in indices) {
-                    this[index] = this[index].copy(selected = true)
-                }
+            val selectedIndices = indices.toSet()
+            countries = countries.mapIndexed { index, model ->
+                model.copy(selected = index in selectedIndices)
             }
             _selectedCountries.value = countries.filter { it.selected }.toList()
         }

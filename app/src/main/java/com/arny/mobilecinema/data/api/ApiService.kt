@@ -25,6 +25,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import java.io.File
+import java.io.IOException
 
 class ApiService(
     private val httpClient: HttpClient
@@ -34,6 +35,10 @@ class ApiService(
         httpClient.prepareGet(url) {
             method = HttpMethod.Get
         }.execute { httpResponse ->
+            if (!httpResponse.status.isSuccess()) {
+                file.delete()
+                throw IOException("HTTP ${httpResponse.status.value}: ${httpResponse.status.description}")
+            }
             httpResponse.content.copyAndClose(file.writeChannel())
         }
     }

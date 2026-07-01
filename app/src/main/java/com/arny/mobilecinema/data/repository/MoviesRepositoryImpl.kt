@@ -14,6 +14,7 @@ import com.arny.mobilecinema.data.db.sources.MainPagingSource
 import com.arny.mobilecinema.data.models.MovieMapper
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
+import com.arny.mobilecinema.data.search.GenreSearchHelper
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.OrderKey
 import com.arny.mobilecinema.domain.models.PrefsConstants
@@ -133,7 +134,9 @@ class MoviesRepositoryImpl(
     override fun getMovie(pageUrl: String): Movie? =
         movieDao.getMovie(pageUrl)?.let { movieMapper.transform(it) }
 
-    override fun getGenres(): List<String> = appResources.getStringArray(R.array.genres)
+    override fun getGenres(): List<String> = GenreSearchHelper
+        .toDisplayGenres(movieDao.allGenres())
+        .ifEmpty { GenreSearchHelper.toDisplayGenres(appResources.getStringArray(R.array.genres)) }
 
     override fun getMinMaxYears(): SimpleIntRange = movieDao.getYearsMinMax()
 

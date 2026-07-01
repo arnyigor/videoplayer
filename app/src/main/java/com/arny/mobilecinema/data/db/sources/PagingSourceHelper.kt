@@ -2,6 +2,7 @@ package com.arny.mobilecinema.data.db.sources
 
 import androidx.sqlite.db.SimpleSQLiteQuery
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.search.GenreSearchHelper
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
@@ -29,8 +30,8 @@ fun getMoviesSQL(
     search(search, sb, whereWrapper, searchType, args)
     movieTypes(movieTypes, whereWrapper, sb)
     years(years, whereWrapper, sb, args)
-    countries(countries, whereWrapper, sb)
-    genres(genres, whereWrapper, sb)
+    countries(countries, whereWrapper, sb, args)
+    genres(genres, whereWrapper, sb, args)
     imdbs(imdbs, whereWrapper, sb, args)
     kps(kps, whereWrapper, sb, args)
     order(order, sb, likesPriority)
@@ -45,18 +46,25 @@ fun getMoviesSQL(
 private fun genres(
     genres: List<String>,
     whereWrapper: WhereWrapper,
-    sb: StringBuilder
+    sb: StringBuilder,
+    args: MutableList<Any?>
 ) {
-    if (genres.isNotEmpty()) {
-        val lowerCaseGenres = genres.map { it.lowercase() }
-
+    val searchTerms = GenreSearchHelper.searchTermsForGenres(genres)
+    if (searchTerms.isNotEmpty()) {
         if (!whereWrapper.hasWhere) {
             sb.append(" WHERE")
             whereWrapper.hasWhere = true
         } else {
             sb.append(" AND")
         }
-        sb.append(" LOWER(m.genre) IN (${lowerCaseGenres.joinToString(prefix = "'", postfix = "'")}) ")
+        sb.append(
+            searchTerms.joinToString(
+                prefix = " (",
+                postfix = ") ",
+                separator = " OR "
+            ) { "m.genre LIKE '%' || ? || '%'" }
+        )
+        args.addAll(searchTerms)
     }
 }
 
@@ -101,16 +109,25 @@ private fun kps(
 private fun countries(
     countries: List<String>,
     whereWrapper: WhereWrapper,
-    sb: StringBuilder
+    sb: StringBuilder,
+    args: MutableList<Any?>
 ) {
-    if (countries.isNotEmpty()) {
+    val countryTerms = countries.map { it.trim() }.filter { it.isNotBlank() }
+    if (countryTerms.isNotEmpty()) {
         if (!whereWrapper.hasWhere) {
             sb.append(" WHERE")
             whereWrapper.hasWhere = true
         } else {
             sb.append(" AND")
         }
-        sb.append(" m.countries IN (${countries.joinToString(prefix = "'", postfix = "'")}) ")
+        sb.append(
+            countryTerms.joinToString(
+                prefix = " (",
+                postfix = ") ",
+                separator = " OR "
+            ) { "m.countries LIKE '%' || ? || '%'" }
+        )
+        args.addAll(countryTerms)
     }
 }
 
@@ -163,16 +180,27 @@ private fun search(
         } else {
             sb.append(" AND ")
         }
-        sb.append(
-            when (searchType) {
-                AppConstants.SearchType.TITLE -> " m.title LIKE '%' || ? || '%' "
-                AppConstants.SearchType.DIRECTORS -> " m.directors LIKE '%' || ? || '%' "
-                AppConstants.SearchType.ACTORS -> " m.actors LIKE '%' || ? || '%' "
-                AppConstants.SearchType.GENRES -> " m.genre LIKE '%' || ? || '%' "
-                else -> " "
-            }
-        )
-        extendedSearch(searchType, args, search, sb)
+        if (searchType == AppConstants.SearchType.GENRES) {
+            val searchTerms = GenreSearchHelper.searchTermsForGenres(listOf(search))
+            sb.append(
+                searchTerms.joinToString(
+                    prefix = " (",
+                    postfix = ") ",
+                    separator = " OR "
+                ) { "m.genre LIKE '%' || ? || '%'" }
+            )
+            args.addAll(searchTerms)
+        } else {
+            sb.append(
+                when (searchType) {
+                    AppConstants.SearchType.TITLE -> " m.title LIKE '%' || ? || '%' "
+                    AppConstants.SearchType.DIRECTORS -> " m.directors LIKE '%' || ? || '%' "
+                    AppConstants.SearchType.ACTORS -> " m.actors LIKE '%' || ? || '%' "
+                    else -> " "
+                }
+            )
+            extendedSearch(searchType, args, search, sb)
+        }
     }
 }
 
@@ -234,16 +262,27 @@ fun getHistorySQL(
     sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, CASE WHEN f.movie_dbid IS NOT NULL THEN 1 ELSE 0 END AS isFavorite FROM movies m INNER JOIN history h ON m.dbId=h.movie_dbid LEFT JOIN favorites f ON m.dbId = f.movie_dbid ")
     if (search.isNotBlank()) {
         sb.append(" WHERE")
-        sb.append(
-            when (searchType) {
-                AppConstants.SearchType.TITLE -> " m.title LIKE '%' || ? || '%'"
-                AppConstants.SearchType.DIRECTORS -> " m.directors LIKE '%' || ? || '%'"
-                AppConstants.SearchType.ACTORS -> " m.actors LIKE '%' || ? || '%'"
-                AppConstants.SearchType.GENRES -> " m.genre LIKE '%' || ? || '%'"
-                else -> ""
-            }
-        )
-        extendedSearch(searchType, args, search, sb)
+        if (searchType == AppConstants.SearchType.GENRES) {
+            val searchTerms = GenreSearchHelper.searchTermsForGenres(listOf(search))
+            sb.append(
+                searchTerms.joinToString(
+                    prefix = " (",
+                    postfix = ")",
+                    separator = " OR "
+                ) { "m.genre LIKE '%' || ? || '%'" }
+            )
+            args.addAll(searchTerms)
+        } else {
+            sb.append(
+                when (searchType) {
+                    AppConstants.SearchType.TITLE -> " m.title LIKE '%' || ? || '%'"
+                    AppConstants.SearchType.DIRECTORS -> " m.directors LIKE '%' || ? || '%'"
+                    AppConstants.SearchType.ACTORS -> " m.actors LIKE '%' || ? || '%'"
+                    else -> ""
+                }
+            )
+            extendedSearch(searchType, args, search, sb)
+        }
     }
     if (order.isNotBlank()) {
         sb.append(" ORDER BY")

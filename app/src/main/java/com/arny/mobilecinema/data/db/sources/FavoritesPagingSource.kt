@@ -5,6 +5,7 @@ import androidx.paging.PagingState
 import com.arny.mobilecinema.data.db.daos.FavoritesDao
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.search.GenreSearchHelper
 import androidx.sqlite.db.SimpleSQLiteQuery
 
 class FavoritesPagingSource(
@@ -47,15 +48,35 @@ class FavoritesPagingSource(
     ): SimpleSQLiteQuery {
 
         val sb = StringBuilder()
+        val args = mutableListOf<Any>()
         sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, 1 AS isFavorite FROM movies m INNER JOIN favorites f ON m.dbId=f.movie_dbid ")
 
         // фильтр по поиску
         if (search.isNotBlank()) {
             when (searchType) {
-                AppConstants.SearchType.TITLE -> sb.append(" WHERE m.title LIKE :q")
-                AppConstants.SearchType.DIRECTORS -> sb.append(" WHERE m.directors LIKE :q")
-                AppConstants.SearchType.ACTORS -> sb.append(" WHERE m.actors LIKE :q")
-                AppConstants.SearchType.GENRES -> sb.append(" WHERE m.genres LIKE :q")
+                AppConstants.SearchType.TITLE -> {
+                    sb.append(" WHERE m.title LIKE ?")
+                    args.add("%$search%")
+                }
+                AppConstants.SearchType.DIRECTORS -> {
+                    sb.append(" WHERE m.directors LIKE ?")
+                    args.add("%$search%")
+                }
+                AppConstants.SearchType.ACTORS -> {
+                    sb.append(" WHERE m.actors LIKE ?")
+                    args.add("%$search%")
+                }
+                AppConstants.SearchType.GENRES -> {
+                    val searchTerms = GenreSearchHelper.searchTermsForGenres(listOf(search))
+                    sb.append(
+                        searchTerms.joinToString(
+                            prefix = " WHERE (",
+                            postfix = ")",
+                            separator = " OR "
+                        ) { "m.genre LIKE '%' || ? || '%'" }
+                    )
+                    args.addAll(searchTerms)
+                }
             }
         }
 
@@ -64,7 +85,7 @@ class FavoritesPagingSource(
             AppConstants.Order.LAST_TIME -> " ORDER BY f.latest_time DESC"
             AppConstants.Order.NONE -> ""
             AppConstants.Order.TITLE -> " ORDER BY m.title COLLATE NOCASE"
-            AppConstants.Order.RATINGS -> " ORDER BY m.rating DESC"
+            AppConstants.Order.RATINGS -> " ORDER BY m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC"
             AppConstants.Order.YEAR_DESC -> " ORDER BY m.year DESC"
             AppConstants.Order.YEAR_ASC -> " ORDER BY m.year ASC"
             else -> ""
@@ -72,12 +93,8 @@ class FavoritesPagingSource(
         sb.append(orderClause)
 
         // лимит/смещение
-        sb.append(" LIMIT :limit OFFSET :offset")
+        sb.append(" LIMIT ? OFFSET ?")
 
-        val args = mutableListOf<Any>()
-        if (search.isNotBlank()) {
-            args.add("%$search%")
-        }
         args.add(limit)
         args.add(offset)
 

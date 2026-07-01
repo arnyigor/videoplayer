@@ -13,6 +13,10 @@ import kotlinx.coroutines.flow.Flow
 class DataUpdateInteractorImpl constructor(
     private val repository: UpdateRepository
 ) : DataUpdateInteractor {
+    private companion object {
+        private val UPDATE_DATE_REGEX = Regex("""\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}""")
+    }
+
     private var forceUpdate = false
 
     override suspend fun checkBaseUrl(): Flow<DataResult<Boolean>> = doAsync {
@@ -61,9 +65,12 @@ class DataUpdateInteractorImpl constructor(
                     UPDATE_LINK,
                     AppConstants.UPDATE_FILE
                 )
-                newUpdate = updateFile.readText()
+                newUpdate = updateFile.readText().trim()
                 updateFile.delete()
-                if (hasMovies && repository.hasLastUpdates()) {
+                if (!newUpdate.matches(UPDATE_DATE_REGEX)) {
+                    newUpdate = ""
+                }
+                if (newUpdate.isNotBlank() && hasMovies && repository.hasLastUpdates()) {
                     hasPartUpdateFile = repository.checkPath(DATA_0_LINK)
                 }
             }
