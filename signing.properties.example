@@ -1,0 +1,4 @@
+ANDROID_KEYSTORE_PATH=C:/Users/name/.android-keys/app-release.p12
+ANDROID_KEYSTORE_PASSWORD=replace-with-password
+ANDROID_KEY_ALIAS=app-release
+ANDROID_KEY_PASSWORD=replace-with-password

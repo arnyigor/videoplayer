@@ -1,44 +1,42 @@
-name: Build APK
+name: Build Android
 
 on:
   push:
-    branches:
-      - master
-    tags:
-      - 'v*'
+    branches: [master]
+    tags: ['v*']
   workflow_dispatch:
     inputs:
       version_major:
-        description: 'Major version'
+        description: Major version override
         required: false
         default: ''
       version_minor:
-        description: 'Minor version'
+        description: Minor version override
         required: false
         default: ''
       version_build:
-        description: 'Build number'
+        description: Build number override
         required: false
         default: ''
       build_type:
-        description: 'Build type (release/debug)'
-        required: false
-        default: 'release'
+        description: Build type
+        required: true
+        default: release
         type: choice
-        options:
-          - release
-          - debug
+        options: [release, debug]
 
 env:
   JAVA_VERSION: '17'
-  JAVA_DISTRIBUTION: 'temurin'
+  JAVA_DISTRIBUTION: temurin
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
   build:
     runs-on: ubuntu-24.04
     permissions:
-      contents: write
+      contents: read
+    outputs:
+      build_type: ${{ steps.build_meta.outputs.build_type }}
 
     steps:
       - name: Checkout code
@@ -50,82 +48,55 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: ${{ env.JAVA_DISTRIBUTION }}
 
-      - name: Setup Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-
-      - name: Ensure gradlew is executable
-        run: chmod +x ./gradlew
-
-      - name: Resolve build type
-        id: build_meta
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BUILD_TYPE="${{ inputs.build_type }}"
-          else
-            BUILD_TYPE="release"
-          fi
-          echo "build_type=$BUILD_TYPE" >> "$GITHUB_OUTPUT"
-          echo "Resolved build type: $BUILD_TYPE"
 
       - name: Override version from workflow inputs
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.version_major != '' }}
-        run: |
-          MAJOR="${{ inputs.version_major }}"
-          MINOR="${{ inputs.version_minor }}"
-          BUILD="${{ inputs.version_build }}"
-          PROPS="version.properties"
-
-          if [ -n "$MAJOR" ]; then sed -i "s/^VERSION_MAJOR=.*/VERSION_MAJOR=$MAJOR/" "$PROPS"; fi
-          if [ -n "$MINOR" ]; then sed -i "s/^VERSION_MINOR=.*/VERSION_MINOR=$MINOR/" "$PROPS"; fi
-          if [ -n "$BUILD" ]; then sed -i "s/^VERSION_BUILD=.*/VERSION_BUILD=$BUILD/" "$PROPS"; fi
-
-          echo "Overridden version:"
-          cat "$PROPS"
-
-      - name: Read version from properties
-        id: version
-        run: |
-          MAJOR=$(grep '^VERSION_MAJOR=' version.properties | cut -d'=' -f2)
-          MINOR=$(grep '^VERSION_MINOR=' version.properties | cut -d'=' -f2)
-          BUILD=$(grep '^VERSION_BUILD=' version.properties | cut -d'=' -f2)
-
-          VERSION_NAME="${MAJOR}.${MINOR}.${BUILD}"
-          VERSION_CODE=$((MAJOR * 100 + MINOR * 10 + BUILD))
-
-          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
-          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
-          echo "Building version: $VERSION_NAME ($VERSION_CODE)"
-
-      - name: Validate required app secrets
         env:
-          DATA_LINK: ${{ secrets.DATA_LINK }}
-          DATA_0_LINK: ${{ secrets.DATA_0_LINK }}
-          BASE_LINK_FILE: ${{ secrets.BASE_LINK_FILE }}
-          UPDATE_LINK: ${{ secrets.UPDATE_LINK }}
-          BASE_LINK: ${{ secrets.BASE_LINK }}
+          VERSION_MAJOR: ${{ inputs.version_major }}
+          VERSION_MINOR: ${{ inputs.version_minor }}
+          VERSION_BUILD: ${{ inputs.version_build }}
+        shell: bash
         run: |
-          missing=0
+          set -euo pipefail
+          if [[ -n "$VERSION_MAJOR" ]]; then sed -i "s/^VERSION_MAJOR=.*/VERSION_MAJOR=$VERSION_MAJOR/" version.properties; fi
+          if [[ -n "$VERSION_MINOR" ]]; then sed -i "s/^VERSION_MINOR=.*/VERSION_MINOR=$VERSION_MINOR/" version.properties; fi
+          if [[ -n "$VERSION_BUILD" ]]; then sed -i "s/^VERSION_BUILD=.*/VERSION_BUILD=$VERSION_BUILD/" version.properties; fi
 
-          for var in DATA_LINK DATA_0_LINK BASE_LINK_FILE UPDATE_LINK BASE_LINK; do
-            if [ -z "${!var}" ]; then
-              echo "::error title=Missing secret::$var is not set"
-              missing=1
-            fi
-          done
-
-          if [ "$missing" -ne 0 ]; then
-            echo "Required app secrets are missing."
-            exit 1
+      - name: Resolve build metadata
+        id: build_meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_type="release"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            build_type="${{ inputs.build_type }}"
           fi
+          version_name=$(awk -F= '
+            $1 == "VERSION_MAJOR" { major=$2 }
+            $1 == "VERSION_MINOR" { minor=$2 }
+            $1 == "VERSION_BUILD" { build=$2 }
+            END { print major "." minor "." build }
+          ' version.properties)
+          printf 'build_type=%s\n' "$build_type" >> "$GITHUB_OUTPUT"
+          printf 'version_name=%s\n' "$version_name" >> "$GITHUB_OUTPUT"
 
-      - name: Create secrets.properties
+      - name: Create app secrets.properties
         env:
           DATA_LINK: ${{ secrets.DATA_LINK }}
           DATA_0_LINK: ${{ secrets.DATA_0_LINK }}
           BASE_LINK_FILE: ${{ secrets.BASE_LINK_FILE }}
           UPDATE_LINK: ${{ secrets.UPDATE_LINK }}
           BASE_LINK: ${{ secrets.BASE_LINK }}
+        shell: bash
         run: |
+          set -euo pipefail
+          set +x
+          for name in DATA_LINK DATA_0_LINK BASE_LINK_FILE UPDATE_LINK BASE_LINK; do
+            test -n "${!name:-}" || { echo "Required app secret is missing: $name"; exit 1; }
+          done
+          umask 077
           {
             printf 'DATA_LINK=%s\n' "$DATA_LINK"
             printf 'DATA_0_LINK=%s\n' "$DATA_0_LINK"
@@ -134,91 +105,89 @@ jobs:
             printf 'BASE_LINK=%s\n' "$BASE_LINK"
           } > secrets.properties
 
-          echo "Created secrets.properties"
-          test -f secrets.properties
-
-      - name: Validate release signing secrets
+      - name: Restore release signing material
         if: ${{ steps.build_meta.outputs.build_type == 'release' }}
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/android-release.p12
+        shell: bash
         run: |
-          missing=0
-
-          for var in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
-            if [ -z "${!var}" ]; then
-              echo "::error title=Missing release secret::$var is not set"
-              missing=1
-            fi
+          set -euo pipefail
+          set +x
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            test -n "${!name:-}" || { echo "Required signing secret is missing: $name"; exit 1; }
           done
-
-          if [ "$missing" -ne 0 ]; then
-            echo "Release signing secrets are missing."
-            exit 1
-          fi
-
-      - name: Decode keystore
-        if: ${{ steps.build_meta.outputs.build_type == 'release' }}
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > app/release.keystore
-          test -f app/release.keystore
-
-      - name: Create signing.properties
-        if: ${{ steps.build_meta.outputs.build_type == 'release' }}
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
           {
-            printf 'STORE_FILE=%s\n' 'release.keystore'
-            printf 'STORE_PASSWORD=%s\n' "$KEYSTORE_PASSWORD"
-            printf 'KEY_ALIAS=%s\n' "$KEY_ALIAS"
-            printf 'KEY_PASSWORD=%s\n' "$KEY_PASSWORD"
+            printf 'ANDROID_KEYSTORE_PATH=%s\n' "$ANDROID_KEYSTORE_PATH"
+            printf 'ANDROID_KEYSTORE_PASSWORD=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'ANDROID_KEY_ALIAS=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'ANDROID_KEY_PASSWORD=%s\n' "$ANDROID_KEY_PASSWORD"
           } > signing.properties
+          chmod 600 "$ANDROID_KEYSTORE_PATH" signing.properties
 
-          echo "Created signing.properties"
-          test -f signing.properties
-
-      - name: Build release APK
+      - name: Build signed release APK and AAB
         if: ${{ steps.build_meta.outputs.build_type == 'release' }}
-        run: ./gradlew assembleRelease --stacktrace --warning-mode all
+        run: ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon
+
+      - name: Verify release APK signature
+        if: ${{ steps.build_meta.outputs.build_type == 'release' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk=$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
+          test -n "$apk" || { echo 'Release APK was not produced'; exit 1; }
+          apksigner=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -n 1)
+          test -n "$apksigner" || { echo 'apksigner was not found'; exit 1; }
+          "$apksigner" verify --verbose --print-certs "$apk"
 
       - name: Build debug APK
         if: ${{ steps.build_meta.outputs.build_type == 'debug' }}
-        run: ./gradlew assembleDebug --stacktrace --warning-mode all
+        run: ./gradlew :app:assembleDebug --no-daemon
 
-      - name: Upload release APK
-        if: ${{ steps.build_meta.outputs.build_type == 'release' }}
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mobilecinema-v${{ steps.version.outputs.version_name }}-release
-          path: app/build/outputs/apk/release/*.apk
+          name: mobilecinema-v${{ steps.build_meta.outputs.version_name }}-${{ steps.build_meta.outputs.build_type }}
+          path: |
+            app/build/outputs/apk/${{ steps.build_meta.outputs.build_type }}/*.apk
+            app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
 
-      - name: Upload debug APK
-        if: ${{ steps.build_meta.outputs.build_type == 'debug' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: mobilecinema-v${{ steps.version.outputs.version_name }}-debug
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-
-      - name: Create GitHub Release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') && steps.build_meta.outputs.build_type == 'release' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          files: app/build/outputs/apk/release/*.apk
-          generate_release_notes: true
-          name: Release v${{ steps.version.outputs.version_name }}
-
-      - name: Cleanup temporary files
+      - name: Remove temporary secrets
         if: always()
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/android-release.p12
+        shell: bash
+        run: rm -f signing.properties secrets.properties "$ANDROID_KEYSTORE_PATH"
+
+  publish:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && needs.build.outputs.build_type == 'release' }}
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download signed release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mobilecinema-v*-release
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          rm -f secrets.properties
-          rm -f signing.properties
-          rm -f app/release.keystore
+          set -euo pipefail
+          if ! gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release create "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --generate-notes --title "Release ${GITHUB_REF_NAME}"
+          fi
+          find release-artifacts -type f \( -name '*.apk' -o -name '*.aab' \) -print0 |
+            xargs -0 gh release upload "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" --clobber
