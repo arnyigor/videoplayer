@@ -89,11 +89,13 @@ jobs:
           BASE_LINK_FILE: ${{ secrets.BASE_LINK_FILE }}
           UPDATE_LINK: ${{ secrets.UPDATE_LINK }}
           BASE_LINK: ${{ secrets.BASE_LINK }}
+          FEEDBACK_URL: ${{ secrets.FEEDBACK_URL }}
+          FEEDBACK_API_KEY: ${{ secrets.FEEDBACK_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           set +x
-          for name in DATA_LINK DATA_0_LINK BASE_LINK_FILE UPDATE_LINK BASE_LINK; do
+          for name in DATA_LINK DATA_0_LINK BASE_LINK_FILE UPDATE_LINK BASE_LINK FEEDBACK_URL FEEDBACK_API_KEY; do
             test -n "${!name:-}" || { echo "Required app secret is missing: $name"; exit 1; }
           done
           umask 077
@@ -103,6 +105,8 @@ jobs:
             printf 'BASE_LINK_FILE=%s\n' "$BASE_LINK_FILE"
             printf 'UPDATE_LINK=%s\n' "$UPDATE_LINK"
             printf 'BASE_LINK=%s\n' "$BASE_LINK"
+            printf 'FEEDBACK_URL=%s\n' "$FEEDBACK_URL"
+            printf 'FEEDBACK_API_KEY=%s\n' "$FEEDBACK_API_KEY"
           } > secrets.properties
 
       - name: Restore release signing material
