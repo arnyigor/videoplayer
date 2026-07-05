@@ -266,8 +266,6 @@ class UpdateRepositoryImpl constructor(
 
     override suspend fun checkBaseUrl(): Boolean = withContext(Dispatchers.IO) {
         val baseLink = BuildConfig.BASE_LINK
-        Timber.tag("BaseUrlChecker").d("Starting BaseUrl check. Configured link: %s", baseLink)
-
         // ========================================================================
         // STRATEGY 1: Try to parse from the HTML page defined in BuildConfig
         // ========================================================================
@@ -296,8 +294,6 @@ class UpdateRepositoryImpl constructor(
         // STRATEGY 2: Fallback - Download text file and parse
         // ========================================================================
         try {
-            Timber.tag("BaseUrlChecker").d("Attempting Strategy 2: Fallback file %s", BASE_LINK_FILE)
-
             // 1. Download and parse the text file
             val extractedUrlFromFile = tryParseFromFile(BASE_LINK_FILE)
 
@@ -337,7 +333,9 @@ class UpdateRepositoryImpl constructor(
 
         // Ensure clean state
         if (tempFile.exists()) tempFile.delete()
-        tempFile.createNewFile()
+        withContext(Dispatchers.IO) {
+            tempFile.createNewFile()
+        }
 
         try {
             apiService.downloadFile(tempFile, fileUrl)

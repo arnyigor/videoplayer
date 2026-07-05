@@ -20,6 +20,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsetsController
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.view.GestureDetectorCompat
@@ -272,9 +273,32 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         initListener()
         initSystemUI()
         initPlayerTouchListener()
+        fixControllerPadding()
         initAudioManager()
         initVolumeObserver()
         initBrightnessVolumeController()
+    }
+
+    private fun fixControllerPadding() {
+        val controlView =
+            binding.playerView.findViewById<View>(com.google.android.exoplayer2.ui.R.id.exo_controller)
+                ?: return
+
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val gestureInsets =
+                insets.getInsets(WindowInsetsCompat.Type.mandatorySystemGestures())
+            val bottomInset = maxOf(systemBars.bottom, gestureInsets.bottom)
+
+            // Применяем padding к контролам
+            controlView.setPadding(
+                controlView.paddingLeft,
+                controlView.paddingTop,
+                controlView.paddingRight,
+                bottomInset + 16.dpToPx() // + запас
+            )
+            insets
+        }
     }
 
     override fun onStart() {
@@ -510,13 +534,22 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         gestureDetectorCompat = GestureDetectorCompat(requireContext(), gestureDetectListener)
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun initSystemUI() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
             val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
             topInset = insets.top
             bottomInset = insets.bottom
-//            updateControlsPadding()
+            updateControlsPadding()
             windowInsets
+        }
+
+        binding.root.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN && event.y > binding.root.height - 150.dpToPx()) {
+                // Зона системных жестов — скрываем контролы плеера
+                binding.playerView.hideController()
+            }
+            false
         }
 
         hideSystemUIImmediately()
@@ -668,8 +701,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     android.view.WindowInsets.Type.statusBars() or
                             android.view.WindowInsets.Type.navigationBars()
                 )
-                systemBarsBehavior =
-                    android.view.WindowInsetsController.BEHAVIOR_DEFAULT
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    systemBarsBehavior = WindowInsetsController.BEHAVIOR_DEFAULT
+                }
             }
         } else {
             @Suppress("DEPRECATION")
@@ -1118,10 +1152,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             qualityPopUp = null
             langPopUp = null
 
-val currentState = viewModel.uiState.value
+            val currentState = viewModel.uiState.value
             if (currentState.version > 0) {
                 viewModel.forceReEmit()
-} else {
+            } else {
                 viewModel.setPlayData(
                     path = args.path,
                     movie = args.movie,
