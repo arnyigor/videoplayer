@@ -26,7 +26,6 @@ import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
-import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -48,6 +47,8 @@ class UpdateRepositoryImpl constructor(
 ) : UpdateRepository {
     private companion object {
         const val UPDATE_PERIOD = 182L
+        const val BASE_URL_REQUEST_TIMEOUT_MILLIS = 5000L
+        const val BASE_URL_PAGE_TIMEOUT_MILLIS = 3000
     }
 
     private val _newUrlFlow = BufferedSharedFlow<String>()
@@ -267,23 +268,17 @@ class UpdateRepositoryImpl constructor(
     override suspend fun checkBaseUrl(): Boolean = withContext(Dispatchers.IO) {
         val baseLink = BuildConfig.BASE_LINK
         // ========================================================================
-        // STRATEGY 1: Try to parse from the HTML page defined in BuildConfig
+        // STRATEGY 1: Try to parse from the HTML page defined in BuildConfig.
+        // Do not make an extra availability check here: on some real devices it can
+        // wait for the global Ktor timeout and keep the splash screen visible.
         // ========================================================================
         if (baseLink.isNotBlank()) {
             try {
-                // 1. Verify accessibility (HTTP 200 OK)
-                val status = apiService.checkPath(baseLink)
-                if (status == HttpStatusCode.OK) {
-                    // 2. Parse HTML to find the link
-                    val extractedUrl = tryParseFromPage(baseLink)
+                val extractedUrl = tryParseFromPage(baseLink)
 
-                    // Success: Save and return
-                    baseUrl = extractedUrl
-                    Timber.tag("BaseUrlChecker").i("Success: URL parsed from page: %s", baseUrl)
-                    return@withContext true
-                } else {
-                    Timber.tag("BaseUrlChecker").w("Page reachable but status is %s", status)
-                }
+                baseUrl = extractedUrl
+                Timber.tag("BaseUrlChecker").i("Success: URL parsed from page: %s", baseUrl)
+                return@withContext true
             } catch (e: Exception) {
                 Timber.tag("BaseUrlChecker").w(e, "Strategy 1 failed: Could not extract from page.")
                 // Swallow exception and proceed to Strategy 2
@@ -291,24 +286,18 @@ class UpdateRepositoryImpl constructor(
         }
 
         // ========================================================================
-        // STRATEGY 2: Fallback - Download text file and parse
+        // STRATEGY 2: Fallback - Download text file and parse.
+        // The parsed URL is accepted immediately; a second reachability check may
+        // hang on affected devices and is not needed to initialize the app.
         // ========================================================================
         try {
-            // 1. Download and parse the text file
             val extractedUrlFromFile = tryParseFromFile(BASE_LINK_FILE)
 
-            // 2. Verify the EXTRACTED URL is actually alive (HTTP 200 OK)
-            val status = apiService.checkPath(extractedUrlFromFile)
-
-            if (status == HttpStatusCode.OK) {
-                baseUrl = extractedUrlFromFile
-                Timber.tag("BaseUrlChecker").i("Success: URL parsed from fallback file: %s", baseUrl)
-                return@withContext true
-            } else {
-                Timber.tag("BaseUrlChecker").w("Fallback URL parsed but unreachable. Status: %s", status)
-            }
+            baseUrl = extractedUrlFromFile
+            Timber.tag("BaseUrlChecker").i("Success: URL parsed from fallback file: %s", baseUrl)
+            return@withContext true
         } catch (e: Exception) {
-            Timber.tag("BaseUrlChecker").e(e, "Strategy 2 failed: Could not extract/verify from file.")
+            Timber.tag("BaseUrlChecker").e(e, "Strategy 2 failed: Could not extract from file.")
         }
 
         // ========================================================================
@@ -322,7 +311,7 @@ class UpdateRepositoryImpl constructor(
     /* ------------------------------------------------------------ */
 
     private fun tryParseFromPage(url: String): String {
-        val doc = jsoup.loadPage(url = url, timeout = 3000)
+        val doc = jsoup.loadPage(url = url, timeout = BASE_URL_PAGE_TIMEOUT_MILLIS)
         return doc.select("ul.tl li a:contains(Фильмы)")
             .firstOrNull()?.attr("href")?.trimEnd('/')
             ?: throw IllegalStateException("Anchor with text 'Фильмы' not found on $url")
@@ -338,13 +327,15 @@ class UpdateRepositoryImpl constructor(
         }
 
         try {
-            apiService.downloadFile(tempFile, fileUrl)
+            apiService.downloadFile(tempFile, fileUrl, BASE_URL_REQUEST_TIMEOUT_MILLIS)
 
             val line = tempFile.bufferedReader().use { reader ->
-                reader.lineSequence().firstOrNull { it.startsWith("base_url=") }
+                reader.lineSequence()
+                    .map { it.trim().removePrefix("\uFEFF") }
+                    .firstOrNull { it.startsWith("base_url=") }
             } ?: throw IllegalStateException("File $fileUrl does not contain 'base_url='")
 
-            val resultUrl = line.substringAfter('=').trimEnd('/')
+            val resultUrl = line.substringAfter('=').trim().trimEnd('/')
 
             if (resultUrl.isBlank()) {
                 throw IllegalStateException("Found 'base_url=' but value is empty")

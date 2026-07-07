@@ -31,9 +31,16 @@ class ApiService(
     private val httpClient: HttpClient
 ) {
     @OptIn(InternalAPI::class)
-    suspend fun downloadFile(file: File, url: String) {
+    suspend fun downloadFile(file: File, url: String, timeoutMillis: Long? = null) {
         httpClient.prepareGet(url) {
             method = HttpMethod.Get
+            timeoutMillis?.let { requestTimeout ->
+                timeout {
+                    connectTimeoutMillis = requestTimeout
+                    requestTimeoutMillis = requestTimeout
+                    socketTimeoutMillis = requestTimeout
+                }
+            }
         }.execute { httpResponse ->
             if (!httpResponse.status.isSuccess()) {
                 file.delete()
@@ -114,8 +121,15 @@ class ApiService(
         }
     }
 
-    suspend fun checkPath(url: String): HttpStatusCode =
+    suspend fun checkPath(url: String, timeoutMillis: Long? = null): HttpStatusCode =
         httpClient.request(url) {
             method = HttpMethod.Get
+            timeoutMillis?.let { requestTimeout ->
+                timeout {
+                    connectTimeoutMillis = requestTimeout
+                    requestTimeoutMillis = requestTimeout
+                    socketTimeoutMillis = requestTimeout
+                }
+            }
         }.status
 }
