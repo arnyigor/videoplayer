@@ -21,6 +21,10 @@ class TvSourceCardPresenter : Presenter() {
         val cardView = binding.root
         cardView.isFocusable = true
         cardView.isFocusableInTouchMode = true
+        cardView.foreground = ContextCompat.getDrawable(
+            parent.context,
+            R.drawable.tv_card_focus_foreground
+        )
 
         return ViewHolder(cardView)
     }
@@ -115,8 +119,14 @@ class TvSourceCardPresenter : Presenter() {
             binding.tvQualityBadge.setBackgroundResource(R.drawable.bg_badge_imdb)
         }
 
-        binding.root.scaleX = if (hasFocus) 1.03f else 1f
-        binding.root.scaleY = if (hasFocus) 1.03f else 1f
+        binding.root.animate().cancel()
+        val scale = if (hasFocus) 1.04f else 1f
+        binding.root.animate()
+            .scaleX(scale)
+            .scaleY(scale)
+            .setDuration(120L)
+            .start()
+        binding.root.cardElevation = if (hasFocus) 12f else 0f
     }
 
     override fun onUnbindViewHolder(viewHolder: ViewHolder) {

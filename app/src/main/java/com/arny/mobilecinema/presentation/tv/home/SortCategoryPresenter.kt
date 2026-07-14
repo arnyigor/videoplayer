@@ -35,16 +35,11 @@ class SortCategoryPresenter : Presenter() {
 
         val isSelected = category.ordinal == selectedPosition
 
-        // ИСПРАВЛЕНИЕ: На выбранной категории - ТЕМНЫЙ текст на светлом фоне
-        // На невыбранной - светлый текст
         textView.setTextColor(
-            ContextCompat.getColor(
-                textView.context,
-                if (isSelected) R.color.colorOnAccent // Темный цвет для выбранной
-                else R.color.sort_category_text // Светлый для невыбранной
-            )
+            ContextCompat.getColorStateList(textView.context, R.color.tv_chip_text_selector)
         )
         textView.isSelected = isSelected
+        textView.contentDescription = textView.text
     }
 
     override fun onUnbindViewHolder(viewHolder: ViewHolder) {}

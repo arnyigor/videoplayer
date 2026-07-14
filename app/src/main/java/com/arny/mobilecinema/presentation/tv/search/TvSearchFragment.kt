@@ -57,12 +57,10 @@ class SearchFilterPresenter : Presenter() {
 
         val isSelected = filter.ordinal == selectedPosition
         textView.setTextColor(
-            ContextCompat.getColor(
-                textView.context,
-                if (isSelected) R.color.white else R.color.sort_category_text
-            )
+            ContextCompat.getColorStateList(textView.context, R.color.tv_chip_text_selector)
         )
         textView.isSelected = isSelected
+        textView.contentDescription = textView.text
     }
 
     override fun onUnbindViewHolder(viewHolder: ViewHolder) {}

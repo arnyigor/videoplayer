@@ -29,6 +29,7 @@ class MovieCardPresenter : Presenter(), KoinComponent {
             setMainImageDimensions(CARD_WIDTH, CARD_HEIGHT)
             setMainImageScaleType(ImageView.ScaleType.CENTER_CROP)
         }
+        TvCardFocusHelper.setup(cardView)
         return ViewHolder(cardView)
     }
 
@@ -41,6 +42,11 @@ class MovieCardPresenter : Presenter(), KoinComponent {
         cardView.apply {
             titleText = movie.title
             contentText = if (movie.year > 0) movie.year.toString() else ""
+            contentDescription = listOf(titleText, contentText)
+                .filter { it.isNotBlank() }
+                .joinToString(", ")
+
+            TvCardFocusHelper.applyFocusState(this, hasFocus())
 
             if (movie.img.isNotBlank()) {
                 val fullUrl = movie.img.getWithDomain(baseUrl)
@@ -58,6 +64,7 @@ class MovieCardPresenter : Presenter(), KoinComponent {
 
     override fun onUnbindViewHolder(viewHolder: ViewHolder) {
         val cardView = viewHolder.view as ImageCardView
+        TvCardFocusHelper.reset(cardView)
         cardView.badgeImage = null
         cardView.mainImage = null
     }

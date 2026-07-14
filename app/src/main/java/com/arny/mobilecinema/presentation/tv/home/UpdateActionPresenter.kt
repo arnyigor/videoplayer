@@ -3,6 +3,7 @@ package com.arny.mobilecinema.presentation.tv.home
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
 
@@ -20,7 +21,7 @@ class UpdateActionPresenter : Presenter() {
             textSize = 18f
             gravity = Gravity.CENTER
             setBackgroundResource(R.drawable.tv_button_background)
-            setTextColor(context.getColor(R.color.textColorPrimary))
+            setTextColor(ContextCompat.getColorStateList(context, R.color.tv_button_text_selector))
         }
         return ViewHolder(textView)
     }
@@ -33,6 +34,7 @@ class UpdateActionPresenter : Presenter() {
             UpdateAction.CHECK_UPDATE -> textView.context.getString(R.string.check_update)
             UpdateAction.CANCEL_UPDATE -> textView.context.getString(R.string.cancel_update)
         }
+        textView.contentDescription = textView.text
     }
 
     override fun onUnbindViewHolder(viewHolder: ViewHolder) {

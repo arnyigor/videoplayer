@@ -3,6 +3,7 @@ package com.arny.mobilecinema.presentation.tv.home
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
 
@@ -20,7 +21,7 @@ class HistoryActionPresenter : Presenter() {
             textSize = 18f
             gravity = Gravity.CENTER
             setBackgroundResource(R.drawable.tv_button_background)
-            setTextColor(context.getColor(R.color.textColorPrimary))
+            setTextColor(ContextCompat.getColorStateList(context, R.color.tv_button_text_selector))
         }
         return ViewHolder(textView)
     }
@@ -29,6 +30,7 @@ class HistoryActionPresenter : Presenter() {
         val action = item as? HistoryAction ?: return
         val textView = viewHolder.view as TextView
         textView.text = textView.context.getString(action.labelResId)
+        textView.contentDescription = textView.text
     }
 
     override fun onUnbindViewHolder(viewHolder: ViewHolder) {}
