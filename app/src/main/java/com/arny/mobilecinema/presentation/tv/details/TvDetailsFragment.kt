@@ -4,13 +4,14 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.os.bundleOf
+import androidx.fragment.app.DialogFragment
 import androidx.leanback.app.DetailsSupportFragment
 import androidx.leanback.widget.Action
 import androidx.leanback.widget.ArrayObjectAdapter
@@ -23,7 +24,6 @@ import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.OnActionClickedListener
 import androidx.leanback.widget.OnItemViewClickedListener
 import androidx.leanback.widget.OnItemViewSelectedListener
-import androidx.leanback.widget.SparseArrayObjectAdapter
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
@@ -38,7 +38,6 @@ import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.services.UpdateService
-import androidx.fragment.app.DialogFragment
 import com.arny.mobilecinema.presentation.tv.update.TvUpdateDialogFragment
 import com.arny.mobilecinema.presentation.tv.update.TvUpdateProgressDialogFragment
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsAction
@@ -79,7 +78,8 @@ data class TagItem(
     val searchType: String,
 )
 
-class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgressDialogFragment.Callback {
+class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
+    TvUpdateProgressDialogFragment.Callback {
 
     companion object {
         private const val ACTION_PLAY = 1L
@@ -89,6 +89,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
         private const val POSTER_WIDTH = 274
         private const val POSTER_HEIGHT = 400
 
+        private const val ROW_ID_TOP = 1000L
         private const val ROW_ID_SEASONS = 1001L
         private const val ROW_ID_EPISODES = 1002L
         private const val ROW_ID_SOURCES = 1003L
@@ -102,7 +103,6 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
 
     private lateinit var detailsAdapter: ArrayObjectAdapter
     private var detailsRow: DetailsOverviewRow? = null
-
     private var currentMovie: Movie? = null
     private var sources: List<SourceItem> = emptyList()
 
@@ -141,7 +141,13 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
         val overviewPresenter = FullWidthDetailsOverviewRowPresenter(
             TvDetailsDescriptionPresenter()
         ).apply {
+            // Цвет фона для описания
             backgroundColor = ContextCompat.getColor(requireContext(), R.color.colorPrimaryDark)
+
+            // Закрашиваем стандартную серую полосу под кнопками в цвет фона (или Color.TRANSPARENT)
+            actionsBackgroundColor = ContextCompat.getColor(requireContext(), R.color.colorPrimaryDark)
+
+            // Слушатель кликов остается нативным
             onActionClickedListener = OnActionClickedListener { action ->
                 onActionClicked(action)
             }
@@ -202,7 +208,6 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
         if (childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null) return
         TvUpdateDialogFragment.newInstance().show(childFragmentManager, TvUpdateDialogFragment.TAG)
     }
-
 
     private fun showUpdateProgressDialog(progress: Int = -1, stage: String? = null) {
         val existing = childFragmentManager.findFragmentByTag(
@@ -319,19 +324,15 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
         row.imageDrawable = ContextCompat.getDrawable(requireContext(), R.drawable.placeholder_movie)
         loadPoster(movie, row)
 
-        val actions = SparseArrayObjectAdapter().apply {
-            set(ACTION_PLAY.toInt(), Action(ACTION_PLAY, getString(R.string.play)))
-            set(
-                ACTION_FAVORITE.toInt(),
-                Action(
-                    ACTION_FAVORITE,
-                    if (viewModel.isFavorite.value) getString(R.string.remove_from_favorites)
-                    else getString(R.string.add_to_favorites)
-                )
-            )
-            set(ACTION_UPDATE.toInt(), Action(ACTION_UPDATE, getString(R.string.update_data)))
-        }
-        row.actionsAdapter = actions
+        val actionAdapter = ArrayObjectAdapter(TvActionCardPresenter())
+
+        // Добавляем стандартные Leanback Action вместо кастомных
+        actionAdapter.add(Action(ACTION_PLAY, getString(R.string.play)))
+        actionAdapter.add(Action(ACTION_FAVORITE, getFavoriteText(viewModel.isFavorite.value)))
+        actionAdapter.add(Action(ACTION_UPDATE, getString(R.string.update_data)))
+
+        // Привязываем адаптер действий к нативной строке
+        row.actionsAdapter = actionAdapter
 
         detailsAdapter.clear()
         detailsAdapter.add(row)
@@ -368,7 +369,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
                 }
 
                 val maxSeason = seasons.lastIndex
-                selectedSeasonIndex = (movie.seasonPosition ?: selectedSeasonIndex).coerceIn(0, maxSeason)
+                selectedSeasonIndex =
+                    (movie.seasonPosition ?: selectedSeasonIndex).coerceIn(0, maxSeason)
 
                 val episodes = seasons.getOrNull(selectedSeasonIndex)?.episodes.orEmpty()
                 selectedEpisodeIndex = if (episodes.isEmpty()) {
@@ -381,7 +383,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
 
             MovieType.CINEMA -> {
                 val sourceCount = prepareSourcesList(movie).size
-                selectedSourceIndex = if (sourceCount == 0) 0 else selectedSourceIndex.coerceIn(0, sourceCount - 1)
+                selectedSourceIndex =
+                    if (sourceCount == 0) 0 else selectedSourceIndex.coerceIn(0, sourceCount - 1)
             }
 
             else -> Unit
@@ -402,7 +405,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
             .error(R.drawable.placeholder_movie)
             .into(object : CustomTarget<Bitmap>(POSTER_WIDTH, POSTER_HEIGHT) {
                 override fun onResourceReady(resource: Bitmap, transition: Transition<in Bitmap>?) {
-                    row.imageDrawable = BitmapDrawable(resources, resource)
+                    row.imageDrawable = resource.toDrawable(resources)
                     val idx = detailsAdapter.indexOf(row)
                     if (idx >= 0) {
                         detailsAdapter.notifyArrayItemRangeChanged(idx, 1)
@@ -505,38 +508,53 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
 
     private fun addSearchRows(movie: Movie) {
         val genres = movie.info.genres
+            .asSequence()
             .flatMap { it.split(",") }
             .map { it.trim() }
             .filter { it.isNotBlank() }
             .distinct()
             .take(12)
+            .toList()
 
         if (genres.isNotEmpty()) {
             val header = HeaderItem(ROW_ID_GENRES, getString(R.string.genres))
             val rowAdapter = ArrayObjectAdapter(TvSourceCardPresenter())
             genres.forEach { genre ->
-                rowAdapter.add(TagItem(label = genre, query = genre, searchType = AppConstants.SearchType.GENRES))
+                rowAdapter.add(
+                    TagItem(
+                        label = genre,
+                        query = genre,
+                        searchType = AppConstants.SearchType.GENRES
+                    )
+                )
             }
             detailsAdapter.add(ListRow(header, rowAdapter))
         }
 
         val actors = movie.info.actors
+            .asSequence()
             .flatMap { it.split(",") }
             .map { it.trim() }
             .filter { it.isNotBlank() }
             .distinct()
             .take(12)
+            .toList()
 
         if (actors.isNotEmpty()) {
             val header = HeaderItem(ROW_ID_ACTORS, getString(R.string.actors))
             val rowAdapter = ArrayObjectAdapter(TvSourceCardPresenter())
             actors.forEach { actor ->
-                rowAdapter.add(TagItem(label = actor, query = actor, searchType = AppConstants.SearchType.ACTORS))
+                rowAdapter.add(
+                    TagItem(
+                        label = actor,
+                        query = actor,
+                        searchType = AppConstants.SearchType.ACTORS
+                    )
+                )
             }
             detailsAdapter.add(ListRow(header, rowAdapter))
         }
     }
-
 
     private fun onActionClicked(action: Action) {
         when (action.id) {
@@ -576,16 +594,22 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent, TvUpdateProgr
     }
 
     private fun updateFavoriteLabel(isFav: Boolean) {
-        val row = detailsRow ?: return
-        val actions = row.actionsAdapter as? SparseArrayObjectAdapter ?: return
-        actions.set(
-            ACTION_FAVORITE.toInt(),
-            Action(
-                ACTION_FAVORITE,
-                if (isFav) getString(R.string.remove_from_favorites)
-                else getString(R.string.add_to_favorites)
-            )
-        )
+        val adapter = detailsRow?.actionsAdapter as? ArrayObjectAdapter ?: return
+
+        val favoriteIndex = (0 until adapter.size()).firstOrNull { index ->
+            (adapter[index] as? Action)?.id == ACTION_FAVORITE
+        } ?: return
+
+        val action = adapter[favoriteIndex] as Action
+        action.label1 = getFavoriteText(isFav)
+
+        adapter.notifyArrayItemRangeChanged(favoriteIndex, 1)
+    }
+
+    private fun getFavoriteText(value: Boolean): String = if (value) {
+        getString(R.string.remove_from_favorites)
+    } else {
+        getString(R.string.add_to_favorites)
     }
 
     private fun navigateToPlayer(seasonIndex: Int = 0, episodeIndex: Int = 0) {

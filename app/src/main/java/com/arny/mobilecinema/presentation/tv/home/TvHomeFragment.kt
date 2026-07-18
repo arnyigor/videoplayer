@@ -35,6 +35,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import kotlin.time.Duration.Companion.milliseconds
 
 class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.Callback {
 
@@ -96,7 +97,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
         viewModel.refreshData()
         viewLifecycleOwner.lifecycleScope.launch {
-            delay(200)
+            delay(200.milliseconds)
             viewModel.reloadHistory()
         }
     }
