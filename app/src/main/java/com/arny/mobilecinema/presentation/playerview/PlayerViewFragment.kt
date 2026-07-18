@@ -112,11 +112,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private val args: PlayerViewFragmentArgs by navArgs()
 
     private val resizeModes = arrayOf(
-        AspectRatioFrameLayout.RESIZE_MODE_FIT,
-        AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH,
-        AspectRatioFrameLayout.RESIZE_MODE_FIXED_HEIGHT,
-        AspectRatioFrameLayout.RESIZE_MODE_FILL,
-        AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        AspectRatioFrameLayout.RESIZE_MODE_FIT,  // 0: Оригинал (черные полосы)
+        AspectRatioFrameLayout.RESIZE_MODE_ZOOM, // 1: Заполнить экран (обрезка краев без искажений)
+        AspectRatioFrameLayout.RESIZE_MODE_FILL  // 2: Растянуть (искажение пропорций, но без черных полос)
     )
 
     private var qualityPopUp: PopupMenu? = null

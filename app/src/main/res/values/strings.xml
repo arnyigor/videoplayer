@@ -308,4 +308,6 @@
     <string name="added_to_favorites">Добавлено в избранное</string>
     <string name="removed_from_favorites">Удалено из избранного</string>
     <string name="continue_watching">Продолжить просмотр</string>
+    <string name="zero_time">00:00</string>
+    <string name="change_aspect">Изменить масштаб</string>
 </resources>

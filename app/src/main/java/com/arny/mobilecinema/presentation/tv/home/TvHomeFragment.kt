@@ -116,7 +116,6 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     }
 
     private fun setupRowsAdapter() {
-
         val presenterSelector = ClassPresenterSelector().apply {
             addClassPresenter(ListRow::class.java, ListRowPresenter())
         }

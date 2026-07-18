@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto"
+        xmlns:tools="http://schemas.android.com/tools"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@android:color/black"
@@ -12,7 +13,52 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             app:use_controller="false"
+            app:resize_mode="fit"
             app:show_buffering="when_playing" />
+
+    <!-- Название фильма/сериала -->
+    <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:background="@drawable/gradient_top"
+            android:paddingStart="48dp"
+            android:paddingEnd="48dp"
+            android:paddingTop="32dp"
+            android:paddingBottom="24dp"
+            android:textColor="@android:color/white"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:shadowColor="@android:color/black"
+            android:shadowDx="2"
+            android:shadowDy="2"
+            android:shadowRadius="4"
+            android:visibility="gone"
+            tools:text="Название фильма"
+            tools:visibility="visible" />
+
+    <ImageButton
+            android:id="@+id/btnAspectRatio"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="16dp"
+            android:background="@drawable/tv_button_selector"
+            android:contentDescription="@string/change_aspect"
+            android:focusable="true"
+            android:visibility="gone"
+            android:layout_gravity="top|end"
+            android:layout_margin="@dimen/margin_big"
+            android:src="@drawable/ic_overscan"
+            android:scaleType="centerInside"
+            android:padding="12dp"
+            app:tint="@android:color/white"
+            android:nextFocusLeft="@id/btnBack"
+            android:nextFocusRight="@id/seekBar"
+            android:nextFocusDown="@id/btnRewind" />
 
     <TextView
             android:id="@+id/tvError"
@@ -153,7 +199,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
                 android:gravity="center"
-                android:text="00:00"
+                android:text="@string/zero_time"
                 android:textColor="@android:color/white"
                 android:textSize="18sp"
                 android:textStyle="bold"
@@ -169,7 +215,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginEnd="16dp"
                 android:gravity="center"
-                android:text="00:00"
+                android:text="@string/zero_time"
                 android:textColor="#CCFFFFFF"
                 android:textSize="18sp"
                 app:layout_constraintBottom_toBottomOf="@id/btnForward"
@@ -219,7 +265,5 @@
                 android:visibility="gone"
                 android:nextFocusLeft="@id/btnForward"
                 android:nextFocusUp="@id/btnBack" />
-
     </androidx.constraintlayout.widget.ConstraintLayout>
-
 </FrameLayout>

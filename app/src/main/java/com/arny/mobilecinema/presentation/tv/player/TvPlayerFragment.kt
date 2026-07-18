@@ -29,6 +29,7 @@ import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.player.getAllCinemaUrls
 import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import com.arny.mobilecinema.presentation.utils.toast
+import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.DefaultLoadControl
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
@@ -36,6 +37,7 @@ import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SeekParameters
 import com.google.android.exoplayer2.source.MediaSource
+import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -48,7 +50,6 @@ import timber.log.Timber
 class TvPlayerFragment : Fragment(), KoinComponent {
 
     companion object {
-        private const val TAG = "TvPlayerFragment"
         private const val SEEK_STEP_MS = 5_000L
         private const val HIDE_DELAY_MS = 5_000L
         private const val PROGRESS_INTERVAL_MS = 1_000L
@@ -58,8 +59,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private val moviesInteractor: MoviesInteractor by inject()
     private val historyInteractor: HistoryInteractor by inject()
     private val playerSource: PlayerSource by inject()
+    private var currentResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
-    // Получаем аргументы навигации. Timber.log используется для проверки корректности аргументов перехода
     private val args: TvPlayerFragmentArgs by navArgs()
 
     private var _binding: FTvPlayerBinding? = null
@@ -77,9 +78,6 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private var progressJob: Job? = null
     private var mediaLoaded = false
     private var tvExcludeUrls: Set<String> = emptySet()
-
-    // Fragment lifecycle
-    // ─────────────────────────────────────────────────────────────
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -219,9 +217,43 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 scheduleHide()
             }
         })
+
+        binding.btnAspectRatio.setOnClickListener {
+            toggleAspectRatio()
+            binding.btnAspectRatio.requestFocus()
+        }
     }
 
-    // ИСПРАВЛЕНИЕ: Правильное управление видимостью и доступностью кнопок
+    private fun toggleAspectRatio() {
+        currentResizeMode = when (currentResizeMode) {
+            AspectRatioFrameLayout.RESIZE_MODE_FIT -> {
+                toast("Масштаб: Заполнение (ZOOM)")
+                AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            }
+            AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> {
+                toast("Масштаб: Растянуть (FILL)")
+                AspectRatioFrameLayout.RESIZE_MODE_FILL
+            }
+            else -> {
+                toast("Масштаб: Оригинал (FIT)")
+                AspectRatioFrameLayout.RESIZE_MODE_FIT
+            }
+        }
+
+        // 1. Применяем режим к PlayerView
+        binding.playerView.resizeMode = currentResizeMode
+
+        // 2. Явно говорим ядру плеера использовать масштабирование (помогает аппаратному декодеру)
+        player?.videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+
+        // 3. Принудительно заставляем UI перерисовать SurfaceView (Workaround для слабых ТВ и эмуляторов)
+        binding.playerView.requestLayout()
+        binding.playerView.invalidate()
+
+        showControls()
+        scheduleHide()
+    }
+
     private fun updateEpisodeNavigationVisibility(episodeCount: Int) {
         val showNavigation = episodeCount > 1
         Timber.d("updateEpisodeNavigationVisibility: count=$episodeCount, visible=$showNavigation")
@@ -229,22 +261,18 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         binding.btnPrevious.isVisible = showNavigation
         binding.btnNext.isVisible = showNavigation
 
-        // НОВОЕ: обновляем доступность кнопок при отображении панели управления
         updateNavigationButtonsState()
     }
 
-    // НОВЫЙ МЕТОД: обновление состояния кнопок навигации
     private fun updateNavigationButtonsState() {
         val p = player ?: return
         Timber.d("updateNavigationButtonsState: hasPrevious=${p.hasPreviousMediaItem()}, hasNext=${p.hasNextMediaItem()}")
 
-        // Предыдущая серия доступна?
         binding.btnPrevious.apply {
             isEnabled = p.hasPreviousMediaItem()
             alpha = if (isEnabled) 1.0f else 0.5f
         }
 
-        // Следующая серия доступна?
         binding.btnNext.apply {
             isEnabled = p.hasNextMediaItem()
             alpha = if (isEnabled) 1.0f else 0.5f
@@ -384,8 +412,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
     // ОБНОВИТЕ метод showControls
     private fun showControls() {
-        Timber.d("showControls: UI Controls visible")
         binding.controlsGroup.visibility = View.VISIBLE
+        binding.tvTitle.visibility = View.VISIBLE
+        binding.btnAspectRatio.visibility = View.VISIBLE
 
         if (allEpisodes.isNotEmpty()) {
             binding.tvEpisodeInfo.visibility = View.VISIBLE
@@ -478,6 +507,13 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     true
                 }
 
+                KeyEvent.KEYCODE_MENU,
+                KeyEvent.KEYCODE_PROG_BLUE,
+                KeyEvent.KEYCODE_PROG_YELLOW -> {
+                    toggleAspectRatio()
+                    true
+                }
+
                 else -> false
             }
         }
@@ -522,6 +558,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                             currentMovie = result.result
                             Timber.d("loadMovieAndPlay: Movie loaded successfully. Title: ${result.result.title}")
                             addToHistory(movieId)
+                            binding.tvTitle.text = currentMovie?.title ?: "Неизвестный фильм"
                             playMovie(result.result)
                         } else {
                             Timber.w("loadMovieAndPlay: Media already loaded, ignoring new data")
@@ -879,6 +916,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private fun hideControls() {
         binding.controlsGroup.visibility = View.GONE
         binding.tvEpisodeInfo.visibility = View.GONE
+        binding.tvTitle.visibility = View.GONE
+        binding.btnAspectRatio.visibility = View.GONE
         binding.root.requestFocus()
         Timber.d("hideControls: UI controls hidden")
     }
