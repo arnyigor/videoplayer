@@ -1,13 +1,14 @@
 package com.arny.mobilecinema.presentation.utils
 
 fun String.getWithDomain(baseUrl: String): String {
-    var url = this
-    if (!url.startsWith("http")) {
-        url = if (baseUrl.endsWith("/")) {
-            "$baseUrl$url"
-        } else {
-            "$baseUrl/$url"
-        }
+    val url = trim()
+    if (url.startsWith("http", ignoreCase = true)) return url
+
+    val normalizedBaseUrl = baseUrl.trim().trimEnd('/')
+    val normalizedPath = url.trimStart('/')
+    return if (normalizedBaseUrl.isNotBlank() && normalizedPath.isNotBlank()) {
+        "$normalizedBaseUrl/$normalizedPath"
+    } else {
+        ""
     }
-    return url
 }

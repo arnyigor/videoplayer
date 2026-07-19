@@ -44,6 +44,7 @@
     <string name="pref_main_header">Основные</string>
     <string name="action_settings">Настройки</string>
     <string name="play">Смотреть</string>
+    <string name="pause">Пауза</string>
     <string name="need_permission_message">Для работы приложения необходимо разрешить доступ на запись</string>
     <string name="need_notice_permission_message">Для работы приложения необходимо разрешить показ уведомлений</string>
     <string name="new_films_update">Доступно новое обновление фильмов</string>

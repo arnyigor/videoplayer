@@ -174,6 +174,12 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             binding.btnForward.requestFocus()
         }
 
+        binding.btnPlayPause.setOnClickListener {
+            Timber.d("Button Clicked: btnPlayPause")
+            togglePlayPause()
+            binding.btnPlayPause.requestFocus()
+        }
+
         binding.btnPrevious.setOnClickListener {
             Timber.d("Button Clicked: btnPrevious")
             previousEpisode()
@@ -222,6 +228,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             toggleAspectRatio()
             binding.btnAspectRatio.requestFocus()
         }
+
+        updatePlayPauseButton()
     }
 
     private fun toggleAspectRatio() {
@@ -293,6 +301,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     scheduleHide()
                     // НОВОЕ: обновляем состояние кнопок
                     updateNavigationButtonsState()
+                    updatePlayPauseButton()
                 }
                 Player.STATE_ENDED -> {
                     Timber.d("Playback ENDED")
@@ -305,10 +314,12 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     } else {
                         toast(getString(R.string.playback_complete))
                     }
+                    updatePlayPauseButton()
                 }
                 Player.STATE_IDLE -> {
                     showLoading(false)
                     stopProgressUpdates()
+                    updatePlayPauseButton()
                 }
             }
         }
@@ -316,6 +327,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             Timber.d("Playback playing changed: $isPlaying")
             if (isPlaying) startProgressUpdates() else stopProgressUpdates()
+            updatePlayPauseButton()
         }
 
         override fun onPlayerError(error: PlaybackException) {
@@ -423,7 +435,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         // НОВОЕ: обновляем состояние кнопок при показе панели
         updateNavigationButtonsState()
 
-        binding.btnRewind.requestFocus()
+        binding.btnPlayPause.requestFocus()
     }
 
     private fun setupDpadListener() {
@@ -875,8 +887,20 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             player?.play()
             Timber.d("User toggled: PLAY")
         }
+        updatePlayPauseButton()
         showControls()
         scheduleHide()
+    }
+
+    private fun updatePlayPauseButton() {
+        val currentBinding = _binding ?: return
+        val isPlaying = player?.isPlaying == true
+        currentBinding.btnPlayPause.apply {
+            setImageResource(
+                if (isPlaying) R.drawable.ic_pause_circle_outline else R.drawable.play_circle_outline
+            )
+            contentDescription = getString(if (isPlaying) R.string.pause else R.string.play)
+        }
     }
 
     private fun seekForward() {

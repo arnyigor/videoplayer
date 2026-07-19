@@ -188,7 +188,7 @@
                 app:layout_constraintStart_toEndOf="@id/btnPrevious"
                 app:layout_constraintTop_toBottomOf="@id/seekBar"
                 app:tint="@android:color/white"
-                android:nextFocusRight="@id/btnForward"
+                android:nextFocusRight="@id/btnPlayPause"
                 android:nextFocusLeft="@id/btnPrevious"
                 android:nextFocusUp="@id/btnBack" />
 
@@ -204,9 +204,31 @@
                 android:textSize="18sp"
                 android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="@id/btnRewind"
-                app:layout_constraintEnd_toStartOf="@id/tvDuration"
+                app:layout_constraintEnd_toStartOf="@id/btnPlayPause"
                 app:layout_constraintStart_toEndOf="@id/btnRewind"
                 app:layout_constraintTop_toTopOf="@id/btnRewind" />
+
+        <!-- Play/Pause -->
+        <ImageButton
+                android:id="@+id/btnPlayPause"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/tv_button_selector"
+                android:contentDescription="@string/play"
+                android:focusable="true"
+                android:src="@drawable/play_circle_outline"
+                android:scaleType="centerInside"
+                android:padding="16dp"
+                app:layout_constraintBottom_toBottomOf="@id/btnRewind"
+                app:layout_constraintEnd_toStartOf="@id/tvDuration"
+                app:layout_constraintStart_toEndOf="@id/tvCurrentTime"
+                app:layout_constraintTop_toTopOf="@id/btnRewind"
+                app:tint="@android:color/white"
+                android:nextFocusLeft="@id/btnRewind"
+                android:nextFocusRight="@id/btnForward"
+                android:nextFocusUp="@id/btnBack" />
 
         <!-- Длительность -->
         <TextView
@@ -220,7 +242,7 @@
                 android:textSize="18sp"
                 app:layout_constraintBottom_toBottomOf="@id/btnForward"
                 app:layout_constraintEnd_toStartOf="@id/btnForward"
-                app:layout_constraintStart_toEndOf="@id/tvCurrentTime"
+                app:layout_constraintStart_toEndOf="@id/btnPlayPause"
                 app:layout_constraintTop_toTopOf="@id/btnForward" />
 
         <!-- Перемотка вперёд -->
@@ -241,7 +263,7 @@
                 app:layout_constraintStart_toEndOf="@id/tvDuration"
                 app:layout_constraintTop_toBottomOf="@id/seekBar"
                 app:tint="@android:color/white"
-                android:nextFocusLeft="@id/btnRewind"
+                android:nextFocusLeft="@id/btnPlayPause"
                 android:nextFocusRight="@id/btnNext"
                 android:nextFocusUp="@id/btnBack" />
 

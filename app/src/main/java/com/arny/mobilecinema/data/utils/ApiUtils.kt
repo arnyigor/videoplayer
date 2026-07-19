@@ -30,12 +30,13 @@ fun getDomainName(url: String): String = try {
     ""
 }
 
-fun String.getWithDomain(location: String): String =
-    when {
-        this.startsWith("http") -> this
+fun String.getWithDomain(location: String): String {
+    val url = trim()
+    return when {
+        url.startsWith("http", ignoreCase = true) -> url
         else -> {
             val domain = getDomainName(location).trimEnd('/')
-            val path = this.trimStart('/')
+            val path = url.trimStart('/')
             if (domain.isNotBlank() && path.isNotBlank()) {
                 "$domain/$path"
             } else {
@@ -43,6 +44,7 @@ fun String.getWithDomain(location: String): String =
             }
         }
     }
+}
 
 sealed class ConnectionType(open val speedKbps: Int) {
     object NONE : ConnectionType(0)
