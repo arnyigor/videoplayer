@@ -115,6 +115,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
     private var isUpdatingDb = false
     private var isCancellingUpdate = false
     private var autoUpdateRequestedForUrl: String? = null
+    private var suppressProgressDialogForCurrentUpdate = false
 
     private val updateReceiver by lazy { makeBroadcastReceiver() }
 
@@ -252,6 +253,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
 
         isCancellingUpdate = true
         isUpdatingDb = false
+        suppressProgressDialogForCurrentUpdate = false
         updatePlayActionState()
 
         val dialog = childFragmentManager.findFragmentByTag(
@@ -309,7 +311,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
             }
 
             is TvDetailsAction.NavigateToUpdate -> {
-                requestMovieUpdate(action.url)
+                requestMovieUpdate(action.url, showProgressDialog = true)
             }
         }
     }
@@ -355,7 +357,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         }
 
         addSearchRows(movie)
-        requestAutoUpdateIfNeeded(movie)
+        view?.post { requestAutoUpdateIfNeeded(movie) }
     }
 
     private fun requestAutoUpdateIfNeeded(movie: Movie) {
@@ -365,7 +367,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         if (isUpdatingDb || autoUpdateRequestedForUrl == pageUrl) return
 
         autoUpdateRequestedForUrl = pageUrl
-        requestMovieUpdate(pageUrl)
+        requestMovieUpdate(pageUrl, showProgressDialog = false)
     }
 
     private fun Movie.isDataOutdated(): Boolean {
@@ -373,14 +375,17 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         return updated <= 0L || System.currentTimeMillis() - updated > AUTO_UPDATE_MAX_AGE_MS
     }
 
-    private fun requestMovieUpdate(url: String) {
+    private fun requestMovieUpdate(url: String, showProgressDialog: Boolean) {
         isUpdatingDb = true
         isCancellingUpdate = false
+        suppressProgressDialogForCurrentUpdate = !showProgressDialog
         updatePlayActionState()
-        showUpdateProgressDialog(
-            progress = -1,
-            stage = getString(R.string.updating_all)
-        )
+        if (showProgressDialog) {
+            showUpdateProgressDialog(
+                progress = -1,
+                stage = getString(R.string.updating_all)
+            )
+        }
         requireContext().sendServiceMessage(
             Intent(requireContext().applicationContext, UpdateService::class.java),
             AppConstants.ACTION_UPDATE_BY_URL
@@ -710,10 +715,12 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                     isUpdatingDb = true
                     isCancellingUpdate = false
                     updatePlayActionState()
-                    showUpdateProgressDialog(
-                        progress = -1,
-                        stage = getString(R.string.updating_all)
-                    )
+                    if (!suppressProgressDialogForCurrentUpdate) {
+                        showUpdateProgressDialog(
+                            progress = -1,
+                            stage = getString(R.string.updating_all)
+                        )
+                    }
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_PROGRESS -> {
@@ -722,15 +729,18 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                     val percent = intent.getIntExtra("progress_percent", -1)
                     val percentText = if (percent in 0..100) "$percent%" else null
 
-                    updateUpdateProgressDialog(
-                        progress = percent,
-                        stage = percentText,
-                    )
+                    if (!suppressProgressDialogForCurrentUpdate) {
+                        updateUpdateProgressDialog(
+                            progress = percent,
+                            stage = percentText,
+                        )
+                    }
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
                     isUpdatingDb = false
                     isCancellingUpdate = false
+                    suppressProgressDialogForCurrentUpdate = false
                     updatePlayActionState()
                     hideUpdateProgressDialog()
                     Toast.makeText(
@@ -744,6 +754,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
                     isUpdatingDb = false
                     isCancellingUpdate = false
+                    suppressProgressDialogForCurrentUpdate = false
                     updatePlayActionState()
                     hideUpdateProgressDialog()
                     val errorMsg = intent.getStringExtra("error_message")
@@ -754,6 +765,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 AppConstants.ACTION_UPDATE_STATUS_CANCELLED -> {
                     isUpdatingDb = false
                     isCancellingUpdate = false
+                    suppressProgressDialogForCurrentUpdate = false
                     updatePlayActionState()
                     hideUpdateProgressDialog()
                     Toast.makeText(
