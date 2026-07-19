@@ -357,22 +357,32 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         }
 
         addSearchRows(movie)
-        view?.post { requestAutoUpdateIfNeeded(movie) }
+        view?.post { showUpdateDialogIfNeeded(movie) }
     }
 
-    private fun requestAutoUpdateIfNeeded(movie: Movie) {
+    private fun showUpdateDialogIfNeeded(movie: Movie) {
         val pageUrl = movie.pageUrl
         if (pageUrl.isBlank()) return
-        if (!movie.isDataOutdated()) return
         if (isUpdatingDb || autoUpdateRequestedForUrl == pageUrl) return
+        if (!movie.isDataOutdated() && movie.hasPlayableLinks()) return
 
         autoUpdateRequestedForUrl = pageUrl
-        requestMovieUpdate(pageUrl, showProgressDialog = false)
+        showUpdateDialog()
     }
 
     private fun Movie.isDataOutdated(): Boolean {
         val updated = info.updated
         return updated <= 0L || System.currentTimeMillis() - updated > AUTO_UPDATE_MAX_AGE_MS
+    }
+
+    private fun Movie.hasPlayableLinks(): Boolean = when (type) {
+        MovieType.CINEMA -> prepareSourcesList(this).isNotEmpty()
+        MovieType.SERIAL -> seasons.any { season ->
+            season.episodes.any { episode ->
+                episode.hls.isNotBlank() || episode.dash.isNotBlank()
+            }
+        }
+        else -> false
     }
 
     private fun requestMovieUpdate(url: String, showProgressDialog: Boolean) {
