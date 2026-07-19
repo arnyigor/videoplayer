@@ -723,7 +723,13 @@ override fun onResume() {
         }
 
         private fun updatePlayButtonEnabled() {
-            _binding?.btnPlay?.isEnabled = !isAutoUpdateRunning
+            _binding?.btnPlay?.apply {
+                val enabled = !isAutoUpdateRunning
+                isEnabled = enabled
+                isClickable = enabled
+                alpha = if (enabled) 1f else 0.5f
+                text = getString(if (enabled) R.string.watch else R.string.please_wait)
+            }
         }
 
         private fun updateDownloadedData(data: MovieDownloadedData?) {
@@ -1047,6 +1053,11 @@ override fun onResume() {
         }
 
         private fun playMovie() {
+            if (isAutoUpdateRunning) {
+                toast(getString(R.string.please_wait))
+                return
+            }
+
             currentMovie?.let { movie ->
                 val connectionType = getConnectionType(requireContext())
 
@@ -1087,6 +1098,8 @@ override fun onResume() {
         }
 
         private fun navigateToPlayer(movie: Movie) {
+            if (isAutoUpdateRunning) return
+
             val popupItems = getCinemaUrlsItems(movie)
             currentLinkPosition = binding.spinLinks.selectedItemPosition
 
