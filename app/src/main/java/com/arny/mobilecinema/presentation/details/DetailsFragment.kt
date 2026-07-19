@@ -114,6 +114,7 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
                     updateCurrentSerialPosition()
                     currentEpisodePosition = 0
                     fillSpinners(currentMovie)
+                    currentMovie?.let { updateLinksSpinner(it) }
                     viewModel.handleEvent(
                         DetailsEvent.SerialPositionChanged(
                             currentSeasonPosition,
@@ -133,6 +134,7 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (isUserTouchEpisodes) {
                     updateCurrentSerialPosition()
+                    currentMovie?.let { updateLinksSpinner(it) }
                     viewModel.handleEvent(
                         DetailsEvent.SerialPositionChanged(
                             currentSeasonPosition,
@@ -153,7 +155,7 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
                 if (isUserTouchLinks) {
                     currentLinkPosition = position
                     currentMovie?.let { curMovie ->
-                        val items = getCinemaUrlsItems(curMovie)
+                        val items = getVideoUrlsItems(curMovie)
                         val url = items.getOrNull(position)?.second
                         viewModel.handleEvent(DetailsEvent.SelectedUrlChanged(url, true))
                     }
@@ -790,33 +792,10 @@ override fun onResume() {
                     }
 
                     fillSpinners(movie)
+                    updateLinksSpinner(movie)
                     cardSeasons.isVisible = true
                 } else {
-                    val popupItems = getCinemaUrlsItems(movie)
-                    val sizeMoreOne = popupItems.size > 1
-
-                    cardLinks.isVisible = sizeMoreOne
-
-                    if (sizeMoreOne) {
-                        val previouslySelectedUrl = currentMovie?.cinemaUrlData?.let { data ->
-                            data.hdUrl?.urls?.firstOrNull { it.isNotBlank() }
-                                ?: data.cinemaUrl?.urls?.firstOrNull { it.isNotBlank() }
-                        }
-
-                        spinLinks.updateSpinnerItems(linksChangeListener)
-                        linksAdapter?.clear()
-                        linksAdapter?.addAll(popupItems.map { it.first })
-
-                        val newIndex = popupItems.indexOfFirst { it.second == previouslySelectedUrl }
-                            .takeIf { it >= 0 } ?: 0
-                        spinLinks.setSelection(newIndex, false)
-                    }
-
-                    if (popupItems.isNotEmpty()) {
-                        viewModel.handleEvent(
-                            DetailsEvent.SelectedUrlChanged(popupItems[0].second, false)
-                        )
-                    }
+                    updateLinksSpinner(movie)
                 }
             }
         }
@@ -860,7 +839,39 @@ override fun onResume() {
             return "%s %s".format(Locale.getDefault(), it.episode, getString(R.string.spinner_episode))
         }
 
-    private fun getCinemaUrlsItems(movie: Movie): List<Pair<String, String>> {
+        private fun updateLinksSpinner(movie: Movie) {
+            val popupItems = getVideoUrlsItems(movie)
+            val sizeMoreOne = popupItems.size > 1
+
+            binding.cardLinks.isVisible = sizeMoreOne
+
+            if (sizeMoreOne) {
+                binding.spinLinks.updateSpinnerItems(linksChangeListener)
+                linksAdapter?.clear()
+                linksAdapter?.addAll(popupItems.map { it.first })
+
+                val newIndex = currentLinkPosition.coerceIn(0, popupItems.lastIndex)
+                currentLinkPosition = newIndex
+                binding.spinLinks.setSelection(newIndex, false)
+            }
+
+            if (popupItems.isNotEmpty()) {
+                viewModel.handleEvent(
+                    DetailsEvent.SelectedUrlChanged(
+                        popupItems[currentLinkPosition.coerceIn(0, popupItems.lastIndex)].second,
+                        false
+                    )
+                )
+            }
+        }
+
+        private fun getVideoUrlsItems(movie: Movie): List<Pair<String, String>> = when (movie.type) {
+            MovieType.CINEMA -> getCinemaUrlsItems(movie)
+            MovieType.SERIAL -> getSerialEpisodeUrlsItems(movie)
+            else -> emptyList()
+        }
+
+        private fun getCinemaUrlsItems(movie: Movie): List<Pair<String, String>> {
             val cinemaUrlData = movie.cinemaUrlData
             val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty().filter { it.isNotBlank() }
             val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty().filter { it.isNotBlank() }
@@ -869,9 +880,26 @@ override fun onResume() {
             return fullLinkList.mapIndexed { index, url ->
                 val type = if (url in hdUrls) "HD" else "SD"
                 getString(R.string.link_format, "${index + 1} $type (${url.toShortLinkLabel()})") to url
-            }.takeIf {
-                movie.type == MovieType.CINEMA
-            }.orEmpty()
+            }
+        }
+
+        private fun getSerialEpisodeUrlsItems(movie: Movie): List<Pair<String, String>> {
+            val episode = movie.seasons
+                .sortedBy { it.id }
+                .getOrNull(currentSeasonPosition)
+                ?.episodes
+                ?.sortedBy { findByGroup(it.episode, "(\\d+)".toRegex(), 1)?.toIntOrNull() ?: 0 }
+                ?.getOrNull(currentEpisodePosition)
+                ?: return emptyList()
+            val urls = listOf(
+                "HD" to episode.dash,
+                "SD" to episode.hls
+            ).filter { (_, url) -> url.isNotBlank() }
+                .distinctBy { (_, url) -> url }
+
+            return urls.mapIndexed { index, (type, url) ->
+                getString(R.string.link_format, "${index + 1} $type (${url.toShortLinkLabel()})") to url
+            }
         }
 
         private fun String.toShortLinkLabel(): String {
@@ -1100,23 +1128,23 @@ override fun onResume() {
         private fun navigateToPlayer(movie: Movie) {
             if (isAutoUpdateRunning) return
 
-            val popupItems = getCinemaUrlsItems(movie)
+            val popupItems = getVideoUrlsItems(movie)
             currentLinkPosition = binding.spinLinks.selectedItemPosition
+            val selectedUrl = popupItems
+                .getOrNull(currentLinkPosition)
+                ?.second
+                ?: popupItems.firstOrNull()?.second
 
-            if (movie.type == MovieType.CINEMA && popupItems.size > 1) {
-                currentLinkPosition = 0
-            }
-
-if (movie.type == MovieType.CINEMA) {
+            if (movie.type == MovieType.CINEMA) {
                 findNavController().navigate(
                     R.id.nav_player_view,
-                    bundleOf("path" to null, "movie" to movie)
+                    bundleOf("path" to selectedUrl, "movie" to movie)
                 )
             } else {
                 findNavController().navigate(
                     R.id.nav_player_view,
                     bundleOf(
-                        "path" to null,
+                        "path" to selectedUrl,
                         "movie" to movie,
                         "seasonIndex" to currentSeasonPosition,
                         "episodeIndex" to currentEpisodePosition

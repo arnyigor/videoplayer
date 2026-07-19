@@ -219,14 +219,15 @@ private fun resolvePosition(
 
     fun retryOpenCinema(
         errorUrl: String?,
+        currentUrl: String?,
         serialEpisode: SerialEpisode?,
     ) {
         val state = _uiState.value
         val excludeUrls = state.excludeUrls.toMutableSet()
 
-        if (!errorUrl.isNullOrBlank()) {
-            excludeUrls.add(errorUrl)
-        }
+        listOfNotNull(errorUrl, currentUrl)
+            .filter { it.isNotBlank() }
+            .forEach { excludeUrls.add(it) }
 
         var nextCinemaUrl: String? = null
         var hasAnyUrls = false
@@ -242,8 +243,8 @@ private fun resolvePosition(
             MovieType.SERIAL -> {
                 if (serialEpisode != null) {
                     nextCinemaUrl = when {
-                        serialEpisode.hls.isNotBlank() && serialEpisode.hls !in excludeUrls -> serialEpisode.hls
                         serialEpisode.dash.isNotBlank() && serialEpisode.dash !in excludeUrls -> serialEpisode.dash
+                        serialEpisode.hls.isNotBlank() && serialEpisode.hls !in excludeUrls -> serialEpisode.hls
                         else -> null
                     }
                 }

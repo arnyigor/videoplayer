@@ -650,7 +650,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     seasonIndex = seasonIndex,
                     episodeIndex = episodeIndex,
                     position = 0L,
-                    excludeUrls = tvExcludeUrls
+                    excludeUrls = tvExcludeUrls,
+                    selectedUrl = args.sharedUrl.takeIf { it.isNotBlank() }
                 )
 
             } catch (e: Exception) {
@@ -665,7 +666,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         seasonIndex: Int?,
         episodeIndex: Int?,
         position: Long,
-        excludeUrls: Set<String>
+        excludeUrls: Set<String>,
+        selectedUrl: String? = null
     ) {
         val seasons = movie.seasons
         serialSeasons = seasons.sortedBy { it.id }
@@ -685,7 +687,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 seasonIndex = seasonIndex,
                 episodeIndex = episodeIndex,
                 allEpisodes = allEpisodes,
-                excludeUrls = excludeUrls
+                excludeUrls = excludeUrls,
+                selectedUrl = selectedUrl
             )
 
             Timber.d("setSerialUrls: Selected target index: $currentEpisodeIndex")
@@ -708,7 +711,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 seasonIndex = seasonIndex,
                 episodeIndex = episodeIndex,
                 allEpisodes = allEpisodes,
-                excludeUrls = excludeUrls
+                excludeUrls = excludeUrls,
+                selectedUrl = selectedUrl
             )
 
             if (currentEpisodeIndex == 0 && player?.mediaItemCount == 0) {
@@ -731,7 +735,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         seasonIndex: Int?,
         episodeIndex: Int?,
         allEpisodes: List<SerialEpisode>,
-        excludeUrls: Set<String>
+        excludeUrls: Set<String>,
+        selectedUrl: String? = null
     ): Int {
         var currentIndexEpisode = 0
         val mediaSources = mutableListOf<MediaSource>()
@@ -749,12 +754,10 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     }
                 }
 
-                // Логика выбора URL: HD DASH (mpd) приоритетнее HLS, HLS остается фолбэком.
-                val preferDash = episode.dash.contains(".mpd", ignoreCase = true)
+                // На TV обычный HLS безопаснее как дефолт: HD DASH можно выбрать явно в источниках.
+                val isSelectedEpisode = seasonIndex == s && episodeIndex == e
                 val url = when {
-                    excludeUrls.isEmpty() && preferDash -> episode.dash
-                    excludeUrls.isEmpty() -> episode.hls.ifBlank { episode.dash }
-                    preferDash && episode.dash.isNotBlank() && episode.dash !in excludeUrls -> episode.dash
+                    isSelectedEpisode && !selectedUrl.isNullOrBlank() && selectedUrl !in excludeUrls -> selectedUrl
                     episode.hls.isNotBlank() && episode.hls !in excludeUrls -> episode.hls
                     episode.dash.isNotBlank() && episode.dash !in excludeUrls -> episode.dash
                     else -> episode.hls.ifBlank { episode.dash } // Фолбэк если оба были исключены (редкий кейс, но защита от NPE)

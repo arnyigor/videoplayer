@@ -171,6 +171,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 is EpisodeItem -> {
                     selectedSeasonIndex = item.seasonIndex
                     selectedEpisodeIndex = item.episodeIndex
+                    selectedSourceIndex = 0
                     navigateToPlayer(item.seasonIndex, item.episodeIndex)
                 }
 
@@ -189,6 +190,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 is EpisodeItem -> {
                     selectedSeasonIndex = item.seasonIndex
                     selectedEpisodeIndex = item.episodeIndex
+                    selectedSourceIndex = 0
+                    updateSourcesRow(currentMovie)
                 }
 
                 is SourceItem -> selectedSourceIndex = item.index
@@ -353,6 +356,11 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 if (movie.seasons.isNotEmpty()) {
                     addSeasonsRow(movie)
                     addEpisodesRow(movie)
+                    sources = prepareSourcesList(movie)
+                    selectedSourceIndex = sources.indexOfFirst { it.quality != "HD" }.takeIf { it >= 0 } ?: 0
+                    if (sources.isNotEmpty()) {
+                        addSourcesRow(sources)
+                    }
                 }
             }
 
@@ -479,7 +487,13 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
             })
     }
 
-    private fun prepareSourcesList(movie: Movie): List<SourceItem> {
+    private fun prepareSourcesList(movie: Movie): List<SourceItem> = when (movie.type) {
+        MovieType.CINEMA -> prepareCinemaSourcesList(movie)
+        MovieType.SERIAL -> prepareSerialEpisodeSourcesList(movie)
+        else -> emptyList()
+    }
+
+    private fun prepareCinemaSourcesList(movie: Movie): List<SourceItem> {
         val cinemaUrlData: CinemaUrlData = movie.cinemaUrlData ?: return emptyList()
 
         val hdUrls = cinemaUrlData.hdUrl?.urls.orEmpty().filter { it.isNotBlank() }
@@ -488,15 +502,36 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
 
         return allUrls.mapIndexed { index, url ->
             val isHD = url in hdUrls
-            val label = "${if (isHD) "HD" else "SD"} • ${url.toShortSourceLabel()}"
-
-            SourceItem(
-                url = url,
-                label = label,
-                quality = if (isHD) "HD" else "",
-                index = index,
-            )
+            createSourceItem(index, url, isHD)
         }
+    }
+
+    private fun prepareSerialEpisodeSourcesList(movie: Movie): List<SourceItem> {
+        val episode = movie.seasons
+            .sortedBy { it.id }
+            .getOrNull(selectedSeasonIndex)
+            ?.episodes
+            ?.sortedBy { it.episode.toIntOrNull() ?: 0 }
+            ?.getOrNull(selectedEpisodeIndex)
+            ?: return emptyList()
+
+        val urls = listOf(
+            true to episode.dash,
+            false to episode.hls
+        ).filter { (_, url) -> url.isNotBlank() }
+            .distinctBy { (_, url) -> url }
+
+        return urls.mapIndexed { index, (isHD, url) -> createSourceItem(index, url, isHD) }
+    }
+
+    private fun createSourceItem(index: Int, url: String, isHD: Boolean): SourceItem {
+        val label = "${if (isHD) "HD" else "SD"} • ${url.toShortSourceLabel()}"
+        return SourceItem(
+            url = url,
+            label = label,
+            quality = if (isHD) "HD" else "",
+            index = index,
+        )
     }
 
     private fun String.toShortSourceLabel(): String {
@@ -544,6 +579,10 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
     }
 
     private fun addSourcesRow(sources: List<SourceItem>) {
+        detailsAdapter.add(createSourcesRow(sources))
+    }
+
+    private fun createSourcesRow(sources: List<SourceItem>): ListRow {
         val header = HeaderItem(ROW_ID_SOURCES, getString(R.string.available_sources))
         val rowAdapter = ArrayObjectAdapter(TvSourceCardPresenter())
 
@@ -551,7 +590,21 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
             rowAdapter.add(source)
         }
 
-        detailsAdapter.add(ListRow(header, rowAdapter))
+        return ListRow(header, rowAdapter)
+    }
+
+    private fun updateSourcesRow(movie: Movie?) {
+        if (movie?.type != MovieType.SERIAL) return
+        sources = prepareSourcesList(movie)
+        selectedSourceIndex = selectedSourceIndex.coerceIn(0, (sources.size - 1).coerceAtLeast(0))
+        val rowIndex = (0 until detailsAdapter.size()).firstOrNull { index ->
+            (detailsAdapter[index] as? ListRow)?.headerItem?.id == ROW_ID_SOURCES
+        }
+        when {
+            rowIndex != null && sources.isNotEmpty() -> detailsAdapter.replace(rowIndex, createSourcesRow(sources))
+            rowIndex != null -> detailsAdapter.removeItems(rowIndex, 1)
+            sources.isNotEmpty() -> addSourcesRow(sources)
+        }
     }
 
     private fun addSearchRows(movie: Movie) {
@@ -626,7 +679,9 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                     }
 
                     MovieType.SERIAL -> {
-                        navigateToPlayer(selectedSeasonIndex, selectedEpisodeIndex)
+                        val selectedUrl = sources.firstOrNull { it.quality != "HD" }?.url
+                            ?: sources.firstOrNull()?.url
+                        navigateToPlayer(selectedSeasonIndex, selectedEpisodeIndex, selectedUrl.orEmpty())
                     }
 
                     else -> navigateToPlayer()
@@ -682,7 +737,11 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         getString(R.string.add_to_favorites)
     }
 
-    private fun navigateToPlayer(seasonIndex: Int = 0, episodeIndex: Int = 0) {
+    private fun navigateToPlayer(
+        seasonIndex: Int = 0,
+        episodeIndex: Int = 0,
+        selectedUrl: String = ""
+    ) {
         if (isUpdatingDb) {
             Toast.makeText(requireContext(), R.string.please_wait, Toast.LENGTH_SHORT).show()
             return
@@ -692,7 +751,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
             R.id.tvPlayerFragment,
             bundleOf(
                 "movieId" to args.movieId,
-                "sharedUrl" to "",
+                "sharedUrl" to selectedUrl,
                 "seasonIndex" to seasonIndex,
                 "episodeIndex" to episodeIndex,
             )
@@ -710,8 +769,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
             bundleOf(
                 "movieId" to args.movieId,
                 "sharedUrl" to url,
-                "seasonIndex" to 0,
-                "episodeIndex" to 0,
+                "seasonIndex" to selectedSeasonIndex,
+                "episodeIndex" to selectedEpisodeIndex,
             )
         )
     }

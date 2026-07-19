@@ -209,8 +209,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             toast(lastError)
             viewModel.setLastPlayerError(lastError)
             val errorUrl = getErrorUrl(error)
+            val currentUrl = getCurrentPlaybackUrl()
             val serialEpisode = allEpisodes.getOrNull(currentEpisodeIndex)
-            viewModel.retryOpenCinema(errorUrl, serialEpisode)
+            viewModel.retryOpenCinema(errorUrl, currentUrl, serialEpisode)
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -879,7 +880,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                         seasonIndex = seasonIndex,
                         episodeIndex = episodeIndex,
                         position = time,
-                        excludeUrls = excludeUrls
+                        excludeUrls = excludeUrls,
+                        selectedUrl = path
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -899,7 +901,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         seasonIndex: Int?,
         episodeIndex: Int?,
         position: Long,
-        excludeUrls: Set<String>
+        excludeUrls: Set<String>,
+        selectedUrl: String? = null
     ) {
         val serialSeasons = movie.seasons.sortedBy { it.id }
         allEpisodes = serialSeasons.flatMap { season ->
@@ -915,7 +918,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 seasonIndex = seasonIndex,
                 episodeIndex = episodeIndex,
                 allEpisodes = allEpisodes,
-                excludeUrls = excludeUrls
+                excludeUrls = excludeUrls,
+                selectedUrl = selectedUrl
             )
             binding.playerView.setShowNextButton(size > 0)
             binding.playerView.setShowPreviousButton(size > 0)
@@ -936,7 +940,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         seasonIndex: Int?,
         episodeIndex: Int?,
         allEpisodes: List<SerialEpisode>,
-        excludeUrls: Set<String>
+        excludeUrls: Set<String>,
+        selectedUrl: String? = null
     ): Int {
         var currentIndexEpisode = 0
         val mediaSources = mutableListOf<MediaSource>()
@@ -952,7 +957,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 }
 
                 val preferDash = episode.dash.contains(".mpd", ignoreCase = true)
+                val isSelectedEpisode = seasonIndex == s && episodeIndex == e
                 val url = when {
+                    isSelectedEpisode && !selectedUrl.isNullOrBlank() && selectedUrl !in excludeUrls -> selectedUrl
                     excludeUrls.isEmpty() && preferDash -> episode.dash
                     excludeUrls.isEmpty() -> episode.hls.ifBlank { episode.dash }
                     preferDash && episode.dash.isNotBlank() && episode.dash !in excludeUrls -> episode.dash
@@ -978,6 +985,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
         return currentIndexEpisode
     }
+
+    private fun getCurrentPlaybackUrl(): String? =
+        player?.currentMediaItem?.localConfiguration?.uri?.toString()
 
     private fun saveCurrentPosition(exoPlayer: ExoPlayer) {
         val position = exoPlayer.currentPosition
