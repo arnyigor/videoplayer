@@ -69,6 +69,10 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
     import org.koin.android.ext.android.inject
 
     class DetailsFragment : Fragment(R.layout.f_details) {
+        private companion object {
+            const val AUTO_UPDATE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
+        }
+
         private val args: DetailsFragmentArgs by navArgs()
 
         private val viewModel: DetailsViewModel by viewModel { parametersOf(args.id) }
@@ -93,6 +97,8 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
         private var downloadAll: Boolean = false
         private var canDownload: Boolean = false
         private var feedbackText = ""
+        private var isAutoUpdateRunning = false
+        private var autoUpdateRequestedForUrl: String? = null
 
         // Touch flags для Spinners
         private var isUserTouchSeasons = false
@@ -465,12 +471,7 @@ override fun onResume() {
                 }
 
                 is DetailsAction.NavigateToUpdate -> {
-                    requireContext().sendServiceMessage(
-                        Intent(requireContext().applicationContext, UpdateService::class.java),
-                        AppConstants.ACTION_UPDATE_BY_URL
-                    ) {
-                        putString(AppConstants.SERVICE_PARAM_UPDATE_URL, action.url)
-                    }
+                    requestMovieUpdate(action.url)
                 }
 
                 is DetailsAction.RequestDownload -> {
@@ -499,6 +500,33 @@ override fun onResume() {
             updateSpinData(movie)
             initUI(movie)
             initButtons(movie)
+            requestAutoUpdateIfNeeded(movie)
+        }
+
+        private fun requestAutoUpdateIfNeeded(movie: Movie) {
+            val pageUrl = movie.pageUrl
+            if (pageUrl.isBlank()) return
+            if (!movie.isDataOutdated()) return
+            if (isAutoUpdateRunning || autoUpdateRequestedForUrl == pageUrl) return
+
+            autoUpdateRequestedForUrl = pageUrl
+            isAutoUpdateRunning = true
+            updatePlayButtonEnabled()
+            requestMovieUpdate(pageUrl)
+        }
+
+        private fun Movie.isDataOutdated(): Boolean {
+            val updated = info.updated
+            return updated <= 0L || System.currentTimeMillis() - updated > AUTO_UPDATE_MAX_AGE_MS
+        }
+
+        private fun requestMovieUpdate(url: String) {
+            requireContext().sendServiceMessage(
+                Intent(requireContext().applicationContext, UpdateService::class.java),
+                AppConstants.ACTION_UPDATE_BY_URL
+            ) {
+                putString(AppConstants.SERVICE_PARAM_UPDATE_URL, url)
+            }
         }
 
         private fun initUI(movie: Movie) {
@@ -687,7 +715,13 @@ override fun onResume() {
                     }
                     btnPlay.isVisible = hasAnyLink
                 }
+
+                updatePlayButtonEnabled()
             }
+        }
+
+        private fun updatePlayButtonEnabled() {
+            _binding?.btnPlay?.isEnabled = !isAutoUpdateRunning
         }
 
         private fun updateDownloadedData(data: MovieDownloadedData?) {
@@ -1115,7 +1149,15 @@ if (movie.type == MovieType.CINEMA) {
                 if (intent != null) {
                     when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
                         AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+                            isAutoUpdateRunning = false
+                            updatePlayButtonEnabled()
                             viewModel.handleEvent(DetailsEvent.LoadMovie)
+                        }
+
+                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR,
+                        AppConstants.ACTION_UPDATE_STATUS_CANCELLED -> {
+                            isAutoUpdateRunning = false
+                            updatePlayButtonEnabled()
                         }
                     }
                 }
