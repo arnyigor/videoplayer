@@ -208,9 +208,19 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         }
     }
 
-    private fun showUpdateDialog() {
+    private fun showUpdateDialog(movie: Movie? = currentMovie) {
         if (childFragmentManager.findFragmentByTag(TvUpdateDialogFragment.TAG) != null) return
-        TvUpdateDialogFragment.newInstance().show(childFragmentManager, TvUpdateDialogFragment.TAG)
+
+        val title = getString(R.string.update_attention)
+        val message = movie?.title
+            ?.takeIf { it.isNotBlank() }
+            ?.let { movieTitle -> "$movieTitle\n\n${getString(R.string.update_description)}" }
+            ?: getString(R.string.update_description)
+
+        TvUpdateDialogFragment.newInstance(
+            title = title,
+            message = message
+        ).show(childFragmentManager, TvUpdateDialogFragment.TAG)
     }
 
     private fun showUpdateProgressDialog(progress: Int = -1, stage: String? = null) {
@@ -367,7 +377,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         if (!movie.isDataOutdated() && movie.hasPlayableLinks()) return
 
         autoUpdateRequestedForUrl = pageUrl
-        showUpdateDialog()
+        showUpdateDialog(movie)
     }
 
     private fun Movie.isDataOutdated(): Boolean {
@@ -628,7 +638,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 if (isUpdatingDb) {
                     showUpdateProgressDialog()
                 } else {
-                    showUpdateDialog()
+                    showUpdateDialog(currentMovie)
                 }
             }
         }
