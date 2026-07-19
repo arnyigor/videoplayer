@@ -13,6 +13,7 @@
     import androidx.core.app.NotificationCompat
     import androidx.lifecycle.LifecycleService
     import androidx.lifecycle.lifecycleScope
+    import com.arny.mobilecinema.BuildConfig
     import com.arny.mobilecinema.R
     import com.arny.mobilecinema.data.models.DataResultWithProgress
     import com.arny.mobilecinema.data.models.DataThrowable
@@ -78,6 +79,42 @@
     import kotlinx.coroutines.CoroutineScope
     import kotlinx.coroutines.currentCoroutineContext
     import kotlinx.coroutines.isActive
+
+    internal fun normalizeUpdateUrl(
+        url: String,
+        entryPointBaseUrl: String,
+        savedBaseUrl: String
+    ): String {
+        val trimmedUrl = url.trim()
+        return when {
+            trimmedUrl.startsWith("http://", ignoreCase = true) ||
+                    trimmedUrl.startsWith("https://", ignoreCase = true) -> trimmedUrl
+
+            trimmedUrl.startsWith("//") -> "https:$trimmedUrl"
+
+            else -> {
+                val baseUrl = getUpdateBaseUrl(entryPointBaseUrl, savedBaseUrl)
+                if (baseUrl.isBlank()) {
+                    throw IllegalArgumentException("Base URL is empty for relative URL: $trimmedUrl")
+                }
+                "$baseUrl/${trimmedUrl.trimStart('/')}"
+            }
+        }
+    }
+
+    internal fun getUpdateBaseUrl(entryPointBaseUrl: String, savedBaseUrl: String): String {
+        val normalizedEntryPointBaseUrl = entryPointBaseUrl.trim().trimEnd('/')
+        if (normalizedEntryPointBaseUrl.startsWith("http://", ignoreCase = true) ||
+            normalizedEntryPointBaseUrl.startsWith("https://", ignoreCase = true)
+        ) {
+            return normalizedEntryPointBaseUrl
+        }
+
+        return savedBaseUrl.trim().trimEnd('/').takeIf {
+            it.startsWith("http://", ignoreCase = true) ||
+                    it.startsWith("https://", ignoreCase = true)
+        }.orEmpty()
+    }
 
     class UpdateService : LifecycleService(), KoinComponent {
         private companion object {
@@ -220,9 +257,11 @@
          */
         private suspend fun getPageData(url: String?) {
             if (!url.isNullOrBlank()) {
+                val normalizedUrl = normalizeUpdateUrl(url)
+
                 // --- 1. Парсим movieId из URL ------------------------------------
                 val movieId = Regex("""/(films|serials)/(\d+)""")
-                    .find(url)
+                    .find(normalizedUrl)
                     ?.groups?.get(2)
                     ?.value
                     ?.toLongOrNull()
@@ -230,7 +269,7 @@
 
                 importedMovieId = movieId   // сохраняем для broadcast-а
 
-                jsoupUpdateInteractor.getPageData(url, true) { data ->
+                jsoupUpdateInteractor.getPageData(normalizedUrl, true) { data ->
                     when (data) {
                         is DataResultWithProgress.Error -> {
                             val message = data.throwable.localizedMessage
@@ -259,6 +298,13 @@
                 throw DataThrowable(R.string.url_is_empty)
             }
         }
+
+        private fun normalizeUpdateUrl(url: String): String =
+            normalizeUpdateUrl(
+                url = url,
+                entryPointBaseUrl = BuildConfig.BASE_LINK,
+                savedBaseUrl = repository.baseUrl
+            )
 
         private suspend fun handleProgress(
             progressMap: Map<String, String>,

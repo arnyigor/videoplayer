@@ -713,17 +713,20 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private fun setScreenRotIconVisible(orientation: Int, reset: Boolean) {
         when (orientation) {
             Configuration.ORIENTATION_PORTRAIT -> {
-                if (reset) resizeModeIndex = 0
-                binding.playerView.resizeMode = resizeModes[resizeModeIndex]
+                if (reset) setPlayerResizeMode(0) else setPlayerResizeMode(resizeModeIndex)
                 binding.ivScreenRotation.isVisible = binding.playerView.isControllerVisible
             }
 
             Configuration.ORIENTATION_LANDSCAPE -> {
-                if (reset) resizeModeIndex = 4
-                binding.playerView.resizeMode = resizeModes[resizeModeIndex]
+                if (reset) setPlayerResizeMode(minOf(1, resizeModes.lastIndex)) else setPlayerResizeMode(resizeModeIndex)
                 binding.ivScreenRotation.isVisible = binding.playerView.isControllerVisible
             }
         }
+    }
+
+    private fun setPlayerResizeMode(index: Int) {
+        resizeModeIndex = index.coerceIn(0, resizeModes.lastIndex)
+        binding.playerView.resizeMode = resizeModes[resizeModeIndex]
     }
 
     private fun initListener() {
@@ -767,11 +770,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun changeResize() {
-        resizeModeIndex += 1
-        if (resizeModeIndex > resizeModes.size - 1) {
-            resizeModeIndex = 0
-        }
-        binding.playerView.resizeMode = resizeModes[resizeModeIndex]
+        val nextIndex = if (resizeModeIndex >= resizeModes.lastIndex) 0 else resizeModeIndex + 1
+        setPlayerResizeMode(nextIndex)
         viewModel.updateResizeModeIndex(resizeModeIndex)
     }
 
@@ -823,9 +823,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
                 launch {
                     viewModel.cachedResizeModeIndex.collectLatest { cachedIndex ->
-                        if (cachedIndex != resizeModeIndex) {
-                            resizeModeIndex = cachedIndex
-                            binding.playerView.resizeMode = resizeModes[resizeModeIndex]
+                        val safeIndex = cachedIndex.coerceIn(0, resizeModes.lastIndex)
+                        if (safeIndex != resizeModeIndex) {
+                            setPlayerResizeMode(safeIndex)
                         }
                     }
                 }
@@ -1133,7 +1133,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             playerView.controller(youtubeOverlay)
             youtubeOverlay.player(player!!)
             playerView.player = player
-            playerView.resizeMode = resizeModes[resizeModeIndex]
+            setPlayerResizeMode(resizeModeIndex)
 
             playerView.setControllerVisibilityListener { visibility ->
                 if (isVisible) {

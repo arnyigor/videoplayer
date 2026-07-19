@@ -820,18 +820,24 @@ override fun onResume() {
 
     private fun getCinemaUrlsItems(movie: Movie): List<Pair<String, String>> {
             val cinemaUrlData = movie.cinemaUrlData
-            val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
-            val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
-            val fullLinkList = (hdUrls + cinemaUrls).filter { it.isNotBlank() }.distinct()
+            val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty().filter { it.isNotBlank() }
+            val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty().filter { it.isNotBlank() }
+            val fullLinkList = (hdUrls + cinemaUrls).distinct()
 
-            return fullLinkList.mapIndexed { index, s ->
-                val afterProtocol = s.substringAfter("://")
-                val host = afterProtocol.substringBefore("/")
-                val extension = afterProtocol.substringAfterLast(".")
-                getString(R.string.link_format, "${index + 1}($host/$extension)") to s
+            return fullLinkList.mapIndexed { index, url ->
+                val type = if (url in hdUrls) "HD" else "SD"
+                getString(R.string.link_format, "${index + 1} $type (${url.toShortLinkLabel()})") to url
             }.takeIf {
                 movie.type == MovieType.CINEMA
             }.orEmpty()
+        }
+
+        private fun String.toShortLinkLabel(): String {
+            val urlWithoutQuery = substringBefore("?")
+            val afterProtocol = urlWithoutQuery.substringAfter("://")
+            val host = afterProtocol.substringBefore("/")
+            val extension = urlWithoutQuery.substringAfterLast(".", "link").uppercase(Locale.getDefault())
+            return "$host/$extension"
         }
 
         private fun getCinemaUrlsRaw(movie: Movie?): List<String> {

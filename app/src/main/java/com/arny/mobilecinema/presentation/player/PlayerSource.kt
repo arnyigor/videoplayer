@@ -44,6 +44,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.security.cert.CertificateException
 import java.util.concurrent.Executors
@@ -53,6 +54,17 @@ import javax.net.ssl.TrustManager
 import javax.net.ssl.X509TrustManager
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+
+internal fun sanitizeDashManifest(manifest: String): String {
+    val hasPrimaryInterkhBaseUrl = Regex("""<BaseURL>https://cdnr\.interkh\.com/[^<]+</BaseURL>""")
+        .containsMatchIn(manifest)
+    if (!hasPrimaryInterkhBaseUrl) return manifest
+
+    return manifest.replace(
+        Regex("""\s*<BaseURL>(?!https://cdnr\.interkh\.com/)[^<]*interkh\.com/[^<]*</BaseURL>"""),
+        ""
+    )
+}
 
 class PlayerSource(
     private val context: Context,
@@ -585,7 +597,7 @@ private fun initCacheFactory() {
      */
     private fun createHttpDataSourceFactory(): DefaultHttpDataSource.Factory {
         return DefaultHttpDataSource.Factory()
-            .setUserAgent("ExoPlayer")
+            .setUserAgent(VIDEO_USER_AGENT)
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(30000)
             .setReadTimeoutMs(30000)
@@ -607,30 +619,63 @@ private fun initCacheFactory() {
         override fun addTransferListener(transferListener: com.google.android.exoplayer2.upstream.TransferListener) {}
 
         override fun open(dataSpec: DataSpec): Long {
-            uri = dataSpec.uri.toString()
+            uri = dataSpec.uri.toString().replace("&amp;", "&")
 
-            val requestBuilder = Request.Builder().url(uri)
-            userAgent?.let { requestBuilder.header("User-Agent", it) }
-            dataSpec.httpRequestHeaders?.forEach { (key, value) ->
-                requestBuilder.header(key, value)
+            val response = executeRequest(dataSpec, includeRange = true).let { response ->
+                if (response.code == 410) {
+                    response.close()
+                    executeRequest(dataSpec, includeRange = false)
+                } else {
+                    response
+                }
             }
-
-            val response = client.newCall(requestBuilder.build()).execute()
             currentConnection = response
 
             if (!response.isSuccessful) {
                 response.close()
-                throw IOException("Unexpected response code: ${response.code}")
+                throw IOException("Unexpected response code: ${response.code} url=$uri")
             }
 
-            currentStream = response.body?.byteStream() ?: throw IOException("Empty response body")
-            val contentLength = response.body?.contentLength() ?: C.LENGTH_UNSET.toLong()
+            val responseBody = response.body ?: throw IOException("Empty response body")
+            if (isDashManifestResponse(response)) {
+                val bytes = sanitizeDashManifest(responseBody.string()).toByteArray(Charsets.UTF_8)
+                currentStream = ByteArrayInputStream(bytes)
+                return bytes.size.toLong()
+            }
 
-            if (dataSpec.position > 0) {
+            currentStream = responseBody.byteStream()
+            if (response.code != 206 && dataSpec.position > 0) {
                 currentStream?.skip(dataSpec.position)
             }
+            return responseBody.contentLength()
+        }
 
-            return contentLength
+        private fun isDashManifestResponse(response: okhttp3.Response): Boolean {
+            val contentType = response.header("Content-Type").orEmpty()
+            return uri.contains(".mpd", ignoreCase = true) ||
+                    contentType.contains("dash+xml", ignoreCase = true)
+        }
+
+        private fun executeRequest(dataSpec: DataSpec, includeRange: Boolean): okhttp3.Response {
+            val requestBuilder = Request.Builder().url(uri)
+            dataSpec.httpRequestHeaders?.forEach { (key, value) ->
+                requestBuilder.header(key, value)
+            }
+            requestBuilder.header("User-Agent", userAgent ?: VIDEO_USER_AGENT)
+            requestBuilder.header("Accept", "*/*")
+            val referer = getReferer(uri)
+            if (referer.isNotBlank()) {
+                requestBuilder.header("Referer", referer)
+            }
+            if (includeRange && (dataSpec.position > 0 || dataSpec.length != C.LENGTH_UNSET.toLong())) {
+                val end = if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
+                    dataSpec.position + dataSpec.length - 1
+                } else {
+                    null
+                }
+                requestBuilder.header("Range", "bytes=${dataSpec.position}-${end ?: ""}")
+            }
+            return client.newCall(requestBuilder.build()).execute()
         }
 
         override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
@@ -662,6 +707,18 @@ private fun initCacheFactory() {
      */
     private fun getUnsafeDataSourceFactory(): DataSource.Factory {
         val unsafeClient = createUnsafeOkHttpClient()
-        return OkHttpDataSourceFactory(unsafeClient, "ExoPlayer")
+        return OkHttpDataSourceFactory(unsafeClient, VIDEO_USER_AGENT)
+    }
+
+    private fun getReferer(url: String): String = when {
+        url.contains("interkh.com", ignoreCase = true) -> "https://api.ortified.ws/"
+        url.contains("ortified.ws", ignoreCase = true) -> "https://mm.anwap.media/"
+        else -> ""
+    }
+
+    private companion object {
+        const val VIDEO_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     }
 }

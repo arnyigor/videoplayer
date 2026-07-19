@@ -256,6 +256,13 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                     viewModel.loadMovies()
                 }
 
+                AppConstants.ACTION_UPDATE_STATUS_PROGRESS -> {
+                    Timber.d(
+                        "Update progress: %d%%",
+                        intent.getIntExtra("progress_percent", -1)
+                    )
+                }
+
                 else -> {                                 // 4️⃣ Неизвестный action
                     Timber.w(
                         "Unknown update status: %s. "

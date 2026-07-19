@@ -19,6 +19,7 @@ import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.data.utils.create
+import com.arny.mobilecinema.data.utils.getDomainName
 import com.arny.mobilecinema.data.utils.saveFileToDownloadFolder
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
@@ -266,7 +267,7 @@ class UpdateRepositoryImpl constructor(
     ) = it.pageUrl == movie.pageUrl && !it.title.equals(movie.title, true)
 
     override suspend fun checkBaseUrl(): Boolean = withContext(Dispatchers.IO) {
-        val baseLink = BuildConfig.BASE_LINK
+        val baseLink = BuildConfig.BASE_LINK.trim().trimEnd('/')
         // ========================================================================
         // STRATEGY 1: Try to parse from the HTML page defined in BuildConfig.
         // Do not make an extra availability check here: on some real devices it can
@@ -277,7 +278,7 @@ class UpdateRepositoryImpl constructor(
                 val extractedUrl = tryParseFromPage(baseLink)
 
                 baseUrl = extractedUrl
-                Timber.tag("BaseUrlChecker").i("Success: URL parsed from page: %s", baseUrl)
+                Timber.tag("BaseUrlChecker").i("Success: URL parsed from entry point page: %s", baseUrl)
                 return@withContext true
             } catch (e: Exception) {
                 Timber.tag("BaseUrlChecker").w(e, "Strategy 1 failed: Could not extract from page.")
@@ -312,9 +313,20 @@ class UpdateRepositoryImpl constructor(
 
     private fun tryParseFromPage(url: String): String {
         val doc = jsoup.loadPage(url = url, timeout = BASE_URL_PAGE_TIMEOUT_MILLIS)
-        return doc.select("ul.tl li a:contains(Фильмы)")
-            .firstOrNull()?.attr("href")?.trimEnd('/')
+        val href = doc.select("ul.tl li a:contains(Фильмы)")
+            .firstOrNull()
+            ?.let { element -> element.absUrl("href").ifBlank { element.attr("href") } }
+            ?.trimEnd('/')
             ?: throw IllegalStateException("Anchor with text 'Фильмы' not found on $url")
+
+        val absoluteHref = when {
+            href.startsWith("//") -> "https:$href"
+            href.startsWith("http://", ignoreCase = true) ||
+                    href.startsWith("https://", ignoreCase = true) -> href
+            href.startsWith("/") -> url.trimEnd('/') + href
+            else -> url.trimEnd('/') + "/" + href
+        }
+        return getDomainName(absoluteHref).trimEnd('/').ifBlank { url.trimEnd('/') }
     }
 
     private suspend fun tryParseFromFile(fileUrl: String): String {

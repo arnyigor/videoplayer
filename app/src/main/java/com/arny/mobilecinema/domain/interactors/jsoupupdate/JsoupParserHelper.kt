@@ -27,6 +27,7 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import timber.log.Timber
 import java.math.BigDecimal
+import java.util.regex.Pattern
 
 fun String.removeDomain(): String =
     this.replace(getDomainName(this) + "/", "")
@@ -294,6 +295,169 @@ fun getSeriyaUrlData(
         fileEnds = "(.txt)"
     ).urls
 }
+
+fun getVenomEmbedUrl(page: Element): String? {
+    val document = page.ownerDocument()
+    val html = document?.html() ?: page.html()
+    val baseUrl = document?.location()?.takeIf { it.isNotBlank() } ?: page.baseUri()
+    val contentType = if (baseUrl.contains("/serials", ignoreCase = true)) "serial" else "movie"
+
+    page.selectFirst("iframe[src~=ortified\\.ws]")
+        ?.attr(Selectors.IFRAME_ATTR)
+        ?.takeIf { it.isNotBlank() }
+        ?.let { return it.fixProtocol(baseUrl) }
+
+    Regex(
+        """((?:https?:)?//api\.ortified\.ws/embed/(?:movie|serial)/\d+(?:[^\s"'<>)]*)?)""",
+        RegexOption.IGNORE_CASE
+    ).find(html)?.groupValues?.get(1)?.let { return it.fixProtocol(baseUrl) }
+
+    Regex("""["']?franchiseID["']?\s*[=:]\s*["']?(\d+)""", RegexOption.IGNORE_CASE)
+        .find(html)
+        ?.groupValues
+        ?.get(1)
+        ?.let { return buildOrtifiedEmbedUrl("api.ortified.ws", contentType, it) }
+
+    val host = Regex("""["']?consumerHost["']?\s*[=:]\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+        .find(html)
+        ?.groupValues
+        ?.get(1)
+        .orEmpty()
+        .ifBlank { "api.ortified.ws" }
+    Regex("""["']?\bid["']?\s*[=:]\s*["']?(\d+)""", RegexOption.IGNORE_CASE)
+        .find(html)
+        ?.groupValues
+        ?.get(1)
+        ?.let { return buildOrtifiedEmbedUrl(host, contentType, it) }
+
+    return null
+}
+
+fun getVenomCinemaUrlData(doc: Document): CinemaUrlData {
+    val html = doc.html()
+    val playerBlock = extractBalancedJsObject(html, "makePlayer(")
+        ?: return CinemaUrlData()
+    val accessToken = extractVenomAccessToken(html)
+
+    val cinemaUrls = listOfNotNull(
+        extractJsStringField(playerBlock, "dash")?.appendQueryToken(accessToken),
+        extractJsStringField(playerBlock, "hls")?.appendQueryToken(accessToken)
+    ).filter { it.isNotBlank() }.distinct()
+    val hdUrls = listOfNotNull(
+        extractJsStringField(playerBlock, "dasha")?.appendQueryToken(accessToken)
+    ).filter { it.isNotBlank() }.distinct()
+
+    return CinemaUrlData(
+        cinemaUrl = cinemaUrls.takeIf { it.isNotEmpty() }?.let { AnwapUrl(urls = it) },
+        hdUrl = hdUrls.takeIf { it.isNotEmpty() }?.let { AnwapUrl(urls = it) }
+    )
+}
+
+private fun extractVenomAccessToken(html: String): String? {
+    val addFunctionIndex = html.indexOf("function add(").takeIf { it >= 0 } ?: 0
+    val tokenMatch = Regex("""\+\s*=?\s*['"](?:&|&amp;)['"]\s*\+\s*([A-Za-z_][A-Za-z0-9_]*)""")
+        .find(html, addFunctionIndex)
+        ?: return null
+    val tokenVar = tokenMatch.groupValues.getOrNull(1) ?: return null
+    return Regex("""(?:var|let|const|,)\s*${Pattern.quote(tokenVar)}\s*=\s*['"]([^'"]+)['"]""")
+        .findAll(html.substring(0, tokenMatch.range.first))
+        .lastOrNull()
+        ?.groupValues
+        ?.getOrNull(1)
+}
+
+private fun String.appendQueryToken(token: String?): String {
+    if (token.isNullOrBlank() || contains(token)) return this
+    return if (contains("?")) "$this&$token" else "$this?$token"
+}
+
+private fun buildOrtifiedEmbedUrl(host: String, contentType: String, id: String): String {
+    val normalizedHost = host
+        .removePrefix("https://")
+        .removePrefix("http://")
+        .substringBefore("/")
+        .ifBlank { "api.ortified.ws" }
+    return "https://$normalizedHost/embed/$contentType/$id"
+}
+
+private fun extractBalancedJsObject(text: String, prefix: String): String? {
+    var startIdx = text.indexOf(prefix)
+    while (startIdx >= 0) {
+        var i = startIdx + prefix.length
+        while (i < text.length && text[i].isWhitespace()) i++
+        if (i < text.length && text[i] == '{') {
+            var depth = 0
+            var stringQuote: Char? = null
+            var escaped = false
+            val sb = StringBuilder()
+
+            while (i < text.length) {
+                val ch = text[i]
+                sb.append(ch)
+
+                when {
+                    stringQuote != null -> {
+                        when {
+                            escaped -> escaped = false
+                            ch == '\\' -> escaped = true
+                            ch == stringQuote -> stringQuote = null
+                        }
+                    }
+
+                    ch == '"' || ch == '\'' -> stringQuote = ch
+                    ch == '{' -> depth++
+                    ch == '}' -> {
+                        depth--
+                        if (depth == 0) return sb.toString()
+                    }
+                }
+                i++
+            }
+
+            return null
+        }
+        startIdx = text.indexOf(prefix, startIdx + prefix.length)
+    }
+
+    return null
+}
+
+private fun extractJsStringField(jsObject: String, fieldName: String): String? {
+    val key = Pattern.quote(fieldName)
+    val patterns = listOf(
+        """"$key"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"""",
+        """'$key'\s*:\s*'([^'\\]*(?:\\.[^'\\]*)*)'""",
+        """\b$key\b\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)""",
+        """\b$key\b\s*:\s*'([^'\\]*(?:\\.[^'\\]*)*)'"""
+    )
+
+    for (pattern in patterns) {
+        Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(jsObject).let { matcher ->
+            if (matcher.find()) return matcher.group(1).unescapeJsString()
+        }
+    }
+
+    return null
+}
+
+private fun String.unescapeJsString(): String =
+    replace("\\\"", "\"")
+        .replace("\\/", "/")
+        .replace("\\n", "\n")
+        .replace("\\r", "\r")
+        .replace("\\t", "\t")
+        .replace("\\\\", "\\")
+        .replace(Regex("""\\u([0-9a-fA-F]{4})""")) { match ->
+            match.groupValues[1].toInt(16).toChar().toString()
+        }
+
+private fun String.fixProtocol(baseUrl: String): String =
+    when {
+        startsWith("//") -> "https:$this"
+        startsWith("http://") || startsWith("https://") -> this
+        startsWith("/") && baseUrl.isNotBlank() -> getWithDomain(baseUrl)
+        else -> this
+    }
 
 fun getUrlsData(
     scriptData: String,

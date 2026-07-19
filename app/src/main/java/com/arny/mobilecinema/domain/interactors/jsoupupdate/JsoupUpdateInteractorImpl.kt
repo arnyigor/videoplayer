@@ -48,6 +48,9 @@ class JsoupUpdateInteractorImpl constructor(
     private companion object {
         const val MAX_TRYING = 3
         const val IGNORE_COUNT_MAX = 30
+        const val VENOM_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
     }
 
     private var loadPageTime = 0L
@@ -660,7 +663,7 @@ class JsoupUpdateInteractorImpl constructor(
         )
     }
 
-private fun getCinemaUrlData(
+private suspend fun getCinemaUrlData(
         page: Element
     ): CinemaUrlData {
         var cinemaUrl = AnwapUrl()
@@ -704,6 +707,37 @@ private fun getCinemaUrlData(
             )
             if (titleUrl.urls.isNotEmpty()) {
                 hdUrl = titleUrl
+            }
+        }
+
+        val venomEmbedUrl = getVenomEmbedUrl(page)
+        if (!venomEmbedUrl.isNullOrBlank()) {
+            val venomData = runCatching {
+                val venomDoc = jsoupService.loadPage(
+                    url = venomEmbedUrl,
+                    requestHeaders = mapOf(
+                        "Accept-Language" to "ru-RU,ru;q=0.9",
+                        "User-Agent" to VENOM_USER_AGENT,
+                    ),
+                    currentProxy = null,
+                    timeout = 30000,
+                    resetCookie = false
+                )
+                getVenomCinemaUrlData(venomDoc)
+            }.getOrElse { error ->
+                Timber.e(error, "VenomPlayer parsing failed: $venomEmbedUrl")
+                CinemaUrlData()
+            }
+            val venomCinemaUrls = venomData.cinemaUrl?.urls.orEmpty()
+            val venomUrls = (
+                    venomCinemaUrls.filter { it.contains(".m3u8", ignoreCase = true) } +
+                            venomData.hdUrl?.urls.orEmpty() +
+                            venomCinemaUrls.filterNot { it.contains(".m3u8", ignoreCase = true) }
+                    )
+                .filter { it.isNotBlank() }
+                .distinct()
+            if (venomUrls.isNotEmpty()) {
+                hdUrl = AnwapUrl(urls = venomUrls)
             }
         }
 

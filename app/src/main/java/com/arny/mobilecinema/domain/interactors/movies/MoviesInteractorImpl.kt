@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.domain.interactors.movies
 
 import androidx.paging.PagingData
+import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
@@ -67,7 +68,15 @@ class MoviesInteractorImpl(
         repository.getCountries()
     }
 
-    override fun getBaseUrl(): String = updateRepository.baseUrl
+    override fun getBaseUrl(): String {
+        val entryPointBaseUrl = BuildConfig.BASE_LINK.trim().trimEnd('/')
+        if (entryPointBaseUrl.startsWith("http://", ignoreCase = true) ||
+            entryPointBaseUrl.startsWith("https://", ignoreCase = true)
+        ) {
+            return entryPointBaseUrl
+        }
+        return updateRepository.baseUrl.trim().trimEnd('/')
+    }
 
     override fun isMoviesEmpty(): Flow<DataResult<Boolean>> = doAsync {
         repository.isMoviesEmpty()

@@ -4,4 +4,7 @@
     android:layout_width="match_parent"
     style="@style/SerialSpinnerStyle"
     android:layout_height="wrap_content"
-    tools:text="22 сезон" />
+    android:ellipsize="end"
+    android:maxLines="1"
+    android:singleLine="true"
+    tools:text="Ссылка 1 HD (cdnr.interkh.com/M3U8)" />
