@@ -9,20 +9,12 @@ import com.google.android.exoplayer2.trackselection.MappingTrackSelector.MappedT
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.trackselection.TrackSelectionParameters
 
-fun Movie.getCinemaUrl(): String {
-    val hdUrl = cinemaUrlData?.hdUrl?.urls?.firstOrNull().orEmpty()
-    val cinemaUrl = cinemaUrlData?.cinemaUrl?.urls?.firstOrNull().orEmpty()
-    return when {
-        hdUrl.isNotBlank() -> hdUrl
-        cinemaUrl.isNotBlank() -> cinemaUrl
-        else -> ""
-    }
-}
+fun Movie.getCinemaUrl(): String = getAllCinemaUrls().firstOrNull().orEmpty()
 
 fun Movie.getAllCinemaUrls(): List<String> {
     val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
     val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
-    return hdUrls + cinemaUrls
+    return (hdUrls + cinemaUrls).filter { it.isNotBlank() }.distinct()
 }
 
 fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<String, TrackSelectionOverride>> {

@@ -6,6 +6,11 @@ import kotlinx.coroutines.delay
 import org.jsoup.Connection
 import org.jsoup.helper.Validate
 import org.jsoup.nodes.Document
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocketFactory
+import javax.net.ssl.X509TrustManager
 import kotlin.random.Random
 
 class JsoupService constructor() {
@@ -13,6 +18,17 @@ class JsoupService constructor() {
     companion object {
         @Volatile
         private var instance: JsoupService? = null
+
+        private val insecureSslSocketFactory: SSLSocketFactory by lazy {
+            val trustAllManager = object : X509TrustManager {
+                override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+                override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) = Unit
+                override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+            }
+            SSLContext.getInstance("TLS").apply {
+                init(null, arrayOf(trustAllManager), SecureRandom())
+            }.socketFactory
+        }
 
         fun getInstance(): JsoupService {
             if (instance == null) {
@@ -44,6 +60,7 @@ class JsoupService constructor() {
                 cookies(cookie)
             }
             timeout(timeout)
+            sslSocketFactory(insecureSslSocketFactory)
             followRedirects(true)
             ignoreContentType(true)
             ignoreHttpErrors(true)
@@ -99,6 +116,7 @@ class JsoupService constructor() {
             }
 
             timeout(timeout)
+            sslSocketFactory(insecureSslSocketFactory)
             followRedirects(true)
             ignoreContentType(true)
             ignoreHttpErrors(true)
@@ -139,6 +157,7 @@ class JsoupService constructor() {
                 cookies(helper.cookie)
             }
             timeout(timeout)
+            sslSocketFactory(insecureSslSocketFactory)
             followRedirects(true)
             ignoreContentType(true)
             ignoreHttpErrors(true)

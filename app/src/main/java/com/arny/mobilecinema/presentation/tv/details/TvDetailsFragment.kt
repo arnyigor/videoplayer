@@ -95,6 +95,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         private const val ROW_ID_SOURCES = 1003L
         private const val ROW_ID_GENRES = 1004L
         private const val ROW_ID_ACTORS = 1005L
+
+        private const val AUTO_UPDATE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
     }
 
     private val viewModel: TvDetailsViewModel by viewModel()
@@ -112,6 +114,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
 
     private var isUpdatingDb = false
     private var isCancellingUpdate = false
+    private var autoUpdateRequestedForUrl: String? = null
 
     private val updateReceiver by lazy { makeBroadcastReceiver() }
 
@@ -249,6 +252,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
 
         isCancellingUpdate = true
         isUpdatingDb = false
+        updatePlayActionState()
 
         val dialog = childFragmentManager.findFragmentByTag(
             TvUpdateProgressDialogFragment.TAG
@@ -305,12 +309,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
             }
 
             is TvDetailsAction.NavigateToUpdate -> {
-                requireContext().sendServiceMessage(
-                    Intent(requireContext().applicationContext, UpdateService::class.java),
-                    AppConstants.ACTION_UPDATE_BY_URL
-                ) {
-                    putString(AppConstants.SERVICE_PARAM_UPDATE_URL, action.url)
-                }
+                requestMovieUpdate(action.url)
             }
         }
     }
@@ -356,6 +355,38 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         }
 
         addSearchRows(movie)
+        requestAutoUpdateIfNeeded(movie)
+    }
+
+    private fun requestAutoUpdateIfNeeded(movie: Movie) {
+        val pageUrl = movie.pageUrl
+        if (pageUrl.isBlank()) return
+        if (!movie.isDataOutdated()) return
+        if (isUpdatingDb || autoUpdateRequestedForUrl == pageUrl) return
+
+        autoUpdateRequestedForUrl = pageUrl
+        requestMovieUpdate(pageUrl)
+    }
+
+    private fun Movie.isDataOutdated(): Boolean {
+        val updated = info.updated
+        return updated <= 0L || System.currentTimeMillis() - updated > AUTO_UPDATE_MAX_AGE_MS
+    }
+
+    private fun requestMovieUpdate(url: String) {
+        isUpdatingDb = true
+        isCancellingUpdate = false
+        updatePlayActionState()
+        showUpdateProgressDialog(
+            progress = -1,
+            stage = getString(R.string.updating_all)
+        )
+        requireContext().sendServiceMessage(
+            Intent(requireContext().applicationContext, UpdateService::class.java),
+            AppConstants.ACTION_UPDATE_BY_URL
+        ) {
+            putString(AppConstants.SERVICE_PARAM_UPDATE_URL, url)
+        }
     }
 
     private fun syncSelectionState(movie: Movie) {
@@ -426,29 +457,13 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
     private fun prepareSourcesList(movie: Movie): List<SourceItem> {
         val cinemaUrlData: CinemaUrlData = movie.cinemaUrlData ?: return emptyList()
 
-        val hdUrls = cinemaUrlData.hdUrl?.urls.orEmpty()
-        val cinemaUrls = cinemaUrlData.cinemaUrl?.urls.orEmpty()
-        val allUrls = (hdUrls + cinemaUrls).filter { it.isNotBlank() }.distinct()
+        val hdUrls = cinemaUrlData.hdUrl?.urls.orEmpty().filter { it.isNotBlank() }
+        val cinemaUrls = cinemaUrlData.cinemaUrl?.urls.orEmpty().filter { it.isNotBlank() }
+        val allUrls = (hdUrls + cinemaUrls).distinct()
 
         return allUrls.mapIndexed { index, url ->
-            val isHD = index < hdUrls.size
-
-            val afterProtocol = url.substringAfter("://")
-            val host = afterProtocol.substringBefore("/")
-            val extension = afterProtocol.substringAfterLast(".", "").take(4)
-
-            val label = buildString {
-                append(if (isHD) "HD" else "SD")
-                append(" • ")
-
-                val shortHost = if (host.length > 20) "${host.take(17)}..." else host
-                append(shortHost)
-
-                if (extension.isNotBlank()) {
-                    append(" • ")
-                    append(extension.uppercase())
-                }
-            }
+            val isHD = url in hdUrls
+            val label = "${if (isHD) "HD" else "SD"} • ${url.toShortSourceLabel()}"
 
             SourceItem(
                 url = url,
@@ -457,6 +472,14 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 index = index,
             )
         }
+    }
+
+    private fun String.toShortSourceLabel(): String {
+        val urlWithoutQuery = substringBefore("?")
+        val afterProtocol = urlWithoutQuery.substringAfter("://")
+        val host = afterProtocol.substringBefore("/")
+        val extension = urlWithoutQuery.substringAfterLast(".", "link").uppercase()
+        return "$host • $extension"
     }
 
     private fun addSeasonsRow(movie: Movie) {
@@ -559,6 +582,11 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
     private fun onActionClicked(action: Action) {
         when (action.id) {
             ACTION_PLAY -> {
+                if (isUpdatingDb) {
+                    Toast.makeText(requireContext(), R.string.please_wait, Toast.LENGTH_SHORT).show()
+                    return
+                }
+
                 val movie = currentMovie
                 when (movie?.type) {
                     MovieType.CINEMA -> {
@@ -581,7 +609,13 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
             }
 
             ACTION_FAVORITE -> viewModel.toggleFavorite(args.movieId)
-            ACTION_UPDATE -> showUpdateDialog()
+            ACTION_UPDATE -> {
+                if (isUpdatingDb) {
+                    showUpdateProgressDialog()
+                } else {
+                    showUpdateDialog()
+                }
+            }
         }
     }
 
@@ -606,6 +640,17 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
         adapter.notifyArrayItemRangeChanged(favoriteIndex, 1)
     }
 
+    private fun updatePlayActionState() {
+        val adapter = detailsRow?.actionsAdapter as? ArrayObjectAdapter ?: return
+        val playIndex = (0 until adapter.size()).firstOrNull { index ->
+            (adapter[index] as? Action)?.id == ACTION_PLAY
+        } ?: return
+
+        val action = adapter[playIndex] as Action
+        action.label1 = getString(if (isUpdatingDb) R.string.please_wait else R.string.play)
+        adapter.notifyArrayItemRangeChanged(playIndex, 1)
+    }
+
     private fun getFavoriteText(value: Boolean): String = if (value) {
         getString(R.string.remove_from_favorites)
     } else {
@@ -613,6 +658,11 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
     }
 
     private fun navigateToPlayer(seasonIndex: Int = 0, episodeIndex: Int = 0) {
+        if (isUpdatingDb) {
+            Toast.makeText(requireContext(), R.string.please_wait, Toast.LENGTH_SHORT).show()
+            return
+        }
+
         findNavController().navigate(
             R.id.tvPlayerFragment,
             bundleOf(
@@ -625,6 +675,11 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
     }
 
     private fun navigateToPlayerWithUrl(url: String) {
+        if (isUpdatingDb) {
+            Toast.makeText(requireContext(), R.string.please_wait, Toast.LENGTH_SHORT).show()
+            return
+        }
+
         findNavController().navigate(
             R.id.tvPlayerFragment,
             bundleOf(
@@ -654,6 +709,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 AppConstants.ACTION_UPDATE_STATUS_STARTED -> {
                     isUpdatingDb = true
                     isCancellingUpdate = false
+                    updatePlayActionState()
                     showUpdateProgressDialog(
                         progress = -1,
                         stage = getString(R.string.updating_all)
@@ -675,6 +731,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
                     isUpdatingDb = false
                     isCancellingUpdate = false
+                    updatePlayActionState()
                     hideUpdateProgressDialog()
                     Toast.makeText(
                         requireContext(),
@@ -687,6 +744,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
                     isUpdatingDb = false
                     isCancellingUpdate = false
+                    updatePlayActionState()
                     hideUpdateProgressDialog()
                     val errorMsg = intent.getStringExtra("error_message")
                         ?: getString(R.string.error_loading_data)
@@ -696,6 +754,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent,
                 AppConstants.ACTION_UPDATE_STATUS_CANCELLED -> {
                     isUpdatingDb = false
                     isCancellingUpdate = false
+                    updatePlayActionState()
                     hideUpdateProgressDialog()
                     Toast.makeText(
                         requireContext(),
