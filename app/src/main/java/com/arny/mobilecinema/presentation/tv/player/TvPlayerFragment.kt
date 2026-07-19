@@ -17,6 +17,7 @@ import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.utils.findByGroup
+import com.arny.mobilecinema.data.utils.getErrorUrl
 import com.arny.mobilecinema.databinding.FTvPlayerBinding
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
@@ -333,13 +334,18 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         override fun onPlayerError(error: PlaybackException) {
             Timber.e(error, "ExoPlayer error occurred. Message: ${error.message}")
 
-            val errorUrl = error.localizedMessage ?: ""
+            val errorUrl = getErrorUrl(error)
+            val currentUrl = getCurrentPlaybackUrl()
             val movie = currentMovie
 
             if (movie != null) {
-                // Логика исключения битых ссылок
-                tvExcludeUrls = tvExcludeUrls + errorUrl
-                Timber.w("URL excluded due to error: $errorUrl. New exclusion list size: ${tvExcludeUrls.size}")
+                // Логика исключения битых ссылок: для DASH ошибка часто приходит по сегменту,
+                // поэтому исключаем и URL текущего MediaItem, чтобы перейти с HD на обычную ссылку.
+                tvExcludeUrls = tvExcludeUrls + listOfNotNull(errorUrl, currentUrl).filter { it.isNotBlank() }
+                Timber.w(
+                    "URL excluded due to error: errorUrl=$errorUrl, currentUrl=$currentUrl. " +
+                            "New exclusion list size: ${tvExcludeUrls.size}"
+                )
 
                 val hasMoreUrls = when (movie.type) {
                     MovieType.CINEMA -> movie.getAllCinemaUrls().any { it.isNotBlank() && it !in tvExcludeUrls }
@@ -595,6 +601,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             }
         }
     }
+
+    private fun getCurrentPlaybackUrl(): String? =
+        player?.currentMediaItem?.localConfiguration?.uri?.toString()
 
     private fun playMovie(movie: Movie) {
         when (movie.type) {
