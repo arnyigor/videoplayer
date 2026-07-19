@@ -712,22 +712,10 @@ private suspend fun getCinemaUrlData(
 
         val venomEmbedUrl = getVenomEmbedUrl(page)
         if (!venomEmbedUrl.isNullOrBlank()) {
-            val venomData = runCatching {
-                val venomDoc = jsoupService.loadPage(
-                    url = venomEmbedUrl,
-                    requestHeaders = mapOf(
-                        "Accept-Language" to "ru-RU,ru;q=0.9",
-                        "User-Agent" to VENOM_USER_AGENT,
-                    ),
-                    currentProxy = null,
-                    timeout = 30000,
-                    resetCookie = false
-                )
-                getVenomCinemaUrlData(venomDoc)
-            }.getOrElse { error ->
-                Timber.e(error, "VenomPlayer parsing failed: $venomEmbedUrl")
-                CinemaUrlData()
-            }
+            val venomData = loadVenomCinemaUrlData(
+                venomEmbedUrl = venomEmbedUrl,
+                referer = page.ownerDocument()?.location().orEmpty()
+            )
             val venomCinemaUrls = venomData.cinemaUrl?.urls.orEmpty()
             val venomUrls = (
                     venomCinemaUrls.filter { it.contains(".m3u8", ignoreCase = true) } +
@@ -745,6 +733,30 @@ private suspend fun getCinemaUrlData(
             cinemaUrl = cinemaUrl,
             hdUrl = hdUrl,
         )
+    }
+
+    private suspend fun loadVenomCinemaUrlData(
+        venomEmbedUrl: String,
+        referer: String
+    ): CinemaUrlData {
+        return runCatching {
+            val refererDomain = getDomainName(referer).ifBlank { referer }
+            val venomDoc = jsoupService.loadPage(
+                url = venomEmbedUrl,
+                requestHeaders = mapOf(
+                    "Accept-Language" to "ru-RU,ru;q=0.9",
+                    "Referer" to refererDomain,
+                    "User-Agent" to VENOM_USER_AGENT,
+                ),
+                currentProxy = null,
+                timeout = 30000,
+                resetCookie = false
+            )
+            getVenomCinemaUrlData(venomDoc)
+        }.getOrElse { error ->
+            Timber.e(error, "VenomPlayer parsing failed: $venomEmbedUrl")
+            CinemaUrlData()
+        }
     }
 
 private suspend fun getMp4UrlData(
@@ -811,7 +823,7 @@ private suspend fun getMp4UrlData(
         val episodesCount = getAllEpisodes(page)
 
         // Шаг 3: Обрабатываем ссылки на сезоны через плейлист
-        getByPlayList(flowCollector, seasonsLinks, resultSeasons, location)
+        getByPlayList(flowCollector, seasonsLinks, resultSeasons, location, page)
 
         // Сортируем сезоны по ID
         val seasons = resultSeasons.sortedBy { it.id }
@@ -898,11 +910,12 @@ private suspend fun getMp4UrlData(
         flowCollector: FlowCollector<DataResultWithProgress<LoadingData>>,
         seasonsLinks: List<String>,
         resultSeasons: MutableList<SerialSeason>,
-        location: String
+        location: String,
+        sourcePage: Element
     ) {
         flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала playlist"))
         for ((ind, link) in seasonsLinks.withIndex()) {
-            getEpisodesBySeasonPlaylist(ind, resultSeasons, link, location)
+            getEpisodesBySeasonPlaylist(ind, resultSeasons, link, location, sourcePage)
         }
     }
 
@@ -911,6 +924,7 @@ private suspend fun getMp4UrlData(
         resultSeasons: MutableList<SerialSeason>,
         link: String,
         location: String,
+        sourcePage: Element,
     ) {
         val seasonId = i + 1
         val page = loadPage(link.getWithDomain(location))
@@ -919,27 +933,85 @@ private suspend fun getMp4UrlData(
         if (episodeId != null) {
 //            https://ma.anwap.today/serials/playlist_57202_h.txt
             val url = "${getDomainName(location)}/serials/playlist_${episodeId}_h.txt"
-            val season = getSeasonFromPlaylist(url, seasonId)
+            val venomSourcePage = getSerialVenomSourcePage(sourcePage, page, links.firstOrNull(), location, seasonId)
+            val season = getSeasonFromPlaylist(url, seasonId, venomSourcePage, location)
             resultSeasons.add(season)
         }
     }
 
     private suspend fun getSeasonFromPlaylist(
         url: String,
-        seasonId: Int
+        seasonId: Int,
+        venomSourcePage: Element?,
+        location: String
     ): SerialSeason {
         val data = getSeasonData(listOf(url))
+        val episodes = mutableListOf<SerialEpisode>()
+        for ((index, urlData) in data.playlist.withIndex()) {
+            val urlsFromFile = getUrlsFromFile(urlData.file.orEmpty())
+            val episode = SerialEpisode(
+                id = (urlData.id?.toIntOrNull() ?: 0) + 1,
+                episode = "${index + 1}",
+                title = urlData.title.orEmpty(),
+                hls = urlsFromFile.firstOrNull().orEmpty()
+            )
+            episodes.add(
+                enrichSerialEpisodeWithVenom(
+                    episode = episode,
+                    venomSourcePage = venomSourcePage,
+                    seasonId = seasonId,
+                    episodeId = index + 1,
+                    referer = location
+                )
+            )
+        }
         return SerialSeason(
             id = seasonId,
-            episodes = data.playlist.mapIndexed { index, urlData ->
-                val urlsFromFile = getUrlsFromFile(urlData.file.orEmpty())
-                SerialEpisode(
-                    id = (urlData.id?.toIntOrNull() ?: 0) + 1,
-                    episode = "${index + 1}",
-                    title = urlData.title.orEmpty(),
-                    hls = urlsFromFile.firstOrNull().orEmpty()
-                )
+            episodes = episodes
+        )
+    }
+
+    private suspend fun getSerialVenomSourcePage(
+        sourcePage: Element,
+        seasonPage: Element,
+        firstEpisodeLink: String?,
+        location: String,
+        seasonId: Int
+    ): Element? {
+        val firstEpisodePage = firstEpisodeLink
+            ?.takeIf { it.isNotBlank() }
+            ?.let { link ->
+                runCatching { loadPage(link.getWithDomain(location)) }
+                    .getOrElse { error ->
+                        Timber.e(error, "Failed to load first serial episode for Venom source: $link")
+                        null
+                    }
             }
+        if (firstEpisodePage != null && getVenomEmbedUrl(firstEpisodePage, seasonId, 1) != null) {
+            return firstEpisodePage
+        }
+        if (getVenomEmbedUrl(sourcePage, seasonId, 1) != null) return sourcePage
+        if (getVenomEmbedUrl(seasonPage, seasonId, 1) != null) return seasonPage
+        return null
+    }
+
+    private suspend fun enrichSerialEpisodeWithVenom(
+        episode: SerialEpisode,
+        venomSourcePage: Element?,
+        seasonId: Int,
+        episodeId: Int,
+        referer: String
+    ): SerialEpisode {
+        val venomEmbedUrl = venomSourcePage?.let { getVenomEmbedUrl(it, seasonId, episodeId) }
+            ?: return episode
+        val venomData = loadVenomCinemaUrlData(venomEmbedUrl, referer)
+        val venomCinemaUrls = venomData.cinemaUrl?.urls.orEmpty()
+        val venomDash = venomData.hdUrl?.urls.orEmpty().firstOrNull { it.isNotBlank() }
+            ?: venomCinemaUrls.firstOrNull { it.contains(".mpd", ignoreCase = true) }
+        val venomHls = venomCinemaUrls.firstOrNull { it.contains(".m3u8", ignoreCase = true) }
+        return episode.copy(
+            dash = venomDash ?: episode.dash,
+            hls = venomHls ?: episode.hls
         )
     }
 
@@ -958,7 +1030,7 @@ private suspend fun getMp4UrlData(
             val iter = index + 1
             flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала : $iter из $size2"))
             val episode = loadPage(episodeLink.link.getWithDomain(location))
-            val serialEpisode = getEpisode(episode, location, index)
+            val serialEpisode = getEpisode(episode, location, index, seasonId)
             if (serialEpisode != null) {
                 allEpisodes.add(serialEpisode)
             }
@@ -985,7 +1057,7 @@ private suspend fun getMp4UrlData(
             for ((episodeId, absentLink) in absentEpisodes) {
                 val episodeHtml = loadPage(absentLink.getWithDomain(location))
                 val index = episodeId - 1
-                val serialEpisode = getEpisode(episodeHtml, location, index)
+                val serialEpisode = getEpisode(episodeHtml, location, index, seasonId)
                 if (serialEpisode != null) {
                     if (episodes.getOrNull(index) != null) {
                         episodes[index] = serialEpisode
@@ -1003,7 +1075,8 @@ private suspend fun getMp4UrlData(
     private suspend fun getEpisode(
         episode: Document,
         location: String,
-        index: Int
+        index: Int,
+        seasonId: Int? = null
     ): SerialEpisode? {
         val downloadLinks = getAllDownloadLinks(episode)
         return if (downloadLinks.isNotEmpty()) {
@@ -1012,13 +1085,24 @@ private suspend fun getMp4UrlData(
             val img = getImg(episode, location)
             val episodeId = index + 1
             val resId = episodeUrl.substringAfterLast("/").toIntOrNull() ?: episodeId
-            SerialEpisode(
+            val serialEpisode = SerialEpisode(
                 id = resId,
                 episode = "$episodeId",
                 title = getTitle(episode),
                 dash = link,
                 poster = img
             )
+            if (seasonId == null) {
+                serialEpisode
+            } else {
+                enrichSerialEpisodeWithVenom(
+                    episode = serialEpisode,
+                    venomSourcePage = episode,
+                    seasonId = seasonId,
+                    episodeId = episodeId,
+                    referer = location
+                )
+            }
         } else {
             null
         }
@@ -1063,17 +1147,28 @@ private suspend fun getMp4UrlData(
             val urls = getSeriyaUrlData(absentEpisodePage)
             if (urls.isNotEmpty()) {
                 val data = getSeasonData(urls)
+                val episodes = mutableListOf<SerialEpisode>()
+                for ((index, urlData) in data.playlist.withIndex()) {
+                    val serialEpisode = SerialEpisode(
+                        id = (urlData.id?.toIntOrNull() ?: 0) + 1,
+                        episode = "${index + 1}",
+                        title = urlData.title.orEmpty(),
+                        hls = getUrlsFromFile(urlData.file.orEmpty(), "(.m3u8)").firstOrNull()
+                            .orEmpty()
+                    )
+                    episodes.add(
+                        enrichSerialEpisodeWithVenom(
+                            episode = serialEpisode,
+                            venomSourcePage = absentEpisodePage,
+                            seasonId = seasonId,
+                            episodeId = index + 1,
+                            referer = location
+                        )
+                    )
+                }
                 return SerialSeason(
                     id = seasonId,
-                    episodes = data.playlist.mapIndexed { index, urlData ->
-                        SerialEpisode(
-                            id = (urlData.id?.toIntOrNull() ?: 0) + 1,
-                            episode = "${index + 1}",
-                            title = urlData.title.orEmpty(),
-                            hls = getUrlsFromFile(urlData.file.orEmpty(), "(.m3u8)").firstOrNull()
-                                .orEmpty()
-                        )
-                    }
+                    episodes = episodes
                 )
             }
         }

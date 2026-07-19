@@ -740,11 +740,14 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     }
                 }
 
-                // Логика выбора URL с приоритетом HLS и учетом исключений
+                // Логика выбора URL: HD DASH (mpd) приоритетнее HLS, HLS остается фолбэком.
+                val preferDash = episode.dash.contains(".mpd", ignoreCase = true)
                 val url = when {
+                    excludeUrls.isEmpty() && preferDash -> episode.dash
                     excludeUrls.isEmpty() -> episode.hls.ifBlank { episode.dash }
-                    !excludeUrls.contains(episode.hls) -> episode.hls
-                    !excludeUrls.contains(episode.dash) -> episode.dash
+                    preferDash && episode.dash.isNotBlank() && episode.dash !in excludeUrls -> episode.dash
+                    episode.hls.isNotBlank() && episode.hls !in excludeUrls -> episode.hls
+                    episode.dash.isNotBlank() && episode.dash !in excludeUrls -> episode.dash
                     else -> episode.hls.ifBlank { episode.dash } // Фолбэк если оба были исключены (редкий кейс, но защита от NPE)
                 }
 

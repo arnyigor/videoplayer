@@ -65,8 +65,10 @@ class JsoupService constructor() {
             ignoreContentType(true)
             ignoreHttpErrors(true)
             maxBodySize(0)
-            getDomainName(url).takeIf { it.isNotBlank() }?.let {
-                referrer(it)
+            if (requestHeaders.keys.none { it.equals("Referer", ignoreCase = true) }) {
+                getDomainName(url).takeIf { it.isNotBlank() }?.let {
+                    referrer(it)
+                }
             }
         }.run {
             execute()
@@ -121,8 +123,10 @@ class JsoupService constructor() {
             ignoreContentType(true)
             ignoreHttpErrors(true)
             maxBodySize(0)
-            getDomainName(url).takeIf { it.isNotBlank() }?.let {
-                referrer(it)
+            if (headers.keys.none { it.equals("Referer", ignoreCase = true) }) {
+                getDomainName(url).takeIf { it.isNotBlank() }?.let {
+                    referrer(it)
+                }
             }
         }.run {
             execute()
@@ -162,8 +166,10 @@ class JsoupService constructor() {
             ignoreContentType(true)
             ignoreHttpErrors(true)
             maxBodySize(0)
-            getDomainName(url).takeIf { it.isNotBlank() }?.let {
-                referrer(it)
+            if (headers.keys.none { it.equals("Referer", ignoreCase = true) }) {
+                getDomainName(url).takeIf { it.isNotBlank() }?.let {
+                    referrer(it)
+                }
             }
         }
         var response: Connection.Response? = null

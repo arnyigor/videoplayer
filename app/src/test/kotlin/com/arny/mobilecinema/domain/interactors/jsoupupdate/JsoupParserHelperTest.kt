@@ -46,6 +46,25 @@ class JsoupParserHelperTest {
     }
 
     @Test
+    fun `getVenomEmbedUrl builds serial movie embed url with season and episode from franchise id`() {
+        val doc = Jsoup.parse(
+            """
+            <html>
+                <body>
+                    <script>window.player = { franchiseID: 85586 };</script>
+                </body>
+            </html>
+            """.trimIndent(),
+            "https://my.anwap.love/serials/down/94510"
+        )
+
+        assertEquals(
+            "https://api.ortified.ws/embed/movie/85586?season=1&episode=1",
+            getVenomEmbedUrl(doc.body())
+        )
+    }
+
+    @Test
     fun `getVenomCinemaUrlData skips makePlayer function declaration and extracts invocation config`() {
         val doc = Jsoup.parse(
             """

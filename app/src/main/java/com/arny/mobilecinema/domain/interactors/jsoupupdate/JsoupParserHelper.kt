@@ -296,27 +296,35 @@ fun getSeriyaUrlData(
     ).urls
 }
 
-fun getVenomEmbedUrl(page: Element): String? {
+fun getVenomEmbedUrl(
+    page: Element,
+    season: Int? = null,
+    episode: Int? = null
+): String? {
     val document = page.ownerDocument()
     val html = document?.html() ?: page.html()
     val baseUrl = document?.location()?.takeIf { it.isNotBlank() } ?: page.baseUri()
-    val contentType = if (baseUrl.contains("/serials", ignoreCase = true)) "serial" else "movie"
+    val isSerial = baseUrl.contains("/serials", ignoreCase = true)
+    val resolvedSeason = season ?: if (isSerial) baseUrl.extractVenomEpisodeParam("season") ?: 1 else null
+    val resolvedEpisode = episode ?: if (isSerial) baseUrl.extractVenomEpisodeParam("episode") ?: 1 else null
 
     page.selectFirst("iframe[src~=ortified\\.ws]")
         ?.attr(Selectors.IFRAME_ATTR)
         ?.takeIf { it.isNotBlank() }
-        ?.let { return it.fixProtocol(baseUrl) }
+        ?.let { return it.fixProtocol(baseUrl).withSeasonEpisode(resolvedSeason, resolvedEpisode) }
 
     Regex(
-        """((?:https?:)?//api\.ortified\.ws/embed/(?:movie|serial)/\d+(?:[^\s"'<>)]*)?)""",
+        """((?:https?:)?//[^\s"'<>)]*ortified\.ws/embed/(?:movie|serial)/\d+(?:[^\s"'<>)]*)?)""",
         RegexOption.IGNORE_CASE
-    ).find(html)?.groupValues?.get(1)?.let { return it.fixProtocol(baseUrl) }
+    ).find(html)?.groupValues?.get(1)?.let {
+        return it.fixProtocol(baseUrl).withSeasonEpisode(resolvedSeason, resolvedEpisode)
+    }
 
     Regex("""["']?franchiseID["']?\s*[=:]\s*["']?(\d+)""", RegexOption.IGNORE_CASE)
         .find(html)
         ?.groupValues
         ?.get(1)
-        ?.let { return buildOrtifiedEmbedUrl("api.ortified.ws", contentType, it) }
+        ?.let { return buildOrtifiedEmbedUrl("api.ortified.ws", it, resolvedSeason, resolvedEpisode) }
 
     val host = Regex("""["']?consumerHost["']?\s*[=:]\s*["']([^"']+)["']""", RegexOption.IGNORE_CASE)
         .find(html)
@@ -328,7 +336,7 @@ fun getVenomEmbedUrl(page: Element): String? {
         .find(html)
         ?.groupValues
         ?.get(1)
-        ?.let { return buildOrtifiedEmbedUrl(host, contentType, it) }
+        ?.let { return buildOrtifiedEmbedUrl(host, it, resolvedSeason, resolvedEpisode) }
 
     return null
 }
@@ -357,11 +365,26 @@ private fun extractVenomAccessToken(html: String): String? {
     val addFunctionIndex = html.indexOf("function add(").takeIf { it >= 0 } ?: 0
     val tokenMatch = Regex("""\+\s*=?\s*['"](?:&|&amp;)['"]\s*\+\s*([A-Za-z_][A-Za-z0-9_]*)""")
         .find(html, addFunctionIndex)
-        ?: return null
-    val tokenVar = tokenMatch.groupValues.getOrNull(1) ?: return null
-    return Regex("""(?:var|let|const|,)\s*${Pattern.quote(tokenVar)}\s*=\s*['"]([^'"]+)['"]""")
-        .findAll(html.substring(0, tokenMatch.range.first))
-        .lastOrNull()
+    if (tokenMatch != null) {
+        val tokenVar = tokenMatch.groupValues.getOrNull(1)
+        val token = tokenVar?.let {
+            Regex("""(?:var|let|const|,)\s*${Pattern.quote(it)}\s*=\s*['"]([^'"]+)['"]""")
+                .findAll(html.substring(0, tokenMatch.range.first))
+                .lastOrNull()
+                ?.groupValues
+                ?.getOrNull(1)
+        }
+        if (!token.isNullOrBlank()) return token
+    }
+
+    Regex("""var\s+[A-Za-z0-9_]+\s*=\s*"([a-f0-9]{8})""", RegexOption.IGNORE_CASE)
+        .find(html)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.let { return it }
+
+    return Regex("""["']?([a-f0-9]{8})["']?\s*;\s*\n?\s*function\s+add\(""", RegexOption.IGNORE_CASE)
+        .find(html)
         ?.groupValues
         ?.getOrNull(1)
 }
@@ -371,13 +394,42 @@ private fun String.appendQueryToken(token: String?): String {
     return if (contains("?")) "$this&$token" else "$this?$token"
 }
 
-private fun buildOrtifiedEmbedUrl(host: String, contentType: String, id: String): String {
+private fun buildOrtifiedEmbedUrl(
+    host: String,
+    id: String,
+    season: Int? = null,
+    episode: Int? = null
+): String {
     val normalizedHost = host
         .removePrefix("https://")
         .removePrefix("http://")
         .substringBefore("/")
         .ifBlank { "api.ortified.ws" }
-    return "https://$normalizedHost/embed/$contentType/$id"
+    return "https://$normalizedHost/embed/movie/$id".withSeasonEpisode(season, episode)
+}
+
+private fun String.extractVenomEpisodeParam(param: String): Int? =
+    Regex("""[?&]${Pattern.quote(param)}[=:](\d+)""", RegexOption.IGNORE_CASE)
+        .find(this)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.toIntOrNull()
+
+private fun String.withSeasonEpisode(season: Int?, episode: Int?): String {
+    var result = replace("&amp;", "&")
+    fun appendOrReplace(name: String, value: Int?) {
+        if (value == null) return
+        val regex = Regex("""([?&])${Pattern.quote(name)}=[^&]*""", RegexOption.IGNORE_CASE)
+        result = if (regex.containsMatchIn(result)) {
+            regex.replace(result) { "${it.groupValues[1]}$name=$value" }
+        } else {
+            val separator = if (result.contains("?")) "&" else "?"
+            "$result$separator$name=$value"
+        }
+    }
+    appendOrReplace("season", season)
+    appendOrReplace("episode", episode)
+    return result
 }
 
 private fun extractBalancedJsObject(text: String, prefix: String): String? {
