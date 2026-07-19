@@ -324,15 +324,21 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.updateAvailable.collectLatest { available ->
-                if (available) {
-                    viewModel.downloadData(force = false)
+            viewModel.loading.collectLatest { loading ->
+                if (loading) {
+                    showUpdateProgressDialog(
+                        progress = -1,
+                        stage = getString(R.string.check_update)
+                    )
+                } else if (!isUpdatingDb) {
+                    hideUpdateProgressDialog()
                 }
             }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.alert.collectLatest { alert ->
+                hideUpdateProgressDialog()
                 showUpdateAlertDialog(alert)
             }
         }
@@ -341,7 +347,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
     private fun handleUpdateAction(action: UpdateAction) {
         when (action) {
-            UpdateAction.CHECK_UPDATE -> viewModel.downloadData(force = true)
+            UpdateAction.CHECK_UPDATE -> viewModel.downloadData(force = true, showNoUpdates = true)
             UpdateAction.CANCEL_UPDATE -> viewModel.stopUpdate()
         }
     }

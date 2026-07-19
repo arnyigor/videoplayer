@@ -51,6 +51,10 @@ class TvHomeViewModel(
 
     private val _sortCategory = MutableStateFlow(MovieSortCategory.NEW)
 
+    private var pendingForceUpdate = false
+    private var pendingHasPartUpdate = false
+    private var isCheckingUpdate = false
+
     private val _refreshTrigger = MutableStateFlow(0L)
     private val _historyTrigger = MutableStateFlow(System.currentTimeMillis())
 
@@ -135,38 +139,35 @@ class TvHomeViewModel(
     }
 
     private fun checkForUpdate() {
-        viewModelScope.launch {
-            dataUpdateInteractor.getUpdateDate(false)
-                .collectLatest { result ->
-                    when (result) {
-                        is DataResult.Error -> {
-                        }
-
-                        is DataResult.Success -> {
-                            val updateTime = result.result.updateDateTime
-                            if (updateTime.isNotBlank()) {
-                                _updateAvailable.value = true
-                            }
-                        }
-                    }
-                }
-        }
+        downloadData(force = false, showNoUpdates = false)
     }
 
-    fun downloadData(force: Boolean = false) {
+    fun downloadData(force: Boolean = false, showNoUpdates: Boolean = true) {
+        if (isCheckingUpdate) return
+
         viewModelScope.launch {
+            isCheckingUpdate = true
+            pendingForceUpdate = force
+
             dataUpdateInteractor.getUpdateDate(force)
                 .onStart {
                     _updateAvailable.value = false
+                    _loading.value = true
+                }
+                .catch { e ->
+                    e.printStackTrace()
+                    _loading.value = false
+                    isCheckingUpdate = false
                 }
                 .collect { result ->
-                    when (result) {
-                        is DataResult.Error -> {
-                        }
+                    _loading.value = false
+                    isCheckingUpdate = false
 
+                    when (result) {
+                        is DataResult.Error -> Unit
                         is DataResult.Success -> {
                             val updateResult = result.result
-                            val hasPartUpdate = updateResult.hasPartUpdate
+                            pendingHasPartUpdate = updateResult.hasPartUpdate
                             val updateTime = updateResult.updateDateTime
 
                             if (updateTime.isNotBlank() && !updateTime.contains("""[/|\\]""".toRegex())) {
@@ -179,16 +180,15 @@ class TvHomeViewModel(
                                         ),
                                         btnOk = ResourceString(android.R.string.ok),
                                         btnCancel = ResourceString(android.R.string.cancel),
-                                        btnNeutral = if (hasPartUpdate) {
+                                        btnNeutral = if (updateResult.hasPartUpdate) {
                                             ResourceString(R.string.full_update)
                                         } else {
                                             null
                                         },
-                                        type = AlertType.Update(false, hasPartUpdate)
+                                        type = AlertType.Update(false, updateResult.hasPartUpdate)
                                     )
                                 )
-                            } else {
-                                _updateAvailable.value = false
+                            } else if (showNoUpdates) {
                                 _alert.trySend(
                                     Alert(
                                         title = ResourceString(R.string.new_films_update_not_found_title),
@@ -217,29 +217,10 @@ class TvHomeViewModel(
      * Запуск обновления после подтверждения пользователем на TV.
      * Пропускает второй alert и сразу запускает update-flow.
      */
-    fun startUpdateAfterUserConfirmation(force: Boolean = false) {
+    fun startUpdateAfterUserConfirmation(force: Boolean = pendingForceUpdate) {
         viewModelScope.launch {
-            _loading.value = true
-
-            dataUpdateInteractor.getUpdateDate(force)
-                .catch { e ->
-                    e.printStackTrace()
-                    _loading.value = false
-                }
-                .collectLatest { result ->
-                    when (result) {
-                        is DataResult.Error -> {
-                            _loading.value = false
-                        }
-
-                        is DataResult.Success -> {
-                            val hasPartUpdate = result.result.hasPartUpdate
-                            dataUpdateInteractor.requestFile(force, hasPartUpdate)
-                            checkIntent()
-                            _loading.value = false
-                        }
-                    }
-                }
+            dataUpdateInteractor.requestFile(force, pendingHasPartUpdate)
+            checkIntent()
         }
     }
 
