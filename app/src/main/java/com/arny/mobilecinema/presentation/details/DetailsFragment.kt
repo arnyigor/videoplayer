@@ -521,6 +521,8 @@ override fun onResume() {
         }
 
         private fun requestMovieUpdate(url: String) {
+            isAutoUpdateRunning = true
+            updatePlayButtonEnabled()
             requireContext().sendServiceMessage(
                 Intent(requireContext().applicationContext, UpdateService::class.java),
                 AppConstants.ACTION_UPDATE_BY_URL
