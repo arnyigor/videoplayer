@@ -83,8 +83,8 @@ class DataUpdateInteractorImpl constructor(
         }
 
     private fun getDataLink(hasPartUpdate: Boolean): String = when {
+        forceUpdate -> BuildConfig.DATA_LINK
         hasPartUpdate -> DATA_0_LINK
-        !hasPartUpdate -> BuildConfig.DATA_LINK
         else -> BuildConfig.DATA_LINK
     }
 }

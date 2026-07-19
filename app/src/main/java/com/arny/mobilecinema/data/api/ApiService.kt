@@ -8,6 +8,7 @@ import com.arny.mobilecinema.data.utils.getFullError
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.timeout
+import io.ktor.client.request.header
 import io.ktor.client.request.prepareGet
 import io.ktor.client.request.request
 import io.ktor.http.HttpMethod
@@ -30,10 +31,18 @@ import java.io.IOException
 class ApiService(
     private val httpClient: HttpClient
 ) {
+    private companion object {
+        const val BROWSER_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    }
     @OptIn(InternalAPI::class)
     suspend fun downloadFile(file: File, url: String, timeoutMillis: Long? = null) {
         httpClient.prepareGet(url) {
             method = HttpMethod.Get
+            header("User-Agent", BROWSER_USER_AGENT)
+            header("Accept", "application/octet-stream,application/zip,*/*")
+            header("Accept-Encoding", "identity")
             timeoutMillis?.let { requestTimeout ->
                 timeout {
                     connectTimeoutMillis = requestTimeout

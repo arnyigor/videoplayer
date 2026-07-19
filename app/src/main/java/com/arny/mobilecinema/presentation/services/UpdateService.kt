@@ -631,6 +631,26 @@
          */
         private suspend fun readFile(filePath: String, forceAll: Boolean) {
             val file = File(filePath)
+            if (!file.isZipArchive()) {
+                Timber.tag(TAG).e("Downloaded update file is not a ZIP: %s, size=%d", file.absolutePath, file.length())
+                file.delete()
+                if (!repository.hasMovies()) {
+                    Timber.tag(TAG).w("Database is empty, falling back to web parsing update")
+                    downloadAll()
+                    return
+                }
+                sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                    putString(AppConstants.ACTION_UPDATE_STATUS, AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR)
+                }
+                updateNotification(
+                    title = getString(R.string.update_finished_error, "Invalid update archive"),
+                    text = "", silent = false
+                )
+                delay(3000)
+                stop()
+                return
+            }
+
             val dataFiles = try {
                 applicationContext.unzipData(file, extension = ".json")
             } catch (e: Exception) {
@@ -722,6 +742,13 @@
             supervisorJob.cancelChildren() // Отменяем все активные корутины сервиса
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
+        }
+
+        private fun File.isZipArchive(): Boolean {
+            if (!isFile || length() < 4L) return false
+            return FileInputStream(this).use { stream ->
+                stream.read() == 'P'.code && stream.read() == 'K'.code
+            }
         }
 
         /**

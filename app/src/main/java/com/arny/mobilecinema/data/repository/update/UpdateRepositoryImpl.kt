@@ -204,21 +204,23 @@ class UpdateRepositoryImpl constructor(
                 removeNotInUpdates(movies)
             }
             val dbList = moviesDao.getUpdateMovies()
+            val dbMoviesByPageUrl = dbList.groupBy { it.pageUrl }
+            val moviesByTitle = movies.associateBy { it.title.lowercase() }
+            var lastId = moviesDao.getLastId()
+
             movies.forEachIndexed { index, movie ->
-                val dbMovies = dbList.filter { it.pageUrl == movie.pageUrl }
+                val dbMovies = dbMoviesByPageUrl[movie.pageUrl].orEmpty()
                 val notCorrectDbMovies = dbMovies.filter { isEqualsUrlAndNotTitle(it, movie) }
                 for (ncm in notCorrectDbMovies) {
                     entity.clear()
                     // Ищем в серверных данных фильм с тем же названием
-                    val correctMovie = movies.find { it.title.equals(ncm.title, true) }
-                        ?: continue
+                    val correctMovie = moviesByTitle[ncm.title.lowercase()] ?: continue
 
                     // Создаём новую сущность из серверного DTO и сохраняем старый dbId
                     entity = entity.setData(correctMovie).copy(dbId = ncm.dbId)
 
                     // Проверяем, не существует ли уже строка с таким title+pageUrl
-                    val conflict =
-                        moviesDao.findByTitleAndPageUrl(entity.title, entity.pageUrl)
+                    val conflict = moviesDao.findByTitleAndPageUrl(entity.title, entity.pageUrl)
 
                     if (conflict != null && conflict.dbId != entity.dbId) {
                         moviesDao.safeUpsert(entity)
@@ -234,8 +236,8 @@ class UpdateRepositoryImpl constructor(
                         entity = entity.setData(movie).copy(dbId = dbId)
                         moviesDao.update(entity)
                     } else {
-                        val newId = moviesDao.getLastId() + 1
-                        entity = entity.setData(movie).copy(dbId = newId)
+                        lastId += 1
+                        entity = entity.setData(movie).copy(dbId = lastId)
                         moviesDao.insert(entity)
                     }
                 } catch (e: Exception) {
