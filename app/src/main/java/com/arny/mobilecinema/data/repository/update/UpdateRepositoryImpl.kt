@@ -50,6 +50,7 @@ class UpdateRepositoryImpl constructor(
         const val UPDATE_PERIOD = 182L
         const val BASE_URL_REQUEST_TIMEOUT_MILLIS = 5000L
         const val BASE_URL_PAGE_TIMEOUT_MILLIS = 3000
+        const val MIN_SAFE_FULL_UPDATE_MOVIES = 1000
     }
 
     private val _newUrlFlow = BufferedSharedFlow<String>()
@@ -190,7 +191,9 @@ class UpdateRepositoryImpl constructor(
     ) {
         var entity = MovieEntity()
         val size = movies.size
-        if (moviesDao.getCount() == 0) {
+        val currentDbCount = moviesDao.getCount()
+        if (currentDbCount == 0) {
+            validateFullUpdatePayloadSize(size, currentDbCount, forceAll)
             for ((ind, movie) in movies.withIndex()) {
                 entity = entity.setData(movie)
                 moviesDao.insert(entity)
@@ -201,6 +204,7 @@ class UpdateRepositoryImpl constructor(
         } else {
             // remove movies each not in updates
             if (!hasLastYearUpdate && forceAll) {
+                validateFullUpdatePayloadSize(size, currentDbCount, forceAll)
                 removeNotInUpdates(movies)
             }
             val dbList = moviesDao.getUpdateMovies()
@@ -247,6 +251,22 @@ class UpdateRepositoryImpl constructor(
                     onUpdate(getPercent(index, size))
                 }
             }
+        }
+    }
+
+    private fun validateFullUpdatePayloadSize(
+        updateSize: Int,
+        currentDbCount: Int,
+        forceAll: Boolean
+    ) {
+        if (!forceAll) return
+
+        val minExpectedSize = maxOf(MIN_SAFE_FULL_UPDATE_MOVIES, currentDbCount / 2)
+        if (updateSize < minExpectedSize) {
+            error(
+                "Refusing unsafe full update: update payload has $updateSize movies, " +
+                        "current database has $currentDbCount movies, minimum expected is $minExpectedSize"
+            )
         }
     }
 

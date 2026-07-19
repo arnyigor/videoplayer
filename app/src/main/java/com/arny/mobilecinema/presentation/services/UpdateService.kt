@@ -668,6 +668,20 @@
             }
 
             if (dataFiles.isNotEmpty()) {
+                if (forceAll && dataFiles.all { it.name == "data_0.json" }) {
+                    Timber.tag(TAG).e("Refusing full update from partial archive: %s", dataFiles.map { it.name })
+                    sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                        putString(AppConstants.ACTION_UPDATE_STATUS, AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR)
+                    }
+                    updateNotification(
+                        title = getString(R.string.update_finished_error, "Partial archive for full update"),
+                        text = "", silent = false
+                    )
+                    delay(3000)
+                    stop()
+                    return@readFile
+                }
+
                 var success = false
                 val hasUpdate = !forceAll && repository.hasLastUpdates()
 
