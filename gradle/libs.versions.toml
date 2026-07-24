@@ -1,0 +1,139 @@
+[versions]
+agp = "8.7.3"
+kotlin = "2.0.21"
+ksp = "2.0.21-1.0.27"
+navigationSafeArgs = "2.8.5"
+secrets = "2.0.1"
+compileSdk = "34"
+minSdk = "24"
+targetSdk = "34"
+buildTools = "34.0.0"
+androidxCore = "1.9.0"
+work = "2.8.0"
+splashscreen = "1.0.0"
+coordinatorlayout = "1.0.0"
+coroutines = "1.6.4"
+lifecycleViewModel = "2.3.1"
+lifecycleExtensions = "2.2.0"
+activity = "1.6.1"
+fragment = "1.5.5"
+recyclerview = "1.2.0"
+cardview = "1.0.0"
+legacySupport = "1.0.0"
+koin = "3.5.6"
+material = "1.7.0"
+glide = "4.16.0"
+navigation = "2.5.3"
+jodaTime = "2.12.7"
+appcompat = "1.2.0"
+materialDialogs = "3.3.0"
+preference = "1.1.1"
+constraintlayout = "2.1.4"
+exoplayer = "2.19.1"
+doubleTapPlayerView = "1.0.4"
+timber = "5.0.1"
+commonsCodec = "1.15"
+ktor = "2.2.2"
+jsoup = "1.15.3"
+room = "2.6.1"
+paging = "3.1.1"
+kotlinxSerializationJson = "1.6.3"
+bouncycastle = "1.46"
+ffmpeg = "2.1.0"
+leanback = "1.0.0"
+leanbackPaging = "1.1.0-alpha11"
+junitJupiter = "5.5.2"
+guava = "28.1-android"
+mockitoKotlin = "2.2.0"
+mockitoAndroid = "3.1.0"
+espresso = "3.3.0"
+androidxTestJunit = "1.1.5"
+androidxTestRunner = "1.2.0"
+androidxTestRules = "1.5.0"
+androidxTestCore = "1.5.0"
+
+[libraries]
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
+kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+bouncycastle-bcprov = { module = "org.bouncycastle:bcprov-jdk16", version.ref = "bouncycastle" }
+ffmpeg-kit-min = { module = "com.antonkarpenko:ffmpeg-kit-min", version.ref = "ffmpeg" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
+androidx-fragment-ktx = { module = "androidx.fragment:fragment-ktx", version.ref = "fragment" }
+timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
+androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
+androidx-lifecycle-extensions = { module = "androidx.lifecycle:lifecycle-extensions", version.ref = "lifecycleExtensions" }
+androidx-lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycleViewModel" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+androidx-navigation-fragment-ktx = { module = "androidx.navigation:navigation-fragment-ktx", version.ref = "navigation" }
+androidx-navigation-ui-ktx = { module = "androidx.navigation:navigation-ui-ktx", version.ref = "navigation" }
+androidx-preference = { module = "androidx.preference:preference", version.ref = "preference" }
+exoplayer = { module = "com.google.android.exoplayer:exoplayer", version.ref = "exoplayer" }
+exoplayer-core = { module = "com.google.android.exoplayer:exoplayer-core", version.ref = "exoplayer" }
+exoplayer-common = { module = "com.google.android.exoplayer:exoplayer-common", version.ref = "exoplayer" }
+exoplayer-dash = { module = "com.google.android.exoplayer:exoplayer-dash", version.ref = "exoplayer" }
+exoplayer-hls = { module = "com.google.android.exoplayer:exoplayer-hls", version.ref = "exoplayer" }
+exoplayer-smoothstreaming = { module = "com.google.android.exoplayer:exoplayer-smoothstreaming", version.ref = "exoplayer" }
+exoplayer-rtsp = { module = "com.google.android.exoplayer:exoplayer-rtsp", version.ref = "exoplayer" }
+exoplayer-extension-cronet = { module = "com.google.android.exoplayer:extension-cronet", version.ref = "exoplayer" }
+exoplayer-extension-ima = { module = "com.google.android.exoplayer:extension-ima", version.ref = "exoplayer" }
+exoplayer-datasource = { module = "com.google.android.exoplayer:exoplayer-datasource", version.ref = "exoplayer" }
+exoplayer-ui = { module = "com.google.android.exoplayer:exoplayer-ui", version.ref = "exoplayer" }
+exoplayer-extension-mediasession = { module = "com.google.android.exoplayer:extension-mediasession", version.ref = "exoplayer" }
+double-tap-player-view = { module = "com.github.vkay94:DoubleTapPlayerView", version.ref = "doubleTapPlayerView" }
+commons-codec = { module = "commons-codec:commons-codec", version.ref = "commonsCodec" }
+joda-time = { module = "joda-time:joda-time", version.ref = "jodaTime" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-serialization-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = "ktor" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+room-paging = { module = "androidx.room:room-paging", version.ref = "room" }
+androidx-paging-runtime-ktx = { module = "androidx.paging:paging-runtime-ktx", version.ref = "paging" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
+glide-ksp = { module = "com.github.bumptech.glide:ksp", version.ref = "glide" }
+glide-okhttp3-integration = { module = "com.github.bumptech.glide:okhttp3-integration", version.ref = "glide" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+androidx-coordinatorlayout = { module = "androidx.coordinatorlayout:coordinatorlayout", version.ref = "coordinatorlayout" }
+androidx-legacy-support-v4 = { module = "androidx.legacy:legacy-support-v4", version.ref = "legacySupport" }
+androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
+androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
+androidx-cardview = { module = "androidx.cardview:cardview", version.ref = "cardview" }
+material = { module = "com.google.android.material:material", version.ref = "material" }
+material-dialogs-core = { module = "com.afollestad.material-dialogs:core", version.ref = "materialDialogs" }
+material-dialogs-input = { module = "com.afollestad.material-dialogs:input", version.ref = "materialDialogs" }
+material-dialogs-color = { module = "com.afollestad.material-dialogs:color", version.ref = "materialDialogs" }
+material-dialogs-bottomsheets = { module = "com.afollestad.material-dialogs:bottomsheets", version.ref = "materialDialogs" }
+material-dialogs-files = { module = "com.afollestad.material-dialogs:files", version.ref = "materialDialogs" }
+androidx-leanback = { module = "androidx.leanback:leanback", version.ref = "leanback" }
+androidx-leanback-paging = { module = "androidx.leanback:leanback-paging", version.ref = "leanbackPaging" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junitJupiter" }
+guava-android = { module = "com.google.guava:guava", version.ref = "guava" }
+mockito-kotlin = { module = "com.nhaarman.mockitokotlin2:mockito-kotlin", version.ref = "mockitoKotlin" }
+mockito-android = { module = "org.mockito:mockito-android", version.ref = "mockitoAndroid" }
+espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestJunit" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
+androidx-test-rules = { module = "androidx.test:rules", version.ref = "androidxTestRules" }
+androidx-test-ext-junit-ktx = { module = "androidx.test.ext:junit-ktx", version.ref = "androidxTestJunit" }
+androidx-test-core-ktx = { module = "androidx.test:core-ktx", version.ref = "androidxTestCore" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+navigation-safeargs = { id = "androidx.navigation.safeargs", version.ref = "navigationSafeArgs" }
+secrets = { id = "com.google.android.libraries.mapsplatform.secrets-gradle-plugin", version.ref = "secrets" }
