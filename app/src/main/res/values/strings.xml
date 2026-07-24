@@ -6,6 +6,7 @@
     <string name="forward">Forward</string>
     <string name="movies_not_found">Список видео пуст</string>
     <string name="update_list">Обновить список</string>
+    <string name="menu_compose_test">Compose test</string>
     <string name="home_search">Поиск</string>
     <string name="video_url_not_found">URL видео не найден</string>
     <string name="home_choose_source">Выбрать источник</string>

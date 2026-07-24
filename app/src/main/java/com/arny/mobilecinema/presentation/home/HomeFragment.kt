@@ -669,6 +669,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
             menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
             menu.findItem(R.id.action_order_settings).isVisible = hasQuery
             menu.findItem(R.id.action_extended_search_settings).isVisible = true
+            menu.findItem(R.id.menu_action_compose_test).isVisible = com.arny.mobilecinema.BuildConfig.DEBUG
         }
 
         val menu = binding.toolbar.menu
@@ -739,6 +740,18 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
 
                 R.id.menu_action_update_download_new -> {
                     viewModel.onActionUpdateAll()
+                    true
+                }
+
+                R.id.menu_action_compose_test -> {
+                    if (com.arny.mobilecinema.BuildConfig.DEBUG) {
+                        startActivity(
+                            Intent().setClassName(
+                                requireContext(),
+                                "com.arny.mobilecinema.presentation.compose.ComposeTestActivity"
+                            )
+                        )
+                    }
                     true
                 }
 

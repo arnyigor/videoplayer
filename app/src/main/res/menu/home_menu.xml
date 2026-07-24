@@ -43,4 +43,8 @@
         android:id="@+id/menu_action_update_list"
         app:showAsAction="never"
         android:title="@string/update_list" />
+    <item
+        android:id="@+id/menu_action_compose_test"
+        app:showAsAction="never"
+        android:title="@string/menu_compose_test" />
 </menu>
