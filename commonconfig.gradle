@@ -1,0 +1,207 @@
+ext {
+    versions = [
+            minSdkVersion            : 24,
+            compileSdkVersion        : 34,
+            targetSdkVersion         : 34,
+            buildToolsVersion        : "34.0.0"
+    ]
+}
+dependencies {
+    // Dependency on local binaries
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+}
+android {
+    namespace 'com.arny.mobilecinema'
+    signingConfigs {
+        release
+    }
+    compileSdkVersion versions.compileSdkVersion
+    buildToolsVersion versions.buildToolsVersion
+    def versionPropsFile = rootProject.file("version.properties")
+    def versionProps = new Properties()
+    if (versionPropsFile.canRead()) {
+        versionProps.load(new FileInputStream(versionPropsFile))
+    } else {
+        versionProps.setProperty("VERSION_MAJOR", "1")
+        versionProps.setProperty("VERSION_MINOR", "0")
+        versionProps.setProperty("VERSION_BUILD", "0")
+    }
+    def vMajor = versionProps['VERSION_MAJOR'].toInteger()
+    def vMinor = versionProps['VERSION_MINOR'].toInteger()
+    def vBuild = versionProps['VERSION_BUILD'].toInteger()
+    defaultConfig {
+        applicationId "com.arny.mobilecinema"
+        minSdkVersion versions.minSdkVersion
+        targetSdkVersion versions.targetSdkVersion
+        versionCode vMajor * 100 + vMinor * 10 + vBuild
+        versionName "${vMajor}" + ".${vMinor}" + ".${vBuild}"
+        setProperty("archivesBaseName", applicationId + "-v" + "(" + versionName + ")")
+        archivesBaseName = "$applicationId-v$versionName($versionCode)"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments = [
+                        "dagger.experimentalDaggerErrorMessages": "enabled"
+                ]
+                arguments += ["room.schemaLocation": "$projectDir/schemas".toString()]
+            }
+        }
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
+    packagingOptions {
+        exclude 'META-INF/ASL2.0'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/MANIFEST.MF'
+    }
+
+    sourceSets {
+        main.java.srcDirs += "src/main/kotlin"
+        test.java.srcDirs += "src/test/kotlin"
+        androidTest.java.srcDirs += "src/androidTest/kotlin"
+        test.resources.srcDirs += 'src/unitTests/resources'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig = true
+    }
+
+    buildTypes {
+        release {
+            resValue "string", "app_name", "Anwap Movies"
+            debuggable false
+            minifyEnabled true
+            shrinkResources true
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            testProguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguardTest-rules.pro'
+        }
+
+        debug {
+            resValue "string", "app_name", "[DEBUG]Anwap Movies"
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-DEBUG'
+            debuggable true
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            testProguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguardTest-rules.pro'
+        }
+    }
+
+    testOptions.unitTests.all {
+        useJUnitPlatform()
+//        jvmArgs "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap"
+    }
+}
+android.applicationVariants.all { variant ->
+    variant.outputs.all {
+        if (outputFileName.endsWith('.apk')) {
+            outputFileName = "mobilecinema-${variant.versionName}-${buildType.name}.apk"
+        }
+    }
+}
+
+def signingPropertyNames = [
+        'ANDROID_KEYSTORE_PATH',
+        'ANDROID_KEYSTORE_PASSWORD',
+        'ANDROID_KEY_ALIAS',
+        'ANDROID_KEY_PASSWORD'
+]
+def legacySigningPropertyNames = ['STORE_FILE', 'STORE_PASSWORD', 'KEY_ALIAS', 'KEY_PASSWORD']
+def signingProperties = new Properties()
+def signingPropertiesFile = rootProject.file('signing.properties')
+if (signingPropertiesFile.canRead()) {
+    signingPropertiesFile.withInputStream { signingProperties.load(it) }
+}
+
+def signingValues = signingPropertyNames.collectEntries { propertyName ->
+    def environmentValue = System.getenv(propertyName)
+    def fileValue = signingProperties.getProperty(propertyName)
+    [(propertyName): environmentValue?.trim() ? environmentValue : fileValue]
+}
+def configuredSigningProperties = signingValues.findAll { propertyName, value -> value?.trim() }.keySet()
+def configuredModernFileProperties = signingPropertyNames.findAll { propertyName ->
+    signingProperties.getProperty(propertyName)?.trim()
+}
+def configuredLegacySigningProperties = legacySigningPropertyNames.findAll { propertyName ->
+    signingProperties.getProperty(propertyName)?.trim()
+}
+if (!configuredSigningProperties.isEmpty() && configuredSigningProperties.size() != signingPropertyNames.size()) {
+    def missingProperties = signingPropertyNames - configuredSigningProperties
+    throw new GradleException("Incomplete release signing configuration. Missing: ${missingProperties.join(', ')}")
+}
+if (configuredSigningProperties.isEmpty() && !configuredLegacySigningProperties.isEmpty()
+        && configuredLegacySigningProperties.size() != legacySigningPropertyNames.size()) {
+    def missingProperties = legacySigningPropertyNames - configuredLegacySigningProperties
+    throw new GradleException("Incomplete legacy release signing configuration. Missing: ${missingProperties.join(', ')}")
+}
+if (!configuredModernFileProperties.isEmpty() && !configuredLegacySigningProperties.isEmpty()) {
+    throw new GradleException('Mixed release signing schemas are not supported')
+}
+
+def legacySigningConfigured = configuredSigningProperties.isEmpty()
+        && configuredLegacySigningProperties.size() == legacySigningPropertyNames.size()
+if (legacySigningConfigured) {
+    signingValues = [
+            ANDROID_KEYSTORE_PATH    : signingProperties.getProperty('STORE_FILE'),
+            ANDROID_KEYSTORE_PASSWORD: signingProperties.getProperty('STORE_PASSWORD'),
+            ANDROID_KEY_ALIAS        : signingProperties.getProperty('KEY_ALIAS'),
+            ANDROID_KEY_PASSWORD     : signingProperties.getProperty('KEY_PASSWORD')
+    ]
+}
+
+def releaseSigningConfigured = configuredSigningProperties.size() == signingPropertyNames.size() || legacySigningConfigured
+if (releaseSigningConfigured) {
+    def configuredKeystore = new File(signingValues.ANDROID_KEYSTORE_PATH)
+    def resolvedKeystore = configuredKeystore.isAbsolute()
+            ? configuredKeystore
+            : rootProject.file(signingValues.ANDROID_KEYSTORE_PATH)
+    android.signingConfigs.release.storeFile = resolvedKeystore
+    android.signingConfigs.release.storePassword = signingValues.ANDROID_KEYSTORE_PASSWORD
+    android.signingConfigs.release.keyAlias = signingValues.ANDROID_KEY_ALIAS
+    android.signingConfigs.release.keyPassword = signingValues.ANDROID_KEY_PASSWORD
+} else {
+    android.buildTypes.release.signingConfig = null
+}
+
+gradle.taskGraph.whenReady { taskGraph ->
+    def releaseRequested = taskGraph.allTasks.any { task ->
+        task.project == project && task.name.toLowerCase().contains('release')
+    }
+    if (releaseRequested && !releaseSigningConfigured) {
+        throw new GradleException('Release signing is not configured. Provide all ANDROID_* values via the environment or ignored signing.properties.')
+    }
+}
+
+secrets {
+    // Optionally specify a different file name containing your secrets.
+    // The plugin defaults to "local.properties"
+    propertiesFileName = "secrets.properties"
+    // A properties file containing default secret values. This file can be
+    // checked in version control.
+//    defaultPropertiesFileName = 'local.defaults.properties'
+
+    // Configure which keys should be ignored by the plugin by providing regular expressions.
+    // "sdk.dir" is ignored by default.
+    ignoreList.add("keyToIgnore") // Ignore the key "keyToIgnore"
+    ignoreList.add("sdk.*")       // Ignore all keys matching the regexp "sdk.*"
+}
+
