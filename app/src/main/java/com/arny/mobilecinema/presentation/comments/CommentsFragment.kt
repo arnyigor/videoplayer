@@ -1,7 +1,6 @@
 package com.arny.mobilecinema.presentation.comments
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -19,6 +18,7 @@ import com.arny.mobilecinema.presentation.utils.toast
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.parameter.parametersOf
+import androidx.core.net.toUri
 
 class CommentsFragment : Fragment(R.layout.f_comments) {
 
@@ -110,7 +110,7 @@ class CommentsFragment : Fragment(R.layout.f_comments) {
         binding.toolbar.title = getString(R.string.movie_comments)
         binding.tvMovieTitle.text = state.title
         binding.swipeRefresh.isRefreshing = state.isRefreshing
-        adapter.submitItems(state.comments)
+        adapter.submitList(state.comments)
 
         binding.tvCommentsStatus.text = when {
             state.error != null -> getString(R.string.movie_comments_error, state.error)
@@ -136,7 +136,7 @@ class CommentsFragment : Fragment(R.layout.f_comments) {
 
     private fun openUrl(url: String) {
         runCatching {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
         }.onFailure {
             toast(getString(R.string.movie_comments_open_site_error))
         }
