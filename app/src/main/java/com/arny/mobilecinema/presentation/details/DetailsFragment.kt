@@ -302,6 +302,9 @@ override fun onResume() {
                 ivFavorite.setOnClickListener {
                     viewModel.handleEvent(DetailsEvent.ToggleFavorite)
                 }
+                btnOpenComments.setOnClickListener {
+                    openCommentsScreen()
+                }
             }
         }
 
@@ -605,6 +608,16 @@ override fun onResume() {
                 initDirectors(info.directors)
                 initActors(info.actors)
             }
+        }
+
+        private fun openCommentsScreen() {
+            val movie = currentMovie ?: return
+            findNavController().navigateSafely(
+                DetailsFragmentDirections.actionNavDetailsToNavComments(
+                    movie.pageUrl,
+                    movie.title
+                )
+            )
         }
 
         private fun buildTypeYearString(movie: Movie): String {

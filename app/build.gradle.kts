@@ -235,6 +235,7 @@ dependencies {
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.fragment.ktx)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.swiperefreshlayout)
     implementation(libs.androidx.cardview)
     implementation(libs.androidx.legacy.support.v4)
     implementation(libs.koin.android)

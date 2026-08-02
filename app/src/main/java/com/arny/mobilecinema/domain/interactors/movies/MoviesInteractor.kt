@@ -3,6 +3,8 @@ package com.arny.mobilecinema.domain.interactors.movies
 import androidx.paging.PagingData
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieComment
+import com.arny.mobilecinema.domain.models.MovieCommentsPage
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
@@ -27,6 +29,8 @@ interface MoviesInteractor {
     /** Возвращает фильм по строковому id, который хранится в поле pageUrl */
     fun getMovieByPageUrl(pageUrl: String): Flow<DataResult<Movie>>
     fun getMovie(id: Long): Flow<DataResult<Movie>>
+    fun getMovieComments(pageUrl: String, maxPages: Int = 1): Flow<DataResult<List<MovieComment>>>
+    fun getMovieCommentsPage(pageUrl: String, page: Int = 1): Flow<DataResult<MovieCommentsPage>>
     suspend fun saveOrder(order: String)
     suspend fun saveHistoryOrder(order: String)
     suspend fun saveFavoriteOrder(order: String)

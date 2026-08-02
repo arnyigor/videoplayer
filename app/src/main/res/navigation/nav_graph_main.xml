@@ -116,6 +116,25 @@
                 app:exitAnim="@anim/fade_out"
                 app:popEnterAnim="@anim/fade_in"
                 app:popExitAnim="@anim/fade_out" />
+        <action
+                android:id="@+id/action_nav_details_to_nav_comments"
+                app:destination="@id/nav_comments"
+                app:enterAnim="@anim/fade_in"
+                app:exitAnim="@anim/fade_out"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
+    </fragment>
+    <fragment
+            android:id="@+id/nav_comments"
+            android:name="com.arny.mobilecinema.presentation.comments.CommentsFragment"
+            android:label="CommentsFragment"
+            tools:layout="@layout/f_comments">
+        <argument
+                android:name="pageUrl"
+                app:argType="string" />
+        <argument
+                android:name="title"
+                app:argType="string" />
     </fragment>
     <fragment
             android:id="@+id/nav_history"

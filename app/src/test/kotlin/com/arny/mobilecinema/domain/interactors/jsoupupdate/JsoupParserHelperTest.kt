@@ -8,6 +8,53 @@ import org.junit.jupiter.api.Test
 class JsoupParserHelperTest {
 
     @Test
+    fun `getComments parses author date and text`() {
+        val doc = Jsoup.parse(
+            """
+            <html>
+                <body>
+                    <div class="blm">
+                        <div class="comm_title" id="comm2846970">
+                            <a href="/user/945409"><img src="/style/images/man_off.gif" alt="" />Vasiliy0204</a>
+                            (2026.08.02 18:41) <a href="/films/comm-add/48537/ans-2846970" class="comm_link">Отв.</a>
+                            <div class="clear"></div>
+                        </div>
+                        <div class="comm_main">Классный фильм всем советую ))</div>
+                    </div>
+                </body>
+            </html>
+            """.trimIndent(),
+            "https://my.anwap.love/films/comm/48537"
+        )
+
+        val comments = getComments(doc.body())
+
+        assertEquals(1, comments.size)
+        assertEquals("2846970", comments[0].id)
+        assertEquals("Vasiliy0204", comments[0].author)
+        assertEquals("/user/945409", comments[0].authorUrl)
+        assertEquals("2026.08.02 18:41", comments[0].dateText)
+        assertEquals("Классный фильм всем советую ))", comments[0].text)
+    }
+
+    @Test
+    fun `getCommentsPagesCount returns last comments page`() {
+        val doc = Jsoup.parse(
+            """
+            <div class="pages">
+                <span>Страницы:</span> <span>1</span>
+                <a href="/films/comm/22203/2"><strong>2</strong></a>
+                <a href="/films/comm/22203/3"><strong>3</strong></a>
+                ...
+                <a href="/films/comm/22203/83"><strong>83</strong></a>
+            </div>
+            """.trimIndent()
+        )
+
+        assertEquals(83, getCommentsPagesCount(doc.body()))
+    }
+
+    @Test
     fun `getVenomEmbedUrl returns protocol-relative ortified iframe as https url`() {
         val doc = Jsoup.parse(
             """

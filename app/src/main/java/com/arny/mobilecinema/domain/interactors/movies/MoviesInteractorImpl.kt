@@ -6,8 +6,13 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.doAsync
+import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.domain.interactors.jsoupupdate.getComments
+import com.arny.mobilecinema.domain.interactors.jsoupupdate.getCommentsPagesCount
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieComment
+import com.arny.mobilecinema.domain.models.MovieCommentsPage
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.OrderKey
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
@@ -23,6 +28,7 @@ import kotlinx.coroutines.withContext
 class MoviesInteractorImpl(
     private val repository: MoviesRepository,
     private val updateRepository: UpdateRepository,
+    private val jsoupService: JsoupService,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : MoviesInteractor {
 
@@ -88,6 +94,69 @@ class MoviesInteractorImpl(
 
     override fun getMovieByPageUrl(pageUrl: String): Flow<DataResult<Movie>> = doAsync {
         repository.getMovie(pageUrl) ?: throw DataThrowable(R.string.movie_not_found)
+    }
+
+    override fun getMovieComments(pageUrl: String, maxPages: Int): Flow<DataResult<List<MovieComment>>> =
+        doAsync(dispatcher) {
+            val firstPage = loadCommentsPage(pageUrl, 1)
+            val pagesCount = firstPage.totalPages.coerceAtMost(maxPages.coerceAtLeast(1))
+            buildList {
+                addAll(firstPage.comments)
+                for (page in 2..pagesCount) {
+                    addAll(loadCommentsPage(pageUrl, page).comments)
+                }
+            }.distinctBy { it.id.ifBlank { "${it.author}_${it.dateText}_${it.text}" } }
+        }
+
+    override fun getMovieCommentsPage(pageUrl: String, page: Int): Flow<DataResult<MovieCommentsPage>> =
+        doAsync(dispatcher) {
+            loadCommentsPage(pageUrl, page)
+        }
+
+    private fun loadCommentsPage(pageUrl: String, page: Int): MovieCommentsPage {
+        val commentsUrl = buildCommentsUrl(pageUrl)
+        val targetPage = page.coerceAtLeast(1)
+        val document = jsoupService.loadPage(
+            if (targetPage == 1) commentsUrl else "$commentsUrl/$targetPage"
+        )
+        return MovieCommentsPage(
+            comments = getComments(document.body()),
+            currentPage = targetPage,
+            totalPages = getCommentsPagesCount(document.body()).coerceAtLeast(targetPage),
+            addCommentUrl = buildAddCommentUrl(pageUrl),
+        )
+    }
+
+    private fun buildCommentsUrl(pageUrl: String): String {
+        val rawPageUrl = pageUrl.trim()
+        val normalizedPageUrl = if (rawPageUrl.startsWith("http://", ignoreCase = true) ||
+            rawPageUrl.startsWith("https://", ignoreCase = true)
+        ) {
+            rawPageUrl.substringAfter("://").substringAfter("/")
+        } else {
+            rawPageUrl.trimStart('/')
+        }
+        val (type, movieId) = getMovieUrlParts(normalizedPageUrl, pageUrl)
+        return "${getBaseUrl()}/$type/comm/$movieId"
+    }
+
+    private fun buildAddCommentUrl(pageUrl: String): String {
+        val rawPageUrl = pageUrl.trim()
+        val normalizedPageUrl = if (rawPageUrl.startsWith("http://", ignoreCase = true) ||
+            rawPageUrl.startsWith("https://", ignoreCase = true)
+        ) {
+            rawPageUrl.substringAfter("://").substringAfter("/")
+        } else {
+            rawPageUrl.trimStart('/')
+        }
+        val (type, movieId) = getMovieUrlParts(normalizedPageUrl, pageUrl)
+        return "${getBaseUrl()}/$type/comm/$movieId"
+    }
+
+    private fun getMovieUrlParts(normalizedPageUrl: String, sourcePageUrl: String): Pair<String, String> {
+        val match = Regex("^(films|serials)/(\\d+)").find(normalizedPageUrl)
+            ?: throw IllegalArgumentException("Unsupported movie url: $sourcePageUrl")
+        return match.groupValues[1] to match.groupValues[2]
     }
 
     override fun isAvailableToDownload(selectedCinemaUrl: String?, type: MovieType): Boolean {

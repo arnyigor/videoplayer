@@ -7,6 +7,12 @@
         android:background="@color/colorPrimary">
 
     <!-- HEADER SECTION -->
+    <TextView
+            android:text="https://mm.anwap.media/films/comm/47737"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/textView" />
+
     <com.google.android.material.appbar.AppBarLayout
             android:id="@+id/appBarLayout"
             android:layout_width="match_parent"
@@ -473,6 +479,16 @@
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
+
+            <!-- Comments -->
+            <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnOpenComments"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/movie_comments_open"
+                    android:textAllCaps="false"
+                    app:cornerRadius="12dp" />
 
             <!-- Genres -->
             <TextView

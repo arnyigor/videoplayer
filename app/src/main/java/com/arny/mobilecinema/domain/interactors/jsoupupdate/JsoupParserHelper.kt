@@ -14,6 +14,7 @@ import com.arny.mobilecinema.domain.models.AnwapUrl
 import com.arny.mobilecinema.domain.models.CinemaUrlData
 import com.arny.mobilecinema.domain.models.LoadingData
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieComment
 import com.arny.mobilecinema.domain.models.MovieInfo
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialSeason
@@ -259,6 +260,48 @@ fun getFullDescription(page: Element): String {
     val selectFirst = page.selectFirst(Selectors.DESCRIPTION)
     return selectFirst?.text()?.replace("(?i)<br[^>]*>".toRegex(), "").orEmpty()
 }
+
+fun getCommentsCount(page: Element): Int =
+    page.selectFirst(Selectors.COMMENTS_COUNT)
+        ?.text()
+        ?.trim()
+        ?.toIntOrNull() ?: 0
+
+fun getCommentsLink(page: Element, location: String): String? =
+    page.select(Selectors.COMMENTS_LINK)
+        .firstOrNull { it.attr(Selectors.HREF_ATTR).contains("/comm/") }
+        ?.attr(Selectors.HREF_ATTR)
+        ?.takeIf { it.isNotBlank() }
+        ?.getWithDomain(location)
+
+fun getCommentsPagesCount(page: Element): Int =
+    page.select(Selectors.COMMENTS_PAGES)
+        .mapNotNull { it.text().trim().toIntOrNull() }
+        .maxOrNull()
+        ?: 1
+
+fun getComments(page: Element): List<MovieComment> =
+    page.select(Selectors.COMMENTS_TITLE).mapNotNull { titleElement ->
+        val textElement = titleElement.nextElementSibling()
+            ?.takeIf { it.`is`(Selectors.COMMENTS_TEXT) }
+            ?: return@mapNotNull null
+        val authorElement = titleElement.selectFirst(Selectors.COMMENTS_AUTHOR)
+        val id = titleElement.id().removePrefix("comm")
+        val titleText = titleElement.wholeText().cleanEmptySymbols()
+        val dateText = findByGroup(titleText, "\\(([^)]+)\\)".toRegex(), 1).orEmpty()
+        val text = textElement.wholeText().cleanEmptySymbols()
+        if (text.isBlank()) {
+            null
+        } else {
+            MovieComment(
+                id = id,
+                author = authorElement?.ownText().orEmpty().trim(),
+                authorUrl = authorElement?.attr(Selectors.HREF_ATTR).orEmpty(),
+                dateText = dateText,
+                text = text,
+            )
+        }
+    }
 
 fun getMovieId(location: String): Int =
     findByGroup(location, "(films|serials)/(\\d+)".toRegex(), 2)?.toIntOrNull() ?: 0

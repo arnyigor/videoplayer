@@ -31,6 +31,7 @@ import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractorImpl
 import com.arny.mobilecinema.domain.repository.JsoupUpdateRepository
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
+import com.arny.mobilecinema.presentation.comments.CommentsViewModel
 import com.arny.mobilecinema.presentation.details.DetailsViewModel
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel
 import com.arny.mobilecinema.presentation.favorite.FavoritesViewModel
@@ -89,7 +90,7 @@ val dataModule = module {
 }
 
 val domainModule = module {
-    single<MoviesInteractor> { MoviesInteractorImpl(get(), get(), get<CoroutineDispatcher>()) }
+    single<MoviesInteractor> { MoviesInteractorImpl(get(), get(), get(), get<CoroutineDispatcher>()) }
     single<HistoryInteractor> { HistoryInteractorImpl(get(), get<CoroutineDispatcher>(), get()) }
     single<DataUpdateInteractor> { DataUpdateInteractorImpl(get()) }
     single<FeedbackInteractor> { FeedbackInteractorImpl(get(),get(),androidContext()) }
@@ -99,6 +100,7 @@ val domainModule = module {
 val presentationModule = module {
     viewModel { HomeViewModel(get(), get()) }
     viewModel { (id: Long) -> DetailsViewModel(id, get(), get(), get(), get()) }
+    viewModel { (pageUrl: String, title: String) -> CommentsViewModel(pageUrl, title, get()) }
     viewModel { ExtendedSearchViewModel(get()) }
     viewModel { FavoritesViewModel(get()) }
     viewModel { HistoryViewModel(get(), get()) }

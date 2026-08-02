@@ -20,6 +20,7 @@ activity = "1.6.1"
 activityCompose = "1.8.2"
 fragment = "1.5.5"
 recyclerview = "1.2.0"
+swipeRefreshLayout = "1.1.0"
 cardview = "1.0.0"
 legacySupport = "1.0.0"
 koin = "3.5.6"
@@ -112,6 +113,7 @@ androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "a
 androidx-coordinatorlayout = { module = "androidx.coordinatorlayout:coordinatorlayout", version.ref = "coordinatorlayout" }
 androidx-legacy-support-v4 = { module = "androidx.legacy:legacy-support-v4", version.ref = "legacySupport" }
 androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
+androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swipeRefreshLayout" }
 androidx-constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
 androidx-cardview = { module = "androidx.cardview:cardview", version.ref = "cardview" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
