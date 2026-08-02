@@ -48,7 +48,8 @@ class MainActivity : AppCompatActivity() {
                 destination.id !in listOf(
                     R.id.nav_player_view,
                     R.id.nav_details,
-                    R.id.nav_extended_search
+                    R.id.nav_extended_search,
+                    R.id.nav_comments,
                 )
             )
         }

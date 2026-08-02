@@ -643,6 +643,7 @@ class JsoupUpdateInteractorImpl constructor(
             } else {
                 flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала $title"))
                 seasons = getSeasons(
+                    title = title,
                     page = page,
                     location = location,
                     filmLink = filmLink,
@@ -806,13 +807,14 @@ private suspend fun getMp4UrlData(
         location: String,
         filmLink: String,
         flowCollector: FlowCollector<DataResultWithProgress<LoadingData>>,
+        title: String,
     ): List<SerialSeason> {
+        flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала $title"))
         // Результат: список сезонов
         val resultSeasons = mutableListOf<SerialSeason>()
 
         // Шаг 1: Получаем ссылки на сезоны
         val seasonsLinks = getSeasonsLinks(page)
-        flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала seasonsLinks->${seasonsLinks.isNotEmpty()}"))
 
         if (seasonsLinks.isEmpty()) {
             // Если ссылок на сезоны нет, завершаем выполнение
@@ -823,14 +825,13 @@ private suspend fun getMp4UrlData(
         val episodesCount = getAllEpisodes(page)
 
         // Шаг 3: Обрабатываем ссылки на сезоны через плейлист
-        getByPlayList(flowCollector, seasonsLinks, resultSeasons, location, page)
+        getByPlayList(seasonsLinks, resultSeasons, location, page)
 
         // Сортируем сезоны по ID
         val seasons = resultSeasons.sortedBy { it.id }
 
         // Шаг 4: Проверяем, все ли эпизоды найдены
         var hasAllEpisodes = hasAllEpisodes(resultSeasons, episodesCount)
-        flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Проверяем наличие всех эпизодов -> $hasAllEpisodes"))
 
         if (!hasAllEpisodes) {
             // Шаг 5: Если не все эпизоды найдены, обрабатываем отсутствующие сезоны
@@ -856,7 +857,6 @@ private suspend fun getMp4UrlData(
                     )
                 }
             }
-
             flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Обрабатываем отсутствующие сезоны -> $hasAllEpisodes"))
         }
 
@@ -907,13 +907,11 @@ private suspend fun getMp4UrlData(
     }
 
     private suspend fun getByPlayList(
-        flowCollector: FlowCollector<DataResultWithProgress<LoadingData>>,
         seasonsLinks: List<String>,
         resultSeasons: MutableList<SerialSeason>,
         location: String,
         sourcePage: Element
     ) {
-        flowCollector.emit(loading(UpdateType.PAGE_CURRENT_LINK to "Получаем данные сериала playlist"))
         for ((ind, link) in seasonsLinks.withIndex()) {
             getEpisodesBySeasonPlaylist(ind, resultSeasons, link, location, sourcePage)
         }
