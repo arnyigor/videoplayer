@@ -13,7 +13,7 @@ import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.X509TrustManager
 import kotlin.random.Random
 
-class JsoupService constructor() {
+class JsoupService {
 
     companion object {
         @Volatile
