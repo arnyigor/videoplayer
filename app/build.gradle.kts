@@ -18,6 +18,7 @@ ksp {
 
 android {
     namespace = "com.arny.mobilecinema"
+    testBuildType = "releaseTest"
 
     signingConfigs {
         create("release")
@@ -108,11 +109,19 @@ android {
     buildTypes {
         release {
             resValue("string", "app_name", "Anwap Movies")
-            isDebuggable = true
+            isDebuggable = false
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
+            testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
+        }
+
+        create("releaseTest") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
 
         debug {

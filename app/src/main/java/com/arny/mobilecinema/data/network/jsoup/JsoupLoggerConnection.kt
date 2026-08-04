@@ -1,7 +1,9 @@
 package com.arny.mobilecinema.data.network.jsoup
 
+import android.util.Log
 import org.jsoup.Connection
 import org.jsoup.helper.HttpConnection
+import timber.log.Timber
 
 enum class LogLevel {
     NONE,
@@ -16,6 +18,8 @@ class JsoupLoggerConnection private constructor(
 ) : HttpConnection() {
 
     companion object {
+        private const val TAG = "JsoupService"
+
         fun connect(
             url: String,
             logLevel: LogLevel = LogLevel.NONE,
@@ -32,14 +36,60 @@ class JsoupLoggerConnection private constructor(
     }
 
     override fun execute(): Connection.Response {
+        val request = this.request()
+        val startedAt = System.currentTimeMillis()
+        Log.d(
+            TAG,
+            "Jsoup request start: url=${request.url()} method=${request.method()} timeoutMs=${request.timeout()} proxy=${request.proxy()} headers=${sanitizeHeaders(request.headers())}"
+        )
         if (logLevel != LogLevel.NONE) {
-            log(this.request())
+            log(request)
         }
-        val response = super.execute()
-        if (logLevel != LogLevel.NONE) {
-            log(response)
+        try {
+            val response = super.execute()
+            Log.i(
+                TAG,
+                "Jsoup request success: url=${response.url()} code=${response.statusCode()} durationMs=${System.currentTimeMillis() - startedAt}"
+            )
+            if (logLevel != LogLevel.NONE) {
+                Timber.d(
+                    "Jsoup request success: url=%s code=%d durationMs=%d",
+                    response.url(),
+                    response.statusCode(),
+                    System.currentTimeMillis() - startedAt
+                )
+                log(response)
+            }
+            return response
+        } catch (e: Exception) {
+            val message =
+                "Jsoup request failed: url=${request.url()} " +
+                    "method=${request.method()} " +
+                    "timeoutMs=${request.timeout()} " +
+                    "durationMs=${System.currentTimeMillis() - startedAt} " +
+                    "proxy=${request.proxy()} " +
+                    "headers=${sanitizeHeaders(request.headers())} " +
+                    "dataKeys=${request.data().map { it.key() }}"
+            Log.w(TAG, message, e)
+            Timber.w(
+                e,
+                message
+            )
+            throw e
         }
-        return response
+    }
+
+    private fun sanitizeHeaders(headers: Map<String, String>): Map<String, String> {
+        return headers.mapValues { (key, value) ->
+            when {
+                key.equals("Authorization", ignoreCase = true) -> "<redacted>"
+                key.equals("Cookie", ignoreCase = true) -> "<redacted>"
+                key.equals("PHPSESSID", ignoreCase = true) -> "<redacted>"
+                key.contains("token", ignoreCase = true) -> "<redacted>"
+                key.contains("session", ignoreCase = true) -> "<redacted>"
+                else -> value
+            }
+        }
     }
 
     private fun log(request: Connection.Request): String {

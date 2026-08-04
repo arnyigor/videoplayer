@@ -1,6 +1,5 @@
 package com.arny.mobilecinema.data.network.jsoup
 
-import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.utils.getDomainName
 import kotlinx.coroutines.delay
 import org.jsoup.Connection
@@ -107,7 +106,7 @@ class JsoupService {
                 }
             }
             if (domain.isNotBlank() && headers["Authority"] != domain) {
-                headers["Authority"] = BuildConfig.BASE_LINK
+                headers["Authority"] = domain
             }
             if (path.isNotBlank() && headers["path"] != path) {
                 headers["path"] = path

@@ -3,132 +3,108 @@
 # in D:\Android\sdk/tools/proguard/proguard-android.txt
 # You can edit the include path and order by changing the proguardFiles
 # directive in build.gradle.
+#
+# For more details, see
+#   http://developer.android.com/guide/developing/tools/proguard.html
 
+# Add any project specific keep options here:
+# This is a configuration file for ProGuard.
+# http://proguard.sourceforge.net/index.html#manual/usage.html
 -dontusemixedcaseclassnames
 -verbose
+# Optimization is turned off by default. Dex does not like code run
+# through the ProGuard optimize and preverify steps (and performs some
+# of these optimizations on its own).
 -dontoptimize
-
-# Глобальные базовые правила
+# Note that if you want to enable optimization, you cannot just
+# include optimization flags in your own project configuration file;
+# instead you will need to point to the
+# "proguard-android-optimize.txt" file instead of this one from your
+# project.properties file.
 -keepattributes *Annotation*
--keepattributes Signature
--keepattributes Exceptions
-
-# Для нативных методов
+# For native methods, see http://proguard.sourceforge.net/manual/examples.html#native
 -keepclasseswithmembernames class * {
     native <methods>;
 }
-
-# View setters (чтобы работали анимации)
+# keep setters in Views so that animations can still work.
+# see http://proguard.sourceforge.net/manual/examples.html#beans
 -keepclassmembers public class * extends android.view.View {
    void set*(***);
    *** get*();
 }
-
-# Activity onClick (из XML)
+# We want to keep methods in Activity that could be used in the XML attribute onClick
 -keepclassmembers class * extends android.app.Activity {
    public void *(android.view.View);
 }
-
-# Перечисления (Enums)
+# For enumeration classes, see http://proguard.sourceforge.net/manual/examples.html#enumerations
 -keepclassmembers enum * {
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }
-
-# Parcelable
 -keep class * implements android.os.Parcelable {
   public static final android.os.Parcelable$Creator *;
 }
-
-# R классы ресурсов
 -keepclassmembers class **.R$* {
     public static <fields>;
 }
+# The support library contains references to newer platform versions.
+# Don't warn about those in case this app is linking against an older
+# platform version.  We know about them, and they are safe.
 -dontwarn android.support.**
 
-# androidx Fragments
+#androidx Fragments
 -keepnames class androidx.navigation.fragment.NavHostFragment
 -keep class * extends androidx.fragment.app.Fragment{}
 
-# ==========================================
-# Модели приложения (Gson/Ktor ломаются без этого)
-# ==========================================
-# (Заменил твое слишком широкое правило на domain.**, чтобы обфускация реально работала)
+#Custom app files
 -dontwarn com.arny.mobilecinema.domain.**
--keep class com.arny.mobilecinema.domain.models.** { *; }
--keep class com.arny.mobilecinema.data.db.models.** { *; }
--keep class com.arny.mobilecinema.data.models.** { *; }
+-keep class com.arny.mobilecinema.domain.** { *; }
 
-# Если используете Kotlinx.Serialization
--keepclassmembers class com.arny.mobilecinema.** {
-    @kotlinx.serialization.Serializable <fields>;
-}
-
-# ==========================================
-# Ktor & Coroutines
-# ==========================================
--keep class kotlinx.serialization.** { *; }
--keep class io.ktor.** { *; }
--dontwarn io.ktor.**
--dontwarn kotlinx.coroutines.internal.**
--keep,allowobfuscation,allowshrinking class kotlin.coroutines.** { *; }
-
-# ==========================================
-# Room (полные правила)
-# ==========================================
--keep class * extends androidx.room.RoomDatabase { *; }
--keep @androidx.room.Entity class * { *; }
--keep @androidx.room.Dao interface * { *; }
-
-# ==========================================
-# FFmpegKit
-# ==========================================
--keep class com.arthenica.ffmpegkit.** { *; }
--keep class com.antonkarpenko.ffmpegkit.** { *; }
--dontwarn com.arthenica.ffmpegkit.**
--dontwarn com.antonkarpenko.ffmpegkit.**
-
-# ==========================================
-# ExoPlayer
-# ==========================================
--keep class com.google.android.exoplayer2.** { *; }
--keep class com.google.android.exoplayer2.ext.** { *; }
--dontwarn com.google.android.exoplayer2.**
-
-# ==========================================
-# Сторонние библиотеки
-# ==========================================
-# protobuf
+#protobuf
 -dontwarn com.google.protobuf.**
 -keep class com.google.protobuf.** { *; }
 
-# slf4j
+#slf4j
 -dontwarn org.slf4j.**
 -keep class org.slf4j.** { *; }
 
-# Retrofit
+#Retrofit
 -dontwarn retrofit.**
 -keep class retrofit.** { *; }
+-keepattributes Signature
+-keepattributes Exceptions
 
-# OkHttp3
+#OkHttp3
+-keepattributes Signature
+-keepattributes *Annotation*
 -keep class okhttp3.** { *; }
 -keep interface okhttp3.** { *; }
 -dontwarn okhttp3.**
 -dontnote okhttp3.**
 
-# Gson / Unsafe
+#gson
 -keep class sun.misc.Unsafe { *; }
--keep class com.google.gson.** { *; }
 -keep class com.google.gson.stream.** { *; }
 
 # Okio
 -dontwarn java.nio.file.*
 -dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
 
-# Joda Time
+#Coroutins
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.** { *; }
+
+#Joda
+# All the resources are retrieved via reflection, so we need to make sure we keep them
 -keep class net.danlew.android.joda.R$raw { *; }
+
+# These aren't necessary if including joda-convert, but
+# most people aren't, so it's helpful to include it.
 -dontwarn org.joda.convert.FromString
 -dontwarn org.joda.convert.ToString
+
+# Joda classes use the writeObject special method for Serializable, so
+# if it's stripped, we'll run into NotSerializableExceptions.
+# https://www.guardsquare.com/en/products/proguard/manual/examples#serializable
 -keepnames class org.joda.** implements java.io.Serializable
 -keepclassmembers class org.joda.** implements java.io.Serializable {
     static final long serialVersionUID;
@@ -139,3 +115,6 @@
     java.lang.Object writeReplace();
     java.lang.Object readResolve();
 }
+
+# Add this global rule
+-keepattributes Signature
