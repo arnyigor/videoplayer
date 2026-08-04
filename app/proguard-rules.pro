@@ -76,9 +76,7 @@
 # ==========================================
 # Room (полные правила)
 # ==========================================
--keepclassmembers class * extends androidx.room.RoomDatabase {
-    public **;
-}
+-keep class * extends androidx.room.RoomDatabase { *; }
 -keep @androidx.room.Entity class * { *; }
 -keep @androidx.room.Dao interface * { *; }
 

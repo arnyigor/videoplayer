@@ -108,12 +108,11 @@ android {
     buildTypes {
         release {
             resValue("string", "app_name", "Anwap Movies")
-            isDebuggable = false
+            isDebuggable = true
             isMinifyEnabled = true
             isShrinkResources = true
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
-            testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
         }
 
         debug {
