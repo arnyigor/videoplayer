@@ -738,7 +738,9 @@ private suspend fun getCinemaUrlData(
 
     private suspend fun loadVenomCinemaUrlData(
         venomEmbedUrl: String,
-        referer: String
+        referer: String,
+        seasonId: Int? = null,
+        episodeId: Int? = null
     ): CinemaUrlData {
         return runCatching {
             val refererDomain = getDomainName(referer).ifBlank { referer }
@@ -753,7 +755,7 @@ private suspend fun getCinemaUrlData(
                 timeout = 30000,
                 resetCookie = false
             )
-            getVenomCinemaUrlData(venomDoc)
+            getVenomCinemaUrlData(venomDoc, seasonId, episodeId)
         }.getOrElse { error ->
             Timber.e(error, "VenomPlayer parsing failed: $venomEmbedUrl")
             CinemaUrlData()
@@ -1002,11 +1004,12 @@ private suspend fun getMp4UrlData(
     ): SerialEpisode {
         val venomEmbedUrl = venomSourcePage?.let { getVenomEmbedUrl(it, seasonId, episodeId) }
             ?: return episode
-        val venomData = loadVenomCinemaUrlData(venomEmbedUrl, referer)
+        val venomData = loadVenomCinemaUrlData(venomEmbedUrl, referer, seasonId, episodeId)
         val venomCinemaUrls = venomData.cinemaUrl?.urls.orEmpty()
         val venomDash = venomData.hdUrl?.urls.orEmpty().firstOrNull { it.isNotBlank() }
             ?: venomCinemaUrls.firstOrNull { it.contains(".mpd", ignoreCase = true) }
         val venomHls = venomCinemaUrls.firstOrNull { it.contains(".m3u8", ignoreCase = true) }
+        Timber.d("Venom enrich: season=$seasonId episode=$episodeId embed=$venomEmbedUrl dash=${venomDash?.take(120)} hls=${venomHls?.take(120)}")
         return episode.copy(
             dash = venomDash ?: episode.dash,
             hls = venomHls ?: episode.hls

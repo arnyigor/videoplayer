@@ -23,6 +23,7 @@ import com.google.gson.JsonDeserializer
 import kotlinx.serialization.json.Json
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
+import org.json.JSONArray
 import org.json.JSONObject
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -384,12 +385,38 @@ fun getVenomEmbedUrl(
     return null
 }
 
-fun getVenomCinemaUrlData(doc: Document): CinemaUrlData {
+fun getVenomCinemaUrlData(
+    doc: Document,
+    seasonId: Int? = null,
+    episodeId: Int? = null
+): CinemaUrlData {
     val html = doc.html()
     val playerBlock = extractBalancedJsObject(html, "makePlayer(")
         ?: return CinemaUrlData()
     val accessToken = extractVenomAccessToken(html)
 
+    // Пытаемся извлечь ссылки конкретного сезона/эпизода из структуры seasons.
+    // Embed-страница ortified отдаёт ВСЕ сезоны одним makePlayer, и порядок сезонов
+    // в JSON нестабилен (может идти сезон 2 раньше сезона 1), поэтому нельзя
+    // полагаться на "первое вхождение" dash/hls.
+    val seasonEpisodeData = runCatching {
+        val root = JSONObject(playerBlock)
+        val seasons = root.optJSONArray("seasons")
+        if (seasons != null && seasons.length() > 0) {
+            extractSeasonEpisodeUrls(seasons, seasonId, episodeId, accessToken)
+        } else {
+            null
+        }
+    }.getOrElse { error ->
+        Timber.e(error, "Failed to parse venom seasons config")
+        null
+    }
+    if (seasonEpisodeData != null) {
+        Timber.d("Venom parsed by season/episode: season=$seasonId episode=$episodeId")
+        return seasonEpisodeData
+    }
+
+    // Fallback: прежнее поведение — первое вхождение dash/hls/dasha
     val cinemaUrls = listOfNotNull(
         extractJsStringField(playerBlock, "dash")?.appendQueryToken(accessToken),
         extractJsStringField(playerBlock, "hls")?.appendQueryToken(accessToken)
@@ -397,6 +424,66 @@ fun getVenomCinemaUrlData(doc: Document): CinemaUrlData {
     val hdUrls = listOfNotNull(
         extractJsStringField(playerBlock, "dasha")?.appendQueryToken(accessToken)
     ).filter { it.isNotBlank() }.distinct()
+
+    return CinemaUrlData(
+        cinemaUrl = cinemaUrls.takeIf { it.isNotEmpty() }?.let { AnwapUrl(urls = it) },
+        hdUrl = hdUrls.takeIf { it.isNotEmpty() }?.let { AnwapUrl(urls = it) }
+    )
+}
+
+/**
+ * Извлекает dash/dasha/hls конкретного сезона/эпизода из массива seasons.
+ * Если сезон/эпизод не найден — берётся первый, чтобы не потерять данные.
+ */
+private fun extractSeasonEpisodeUrls(
+    seasons: JSONArray,
+    seasonId: Int?,
+    episodeId: Int?,
+    accessToken: String?
+): CinemaUrlData? {
+    val seasonObj = if (seasonId != null) {
+        var found: JSONObject? = null
+        for (i in 0 until seasons.length()) {
+            val obj = seasons.optJSONObject(i) ?: continue
+            if (obj.optInt("season", -1) == seasonId) {
+                found = obj
+                break
+            }
+        }
+        found ?: seasons.optJSONObject(0)
+    } else {
+        seasons.optJSONObject(0)
+    } ?: return null
+
+    val episodes = seasonObj.optJSONArray("episodes") ?: return null
+    val episodeObj = if (episodeId != null) {
+        var found: JSONObject? = null
+        for (i in 0 until episodes.length()) {
+            val obj = episodes.optJSONObject(i) ?: continue
+            if (obj.optString("episode").toIntOrNull() == episodeId) {
+                found = obj
+                break
+            }
+        }
+        found ?: episodes.optJSONObject(0)
+    } else {
+        episodes.optJSONObject(0)
+    } ?: return null
+
+    val dash = episodeObj.optString("dash").takeIf { it.isNotBlank() }
+    val dasha = episodeObj.optString("dasha").takeIf { it.isNotBlank() }
+    val hls = episodeObj.optString("hls").takeIf { it.isNotBlank() }
+
+    val cinemaUrls = listOfNotNull(dash, hls)
+        .map { it.appendQueryToken(accessToken) }
+        .filter { it.isNotBlank() }
+        .distinct()
+    val hdUrls = listOfNotNull(dasha)
+        .map { it.appendQueryToken(accessToken) }
+        .filter { it.isNotBlank() }
+        .distinct()
+
+    if (cinemaUrls.isEmpty() && hdUrls.isEmpty()) return null
 
     return CinemaUrlData(
         cinemaUrl = cinemaUrls.takeIf { it.isNotEmpty() }?.let { AnwapUrl(urls = it) },

@@ -211,4 +211,81 @@ class JsoupParserHelperTest {
         )
         assertEquals(listOf("https://cdn.example/hd.mpd"), data.hdUrl?.urls)
     }
+
+    @Test
+    fun `getVenomCinemaUrlData selects requested season and episode from seasons structure`() {
+        val doc = Jsoup.parse(
+            """
+            <html>
+                <body>
+                    <script>
+                        makePlayer({
+                            "seasons": [
+                                {
+                                    "season": 1,
+                                    "episodes": [
+                                        { "episode": "1", "dash": "https://cdn.example/s1e1.mpd", "dasha": "https://cdn.example/s1e1-hd.mpd", "hls": "https://cdn.example/s1e1.m3u8" },
+                                        { "episode": "2", "dash": "https://cdn.example/s1e2.mpd", "hls": "https://cdn.example/s1e2.m3u8" }
+                                    ]
+                                },
+                                {
+                                    "season": 2,
+                                    "episodes": [
+                                        { "episode": "1", "dash": "https://cdn.example/s2e1.mpd", "dasha": "https://cdn.example/s2e1-hd.mpd", "hls": "https://cdn.example/s2e1.m3u8" },
+                                        { "episode": "2", "dash": "https://cdn.example/s2e2.mpd", "hls": "https://cdn.example/s2e2.m3u8" }
+                                    ]
+                                }
+                            ]
+                        });
+                    </script>
+                </body>
+            </html>
+            """.trimIndent(),
+            "https://api.ortified.ws/embed/movie/57095?season=1&episode=1"
+        )
+
+        // Сезон 1, эпизод 1 — даже если в JSON сезон 2 идёт первым
+        val season1 = getVenomCinemaUrlData(doc, seasonId = 1, episodeId = 1)
+        assertEquals(
+            listOf("https://cdn.example/s1e1.mpd", "https://cdn.example/s1e1.m3u8"),
+            season1.cinemaUrl?.urls
+        )
+        assertEquals(listOf("https://cdn.example/s1e1-hd.mpd"), season1.hdUrl?.urls)
+
+        // Сезон 2, эпизод 2
+        val season2ep2 = getVenomCinemaUrlData(doc, seasonId = 2, episodeId = 2)
+        assertEquals(
+            listOf("https://cdn.example/s2e2.mpd", "https://cdn.example/s2e2.m3u8"),
+            season2ep2.cinemaUrl?.urls
+        )
+        assertEquals(null, season2ep2.hdUrl?.urls)
+    }
+
+    @Test
+    fun `getVenomCinemaUrlData falls back to first season when season missing`() {
+        val doc = Jsoup.parse(
+            """
+            <html>
+                <body>
+                    <script>
+                        makePlayer({
+                            "seasons": [
+                                { "season": 2, "episodes": [ { "episode": "1", "dash": "https://cdn.example/s2e1.mpd", "hls": "https://cdn.example/s2e1.m3u8" } ] },
+                                { "season": 1, "episodes": [ { "episode": "1", "dash": "https://cdn.example/s1e1.mpd", "hls": "https://cdn.example/s1e1.m3u8" } ] }
+                            ]
+                        });
+                    </script>
+                </body>
+            </html>
+            """.trimIndent(),
+            "https://api.ortified.ws/embed/movie/57095"
+        )
+
+        // Сезон 999 отсутствует — берётся первый сезон из JSON (2), чтобы не потерять данные
+        val fallback = getVenomCinemaUrlData(doc, seasonId = 999, episodeId = 1)
+        assertEquals(
+            listOf("https://cdn.example/s2e1.mpd", "https://cdn.example/s2e1.m3u8"),
+            fallback.cinemaUrl?.urls
+        )
+    }
 }

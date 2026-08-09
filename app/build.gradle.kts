@@ -18,7 +18,7 @@ ksp {
 
 android {
     namespace = "com.arny.mobilecinema"
-    testBuildType = "releaseTest"
+    testBuildType = "release"
 
     signingConfigs {
         create("release")
@@ -115,13 +115,6 @@ android {
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
             testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
-        }
-
-        create("releaseTest") {
-            initWith(getByName("release"))
-            matchingFallbacks += listOf("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
         }
 
         debug {
@@ -310,6 +303,7 @@ dependencies {
     testImplementation(libs.guava.android)
     testImplementation(libs.mockito.kotlin)
     testImplementation(libs.androidx.test.core.ktx)
+    testImplementation(libs.org.json)
 
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.mockito.android)
