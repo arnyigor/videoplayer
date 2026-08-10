@@ -28,6 +28,7 @@ interface UpdateRepository {
     suspend fun checkPath(url: String): Boolean
     fun hasLastUpdates(): Boolean
     fun hasMovies(): Boolean
+    fun isAutoUpdateAllowed(): Boolean
     fun downloadUpdates(url: String, forceUpdate: Boolean)
     suspend fun copyFileToDownloadFolder(file: File, fileName: String): Boolean
     suspend fun downloadFileWithProgress(

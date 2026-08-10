@@ -42,6 +42,8 @@ class DataUpdateInteractorImpl constructor(
         repository.checkUpdate = false
     }
 
+    override suspend fun isAutoUpdateAllowed(): Boolean = repository.isAutoUpdateAllowed()
+
     override suspend fun setIntentUrl(url: String) {
         repository.onNewUrl(url)
     }

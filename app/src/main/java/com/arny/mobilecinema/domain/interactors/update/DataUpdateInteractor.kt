@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 interface DataUpdateInteractor {
     suspend fun requestFile(force: Boolean, hasPartUpdate: Boolean)
     suspend fun getUpdateDate(force: Boolean): Flow<DataResult<DataUpdateResult>>
+    suspend fun isAutoUpdateAllowed(): Boolean
     fun resetUpdate()
     suspend fun checkBaseUrl(): Flow<DataResult<Boolean>>
     fun updateAll()

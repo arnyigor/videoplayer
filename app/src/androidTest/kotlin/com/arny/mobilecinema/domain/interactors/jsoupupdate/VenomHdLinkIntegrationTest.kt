@@ -147,6 +147,7 @@ class VenomHdLinkIntegrationTest {
         override suspend fun checkPath(url: String): Boolean = true
         override fun hasLastUpdates(): Boolean = false
         override fun hasMovies(): Boolean = false
+        override fun isAutoUpdateAllowed(): Boolean = false
         override fun downloadUpdates(url: String, forceUpdate: Boolean) = Unit
         override suspend fun copyFileToDownloadFolder(file: File, fileName: String): Boolean = false
         override suspend fun downloadFileWithProgress(url: String, fileName: String): Flow<DataResultWithProgress<DownloadFileResult>> = emptyFlow()

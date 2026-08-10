@@ -173,21 +173,26 @@ class HomeViewModel constructor(
                         is DataResult.Success -> {
                             val updateResult = result.result
                             val hasPartUpdate = updateResult.hasPartUpdate
-                            val updateTime = updateResult.updateDateTime
+                            val updateTime = result.result.updateDateTime
                             if (updateTime.isNotBlank() && !updateTime.contains("""[/|\\]""".toRegex())) {
-                                _alert.trySend(
-                                    Alert(
-                                        title = ResourceString(R.string.new_films_update),
-                                        content = ResourceString(
-                                            R.string.question_update_format,
-                                            updateTime
-                                        ),
-                                        btnOk = ResourceString(android.R.string.ok),
-                                        btnCancel = ResourceString(android.R.string.cancel),
-                                        btnNeutral = if (hasPartUpdate) ResourceString(R.string.full_update) else null,
-                                        type = AlertType.Update(false, hasPartUpdate)
+                                if (!force && dataUpdateInteractor.isAutoUpdateAllowed()) {
+                                    // Авто-обновление (WiFi или TV): тихо скачиваем частичное обновление
+                                    dataUpdateInteractor.requestFile(force = false, hasPartUpdate = hasPartUpdate)
+                                } else {
+                                    _alert.trySend(
+                                        Alert(
+                                            title = ResourceString(R.string.new_films_update),
+                                            content = ResourceString(
+                                                R.string.question_update_format,
+                                                updateTime
+                                            ),
+                                            btnOk = ResourceString(android.R.string.ok),
+                                            btnCancel = ResourceString(android.R.string.cancel),
+                                            btnNeutral = if (hasPartUpdate) ResourceString(R.string.full_update) else null,
+                                            type = AlertType.Update(false, hasPartUpdate)
+                                        )
                                     )
-                                )
+                                }
                             } else {
                                 _alert.trySend(
                                     Alert(
