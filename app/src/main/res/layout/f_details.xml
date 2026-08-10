@@ -570,6 +570,33 @@
             android:paddingBottom="16dp"
             android:elevation="8dp">
 
+        <LinearLayout
+                android:id="@+id/llUpdatingIndicator"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+            <ProgressBar
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:indeterminateTint="@color/colorAccent" />
+
+            <TextView
+                    android:id="@+id/tvUpdatingText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:text="@string/updating_data"
+                    android:textColor="@color/textColorSecondary"
+                    android:textSize="13sp" />
+
+        </LinearLayout>
+
         <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnPlay"
                 android:layout_width="match_parent"

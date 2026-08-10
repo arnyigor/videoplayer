@@ -71,6 +71,8 @@
     <string name="updating_channel_name">Обновление</string>
     <string name="updating">Обновление фильмов и сериалов %d%%</string>
     <string name="updating_all">Обновление фильмов и сериалов</string>
+    <string name="updating_data">Обновление данных…</string>
+    <string name="click_to_cancel_update">Нажмите OK, чтобы отменить</string>
     <string name="please_wait">Пожалуйста, подождите…</string>
     <string name="no_movie_title">Нет названия</string>
     <string name="serial_title">%s (%s сезон,%s серия)</string>

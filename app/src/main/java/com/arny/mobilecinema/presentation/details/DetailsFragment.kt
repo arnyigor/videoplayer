@@ -517,6 +517,7 @@ override fun onResume() {
             autoUpdateRequestedForUrl = pageUrl
             isAutoUpdateRunning = true
             updatePlayButtonEnabled()
+            setAutoUpdateIndicatorVisible(true)
             requestMovieUpdate(pageUrl)
         }
 
@@ -525,8 +526,27 @@ override fun onResume() {
             return updated <= 0L || System.currentTimeMillis() - updated > AUTO_UPDATE_MAX_AGE_MS
         }
 
+        private fun Movie.hasPlayableLinks(): Boolean = when (type) {
+            MovieType.CINEMA -> {
+                val urls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
+                val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
+                urls.any { it.isNotBlank() } || hdUrls.any { it.isNotBlank() }
+            }
+            MovieType.SERIAL -> seasons.any { season ->
+                season.episodes.any { episode ->
+                    episode.hls.isNotBlank() || episode.dash.isNotBlank()
+                }
+            }
+            else -> false
+        }
+
+        private fun setAutoUpdateIndicatorVisible(visible: Boolean) {
+            _binding?.llUpdatingIndicator?.isVisible = visible
+        }
+
         private fun requestMovieUpdate(url: String) {
             isAutoUpdateRunning = true
+            setAutoUpdateIndicatorVisible(true)
             updatePlayButtonEnabled()
             requireContext().sendServiceMessage(
                 Intent(requireContext().applicationContext, UpdateService::class.java),
@@ -739,7 +759,9 @@ override fun onResume() {
 
         private fun updatePlayButtonEnabled() {
             _binding?.btnPlay?.apply {
-                val enabled = !isAutoUpdateRunning
+                // Блокируем только если обновление идёт и нет ни одной играбельной ссылки
+                val hasLinks = currentMovie?.hasPlayableLinks() == true
+                val enabled = !isAutoUpdateRunning || hasLinks
                 isEnabled = enabled
                 isClickable = enabled
                 alpha = if (enabled) 1f else 0.5f
@@ -1094,7 +1116,8 @@ override fun onResume() {
         }
 
         private fun playMovie() {
-            if (isAutoUpdateRunning) {
+            // Блокируем только если обновление идёт и нет ни одной играбельной ссылки
+            if (isAutoUpdateRunning && currentMovie?.hasPlayableLinks() == false) {
                 toast(getString(R.string.please_wait))
                 return
             }
@@ -1139,7 +1162,8 @@ override fun onResume() {
         }
 
         private fun navigateToPlayer(movie: Movie) {
-            if (isAutoUpdateRunning) return
+            // Блокируем только если обновление идёт и нет ни одной играбельной ссылки
+            if (isAutoUpdateRunning && movie.hasPlayableLinks() == false) return
 
             val popupItems = getVideoUrlsItems(movie)
             currentLinkPosition = binding.spinLinks.selectedItemPosition
@@ -1206,6 +1230,7 @@ override fun onResume() {
                     when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
                         AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
                             isAutoUpdateRunning = false
+                            setAutoUpdateIndicatorVisible(false)
                             updatePlayButtonEnabled()
                             viewModel.handleEvent(DetailsEvent.LoadMovie)
                         }
@@ -1213,6 +1238,7 @@ override fun onResume() {
                         AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR,
                         AppConstants.ACTION_UPDATE_STATUS_CANCELLED -> {
                             isAutoUpdateRunning = false
+                            setAutoUpdateIndicatorVisible(false)
                             updatePlayButtonEnabled()
                         }
                     }
