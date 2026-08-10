@@ -764,6 +764,25 @@ fun getAllDownloadLinks(page: Element): List<String> {
 fun Element.getAllCinemaLinks(): List<String> =
     select(Selectors.ALL_CINEMA_LINKS).map { it.attr(Selectors.HREF_ATTR) }
 
+/** Лучшая (самое высокое качество) ссылка на скачивание MP4 фильма: .blms .tl2 a.strong */
+fun Element.getBestFilmCinemaLink(): String? =
+    selectFirst(Selectors.BEST_FILM_CINEMA_LINK)
+        ?.attr(Selectors.HREF_ATTR)
+        ?.takeIf { it.isNotBlank() }
+
+/**
+ * Проверяет, является ли URL прямой ссылкой на видеофайл.
+ * Использует contains вместо endsWith, чтобы корректно обрабатывать query-параметры
+ * (например https://cdn/.../video.mp4?token=abc&e=123).
+ */
+fun isPlayableVideoUrl(url: String?): Boolean {
+    if (url.isNullOrBlank()) return false
+    val normalized = url.lowercase()
+    return normalized.contains(".mp4") ||
+            normalized.contains(".m3u8") ||
+            normalized.contains(".mpd")
+}
+
 fun getSerialIframeLink(page: Element): String {
     var serialIframeLink =
         page.selectFirst(Selectors.SERIAL_IFRAME)?.attr(Selectors.IFRAME_ATTR).orEmpty()

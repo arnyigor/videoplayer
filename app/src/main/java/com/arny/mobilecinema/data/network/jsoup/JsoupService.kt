@@ -11,6 +11,7 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.X509TrustManager
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.milliseconds
 
 class JsoupService {
 
@@ -94,7 +95,7 @@ class JsoupService {
         val randomTimeout = Random.nextLong(delayMin, delayMax)
         return JsoupLoggerConnection.connect(url, logLevel, resetCookie, helper).apply {
             if (needDelay) {
-                delay(randomTimeout)
+                delay(randomTimeout.milliseconds)
             }
             userAgent(helper.userAgent)
             currentProxy?.let { (address, port) -> proxy(address, port) }
@@ -151,7 +152,7 @@ class JsoupService {
         val randomTimeout = Random.nextLong(delayMin, delayMax)
         val connection = JsoupLoggerConnection.connect(url, logLevel, resetCookie, helper).apply {
             if (needDelay) {
-                delay(randomTimeout)
+                delay(randomTimeout.milliseconds)
             }
             userAgent(helper.userAgent)
             currentProxy?.let { (address, port) -> proxy(address, port) }
@@ -178,6 +179,6 @@ class JsoupService {
             response = connection.response()
             e.printStackTrace()
         }
-        return response?.url().toString()
+        return response?.url()?.toString().orEmpty()
     }
 }

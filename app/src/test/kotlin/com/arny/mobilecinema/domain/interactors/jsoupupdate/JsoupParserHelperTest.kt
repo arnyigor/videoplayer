@@ -2,7 +2,9 @@ package com.arny.mobilecinema.domain.interactors.jsoupupdate
 
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class JsoupParserHelperTest {
@@ -287,5 +289,71 @@ class JsoupParserHelperTest {
             listOf("https://cdn.example/s2e1.mpd", "https://cdn.example/s2e1.m3u8"),
             fallback.cinemaUrl?.urls
         )
+    }
+
+    @Test
+    fun `getBestFilmCinemaLink returns strong mp4 download link`() {
+        val doc = Jsoup.parse(
+            """
+            <html>
+                <body>
+                    <div class="blms"><ul class="tl2">
+                        <li><a href="/films/load/f16f1/1/48568">Скачать 3GP 176x144 <span class="black">122.18мб.</span></a></li>
+                        <li><a href="/films/load/f16f1/2/48568">Скачать MP4 320x240 <span class="black">228.45мб.</span></a></li>
+                        <li><a class="strong" href="/films/load/f16f1/3/48568">Скачать MP4 720x304 <span class="black">439.89мб.</span></a></li>
+                    </ul></div>
+                </body>
+            </html>
+            """.trimIndent()
+        )
+
+        assertEquals("/films/load/f16f1/3/48568", doc.body().getBestFilmCinemaLink())
+    }
+
+    @Test
+    fun `getBestFilmCinemaLink returns null when no strong link`() {
+        val doc = Jsoup.parse(
+            """
+            <div class="blms"><ul class="tl2">
+                <li><a href="/films/load/f16f1/1/48568">Скачать 3GP 176x144</a></li>
+            </ul></div>
+            """.trimIndent()
+        )
+
+        assertEquals(null, doc.body().getBestFilmCinemaLink())
+    }
+
+    @Test
+    fun `getAllCinemaLinks returns all download links from film block`() {
+        val doc = Jsoup.parse(
+            """
+            <div class="blms"><ul class="tl2">
+                <li><a href="/films/load/f16f1/1/48568">Скачать 3GP 176x144</a></li>
+                <li><a href="/films/load/f16f1/2/48568">Скачать MP4 320x240</a></li>
+                <li><a class="strong" href="/films/load/f16f1/3/48568">Скачать MP4 720x304</a></li>
+            </ul></div>
+            """.trimIndent()
+        )
+
+        assertEquals(
+            listOf(
+                "/films/load/f16f1/1/48568",
+                "/films/load/f16f1/2/48568",
+                "/films/load/f16f1/3/48568"
+            ),
+            doc.body().getAllCinemaLinks()
+        )
+    }
+
+    @Test
+    fun `isPlayableVideoUrl detects mp4 with query params`() {
+        assertTrue(isPlayableVideoUrl("https://cdn.example/video.mp4?token=abc&e=123"))
+        assertTrue(isPlayableVideoUrl("https://cdn.example/master.m3u8?x=1"))
+        assertTrue(isPlayableVideoUrl("https://cdn.example/video.MPD"))
+        assertFalse(isPlayableVideoUrl("/films/load/f16f1/3/48568"))
+        assertFalse(isPlayableVideoUrl("https://example.com/films/load/f16f1/3/48568"))
+        assertFalse(isPlayableVideoUrl(null))
+        assertFalse(isPlayableVideoUrl(""))
+        assertFalse(isPlayableVideoUrl("null"))
     }
 }

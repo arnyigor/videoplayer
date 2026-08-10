@@ -33,6 +33,7 @@ object Selectors {
     const val SEASONS_ATTR = "href"
     const val EPISODES = ".blm a"
     const val ALL_CINEMA_LINKS = ".blms .tl2 a:contains(Скачать)"
+    const val BEST_FILM_CINEMA_LINK = ".blms .tl2 a.strong"
     const val DOWNLOAD_LINK = ".blm a:contains(Скачать)"
     const val HREF_ATTR = "href"
     const val SERIAL_IFRAME = "iframe[src~=http]"

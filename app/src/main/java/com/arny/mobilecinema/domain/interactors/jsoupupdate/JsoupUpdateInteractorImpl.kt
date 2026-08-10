@@ -768,24 +768,37 @@ private suspend fun getMp4UrlData(
         cinemaUrlData: CinemaUrlData
     ): CinemaUrlData {
         var data = cinemaUrlData
-        val allCinemaLinks = page.getAllCinemaLinks()
-        for (link in allCinemaLinks) {
-            val resolvedLink = getMp4Link(link.getWithDomain(location))
-            if (!resolvedLink.isNullOrBlank()) {
-                val isM3u8 = resolvedLink.endsWith("m3u8")
-                val isMp4 = resolvedLink.endsWith("mp4")
-                if (isM3u8 || isMp4) {
-                    val urls = if (isM3u8) {
-                        data.cinemaUrl?.urls.orEmpty().toMutableList()
-                    } else {
-                        data.cinemaUrl?.urls.orEmpty().toMutableList()
-                    }
-                    if (!urls.any { it == resolvedLink }) {
-                        urls.add(resolvedLink)
-                    }
-                    data = data.copy(cinemaUrl = AnwapUrl(urls = urls))
-                }
+        // Приоритет: лучшая ссылка на MP4 (a.strong), затем все остальные «Скачать»
+        val candidates = buildList {
+            page.getBestFilmCinemaLink()?.let(::add)
+            addAll(page.getAllCinemaLinks())
+        }.distinct()
+
+        val playableUrls = mutableListOf<String>()
+        val fallbackUrls = mutableListOf<String>()
+        for (link in candidates) {
+            val absoluteLink = link.getWithDomain(location)
+            val resolvedLink = getMp4Link(absoluteLink)
+            if (resolvedLink.isNullOrBlank() || !resolvedLink.startsWith("http")) {
+                continue
             }
+            if (isPlayableVideoUrl(resolvedLink)) {
+                playableUrls.add(resolvedLink)
+            } else {
+                // Прямой mp4/m3u8/mpd получить не удалось — сохраняем исходный URL,
+                // чтобы блок всегда дополнял cinemaUrl хотя бы одной ссылкой на скачивание
+                fallbackUrls.add(resolvedLink)
+            }
+        }
+
+        val urls = data.cinemaUrl?.urls.orEmpty().toMutableList()
+        (playableUrls + fallbackUrls).forEach { url ->
+            if (!urls.any { it == url }) {
+                urls.add(url)
+            }
+        }
+        if (urls.isNotEmpty()) {
+            data = data.copy(cinemaUrl = AnwapUrl(urls = urls))
         }
         return data
     }
@@ -793,12 +806,11 @@ private suspend fun getMp4UrlData(
     private suspend fun getMp4Link(link: String?): String? {
         var result = link
         if (!result.isNullOrBlank() &&
-            !result.endsWith("mp4") &&
-            !result.endsWith("m3u8") &&
-            result.startsWith("http")) {
+            result.startsWith("http") &&
+            !isPlayableVideoUrl(result)) {
             val url = loadUrl(result)
-            if (url.isNotBlank()) {
-                result = url
+            if (url.startsWith("http")) {
+                result = url.trim()
             }
         }
         return result
