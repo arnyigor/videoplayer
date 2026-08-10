@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import com.antonkarpenko.ffmpegkit.FFmpegKit
 import com.arny.mobilecinema.BuildConfig
-import com.arny.mobilecinema.BuildConfig.BASE_LINK_FILE
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.db.daos.MovieDao
 import com.arny.mobilecinema.data.db.models.IMovieUpdate
@@ -48,7 +47,6 @@ class UpdateRepositoryImpl constructor(
 ) : UpdateRepository {
     private companion object {
         const val UPDATE_PERIOD = 182L
-        const val BASE_URL_REQUEST_TIMEOUT_MILLIS = 5000L
         const val BASE_URL_PAGE_TIMEOUT_MILLIS = 3000
         const val MIN_SAFE_FULL_UPDATE_MOVIES = 1000
     }
@@ -289,43 +287,50 @@ class UpdateRepositoryImpl constructor(
     ) = it.pageUrl == movie.pageUrl && !it.title.equals(movie.title, true)
 
     override suspend fun checkBaseUrl(): Boolean = withContext(Dispatchers.IO) {
-        val baseLink = BuildConfig.BASE_LINK.trim().trimEnd('/')
+        val entryPointUrl = AppConstants.ENTRY_POINT_URL.trim().trimEnd('/')
+
         // ========================================================================
-        // STRATEGY 1: Try to parse from the HTML page defined in BuildConfig.
-        // Do not make an extra availability check here: on some real devices it can
-        // wait for the global Ktor timeout and keep the splash screen visible.
+        // STRATEGY 1: Determine the actual domain from the stable entry point page.
+        // The app resolves the current working mirror itself on every launch and
+        // stores it, so it does not depend on build-time secrets or external files.
         // ========================================================================
-        if (baseLink.isNotBlank()) {
+        try {
+            val extractedUrl = tryParseFromPage(entryPointUrl)
+
+            baseUrl = extractedUrl
+            Timber.tag("BaseUrlChecker").i("Success: URL parsed from entry point page: %s", baseUrl)
+            return@withContext true
+        } catch (e: Exception) {
+            Timber.tag("BaseUrlChecker").w(
+                e,
+                "Strategy 1 failed: Could not extract from entry point page: %s",
+                entryPointUrl
+            )
+            // Swallow exception and proceed to Strategy 2
+        }
+
+        // ========================================================================
+        // STRATEGY 2: Fallback - try the build-time configured link.
+        // Used only if the stable entry point dies and a fresh mirror is
+        // configured in build-time secrets.
+        // ========================================================================
+        val buildTimeLink = BuildConfig.BASE_LINK.trim().trimEnd('/')
+        if (buildTimeLink.isNotBlank() && buildTimeLink != entryPointUrl) {
             try {
-                val extractedUrl = tryParseFromPage(baseLink)
+                val extractedUrl = tryParseFromPage(buildTimeLink)
 
                 baseUrl = extractedUrl
-                Timber.tag("BaseUrlChecker").i("Success: URL parsed from entry point page: %s", baseUrl)
+                Timber.tag("BaseUrlChecker").i("Success: URL parsed from build-time page: %s", baseUrl)
                 return@withContext true
             } catch (e: Exception) {
-                Timber.tag("BaseUrlChecker").w(e, "Strategy 1 failed: Could not extract from page.")
-                // Swallow exception and proceed to Strategy 2
+                Timber.tag("BaseUrlChecker").w(e, "Strategy 2 failed: Could not extract from build-time page.")
             }
         }
 
         // ========================================================================
-        // STRATEGY 2: Fallback - Download text file and parse.
-        // The parsed URL is accepted immediately; a second reachability check may
-        // hang on affected devices and is not needed to initialize the app.
+        // FAILURE: Both strategies failed. Keep the previously stored base URL.
         // ========================================================================
-        try {
-            val extractedUrlFromFile = tryParseFromFile(BASE_LINK_FILE)
-
-            baseUrl = extractedUrlFromFile
-            Timber.tag("BaseUrlChecker").i("Success: URL parsed from fallback file: %s", baseUrl)
-            return@withContext true
-        } catch (e: Exception) {
-            Timber.tag("BaseUrlChecker").e(e, "Strategy 2 failed: Could not extract from file.")
-        }
-
-        // ========================================================================
-        // FAILURE: Both strategies failed
-        // ========================================================================
+        Timber.tag("BaseUrlChecker").w("Both strategies failed to resolve base URL. Keeping saved: %s", baseUrl)
         return@withContext false
     }
 
@@ -349,39 +354,6 @@ class UpdateRepositoryImpl constructor(
             else -> url.trimEnd('/') + "/" + href
         }
         return getDomainName(absoluteHref).trimEnd('/').ifBlank { url.trimEnd('/') }
-    }
-
-    private suspend fun tryParseFromFile(fileUrl: String): String {
-        val tempFile = File(context.cacheDir, "base_link.txt")
-
-        // Ensure clean state
-        if (tempFile.exists()) tempFile.delete()
-        withContext(Dispatchers.IO) {
-            tempFile.createNewFile()
-        }
-
-        try {
-            apiService.downloadFile(tempFile, fileUrl, BASE_URL_REQUEST_TIMEOUT_MILLIS)
-
-            val line = tempFile.bufferedReader().use { reader ->
-                reader.lineSequence()
-                    .map { it.trim().removePrefix("\uFEFF") }
-                    .firstOrNull { it.startsWith("base_url=") }
-            } ?: throw IllegalStateException("File $fileUrl does not contain 'base_url='")
-
-            val resultUrl = line.substringAfter('=').trim().trimEnd('/')
-
-            if (resultUrl.isBlank()) {
-                throw IllegalStateException("Found 'base_url=' but value is empty")
-            }
-
-            return resultUrl
-        } finally {
-            // CLEANUP: Always delete the file, success or failure
-            if (tempFile.exists()) {
-                tempFile.delete()
-            }
-        }
     }
 
     private fun getPercent(ind: Int, size: Int) =

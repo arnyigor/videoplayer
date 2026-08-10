@@ -13,7 +13,6 @@
     import androidx.core.app.NotificationCompat
     import androidx.lifecycle.LifecycleService
     import androidx.lifecycle.lifecycleScope
-    import com.arny.mobilecinema.BuildConfig
     import com.arny.mobilecinema.R
     import com.arny.mobilecinema.data.models.DataResultWithProgress
     import com.arny.mobilecinema.data.models.DataThrowable
@@ -302,7 +301,7 @@
         private fun normalizeUpdateUrl(url: String): String =
             normalizeUpdateUrl(
                 url = url,
-                entryPointBaseUrl = BuildConfig.BASE_LINK,
+                entryPointBaseUrl = repository.baseUrl.ifBlank { AppConstants.ENTRY_POINT_URL },
                 savedBaseUrl = repository.baseUrl
             )
 

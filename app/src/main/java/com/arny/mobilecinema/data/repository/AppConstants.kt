@@ -1,6 +1,13 @@
 package com.arny.mobilecinema.data.repository
 
 object AppConstants {
+    /**
+     * Стабильная точка входа для автоопределения рабочего домена.
+     * Приложение на каждом запуске загружает эту страницу, находит актуальное
+     * зеркало (якорь «Фильмы») и сохраняет его в prefs. Не зависит от
+     * build-time секретов и внешних файлов.
+     */
+    const val ENTRY_POINT_URL = "https://my.anwap.love"
     const val UPDATE_FILE = "update.txt"
     const val ACTION_UPDATE = "ACTION_UPDATE"
     const val ACTION_UPDATE_BY_URL = "ACTION_UPDATE_BY_URL"

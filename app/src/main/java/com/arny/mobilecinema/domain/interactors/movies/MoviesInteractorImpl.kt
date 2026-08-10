@@ -1,7 +1,6 @@
 package com.arny.mobilecinema.domain.interactors.movies
 
 import androidx.paging.PagingData
-import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataThrowable
@@ -75,13 +74,17 @@ class MoviesInteractorImpl(
     }
 
     override fun getBaseUrl(): String {
-        val entryPointBaseUrl = BuildConfig.BASE_LINK.trim().trimEnd('/')
-        if (entryPointBaseUrl.startsWith("http://", ignoreCase = true) ||
-            entryPointBaseUrl.startsWith("https://", ignoreCase = true)
+        // Приоритет: домен, который приложение определило само при запуске
+        // (checkBaseUrl) и сохранило в prefs. Это гарантирует, что даже если
+        // build-time секрет устарел (мёртвый домен), приложение работает
+        // через актуальное зеркало, найденное через entry point.
+        val savedBaseUrl = updateRepository.baseUrl.trim().trimEnd('/')
+        if (savedBaseUrl.startsWith("http://", ignoreCase = true) ||
+            savedBaseUrl.startsWith("https://", ignoreCase = true)
         ) {
-            return entryPointBaseUrl
+            return savedBaseUrl
         }
-        return updateRepository.baseUrl.trim().trimEnd('/')
+        return AppConstants.ENTRY_POINT_URL.trim().trimEnd('/')
     }
 
     override fun isMoviesEmpty(): Flow<DataResult<Boolean>> = doAsync {
