@@ -629,7 +629,12 @@ class JsoupUpdateInteractorImpl constructor(
         val type = getMovieType(location)
         val title = getTitle(page)
         val img = getImg(page, location)
-        val info = getInfo(page, updateToNow)
+        val parsedInfo = getInfo(page)
+        val info = if (full) {
+            parsedInfo.copy(detailsFetchedAt = System.currentTimeMillis())
+        } else {
+            parsedInfo
+        }
         var cinemaUrlData = CinemaUrlData()
         var seasons = emptyList<SerialSeason>()
         if (full) {

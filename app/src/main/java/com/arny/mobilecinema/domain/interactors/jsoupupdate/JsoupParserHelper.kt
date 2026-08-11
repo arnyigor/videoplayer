@@ -142,7 +142,7 @@ fun getRatingData(ratingText: String): Pair<Double?, Double?> {
     return imdbRating to kpRating
 }
 
-fun getInfo(page: Element, updateToNow: Boolean): MovieInfo {
+fun getInfo(page: Element): MovieInfo {
     var updated: Long = 0
     var year = 0
     var origTitle = ""
@@ -167,7 +167,7 @@ fun getInfo(page: Element, updateToNow: Boolean): MovieInfo {
                     || info.startsWith("Добавлен", ignoreCase = true) -> {
                 val dateInfo =
                     findByGroup(info, "(Обновлен:|Добавлен:|Добавлена:)(.*)$".toRegex(), 2)!!.trim()
-                updated = getUpdateTime(dateInfo, updateToNow)
+                updated = getUpdateTime(dateInfo, false)
             }
 
             info.startsWith("Оригинал") -> {

@@ -20,5 +20,6 @@ data class MovieInfo(
     val actors: List<String> = emptyList(),
     val description: String = "",
     val updated: Long = 0L,
+    val detailsFetchedAt: Long = 0L,
     val origTitle: String = "",
 ) :Parcelable

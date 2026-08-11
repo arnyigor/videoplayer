@@ -522,8 +522,8 @@ override fun onResume() {
         }
 
         private fun Movie.isDataOutdated(): Boolean {
-            val updated = info.updated
-            return updated <= 0L || System.currentTimeMillis() - updated > AUTO_UPDATE_MAX_AGE_MS
+            val fetchedAt = info.detailsFetchedAt
+            return fetchedAt <= 0L || System.currentTimeMillis() - fetchedAt > AUTO_UPDATE_MAX_AGE_MS
         }
 
         private fun Movie.hasPlayableLinks(): Boolean = when (type) {

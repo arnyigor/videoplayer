@@ -40,7 +40,12 @@ interface MovieDao : BaseDao<MovieEntity> {
     @Query("DELETE FROM movies WHERE dbId in (:idList)")
     fun deleteAll(idList: List<Long>): Int
 
-    @Query("SELECT dbId, pageUrl, title, updated, genre FROM movies")
+    @Query(
+        """
+        SELECT dbId, pageUrl, title, updated, genre, detailsFetchedAt
+        FROM movies
+        """
+    )
     fun getUpdateMovies(): List<MovieUpdate>
 
     @Query("SELECT * FROM movies WHERE dbId = :id")

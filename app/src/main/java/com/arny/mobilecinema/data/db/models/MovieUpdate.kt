@@ -6,4 +6,5 @@ data class MovieUpdate(
     val title: String = "",
     val updated: Long = 0,
     val genre: String = "",
+    val detailsFetchedAt: Long = 0L,
 ) : IMovieUpdate

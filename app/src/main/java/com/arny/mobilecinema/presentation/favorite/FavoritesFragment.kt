@@ -189,6 +189,7 @@ class FavoritesFragment : Fragment(), OnSearchListener, KoinComponent {
             onConfirm = { viewModel.setOrder(currentOrder) },
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
+                    rbSmart.isVisible = false
                     rbLastTime.isVisible = true
                     swPriority.isVisible = false
 

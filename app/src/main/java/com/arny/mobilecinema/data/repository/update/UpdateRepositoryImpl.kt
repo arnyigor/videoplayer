@@ -233,7 +233,10 @@ class UpdateRepositoryImpl constructor(
                     val correctMovie = moviesByTitle[ncm.title.lowercase()] ?: continue
 
                     // Создаём новую сущность из серверного DTO и сохраняем старый dbId
-                    entity = entity.setData(correctMovie).copy(dbId = ncm.dbId)
+                    entity = entity.setData(correctMovie).copy(
+                        dbId = ncm.dbId,
+                        detailsFetchedAt = ncm.detailsFetchedAt
+                    )
 
                     // Проверяем, не существует ли уже строка с таким title+pageUrl
                     val conflict = moviesDao.findByTitleAndPageUrl(entity.title, entity.pageUrl)
@@ -249,7 +252,10 @@ class UpdateRepositoryImpl constructor(
                 try {
                     val dbId = dbMovie?.dbId
                     if (dbId != null) {
-                        entity = entity.setData(movie).copy(dbId = dbId)
+                        entity = entity.setData(movie).copy(
+                            dbId = dbId,
+                            detailsFetchedAt = dbMovie.detailsFetchedAt
+                        )
                         moviesDao.update(entity)
                     } else {
                         lastId += 1

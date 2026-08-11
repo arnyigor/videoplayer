@@ -42,6 +42,7 @@ class MovieMapper constructor() : Mapper<MovieEntity, Movie> {
                 actors = data.actors.split(","),
                 description = data.description,
                 updated = data.updated,
+                detailsFetchedAt = data.detailsFetchedAt,
                 origTitle = data.origTitle
             ),
             seasons = seasons,

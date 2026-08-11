@@ -180,7 +180,7 @@ class MoviesInteractorImpl(
 
     override suspend fun getOrder(isHistory: Boolean): String = withContext(dispatcher) {
         val defaultOrder =
-            if (isHistory) AppConstants.Order.LAST_TIME else AppConstants.Order.YEAR_DESC
+            if (isHistory) AppConstants.Order.LAST_TIME else AppConstants.Order.SMART
         val orderPreference = if (isHistory) repository.historyOrderPref else repository.orderPref
         orderPreference.ifBlank { defaultOrder }
     }

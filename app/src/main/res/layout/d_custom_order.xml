@@ -21,6 +21,13 @@
             tools:visibility="visible" />
 
         <RadioButton
+            android:id="@+id/rbSmart"
+            style="@style/DetailsSubTitleStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/order_recommended" />
+
+        <RadioButton
             android:id="@+id/rbNone"
             style="@style/DetailsSubTitleStyle"
             android:layout_width="match_parent"

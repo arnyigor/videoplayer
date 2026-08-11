@@ -13,7 +13,7 @@ import com.arny.mobilecinema.data.db.models.MovieEntity
 
 @Database(
     entities = [MovieEntity::class, HistoryEntity::class, FavoriteEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -118,6 +118,17 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_favorites_latest_time` ON `favorites` (`latest_time`)"
+                )
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    ALTER TABLE `movies`
+                    ADD COLUMN `detailsFetchedAt` INTEGER NOT NULL DEFAULT 0
+                    """.trimIndent()
                 )
             }
         }

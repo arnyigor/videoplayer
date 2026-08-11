@@ -423,7 +423,10 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
     /** Sets up the RecyclerView adapter and its load state listener. */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
+        itemsAdapter = VideoItemsAdapter(
+            baseUrl = baseUrl,
+            showFreshness = true
+        ) { item ->
             val action = HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId)
             findNavController().navigateSafely(action)
         }
@@ -605,6 +608,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         // Чип сортировки
         if (currentOrder.isNotBlank()) {
             val orderLabel = when (currentOrder) {
+                AppConstants.Order.SMART -> "Рекомендуемые"
                 AppConstants.Order.NONE -> "По дате обновления"
                 AppConstants.Order.TITLE -> "По названию"
                 AppConstants.Order.RATINGS -> "По рейтингам"
@@ -788,6 +792,9 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                             if (isChecked) R.string.likes_priority else R.string.rating_priority
                         )
                     }
+                    fun updatePriorityVisibility() {
+                        swPriority.isVisible = currentOrder != AppConstants.Order.SMART
+                    }
                     rbLastTime.isVisible = false
                     swPriority.isChecked = likesPriority
                     updatePriorityText(likesPriority)
@@ -796,6 +803,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                         updatePriorityText(likesPriority)
                     }
                     val radioBtn = listOf(
+                        rbSmart to AppConstants.Order.SMART,
                         rbNone to AppConstants.Order.NONE,
                         rbTitle to AppConstants.Order.TITLE,
                         rbRatings to AppConstants.Order.RATINGS,
@@ -804,22 +812,26 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                     )
                     currentOrder.takeIf { it.isNotBlank() }?.let {
                         when (it) {
+                            AppConstants.Order.SMART -> rbSmart.isChecked = true
                             AppConstants.Order.TITLE -> rbTitle.isChecked = true
                             AppConstants.Order.RATINGS -> rbRatings.isChecked = true
                             AppConstants.Order.YEAR_DESC -> rbYearDesc.isChecked = true
                             AppConstants.Order.YEAR_ASC -> rbYearAsc.isChecked = true
-                            else -> rbNone.isChecked = true
+                            else -> rbSmart.isChecked = true
                         }
                     } ?: kotlin.run {
-                        rbNone.isChecked = true
+                        rbSmart.isChecked = true
+                        currentOrder = AppConstants.Order.SMART
                     }
                     radioBtn.forEach { (rb, orderString) ->
                         rb.setOnCheckedChangeListener { _, isChecked ->
                             if (isChecked) {
                                 currentOrder = orderString
+                                updatePriorityVisibility()
                             }
                         }
                     }
+                    updatePriorityVisibility()
                 }
             }
         )

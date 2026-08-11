@@ -18,6 +18,7 @@ import java.util.Locale
 
 class VideoItemsAdapter(
     private val baseUrl: String,
+    private val showFreshness: Boolean = false,
     private val onItemClick: (item: ViewMovie) -> Unit
 ) : PagingDataAdapter<ViewMovie, VideoItemsAdapter.VideosViewHolder>(
     diffItemCallback(
@@ -25,6 +26,9 @@ class VideoItemsAdapter(
         contentsTheSame = { m1, m2 -> m1 == m2 }
     )
 ) {
+    private companion object {
+        const val NEW_WINDOW_MS = 14L * 24 * 60 * 60 * 1000
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VideosViewHolder =
         VideosViewHolder(
@@ -53,15 +57,48 @@ class VideoItemsAdapter(
                     .centerCrop()
                     .into(ivVideoIcon)
                 val type = getType(item, context)
-                val year = if (item.year > 0) "${item.year} " else ""
-                tvTypeYear.text = String.format("%s%s", year, type)
-                tvInfo.text =
-                    String.format(
-                        Locale.getDefault(),
-                        "%d\uD83D\uDC4D %d\uD83D\uDC4E",
-                        item.likes,
-                        item.dislikes
-                    )
+                val isFresh = showFreshness &&
+                    item.updated > 0L &&
+                    System.currentTimeMillis() - item.updated in 0..NEW_WINDOW_MS
+
+                tvTypeYear.text = buildList {
+                    if (item.year > 0) {
+                        add(item.year.toString())
+                    }
+                    if (type.isNotBlank()) {
+                        add(type)
+                    }
+                    if (isFresh) {
+                        add("NEW")
+                    }
+                }.joinToString(" • ")
+
+                tvInfo.text = buildList {
+                    when {
+                        item.ratingImdb > 0.0 -> {
+                            add(
+                                String.format(
+                                    Locale.getDefault(),
+                                    "IMDb %.1f",
+                                    item.ratingImdb
+                                )
+                            )
+                        }
+
+                        item.ratingKp > 0.0 -> {
+                            add(
+                                String.format(
+                                    Locale.getDefault(),
+                                    "KP %.1f",
+                                    item.ratingKp
+                                )
+                            )
+                        }
+                    }
+
+                    add("${item.likes}\uD83D\uDC4D")
+                    add("${item.dislikes}\uD83D\uDC4E")
+                }.joinToString("  ")
                 ivFavorite.isVisible = item.isFavorite
             }
         }

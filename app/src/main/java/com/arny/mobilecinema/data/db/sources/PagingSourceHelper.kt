@@ -26,7 +26,7 @@ fun getMoviesSQL(
     val sb = StringBuilder()
     val args = mutableListOf<Any?>()
     // Изменено: добавлен алиас 'm' и JOIN с favorites, добавлено поле isFavorite
-    sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, CASE WHEN f.movie_dbid IS NOT NULL THEN 1 ELSE 0 END AS isFavorite FROM movies m LEFT JOIN favorites f ON m.dbId = f.movie_dbid ")
+    sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, m.ratingImdb, m.ratingKp, m.updated, CASE WHEN f.movie_dbid IS NOT NULL THEN 1 ELSE 0 END AS isFavorite FROM movies m LEFT JOIN favorites f ON m.dbId = f.movie_dbid ")
     search(search, sb, whereWrapper, searchType, args)
     movieTypes(movieTypes, whereWrapper, sb)
     years(years, whereWrapper, sb, args)
@@ -213,6 +213,7 @@ private fun order(order: String, sb: StringBuilder, likesPriority: Boolean) {
         }
         sb.append(
             when (curOrder) {
+                AppConstants.Order.SMART -> smartOrder()
                 AppConstants.Order.NONE -> if (likesPriority) " m.updated DESC, m.likes DESC, m.ratingImdb DESC, m.ratingKp DESC " else " m.updated DESC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
                 AppConstants.Order.RATINGS -> " m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
                 AppConstants.Order.TITLE -> if (likesPriority) " m.title ASC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC " else " m.title ASC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
@@ -222,6 +223,140 @@ private fun order(order: String, sb: StringBuilder, likesPriority: Boolean) {
             }
         )
     }
+}
+
+private val likesPopularitySql: String
+    get() = """
+        (
+            CAST(m.likes AS REAL) /
+            (m.likes + 100.0)
+        )
+    """.trimIndent().replace("\n", " ")
+
+private val engagementPopularitySql: String
+    get() = """
+        (
+            CAST(m.likes + m.dislikes AS REAL) /
+            (m.likes + m.dislikes + 150.0)
+        )
+    """.trimIndent().replace("\n", " ")
+
+private val popularitySql: String
+    get() = """
+        (
+            ($likesPopularitySql * 0.75) +
+            ($engagementPopularitySql * 0.25)
+        )
+    """.trimIndent().replace("\n", " ")
+
+private val popularityAgeFactorSql: String
+    get() = """
+        CASE
+            WHEN m.year <= 0 THEN 0.30
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) THEN 1.00
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 1 THEN 0.55
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 2 THEN 0.40
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 3 THEN 0.32
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 5 THEN 0.24
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 8 THEN 0.18
+            ELSE 0.12
+        END
+    """.trimIndent().replace("\n", " ")
+
+private val adjustedPopularitySql: String
+    get() = """
+        (
+            $popularitySql * $popularityAgeFactorSql
+        )
+    """.trimIndent().replace("\n", " ")
+
+private val approvalSql: String
+    get() = """
+        (
+            CAST(m.likes + 10 AS REAL) /
+            (m.likes + m.dislikes + 20)
+        )
+    """.trimIndent().replace("\n", " ")
+
+private val approvalQualitySql: String
+    get() = """
+        CASE
+            WHEN $approvalSql <= 0.5 THEN 0
+            ELSE (($approvalSql - 0.5) * 2)
+        END
+    """.trimIndent().replace("\n", " ")
+
+private val localScoreSql: String
+    get() = """
+        (
+            ($adjustedPopularitySql * 0.65) +
+            ($approvalQualitySql * 0.35)
+        )
+    """.trimIndent().replace("\n", " ")
+
+private val externalRatingSql: String
+    get() = """
+        CASE
+            WHEN m.ratingImdb > 0 AND m.ratingKp > 0 THEN
+                ((m.ratingImdb / 10.0) * 0.55) +
+                ((m.ratingKp / 10.0) * 0.45)
+
+            WHEN m.ratingImdb > 0 THEN
+                (m.ratingImdb / 10.0)
+
+            WHEN m.ratingKp > 0 THEN
+                (m.ratingKp / 10.0)
+
+            ELSE 0
+        END
+    """.trimIndent().replace("\n", " ")
+
+private val finalQualitySql: String
+    get() = """
+        CASE
+            WHEN m.ratingImdb > 0 OR m.ratingKp > 0 THEN
+                ($localScoreSql * 0.75) +
+                ($externalRatingSql * 0.25)
+
+            ELSE
+                $localScoreSql
+        END
+    """.trimIndent().replace("\n", " ")
+
+private val recencyScoreSql: String
+    get() = """
+        CASE
+            WHEN m.year <= 0 THEN 0.10
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) THEN 1.00
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 1 THEN 0.68
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 2 THEN 0.50
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 3 THEN 0.40
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 5 THEN 0.30
+            WHEN m.year >= CAST(strftime('%Y', 'now') AS INTEGER) - 8 THEN 0.22
+            ELSE 0.15
+        END
+    """.trimIndent().replace("\n", " ")
+
+private val smartFeedScoreSql: String
+    get() = """
+        (
+            ($finalQualitySql * 0.70) +
+            ($recencyScoreSql * 0.30)
+        )
+    """.trimIndent().replace("\n", " ")
+
+private fun smartOrder(): String {
+    return """
+        $smartFeedScoreSql DESC,
+        $finalQualitySql DESC,
+        $adjustedPopularitySql DESC,
+        m.year DESC,
+        m.likes DESC,
+        (m.likes + m.dislikes) DESC,
+        m.ratingImdb DESC,
+        m.ratingKp DESC,
+        m.dbId DESC
+    """.trimIndent().replace("\n", " ")
 }
 
 private fun extendedSearch(
@@ -259,7 +394,7 @@ fun getHistorySQL(
 ): SimpleSQLiteQuery {
     val sb = StringBuilder()
     val args = mutableListOf<Any?>()
-    sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, CASE WHEN f.movie_dbid IS NOT NULL THEN 1 ELSE 0 END AS isFavorite FROM movies m INNER JOIN history h ON m.dbId=h.movie_dbid LEFT JOIN favorites f ON m.dbId = f.movie_dbid ")
+    sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, m.ratingImdb, m.ratingKp, m.updated, CASE WHEN f.movie_dbid IS NOT NULL THEN 1 ELSE 0 END AS isFavorite FROM movies m INNER JOIN history h ON m.dbId=h.movie_dbid LEFT JOIN favorites f ON m.dbId = f.movie_dbid ")
     if (search.isNotBlank()) {
         sb.append(" WHERE")
         if (searchType == AppConstants.SearchType.GENRES) {

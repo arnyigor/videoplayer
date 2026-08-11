@@ -33,6 +33,7 @@ data class MovieEntity(
     @ColumnInfo(name = "actors") var actors: String = "",
     @ColumnInfo(name = "description") var description: String = "",
     @ColumnInfo(name = "updated") var updated: Long = 0L,
+    @ColumnInfo(name = "detailsFetchedAt", defaultValue = "0") var detailsFetchedAt: Long = 0L,
     @ColumnInfo(name = "seasons") var seasons: String = "",
     @ColumnInfo(name = "hdUrls") var hdUrls: String = "",
     @ColumnInfo(name = "hdUrlsPoster") var hdUrlsPoster: String = "",
@@ -65,6 +66,7 @@ data class MovieEntity(
         actors = ""
         description = ""
         updated = 0L
+        detailsFetchedAt = 0L
         seasons = ""
         hdUrls = ""
         hdUrlsPoster = ""

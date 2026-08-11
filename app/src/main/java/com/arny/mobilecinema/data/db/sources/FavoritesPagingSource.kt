@@ -49,7 +49,7 @@ class FavoritesPagingSource(
 
         val sb = StringBuilder()
         val args = mutableListOf<Any>()
-        sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, 1 AS isFavorite FROM movies m INNER JOIN favorites f ON m.dbId=f.movie_dbid ")
+        sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, m.ratingImdb, m.ratingKp, m.updated, 1 AS isFavorite FROM movies m INNER JOIN favorites f ON m.dbId=f.movie_dbid ")
 
         // фильтр по поиску
         if (search.isNotBlank()) {

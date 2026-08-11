@@ -25,6 +25,7 @@ fun MovieEntity.setData(data: Movie): MovieEntity {
     actors = data.info.actors.joinToString(",")
     description = data.info.description
     updated = data.info.updated
+    detailsFetchedAt = data.info.detailsFetchedAt
     origTitle = data.info.origTitle
     seasons = data.seasons.takeIf { it.isNotEmpty() }?.toJson().orEmpty()
     hdUrls = data.cinemaUrlData?.hdUrl?.urls?.joinToString(",").orEmpty()

@@ -56,6 +56,7 @@ object AppConstants {
     }
 
     object Order {
+        const val SMART = "order_smart"
         const val NONE = "order_none"
         const val RATINGS = "order_ratings"
         const val TITLE = "order_title"

@@ -188,6 +188,7 @@ private fun readInfo(reader: JsonReader): MovieInfo {
     var actors: List<String> = emptyList()
     var description = ""
     var updated = 0L
+    var detailsFetchedAt = 0L
     var origTitle = ""
 
     reader.beginObject()
@@ -253,6 +254,10 @@ private fun readInfo(reader: JsonReader): MovieInfo {
                 updated = reader.nextLong()
             }
 
+            "detailsFetchedAt" -> {
+                detailsFetchedAt = reader.nextLong()
+            }
+
             "origTitle" -> {
                 origTitle = reader.nextString()
             }
@@ -277,6 +282,7 @@ private fun readInfo(reader: JsonReader): MovieInfo {
         actors = actors,
         description = description,
         updated = updated,
+        detailsFetchedAt = detailsFetchedAt,
         origTitle = origTitle
     )
 }

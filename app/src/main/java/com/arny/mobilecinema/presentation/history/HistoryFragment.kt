@@ -171,6 +171,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
             },
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
+                    rbSmart.isVisible = false
                     rbLastTime.isVisible = true
                     swPriority.isVisible = false
                     val radioBtn = listOf(
