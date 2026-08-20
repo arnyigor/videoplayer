@@ -286,7 +286,6 @@ dependencies {
     implementation(libs.androidx.paging.runtime.ktx)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.bouncycastle.bcprov)
-    implementation(libs.ffmpeg.kit.min)
     implementation(libs.androidx.leanback)
     implementation(libs.androidx.leanback.paging)
 

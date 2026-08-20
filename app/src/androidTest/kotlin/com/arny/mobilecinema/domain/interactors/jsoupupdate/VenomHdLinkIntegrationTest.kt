@@ -10,7 +10,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResultWithProgress
 import com.arny.mobilecinema.data.models.DownloadFileResult
-import com.arny.mobilecinema.data.models.FfmpegResult
 import com.arny.mobilecinema.domain.models.LoadingData
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.UpdateType
@@ -152,7 +151,6 @@ class VenomHdLinkIntegrationTest {
         override suspend fun copyFileToDownloadFolder(file: File, fileName: String): Boolean = false
         override suspend fun downloadFileWithProgress(url: String, fileName: String): Flow<DataResultWithProgress<DownloadFileResult>> = emptyFlow()
         override suspend fun removeOldMP4Downloads() = Unit
-        override suspend fun downloadLinkWithProgress(url: String, file: File): Flow<DataResultWithProgress<FfmpegResult>> = emptyFlow()
         override fun updateAll() = Unit
         override fun cancelUpdate() = Unit
     }

@@ -44,6 +44,7 @@ data class DetailsUiState(
     val isLoading: Boolean = false,
     val downloadedData: MovieDownloadedData? = null,
     val canDownload: Boolean = false,
+    val canDownloadFile: Boolean = false,
     val hasSavedData: Boolean = false,
     val isInFavorite: Boolean = false,
     val isDownloadComplete: Boolean = false,
@@ -401,7 +402,8 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
             it.copy(
                 currentSeasonPosition = event.seasonPosition,
                 currentEpisodePosition = event.episodePosition,
-                canDownload = false
+                canDownload = false,
+                canDownloadFile = false
             )
         }
         // Не перезаписываем позицию из БД - оставляем выбор пользователя
@@ -409,7 +411,12 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
     }
 
     private fun handleSelectedUrlChanged(event: DetailsEvent.SelectedUrlChanged) {
-        _uiState.update { it.copy(selectedCinemaUrl = event.url) }
+        _uiState.update { state ->
+            state.copy(
+                selectedCinemaUrl = event.url,
+                canDownloadFile = state.movie.isFileDownloadAvailable(event.url)
+            )
+        }
         if (event.updateCache) {
             updateCinemaDownloadedData()
         }
@@ -480,7 +487,12 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
             if (initValid) {
                 checkAllDownload(data)
                 prepareCinemaAlerts(downloadData, url, titleEquals, movieTitle)
-                _uiState.update { it.copy(canDownload = true) }
+                _uiState.update {
+                    it.copy(
+                        canDownload = true,
+                        canDownloadFile = movie.isFileDownloadAvailable(url)
+                    )
+                }
             }
         }
     }
@@ -572,7 +584,7 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
             if (initValid) {
                 checkAllDownload(data)
                 prepareSerialAlerts(downloadData, url, movie, state)
-                _uiState.update { it.copy(canDownload = true) }
+                _uiState.update { it.copy(canDownload = true, canDownloadFile = false) }
             }
         }
     }
@@ -710,7 +722,9 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
 
     private fun showDownloadDialog() {
         viewModelScope.launch {
-            val movie = _uiState.value.movie ?: return@launch
+            val state = _uiState.value
+            if (!state.canDownloadFile) return@launch
+            val movie = state.movie ?: return@launch
             initDownloadFileAlert(movie)
             downloadAlert?.let { _actions.send(DetailsAction.ShowAlert(it)) }
         }
@@ -740,22 +754,37 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
             ?.substringAfterLast("/")
             .orEmpty()
 
-        downloadAlert = if (availableToDownload) {
-            Alert(
-                title = ResourceString(R.string.cinema_download_attention),
-                content = ResourceString(R.string.download_description, mp4Link),
-                btnOk = ResourceString(android.R.string.ok),
-                btnCancel = ResourceString(android.R.string.cancel),
-                type = AlertType.DownloadFile(link = selectedUrl.orEmpty())
-            )
-        } else {
-            Alert(
-                title = ResourceString(R.string.cinema_download_not_available),
-                content = ResourceString(R.string.download_description_error),
-                btnOk = ResourceString(android.R.string.ok),
-                type = AlertType.SimpleAlert
-            )
+        downloadAlert = when {
+            availableToDownload -> {
+                Alert(
+                    title = ResourceString(R.string.cinema_download_attention),
+                    content = ResourceString(R.string.download_description, mp4Link),
+                    btnOk = ResourceString(android.R.string.ok),
+                    btnCancel = ResourceString(android.R.string.cancel),
+                    type = AlertType.DownloadFile(link = selectedUrl.orEmpty())
+                )
+            }
+
+            else -> {
+                Alert(
+                    title = ResourceString(R.string.cinema_download_not_available),
+                    content = ResourceString(R.string.download_description_error),
+                    btnOk = ResourceString(android.R.string.ok),
+                    type = AlertType.SimpleAlert
+                )
+            }
         }
+    }
+
+    private fun String?.isM3u8DownloadUrl(): Boolean {
+        val path = this?.substringBefore("?").orEmpty()
+        return path.endsWith("m3u8", ignoreCase = true) || path.endsWith("mpd", ignoreCase = true)
+    }
+
+    private fun Movie?.isFileDownloadAvailable(url: String?): Boolean {
+        return this?.let { movie ->
+            interactor.isAvailableToDownload(url, movie.type) && !url.isM3u8DownloadUrl()
+        } == true
     }
 
     private fun handleClearCache(event: DetailsEvent.ClearCache) {

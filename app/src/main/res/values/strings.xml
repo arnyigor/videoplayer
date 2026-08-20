@@ -98,6 +98,7 @@
     <string name="cinema_cache_attention">Вы хотите загрузить фильм?</string>
     <string name="cinema_download_attention">Вы хотите сохранить фильм в файл?</string>
     <string name="cinema_download_not_available">Неверная ссылка для загрузки</string>
+    <string name="m3u8_download_unavailable">Скачивание M3U8 временно недоступно</string>
     <string name="serial_episode_cache_attention">Вы хотите кешировать \"%s\"(%s сезон,%s серия)?</string>
     <string name="cinema_cache_attention_new">Вы хотите загрузить фильм и отменить предыдущую загрузку "%s"?</string>
     <string name="serial_episode_cache_attention_new">Вы хотите загрузить эпизод и отменить предыдущую загрузку "%s"?</string>

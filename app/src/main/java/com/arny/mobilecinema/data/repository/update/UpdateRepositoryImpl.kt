@@ -2,7 +2,6 @@ package com.arny.mobilecinema.data.repository.update
 
 import android.content.Context
 import android.content.Intent
-import com.antonkarpenko.ffmpegkit.FFmpegKit
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.data.api.ApiService
 import com.arny.mobilecinema.data.db.daos.MovieDao
@@ -11,7 +10,6 @@ import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.db.models.MovieUpdate
 import com.arny.mobilecinema.data.models.DataResultWithProgress
 import com.arny.mobilecinema.data.models.DownloadFileResult
-import com.arny.mobilecinema.data.models.FfmpegResult
 import com.arny.mobilecinema.data.models.setData
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.AppConstants
@@ -30,11 +28,8 @@ import com.arny.mobilecinema.presentation.utils.DeviceUtils
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import org.joda.time.DateTime
 import org.joda.time.Duration
@@ -108,29 +103,6 @@ class UpdateRepositoryImpl constructor(
         removeOldMP4Downloads()
         val file = File(context.filesDir, fileName).apply { create() }
         return apiService.downloadFileWithProgress(file, url)
-    }
-
-    override suspend fun downloadLinkWithProgress(
-        url: String,
-        file: File
-    ): Flow<DataResultWithProgress<FfmpegResult>> {
-        val cmd = "-y -i $url -c copy ${file.absolutePath}"
-//        val session: FFmpegSession = FFmpegKit.execute(cmd)
-//        emit(DataResultWithProgress.Success(FfmpegResult(session = session)))
-        return callbackFlow {
-            Timber.d("FFmpegKit cmd :$cmd, thread:${Thread.currentThread().name}")
-            FFmpegKit.executeAsync(cmd, { session ->
-                // CALLED WHEN SESSION IS EXECUTED
-                trySend(DataResultWithProgress.Progress(FfmpegResult(session = session)))
-            }, { log ->
-                // CALLED WHEN SESSION PRINTS LOGS
-                trySend(DataResultWithProgress.Progress(FfmpegResult(log = log)))
-            }, { statistics ->
-                // CALLED WHEN SESSION GENERATES STATISTICS
-                trySend(DataResultWithProgress.Progress(FfmpegResult(statistics = statistics)))
-            })
-            awaitClose()
-        }.flowOn(Dispatchers.IO)
     }
 
     override suspend fun removeOldMP4Downloads(): Unit = withContext(Dispatchers.IO) {

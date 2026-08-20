@@ -96,6 +96,7 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
         private var hasSavedData: Boolean = false
         private var downloadAll: Boolean = false
         private var canDownload: Boolean = false
+        private var canDownloadFile: Boolean = false
         private var feedbackText = ""
         private var isAutoUpdateRunning = false
         private var autoUpdateRequestedForUrl: String? = null
@@ -359,6 +360,7 @@ override fun onResume() {
         // Обновление видимости пунктов меню
         private fun updateMenuVisibility() {
             val menu = binding.toolbar.menu
+            menu.findItem(R.id.menu_action_download_file)?.isVisible = canDownloadFile
             menu.findItem(R.id.menu_action_cache_movie)?.isVisible = canDownload
             menu.findItem(R.id.menu_action_clear_cache)?.isVisible = hasSavedData
         }
@@ -400,6 +402,7 @@ override fun onResume() {
             updateDownloadedData(state.downloadedData)
 
             canDownload = state.canDownload
+            canDownloadFile = state.canDownloadFile
             hasSavedData = state.hasSavedData
 
             binding.ivFavorite.setImageResource(

@@ -2,7 +2,6 @@ package com.arny.mobilecinema.domain.repository
 
 import com.arny.mobilecinema.data.models.DataResultWithProgress
 import com.arny.mobilecinema.data.models.DownloadFileResult
-import com.arny.mobilecinema.data.models.FfmpegResult
 import com.arny.mobilecinema.domain.models.Movie
 import kotlinx.coroutines.flow.Flow
 import java.io.File
@@ -37,10 +36,6 @@ interface UpdateRepository {
     ): Flow<DataResultWithProgress<DownloadFileResult>>
 
     suspend fun removeOldMP4Downloads()
-    suspend fun downloadLinkWithProgress(
-        url: String,
-        file: File
-    ): Flow<DataResultWithProgress<FfmpegResult>>
 
     fun updateAll()
     fun cancelUpdate()
