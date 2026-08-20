@@ -44,7 +44,7 @@ android {
         applicationId = "com.arny.mobilecinema"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = vMajor * 100 + vMinor * 10 + vBuild
+        versionCode = vMajor * 1000 + vMinor * 100 + vBuild
         versionName = "$vMajor.$vMinor.$vBuild"
         setProperty("archivesBaseName", "$applicationId-v$versionName($versionCode)")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
