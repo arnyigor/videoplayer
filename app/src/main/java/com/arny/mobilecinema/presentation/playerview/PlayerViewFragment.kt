@@ -88,6 +88,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         const val MAX_BOOST_DEFAULT = 1000
         const val MEDIA_SESSION_TAG = "MEDIA_SESSION_ANWAP_TAG"
         const val CONTROLS_ANIMATION_DURATION = 250L
+        const val PLAYBACK_PROGRESS_INTERVAL_MS = 5_000L
+        const val MAX_PLAYBACK_PROGRESS_DELTA_MS = 15_000L
     }
 
     private val prefs: Prefs by inject()
@@ -109,6 +111,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private val btnsHandler = Handler(Looper.getMainLooper())
     private val volumeHandler = Handler(Looper.getMainLooper())
+    private val playbackProgressHandler = Handler(Looper.getMainLooper())
     private val args: PlayerViewFragmentArgs by navArgs()
 
     private val resizeModes = arrayOf(
@@ -141,6 +144,16 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private var isPlayerPrepared = false
     private var lastProcessedVersion: Long = -1
+    private var lastPlaybackProgressAt: Long = 0L
+
+    private val playbackProgressRunnable = object : Runnable {
+        override fun run() {
+            commitPlaybackProgressDelta()
+            if (player?.isPlaying == true) {
+                playbackProgressHandler.postDelayed(this, PLAYBACK_PROGRESS_INTERVAL_MS)
+            }
+        }
+    }
 
     private var volumeObs: Int by Delegates.observable(-1) { _, old, newVolume ->
         if (old != newVolume) {
@@ -215,12 +228,24 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) {
+                stopPlaybackProgressTracking()
+            }
             updateState(playbackState)
+        }
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) {
+                startPlaybackProgressTracking()
+            } else {
+                stopPlaybackProgressTracking()
+            }
         }
 
         override fun onTracksChanged(tracks: Tracks) {
             val index = player?.currentMediaItemIndex ?: 0
             if (index != mediaItemIndex) {
+                stopPlaybackProgressTracking()
                 mediaItemIndex = index
                 player?.let { exoPlayer ->
                     val metadata = exoPlayer.currentMediaItem?.mediaMetadata
@@ -234,6 +259,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     setCurrentTitle()
                 }
                 setupPopupMenus = true
+                if (player?.isPlaying == true) {
+                    startPlaybackProgressTracking()
+                }
             }
         }
     }
@@ -327,6 +355,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         (requireActivity() as AppCompatActivity).supportActionBar?.show()
 
         player?.let { exoPlayer ->
+            stopPlaybackProgressTracking()
             saveCurrentPosition(exoPlayer)
             saveMoviePosition(exoPlayer)
         }
@@ -342,6 +371,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         super.onStop()
         if (Util.SDK_INT >= Build.VERSION_CODES.N) {
             player?.let { exoPlayer ->
+                stopPlaybackProgressTracking()
                 val currentPosition = exoPlayer.currentPosition
                 val movie = args.movie
                 val dbId = movie?.dbId
@@ -381,6 +411,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         super.onDestroyView()
         btnsHandler.removeCallbacksAndMessages(null)
         volumeHandler.removeCallbacksAndMessages(null)
+        playbackProgressHandler.removeCallbacksAndMessages(null)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             activity?.window?.decorView?.setOnApplyWindowInsetsListener(null)
@@ -989,6 +1020,72 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private fun getCurrentPlaybackUrl(): String? =
         player?.currentMediaItem?.localConfiguration?.uri?.toString()
 
+    private fun startPlaybackProgressTracking() {
+        if (lastPlaybackProgressAt == 0L) {
+            lastPlaybackProgressAt = System.currentTimeMillis()
+        }
+        playbackProgressHandler.removeCallbacks(playbackProgressRunnable)
+        playbackProgressHandler.postDelayed(playbackProgressRunnable, PLAYBACK_PROGRESS_INTERVAL_MS)
+    }
+
+    private fun stopPlaybackProgressTracking() {
+        playbackProgressHandler.removeCallbacks(playbackProgressRunnable)
+        commitPlaybackProgressDelta()
+        lastPlaybackProgressAt = 0L
+    }
+
+    private fun commitPlaybackProgressDelta() {
+        val now = System.currentTimeMillis()
+        val lastTime = lastPlaybackProgressAt
+        if (lastTime <= 0L) {
+            lastPlaybackProgressAt = now
+            return
+        }
+
+        val deltaMs = now - lastTime
+        lastPlaybackProgressAt = now
+        if (deltaMs in 1..MAX_PLAYBACK_PROGRESS_DELTA_MS) {
+            savePlaybackProgress(deltaMs)
+        }
+    }
+
+    private fun savePlaybackProgress(playedMs: Long) {
+        val movie = args.movie ?: return
+        val dbId = movie.dbId
+        if (dbId <= 0L) return
+
+        when (movie.type) {
+            MovieType.CINEMA -> {
+                viewModel.addPlaybackProgress(
+                    dbId = dbId,
+                    season = 0,
+                    episode = 0,
+                    playedMs = playedMs
+                )
+            }
+
+            MovieType.SERIAL -> {
+                val metadata = player?.currentMediaItem?.mediaMetadata
+                val bundle = metadata?.extras
+                val currentSeason = viewModel.uiState.value.season
+                    ?: bundle?.getInt(AppConstants.Player.SEASON)
+                    ?: 0
+                val currentEpisode = viewModel.uiState.value.episode
+                    ?: bundle?.getInt(AppConstants.Player.EPISODE)
+                    ?: 0
+
+                viewModel.addPlaybackProgress(
+                    dbId = dbId,
+                    season = currentSeason,
+                    episode = currentEpisode,
+                    playedMs = playedMs
+                )
+            }
+
+            else -> {}
+        }
+    }
+
     private fun saveCurrentPosition(exoPlayer: ExoPlayer) {
         val position = exoPlayer.currentPosition
         if (position <= 0L) return
@@ -1422,6 +1519,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun releasePlayer() {
+        stopPlaybackProgressTracking()
         mediaSession?.release()
         mediaSession = null
         releaseEnhancer()

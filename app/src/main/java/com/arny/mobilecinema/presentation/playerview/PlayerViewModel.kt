@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 data class PlayerUiState(
     val path: String? = null,
@@ -176,34 +177,61 @@ private fun resolvePosition(
         episode: Int
     ) {
         viewModelScope.launch {
-            if (dbId != null) {
-                val state = _uiState.value
-                when (state.movie?.type) {
-                    MovieType.CINEMA -> {
-                        val save = historyInteractor.saveCinemaPosition(dbId, time)
-                        if (!save) {
-                            _error.trySend(ResourceString(R.string.movie_save_error))
+            try {
+                if (dbId != null) {
+                    val state = _uiState.value
+                    when (state.movie?.type) {
+                        MovieType.CINEMA -> {
+                            val save = historyInteractor.saveCinemaPosition(dbId, time)
+                            if (!save) {
+                                _error.trySend(ResourceString(R.string.movie_save_error))
+                            }
+                            historyInteractor.setCacheChanged(true)
                         }
-                        historyInteractor.setCacheChanged(true)
-                    }
 
-                    MovieType.SERIAL -> {
-                        val save = historyInteractor.saveSerialPosition(
-                            movieDbId = dbId,
-                            playerSeasonPosition = season,
-                            playerEpisodePosition = episode,
-                            time = time,
-                            currentSeasonPosition = season,
-                            currentEpisodePosition = episode
-                        )
-                        if (!save) {
-                            _error.trySend(ResourceString(R.string.movie_save_error))
+                        MovieType.SERIAL -> {
+                            val save = historyInteractor.saveSerialPosition(
+                                movieDbId = dbId,
+                                playerSeasonPosition = season,
+                                playerEpisodePosition = episode,
+                                time = time,
+                                currentSeasonPosition = season,
+                                currentEpisodePosition = episode
+                            )
+                            if (!save) {
+                                _error.trySend(ResourceString(R.string.movie_save_error))
+                            }
+                            historyInteractor.setCacheChanged(true)
                         }
-                        historyInteractor.setCacheChanged(true)
-                    }
 
-                    else -> {}
+                        else -> {}
+                    }
                 }
+            } catch (e: Exception) {
+                Timber.e(e, "saveMoviePosition failed")
+            }
+        }
+    }
+
+    fun addPlaybackProgress(
+        dbId: Long?,
+        season: Int,
+        episode: Int,
+        playedMs: Long
+    ) {
+        if (dbId == null || playedMs <= 0L) return
+
+        viewModelScope.launch {
+            try {
+                historyInteractor.addPlaybackProgress(
+                    movieDbId = dbId,
+                    season = season,
+                    episode = episode,
+                    playedMs = playedMs
+                )
+            } catch (e: Exception) {
+                // Периодическая фоновая запись не должна ронять приложение при сбое БД/диска.
+                Timber.e(e, "addPlaybackProgress failed")
             }
         }
     }

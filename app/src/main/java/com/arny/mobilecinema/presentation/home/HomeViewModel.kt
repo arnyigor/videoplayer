@@ -9,6 +9,7 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
+import com.arny.mobilecinema.domain.models.HomeHighlights
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -21,6 +22,7 @@ import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -90,11 +92,19 @@ class HomeViewModel constructor(
     private val actionStateFlow = MutableSharedFlow<UiAction>()
     private val _urlData = BufferedSharedFlow<String>()
     val urlData = _urlData.asSharedFlow()
+    private val _homeHighlights = MutableStateFlow(HomeHighlights())
+    val homeHighlights = _homeHighlights.asStateFlow()
+    private val _contentType = MutableStateFlow(HomeContentType.ALL)
+    val contentType = _contentType.asStateFlow()
+    private var highlightsJob: Job? = null
 
     // Inside HomeViewModel.kt – add near the top, after other flows
     private val _navigate = MutableSharedFlow<NavigationEvent>(replay = 0)
     val navigate: SharedFlow<NavigationEvent> get() = _navigate.asSharedFlow()
 
+    init {
+        loadHomeHighlights()
+    }
 
     var moviesDataFlow: Flow<PagingData<ViewMovie>> =
         listOf(
@@ -149,6 +159,57 @@ class HomeViewModel constructor(
                     }
                 }
         }
+    }
+
+    fun loadHomeHighlights() {
+        highlightsJob?.cancel()
+        highlightsJob = viewModelScope.launch {
+            runCatching {
+                moviesInteractor.getHomeHighlights(searchAddTypes = searchAddTypes)
+            }.onSuccess { highlights ->
+                _homeHighlights.value = highlights
+            }.onFailure { throwable ->
+                Timber.e(throwable, "Failed to load home highlights")
+                _homeHighlights.value = HomeHighlights()
+            }
+        }
+    }
+
+    fun setContentType(type: HomeContentType) {
+        viewModelScope.launch {
+            if (_contentType.value == type && searchAddTypes == type.searchTypes) return@launch
+            _contentType.value = type
+            searchAddTypes = type.searchTypes
+            if (queryString.isBlank()) {
+                loadHomeHighlights()
+            }
+            emitCurrentSearch()
+        }
+    }
+
+    fun refreshHome() {
+        viewModelScope.launch {
+            loadHomeHighlights()
+            emitCurrentSearch()
+        }
+    }
+
+    private suspend fun emitCurrentSearch() {
+        actionStateFlow.emit(
+            UiAction.Search(
+                searchType = searchType,
+                query = queryString,
+                order = _order.value,
+                searchAddTypes = searchAddTypes,
+                genres = genres,
+                countries = countries,
+                years = years,
+                imdbs = imdbRange,
+                kps = kpRange,
+                likesPriority = mlikesPriority,
+                triggerId = System.currentTimeMillis()
+            )
+        )
     }
 
     fun downloadData(force: Boolean) {
@@ -235,14 +296,8 @@ class HomeViewModel constructor(
                 }
                 when {
                     resetAll -> {
-                        resetExtendSearch()
-                        actionStateFlow.emit(
-                            UiAction.Search(
-                                order = _order.value,
-                                searchAddTypes = searchAddTypes,
-                                triggerId = System.currentTimeMillis()
-                            )
-                        )
+                        resetExtendSearch(resetContentType = true)
+                        refreshHome()
                     }
 
                     query.isNotBlank() -> {
@@ -258,7 +313,7 @@ class HomeViewModel constructor(
                     }
 
                     else -> {
-                        trigger.emit(Unit)
+                        refreshHome()
                     }
                 }
             }
@@ -399,9 +454,12 @@ class HomeViewModel constructor(
         }
     }
 
-    private fun resetExtendSearch() {
+    private fun resetExtendSearch(resetContentType: Boolean = false) {
         searchType = AppConstants.SearchType.TITLE
-        searchAddTypes = SEARCH_TYPES
+        if (resetContentType) {
+            _contentType.value = HomeContentType.ALL
+        }
+        searchAddTypes = _contentType.value.searchTypes
         queryString = ""
         genres = emptyList()
         countries = emptyList()
@@ -427,13 +485,6 @@ class HomeViewModel constructor(
     }
 
     fun reloadList() {
-        viewModelScope.launch {
-            actionStateFlow.emit(
-                UiAction.Search(
-                    order = _order.value,
-                    triggerId = System.currentTimeMillis()
-                )
-            )
-        }
+        refreshHome()
     }
 }

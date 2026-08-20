@@ -54,6 +54,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         private const val SEEK_STEP_MS = 5_000L
         private const val HIDE_DELAY_MS = 5_000L
         private const val PROGRESS_INTERVAL_MS = 1_000L
+        private const val PLAYBACK_PROGRESS_INTERVAL_MS = 5_000L
+        private const val MAX_PLAYBACK_PROGRESS_DELTA_MS = 15_000L
     }
 
     private val viewModel: PlayerViewModel by inject()
@@ -77,6 +79,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private val hideRunnable = Runnable { hideControls() }
 
     private var progressJob: Job? = null
+    private var playbackProgressJob: Job? = null
+    private var lastPlaybackProgressAt: Long = 0L
     private var mediaLoaded = false
     private var tvExcludeUrls: Set<String> = emptySet()
 
@@ -102,6 +106,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         super.onPause()
         Timber.d("onPause: Saving state and pausing player")
         player?.pause()
+        stopPlaybackProgressTracking()
         savePosition()
     }
 
@@ -111,6 +116,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
         hideHandler.removeCallbacks(hideRunnable)
         stopProgressUpdates()
+        stopPlaybackProgressTracking()
         player?.removeListener(playerListener)
         player?.release()
         player = null
@@ -213,6 +219,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             override fun onStartTrackingTouch(sb: SeekBar) {
                 Timber.d("UI Interaction: User started seeking")
                 stopProgressUpdates()
+                stopPlaybackProgressTracking()
             }
 
             override fun onStopTrackingTouch(sb: SeekBar) {
@@ -221,6 +228,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 Timber.d("UI Interaction: Seeking to position $newPos ms")
                 player?.seekTo(newPos)
                 startProgressUpdates()
+                if (player?.isPlaying == true) {
+                    startPlaybackProgressTracking()
+                }
                 scheduleHide()
             }
         })
@@ -308,6 +318,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     Timber.d("Playback ENDED")
                     showLoading(false)
                     stopProgressUpdates()
+                    stopPlaybackProgressTracking()
                     if (player?.hasNextMediaItem() == true) {
                         Timber.d("Auto-playing next media item")
                         player?.seekToNextMediaItem()
@@ -320,6 +331,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 Player.STATE_IDLE -> {
                     showLoading(false)
                     stopProgressUpdates()
+                    stopPlaybackProgressTracking()
                     updatePlayPauseButton()
                 }
             }
@@ -328,6 +340,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             Timber.d("Playback playing changed: $isPlaying")
             if (isPlaying) startProgressUpdates() else stopProgressUpdates()
+            if (isPlaying) startPlaybackProgressTracking() else stopPlaybackProgressTracking()
             updatePlayPauseButton()
         }
 
@@ -393,11 +406,15 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             Timber.d("Media transition: index $currentEpisodeIndex -> $newIndex, reason=$reason")
 
             if (newIndex != currentEpisodeIndex) {
+                stopPlaybackProgressTracking()
                 currentEpisodeIndex = newIndex
                 updateEpisodeInfoFromIndex(newIndex)
                 updateDuration()
                 // НОВОЕ: обновляем состояние кнопок при смене эпизода
                 updateNavigationButtonsState()
+                if (player?.isPlaying == true) {
+                    startPlaybackProgressTracking()
+                }
             }
         }
 
@@ -410,11 +427,15 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
             val newIndex = player?.currentMediaItemIndex ?: 0
             if (newIndex != currentEpisodeIndex) {
+                stopPlaybackProgressTracking()
                 currentEpisodeIndex = newIndex
                 updateEpisodeInfoFromIndex(newIndex)
                 updateDuration()
                 // НОВОЕ: обновляем состояние кнопок
                 updateNavigationButtonsState()
+                if (player?.isPlaying == true) {
+                    startPlaybackProgressTracking()
+                }
             }
         }
 
@@ -1009,6 +1030,69 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             Timber.d("stopProgressUpdates: Progress coroutine cancelled")
         }
         progressJob = null
+    }
+
+    private fun startPlaybackProgressTracking() {
+        if (playbackProgressJob?.isActive == true) return
+
+        lastPlaybackProgressAt = System.currentTimeMillis()
+        playbackProgressJob = viewLifecycleOwner.lifecycleScope.launch {
+            while (isActive) {
+                delay(PLAYBACK_PROGRESS_INTERVAL_MS)
+                commitPlaybackProgressDelta()
+            }
+        }
+    }
+
+    private fun stopPlaybackProgressTracking() {
+        playbackProgressJob?.cancel()
+        playbackProgressJob = null
+        commitPlaybackProgressDelta()
+        lastPlaybackProgressAt = 0L
+    }
+
+    private fun commitPlaybackProgressDelta() {
+        val now = System.currentTimeMillis()
+        val lastTime = lastPlaybackProgressAt
+        if (lastTime <= 0L) {
+            lastPlaybackProgressAt = now
+            return
+        }
+
+        val deltaMs = now - lastTime
+        lastPlaybackProgressAt = now
+        if (deltaMs in 1..MAX_PLAYBACK_PROGRESS_DELTA_MS) {
+            savePlaybackProgress(deltaMs)
+        }
+    }
+
+    private fun savePlaybackProgress(playedMs: Long) {
+        val movie = currentMovie ?: return
+        val dbId = movie.dbId
+        if (dbId <= 0L) return
+
+        when (movie.type) {
+            MovieType.CINEMA -> {
+                viewModel.addPlaybackProgress(
+                    dbId = dbId,
+                    season = 0,
+                    episode = 0,
+                    playedMs = playedMs
+                )
+            }
+
+            MovieType.SERIAL -> {
+                val (seasonIdx, episodeIdx) = getSeasonEpisodeFromIndex(currentEpisodeIndex)
+                viewModel.addPlaybackProgress(
+                    dbId = dbId,
+                    season = seasonIdx,
+                    episode = episodeIdx,
+                    playedMs = playedMs
+                )
+            }
+
+            else -> {}
+        }
     }
 
     private fun updateProgress() {

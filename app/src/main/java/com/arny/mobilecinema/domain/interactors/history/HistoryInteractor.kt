@@ -11,6 +11,13 @@ import kotlinx.coroutines.flow.Flow
 interface HistoryInteractor {
     val cacheChange: Flow<CacheChangeType?>
     suspend fun saveCinemaPosition(movieDbId: Long, time: Long): Boolean
+    suspend fun addPlaybackProgress(
+        movieDbId: Long,
+        season: Int,
+        episode: Int,
+        playedMs: Long
+    ): Boolean
+
     suspend fun saveSerialPosition(
         movieDbId: Long,
         playerSeasonPosition: Int,

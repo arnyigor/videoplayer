@@ -18,6 +18,7 @@ fun getMoviesSQL(
     years: SimpleIntRange? = null,
     imdbs: SimpleFloatRange? = null,
     kps: SimpleFloatRange? = null,
+    updatedFrom: Long? = null,
     likesPriority: Boolean,
     limit: Int,
     offset: Int,
@@ -34,6 +35,7 @@ fun getMoviesSQL(
     genres(genres, whereWrapper, sb, args)
     imdbs(imdbs, whereWrapper, sb, args)
     kps(kps, whereWrapper, sb, args)
+    updatedFrom(updatedFrom, whereWrapper, sb, args)
     order(order, sb, likesPriority)
     limit(sb, args, limit, offset)
     sb.append(";")
@@ -41,6 +43,24 @@ fun getMoviesSQL(
 //    Timber.d("queryString:$query")
 //    Timber.d("args:$args")
     return SimpleSQLiteQuery(query, args.toTypedArray())
+}
+
+private fun updatedFrom(
+    updatedFrom: Long?,
+    whereWrapper: WhereWrapper,
+    sb: StringBuilder,
+    args: MutableList<Any?>
+) {
+    if (updatedFrom != null) {
+        if (!whereWrapper.hasWhere) {
+            sb.append(" WHERE")
+            whereWrapper.hasWhere = true
+        } else {
+            sb.append(" AND")
+        }
+        sb.append(" m.updated >= ? ")
+        args.add(updatedFrom)
+    }
 }
 
 private fun genres(

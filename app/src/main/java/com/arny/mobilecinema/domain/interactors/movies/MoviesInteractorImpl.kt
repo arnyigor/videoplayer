@@ -10,6 +10,7 @@ import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.interactors.jsoupupdate.getComments
 import com.arny.mobilecinema.domain.interactors.jsoupupdate.getCommentsPagesCount
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.HomeHighlights
 import com.arny.mobilecinema.domain.models.MovieComment
 import com.arny.mobilecinema.domain.models.MovieCommentsPage
 import com.arny.mobilecinema.domain.models.MovieType
@@ -23,6 +24,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
+import java.util.Calendar
 
 class MoviesInteractorImpl(
     private val repository: MoviesRepository,
@@ -32,6 +34,49 @@ class MoviesInteractorImpl(
 ) : MoviesInteractor {
 
     override fun isPipModeEnable(): Boolean = repository.pipModePref
+
+    override suspend fun getHomeHighlights(
+        searchAddTypes: List<String>,
+        limit: Int
+    ): HomeHighlights = withContext(dispatcher) {
+        val movieTypes = searchAddTypes.toMovieTypes()
+        val recent = repository.getRecentMovies(
+            updatedFrom = System.currentTimeMillis() - HIGHLIGHTS_RECENT_WINDOW_MS,
+            movieTypes = movieTypes,
+            limit = limit
+        )
+        val recentIds = recent.mapTo(hashSetOf()) { it.dbId }
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+        val bestNow = repository.getBestNowMovies(
+            fromYear = currentYear - 1,
+            toYear = currentYear,
+            movieTypes = movieTypes,
+            limit = limit + recentIds.size
+        )
+            .filterNot { it.dbId in recentIds }
+            .take(limit)
+        val highlightIds = buildSet {
+            addAll(recentIds)
+            addAll(bestNow.map { it.dbId })
+        }
+        val forYou = repository.getForYouMovies(
+            movieTypes = movieTypes,
+            excludedIds = highlightIds,
+            limit = limit
+        )
+        HomeHighlights(recent = recent, bestNow = bestNow, forYou = forYou)
+    }
+
+    private fun List<String>.toMovieTypes(): List<MovieType> =
+        mapNotNull { type ->
+            when (type) {
+                AppConstants.SearchType.CINEMA -> MovieType.CINEMA
+                AppConstants.SearchType.SERIAL -> MovieType.SERIAL
+                else -> null
+            }
+        }.ifEmpty {
+            listOf(MovieType.CINEMA, MovieType.SERIAL)
+        }
 
     override fun getMovies(
         search: String,
@@ -202,5 +247,9 @@ class MoviesInteractorImpl(
 
     override fun onFavoriteToggle(movieId: Long): Flow<DataResult<Boolean>> = doAsync(dispatcher) {
         repository.toggleFavorite(movieId)
+    }
+
+    private companion object {
+        const val HIGHLIGHTS_RECENT_WINDOW_MS = 45L * 24 * 60 * 60 * 1000
     }
 }

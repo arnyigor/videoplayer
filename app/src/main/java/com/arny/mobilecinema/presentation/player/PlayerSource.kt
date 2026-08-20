@@ -174,7 +174,11 @@ suspend fun getSource(
     private fun updateProgress() {
         handler.postDelayed({
             updateCurrentDownloads()
-            updateProgress()
+            // Останавливаем самоподдерживающийся цикл, когда в очереди загрузок ничего нет,
+            // иначе Handler в главном потоке крутится вечно и держит ссылки.
+            if (downloadManager?.currentDownloads?.isNotEmpty() == true) {
+                updateProgress()
+            }
         }, 1000)
     }
 
@@ -548,7 +552,7 @@ suspend fun getSource(
     private fun getCache(): Cache = VideoCache.getInstance(context).getDownloadCache()
 
 private fun initCacheFactory() {
-        val cache = getCache()
+        val cache = VideoCache.getInstance(context).getStreamCache()
         val cacheSink = CacheDataSink.Factory().setCache(cache)
 
         // Используем factory с настроенными таймаутами

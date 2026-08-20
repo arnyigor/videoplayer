@@ -7,19 +7,27 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.arny.mobilecinema.data.db.daos.FavoritesDao
 import com.arny.mobilecinema.data.db.daos.HistoryDao
 import com.arny.mobilecinema.data.db.daos.MovieDao
+import com.arny.mobilecinema.data.db.daos.PlaybackProgressDao
 import com.arny.mobilecinema.data.db.models.FavoriteEntity
 import com.arny.mobilecinema.data.db.models.HistoryEntity
 import com.arny.mobilecinema.data.db.models.MovieEntity
+import com.arny.mobilecinema.data.db.models.PlaybackProgressEntity
 
 @Database(
-    entities = [MovieEntity::class, HistoryEntity::class, FavoriteEntity::class],
-    version = 6,
+    entities = [
+        MovieEntity::class,
+        HistoryEntity::class,
+        FavoriteEntity::class,
+        PlaybackProgressEntity::class
+    ],
+    version = 7,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun movieDao(): MovieDao
     abstract fun historyDao(): HistoryDao
     abstract fun favoritesDao(): FavoritesDao
+    abstract fun playbackProgressDao(): PlaybackProgressDao
 
     companion object {
         const val DBNAME = "Movies"
@@ -128,6 +136,35 @@ abstract class AppDatabase : RoomDatabase() {
                     """
                     ALTER TABLE `movies`
                     ADD COLUMN `detailsFetchedAt` INTEGER NOT NULL DEFAULT 0
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `playback_progress` (
+                        `dbId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `movie_dbid` INTEGER NOT NULL,
+                        `season` INTEGER NOT NULL,
+                        `episode` INTEGER NOT NULL,
+                        `played_ms` INTEGER NOT NULL DEFAULT 0,
+                        `latest_time` INTEGER NOT NULL DEFAULT 0
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_playback_progress_movie_dbid` ON `playback_progress` (`movie_dbid`)"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_playback_progress_latest_time` ON `playback_progress` (`latest_time`)"
+                )
+                db.execSQL(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS `index_playback_progress_movie_dbid_season_episode`
+                    ON `playback_progress` (`movie_dbid`, `season`, `episode`)
                     """.trimIndent()
                 )
             }

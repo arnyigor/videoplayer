@@ -72,6 +72,21 @@ override fun addToViewHistory(movieDbId: Long): Flow<DataResult<Boolean>> = flow
         )
     }
 
+    override suspend fun addPlaybackProgress(
+        movieDbId: Long,
+        season: Int,
+        episode: Int,
+        playedMs: Long
+    ): Boolean = withContext(dispatcher) {
+        repository.addPlaybackProgress(
+            movieDbId = movieDbId,
+            season = season,
+            episode = episode,
+            playedMs = playedMs,
+            currentTimeMs = System.currentTimeMillis()
+        )
+    }
+
     override suspend fun saveSerialPosition(
         movieDbId: Long,
         playerSeasonPosition: Int,

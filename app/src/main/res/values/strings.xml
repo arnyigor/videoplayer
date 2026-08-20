@@ -205,11 +205,21 @@
     <string name="search_extended_ok">Поиск</string>
     <string name="order_recommended">Рекомендуемые</string>
 
+    <string name="home_highlights_recent">Новинки</string>
+    <string name="home_highlights_best_now">Лучшее сейчас</string>
+    <string name="home_highlights_for_you">Для вас</string>
+    <string name="home_content_all">Все</string>
+    <string name="home_content_cinema">Фильмы</string>
+    <string name="home_content_serial">Сериалы</string>
+
     <!--Prefs-->
     <string name="pref_title_add_to_history_on_cache">Добавлять в историю</string>
     <string name="pref_summary_add_to_history_on_cache">Добавлять в историю при загрузке из деталей</string>
     <string name="pref_key_pip_mode">pref_key_pip_mode</string>
+    <string name="pref_key_home_highlights_enabled">pref_key_home_highlights_enabled</string>
     <string name="pref_max_boost_size">pref_max_boost_size</string>
+    <string name="pref_title_home_highlights_enabled">Показывать витрину на главной</string>
+    <string name="pref_summary_home_highlights_enabled">Включить блоки новинок, лучших фильмов и переключатель Все/Фильмы/Сериалы</string>
     <string name="pref_title_pip_mode">PIP Режим</string>
     <string name="pref_summary_pip_mode">Включить режим картинка в картинке по кнопке HOME</string>
     <string name="pause_download">Приостановить</string>

@@ -5,6 +5,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.db.models.MovieUpdate
+import com.arny.mobilecinema.data.db.models.PersonalizationMovieSignal
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 
 @Dao
@@ -56,6 +57,44 @@ interface MovieDao : BaseDao<MovieEntity> {
 
     @Query("SELECT * FROM movies WHERE img = :imgUrl")
     fun getMovieByImg(imgUrl: String): MovieEntity?
+
+    @Query(
+        """
+        SELECT
+            m.*,
+            f.latest_time AS favoriteLatestTime,
+            COALESCE(SUM(p.played_ms), 0) AS playbackMs,
+            COALESCE(SUM(CASE WHEN p.played_ms >= :meaningfulEpisodeMs THEN 1 ELSE 0 END), 0) AS meaningfulEpisodes
+        FROM movies m
+        LEFT JOIN favorites f ON m.dbId = f.movie_dbid
+        LEFT JOIN playback_progress p ON m.dbId = p.movie_dbid
+        WHERE p.movie_dbid IS NOT NULL OR f.movie_dbid IS NOT NULL
+        GROUP BY m.dbId
+        """
+    )
+    suspend fun getPersonalizationSignals(meaningfulEpisodeMs: Long): List<PersonalizationMovieSignal>
+
+    @Query(
+        """
+        SELECT m.*
+        FROM movies m
+        WHERE m.type IN (:movieTypes)
+            AND m.dbId NOT IN (SELECT movie_dbid FROM history WHERE movie_dbid != 0)
+            AND m.dbId NOT IN (SELECT movie_dbid FROM favorites WHERE movie_dbid != 0)
+            AND m.dbId NOT IN (SELECT movie_dbid FROM playback_progress WHERE movie_dbid != 0)
+        ORDER BY
+            m.year DESC,
+            m.likes DESC,
+            m.ratingImdb DESC,
+            m.ratingKp DESC,
+            m.dbId DESC
+        LIMIT :limit
+        """
+    )
+    suspend fun getPersonalizationCandidates(
+        movieTypes: List<Int>,
+        limit: Int
+    ): List<MovieEntity>
 
     @Query("SELECT dbId FROM movies ORDER BY dbId DESC LIMIT 1")
     fun getLastId(): Long

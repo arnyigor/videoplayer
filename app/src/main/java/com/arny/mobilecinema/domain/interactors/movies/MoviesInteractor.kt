@@ -2,6 +2,8 @@ package com.arny.mobilecinema.domain.interactors.movies
 
 import androidx.paging.PagingData
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.domain.models.HomeHighlights
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieComment
 import com.arny.mobilecinema.domain.models.MovieCommentsPage
@@ -26,6 +28,13 @@ interface MoviesInteractor {
     ): Flow<PagingData<ViewMovie>>
 
     fun isPipModeEnable(): Boolean
+    suspend fun getHomeHighlights(
+        searchAddTypes: List<String> = listOf(
+            AppConstants.SearchType.CINEMA,
+            AppConstants.SearchType.SERIAL
+        ),
+        limit: Int = 20
+    ): HomeHighlights
     /** Возвращает фильм по строковому id, который хранится в поле pageUrl */
     fun getMovieByPageUrl(pageUrl: String): Flow<DataResult<Movie>>
     fun getMovie(id: Long): Flow<DataResult<Movie>>

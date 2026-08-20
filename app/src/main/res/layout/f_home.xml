@@ -63,6 +63,60 @@
                 app:singleLine="true" />
         </HorizontalScrollView>
 
+        <com.google.android.material.button.MaterialButtonToggleGroup
+            android:id="@+id/homeContentTypeGroup"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="8dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="4dp"
+            app:checkedButton="@id/btnHomeContentAll"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/filterChipsScroll"
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnHomeContentAll"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:checkable="true"
+                android:text="@string/home_content_all"
+                android:textColor="@color/home_content_toggle_text"
+                app:backgroundTint="@color/home_content_toggle_bg"
+                app:cornerRadius="8dp"
+                app:strokeColor="@color/home_content_toggle_stroke"
+                app:strokeWidth="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnHomeContentCinema"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:checkable="true"
+                android:text="@string/home_content_cinema"
+                android:textColor="@color/home_content_toggle_text"
+                app:backgroundTint="@color/home_content_toggle_bg"
+                app:cornerRadius="8dp"
+                app:strokeColor="@color/home_content_toggle_stroke"
+                app:strokeWidth="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnHomeContentSerial"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:checkable="true"
+                android:text="@string/home_content_serial"
+                android:textColor="@color/home_content_toggle_text"
+                app:backgroundTint="@color/home_content_toggle_bg"
+                app:cornerRadius="8dp"
+                app:strokeColor="@color/home_content_toggle_stroke"
+                app:strokeWidth="1dp" />
+        </com.google.android.material.button.MaterialButtonToggleGroup>
+
         <!-- Градиент снизу списка -->
         <View
             android:id="@+id/bottomGradient"
@@ -87,7 +141,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/homeContentTypeGroup"
             app:spanCount="2"
             tools:listitem="@layout/i_home_video" />
 

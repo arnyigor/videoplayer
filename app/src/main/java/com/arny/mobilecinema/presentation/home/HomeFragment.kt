@@ -26,6 +26,8 @@ import androidx.fragment.app.setFragmentResultListener
 import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.paging.LoadState
+import androidx.recyclerview.widget.ConcatAdapter
+import androidx.recyclerview.widget.GridLayoutManager
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
@@ -102,6 +104,8 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
     private var hasQuery = false
     private var onQueryChangeSubmit = true
     private var itemsAdapter: VideoItemsAdapter? = null
+    private var highlightsAdapter: HomeHighlightsAdapter? = null
+    private var syncingContentTypeSelection = false
     private var extendSearchResult: ExtendSearchResult? = null
     private var permissionRequestId = 0
     private var lastImportedMovieId: Long? = null
@@ -185,6 +189,16 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         binding.btnUpdateList.setOnClickListener {
             viewModel.loadMovies()
         }
+        binding.homeContentTypeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (syncingContentTypeSelection) return@addOnButtonCheckedListener
+            if (!isChecked) return@addOnButtonCheckedListener
+            when (checkedId) {
+                R.id.btnHomeContentAll -> HomeContentType.ALL
+                R.id.btnHomeContentCinema -> HomeContentType.CINEMA
+                R.id.btnHomeContentSerial -> HomeContentType.SERIAL
+                else -> null
+            }?.let(viewModel::setContentType)
+        }
     }
 
     override fun onResume() {
@@ -192,6 +206,8 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         requireActivity().unlockOrientation()
         registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
         checkPermission()
+        updateHomeContentTypeVisibility()
+        updateHighlightsVisibility()
         viewModel.reloadList()
     }
 
@@ -303,6 +319,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                     searchMenuItem?.expandActionView()
                     searchView?.setQuery(search, false)
                 }
+                updateHighlightsVisibility()
                 updateFilterChips()
             }, 350)
             extendSearchResult = null
@@ -349,6 +366,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
             searchView?.setQuery(query, false)
             viewModel.loadMovies(query, delay = true)
             arguments?.clear()
+            updateHighlightsVisibility()
             updateFilterChips()
         }
     }
@@ -423,6 +441,10 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
     /** Sets up the RecyclerView adapter and its load state listener. */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
+        highlightsAdapter = HomeHighlightsAdapter(baseUrl) { item ->
+            val action = HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId)
+            findNavController().navigateSafely(action)
+        }
         itemsAdapter = VideoItemsAdapter(
             baseUrl = baseUrl,
             showFreshness = true
@@ -436,14 +458,14 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
             val refresh = loadState.refresh
             when {
                 refresh is LoadState.Loading -> {
-                    binding.pbLoading.isVisible = true
+                    binding.pbLoading.isVisible = !hasAnyVisibleContent()
                     binding.llEmptyState.isVisible = false
                     binding.errorView.isVisible = false
                 }
                 refresh is LoadState.Error -> {
                     binding.pbLoading.isVisible = false
                     binding.llEmptyState.isVisible = false
-                    binding.errorView.isVisible = true
+                    binding.errorView.isVisible = !hasAnyVisibleContent()
                     val errorMsg = refresh.error.localizedMessage
                         ?: getString(R.string.error_loading_data)
                     binding.tvErrorMessage.text = errorMsg
@@ -451,7 +473,8 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                 refresh is LoadState.NotLoading -> {
                     binding.pbLoading.isVisible = false
                     binding.errorView.isVisible = false
-                    val isEmpty = (itemsAdapter?.itemCount ?: 0) < 1
+                    updateHighlightsVisibility()
+                    val isEmpty = !hasAnyVisibleContent()
                     binding.llEmptyState.isVisible = isEmpty
                     binding.btnUpdateList.isVisible = isEmpty
                     binding.tvEmptyView.isVisible = isEmpty
@@ -462,7 +485,17 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         }
 
         binding.rcVideoList.apply {
-            adapter = itemsAdapter
+            val pagingAdapter = requireNotNull(itemsAdapter)
+            val headerAdapter = requireNotNull(highlightsAdapter)
+            val concatAdapter = ConcatAdapter(headerAdapter, pagingAdapter)
+            val gridLayoutManager = GridLayoutManager(context, 2).apply {
+                spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                    override fun getSpanSize(position: Int): Int =
+                        if (position < headerAdapter.itemCount) spanCount else 1
+                }
+            }
+            layoutManager = gridLayoutManager
+            adapter = concatAdapter
             setHasFixedSize(true)
         }
 
@@ -489,6 +522,26 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         launchWhenCreated {
             viewModel.moviesDataFlow.collectLatest { movies ->
                 itemsAdapter?.submitData(movies)
+            }
+        }
+        launchWhenCreated {
+            viewModel.homeHighlights.collectLatest { highlights ->
+                highlightsAdapter?.submitHighlights(highlights)
+                updateHighlightsVisibility()
+            }
+        }
+        launchWhenCreated {
+            viewModel.contentType.collectLatest { type ->
+                val checkedId = when (type) {
+                    HomeContentType.ALL -> R.id.btnHomeContentAll
+                    HomeContentType.CINEMA -> R.id.btnHomeContentCinema
+                    HomeContentType.SERIAL -> R.id.btnHomeContentSerial
+                }
+                if (binding.homeContentTypeGroup.checkedButtonId != checkedId) {
+                    syncingContentTypeSelection = true
+                    binding.homeContentTypeGroup.check(checkedId)
+                    syncingContentTypeSelection = false
+                }
             }
         }
         launchWhenCreated {
@@ -551,6 +604,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
 
     /** Обновляет чипы активных фильтров над списком */
     private fun updateFilterChips() {
+        updateHomeContentTypeVisibility()
         binding.filterChips.removeAllViews()
 
         val hasActiveFilters = extendSearch || searchType.isNotBlank() ||
@@ -645,10 +699,40 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         currentOrder = ""
         arguments?.clear()
         viewModel.loadMovies(resetAll = true)
+        updateHighlightsVisibility()
         updateFilterChips()
     }
 
     override fun isSearchComplete(): Boolean = emptySearch && !extendSearch
+
+    private fun updateHighlightsVisibility() {
+        highlightsAdapter?.setShowHighlights(shouldShowHighlights())
+    }
+
+    private fun updateHomeContentTypeVisibility() {
+        val showContentType = isHomeHighlightsEnabled() && !extendSearch
+        binding.homeContentTypeGroup.isVisible = showContentType
+        if (!showContentType &&
+            !extendSearch &&
+            binding.homeContentTypeGroup.checkedButtonId != R.id.btnHomeContentAll
+        ) {
+            syncingContentTypeSelection = true
+            binding.homeContentTypeGroup.check(R.id.btnHomeContentAll)
+            syncingContentTypeSelection = false
+            viewModel.setContentType(HomeContentType.ALL)
+        }
+    }
+
+    private fun isHomeHighlightsEnabled(): Boolean =
+        prefs.get<Boolean>(PrefsConstants.PREF_KEY_HOME_HIGHLIGHTS_ENABLED) ?: true
+
+    private fun shouldShowHighlights(): Boolean =
+        isHomeHighlightsEnabled() &&
+                isSearchComplete() &&
+                (highlightsAdapter?.hasHighlights() == true)
+
+    private fun hasAnyVisibleContent(): Boolean =
+        (itemsAdapter?.itemCount ?: 0) > 0 || shouldShowHighlights()
 
  /** Resets search state and UI when the user collapses the search view. */
     override fun collapseSearch() {
@@ -659,6 +743,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         searchType = AppConstants.SearchType.TITLE
         requireActivity().hideKeyboard()
         updateMenuVisibility()
+        updateHighlightsVisibility()
         updateFilterChips()
     }
 
@@ -684,17 +769,20 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                 emptySearch = query?.isBlank() == true
                 viewModel.loadMovies(query.orEmpty(), onQueryChangeSubmit)
                 onQueryChangeSubmit = true
+                updateHighlightsVisibility()
             },
             onMenuCollapse = {
                 viewModel.loadMovies(resetAll = true)
                 emptySearch = true
                 requireActivity().hideKeyboard()
                 updateMenuVisibility()
+                updateHighlightsVisibility()
             },
             onSubmitAvailable = true,
             onQuerySubmit = { query ->
                 emptySearch = query?.isBlank() == true
                 viewModel.loadMovies(query.orEmpty())
+                updateHighlightsVisibility()
             }
         )
         getIntentParams()

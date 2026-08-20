@@ -3,6 +3,7 @@ package com.arny.mobilecinema.domain.repository
 import androidx.paging.Pager
 import com.arny.mobilecinema.data.db.models.HistoryEntity
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.OrderKey
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
@@ -25,11 +26,37 @@ interface MoviesRepository {
         likesPriority: Boolean,
     ): Pager<Int, ViewMovie>
 
+    suspend fun getRecentMovies(
+        updatedFrom: Long,
+        movieTypes: List<MovieType>,
+        limit: Int
+    ): List<ViewMovie>
+
+    suspend fun getBestNowMovies(
+        fromYear: Int,
+        toYear: Int,
+        movieTypes: List<MovieType>,
+        limit: Int
+    ): List<ViewMovie>
+
+    suspend fun getForYouMovies(
+        movieTypes: List<MovieType>,
+        excludedIds: Set<Long>,
+        limit: Int
+    ): List<ViewMovie>
     fun getMovie(id: Long): Movie?
     fun getMovie(pageUrl: String): Movie?
     fun getSaveData(movieDbId: Long?): HistoryEntity?
     fun insertCinemaPosition(movieDbId: Long, position: Long, currentTimeMillis: Long): Boolean
     fun updateCinemaPosition(movieDbId: Long?, position: Long, currentTimeMillis: Long): Boolean
+    fun addPlaybackProgress(
+        movieDbId: Long,
+        season: Int,
+        episode: Int,
+        playedMs: Long,
+        currentTimeMs: Long
+    ): Boolean
+
     fun insertSerialPosition(
         movieDbId: Long,
         season: Int,

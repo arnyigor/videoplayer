@@ -55,6 +55,22 @@ class GenreSearchHelperTest {
     }
 
     @Test
+    fun `movies sql can filter by source update date`() {
+        val query = getMoviesSQL(
+            search = "",
+            order = AppConstants.Order.SMART,
+            searchType = AppConstants.SearchType.TITLE,
+            movieTypes = listOf(MovieType.CINEMA, MovieType.SERIAL),
+            updatedFrom = 123456789L,
+            likesPriority = true,
+            limit = 20,
+            offset = 0
+        )
+
+        assertTrue(query.sql.contains("m.updated >= ?"))
+    }
+
+    @Test
     fun `smart order discounts accumulated popularity by age`() {
         val query = getMoviesSQL(
             search = "",

@@ -1,6 +1,14 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <PreferenceCategory app:title="@string/pref_common">
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="@string/pref_key_home_highlights_enabled"
+            android:summary="@string/pref_summary_home_highlights_enabled"
+            android:title="@string/pref_title_home_highlights_enabled" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:title="@string/pref_player">
         <CheckBoxPreference
             android:defaultValue="false"

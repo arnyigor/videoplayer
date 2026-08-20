@@ -76,15 +76,17 @@ val dataModule = module {
                 AppDatabase.MIGRATION_3_4,
                 AppDatabase.MIGRATION_4_5,
                 AppDatabase.MIGRATION_5_6,
+                AppDatabase.MIGRATION_6_7,
             )
             .build()
     }
     single { get<AppDatabase>().movieDao() }
     single { get<AppDatabase>().historyDao() }
     single { get<AppDatabase>().favoritesDao() }
+    single { get<AppDatabase>().playbackProgressDao() }
     single<FeedbackDatabase> { FeedbackDatabaseImpl(get(),get()) }
     single<UpdateRepository> { UpdateRepositoryImpl(get(), get(), get(), androidContext(), get()) }
-    single<MoviesRepository> { MoviesRepositoryImpl(get(), get(), get(), get(), get(), get()) }
+    single<MoviesRepository> { MoviesRepositoryImpl(get(), get(), get(), get(), get(), get(), get()) }
     single<JsoupUpdateRepository> { JsoupUpdateRepositoryImpl(get(), get()) }
     single<AppResourcesProvider> { AppResourcesProviderImpl(androidContext()) }
     single { PlayerSource(androidContext(), get(), get<CoroutineDispatcher>()) }
