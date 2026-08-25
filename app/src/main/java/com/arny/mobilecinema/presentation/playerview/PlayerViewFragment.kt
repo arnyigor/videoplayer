@@ -90,6 +90,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         const val CONTROLS_ANIMATION_DURATION = 250L
         const val PLAYBACK_PROGRESS_INTERVAL_MS = 5_000L
         const val MAX_PLAYBACK_PROGRESS_DELTA_MS = 15_000L
+        const val KEY_START_PAUSED = "player_view_start_paused"
     }
 
     private val prefs: Prefs by inject()
@@ -143,6 +144,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var boost: Int = -1
 
     private var isPlayerPrepared = false
+    private var shouldStartPaused = false
     private var lastProcessedVersion: Long = -1
     private var lastPlaybackProgressAt: Long = 0L
 
@@ -173,7 +175,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         if (focusChange <= 0) {
-            player?.pause()
+            forcePausedOnRestore()
         }
     }
 
@@ -242,6 +244,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
         }
 
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, playbackState: Int) {
+            shouldStartPaused = !playWhenReady
+        }
+
         override fun onTracksChanged(tracks: Tracks) {
             val index = player?.currentMediaItemIndex ?: 0
             if (index != mediaItemIndex) {
@@ -293,6 +299,11 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        if (savedInstanceState != null) {
+            shouldStartPaused = savedInstanceState.getBoolean(KEY_START_PAUSED, false)
+        }
+
         binding.progressBar.isVisible = true
         lastProcessedVersion = -1
 
@@ -354,6 +365,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         volumeObserver?.let { unregisterContentResolver(it) }
         (requireActivity() as AppCompatActivity).supportActionBar?.show()
 
+        forcePausedOnRestore()
+
         player?.let { exoPlayer ->
             stopPlaybackProgressTracking()
             saveCurrentPosition(exoPlayer)
@@ -370,6 +383,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     override fun onStop() {
         super.onStop()
         if (Util.SDK_INT >= Build.VERSION_CODES.N) {
+            forcePausedOnRestore()
+
             player?.let { exoPlayer ->
                 stopPlaybackProgressTracking()
                 val currentPosition = exoPlayer.currentPosition
@@ -446,6 +461,16 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         if (isSystemUIHidden) {
             hideSystemUIImmediately()
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_START_PAUSED, shouldStartPaused)
+    }
+
+    private fun forcePausedOnRestore() {
+        shouldStartPaused = true
+        player?.pause()
     }
 
     private fun updateGain() {
@@ -1217,7 +1242,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 .setSeekForwardIncrementMs(secToMs(5))
                 .build()
                 .apply {
-                    playWhenReady = true
+                    playWhenReady = !shouldStartPaused
                     addAnalyticsListener(analytic)
                     addListener(listener)
                 }
