@@ -67,35 +67,33 @@ class HomeHighlightsAdapter(
         onItemClick: (item: ViewMovie) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        private val recentAdapter = HomeHighlightMoviesAdapter(baseUrl, onItemClick)
-        private val bestNowAdapter = HomeHighlightMoviesAdapter(baseUrl, onItemClick)
-        private val forYouAdapter = HomeHighlightMoviesAdapter(baseUrl, onItemClick)
+        private class HighlightRow(
+            val group: android.view.View,
+            val adapter: HomeHighlightMoviesAdapter
+        )
 
-        init {
-            binding.rvRecent.apply {
-                layoutManager = LinearLayoutManager(context, RecyclerView.HORIZONTAL, false)
-                adapter = recentAdapter
-                setHasFixedSize(true)
-            }
-            binding.rvBestNow.apply {
-                layoutManager = LinearLayoutManager(context, RecyclerView.HORIZONTAL, false)
-                adapter = bestNowAdapter
-                setHasFixedSize(true)
-            }
-            binding.rvForYou.apply {
-                layoutManager = LinearLayoutManager(context, RecyclerView.HORIZONTAL, false)
-                adapter = forYouAdapter
-                setHasFixedSize(true)
-            }
+        private val rows = listOf(
+            binding.groupRecent to binding.rvRecent,
+            binding.groupBestNow to binding.rvBestNow,
+            binding.groupForYou to binding.rvForYou,
+        ).map { (group, recyclerView) ->
+            HighlightRow(
+                group = group,
+                adapter = HomeHighlightMoviesAdapter(baseUrl, onItemClick).also {
+                    recyclerView.layoutManager =
+                        LinearLayoutManager(recyclerView.context, RecyclerView.HORIZONTAL, false)
+                    recyclerView.adapter = it
+                    recyclerView.setHasFixedSize(true)
+                }
+            )
         }
 
         fun bind(highlights: HomeHighlights) {
-            binding.groupRecent.isVisible = highlights.recent.isNotEmpty()
-            binding.groupBestNow.isVisible = highlights.bestNow.isNotEmpty()
-            binding.groupForYou.isVisible = highlights.forYou.isNotEmpty()
-            recentAdapter.submitList(highlights.recent)
-            bestNowAdapter.submitList(highlights.bestNow)
-            forYouAdapter.submitList(highlights.forYou)
+            listOf(highlights.recent, highlights.bestNow, highlights.forYou)
+                .forEachIndexed { index, movies ->
+                    rows[index].group.isVisible = movies.isNotEmpty()
+                    rows[index].adapter.submitList(movies)
+                }
         }
     }
 }

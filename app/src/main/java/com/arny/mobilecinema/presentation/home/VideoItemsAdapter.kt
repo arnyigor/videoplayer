@@ -11,10 +11,6 @@ import com.arny.mobilecinema.databinding.IHomeVideoBinding
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.utils.diffItemCallback
-import com.arny.mobilecinema.presentation.utils.getWithDomain
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
-import java.util.Locale
 
 class VideoItemsAdapter(
     private val baseUrl: String,
@@ -49,13 +45,7 @@ class VideoItemsAdapter(
                     onItemClick(item)
                 }
                 tvVideoTitle.text = item.title
-                Glide.with(ivVideoIcon)
-                    .load(item.img.getWithDomain(baseUrl))
-                    .placeholder(R.drawable.placeholder_movie)
-                    .error(R.drawable.placeholder_movie)
-                    .transition(DrawableTransitionOptions.withCrossFade(200))
-                    .centerCrop()
-                    .into(ivVideoIcon)
+                ivVideoIcon.loadMoviePoster(item.img, baseUrl)
                 val type = getType(item, context)
                 val isFresh = showFreshness &&
                     item.updated > 0L &&
@@ -74,27 +64,7 @@ class VideoItemsAdapter(
                 }.joinToString(" • ")
 
                 tvInfo.text = buildList {
-                    when {
-                        item.ratingImdb > 0.0 -> {
-                            add(
-                                String.format(
-                                    Locale.getDefault(),
-                                    "IMDb %.1f",
-                                    item.ratingImdb
-                                )
-                            )
-                        }
-
-                        item.ratingKp > 0.0 -> {
-                            add(
-                                String.format(
-                                    Locale.getDefault(),
-                                    "KP %.1f",
-                                    item.ratingKp
-                                )
-                            )
-                        }
-                    }
+                    item.ratingLabel()?.let(::add)
 
                     add("${item.likes}\uD83D\uDC4D")
                     add("${item.dislikes}\uD83D\uDC4E")

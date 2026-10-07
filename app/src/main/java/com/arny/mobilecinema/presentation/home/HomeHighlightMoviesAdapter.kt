@@ -8,10 +8,6 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.IHomeHighlightMovieBinding
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.presentation.utils.diffItemCallback
-import com.arny.mobilecinema.presentation.utils.getWithDomain
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
-import java.util.Locale
 
 class HomeHighlightMoviesAdapter(
     private val baseUrl: String,
@@ -43,33 +39,9 @@ class HomeHighlightMoviesAdapter(
                 if (item.year > 0) {
                     add(item.year.toString())
                 }
-                bestRating(item)?.let(::add)
+                item.ratingLabel()?.let(::add)
             }.joinToString(" \u2022 ")
-            Glide.with(ivPoster)
-                .load(item.img.getWithDomain(baseUrl))
-                .placeholder(R.drawable.placeholder_movie)
-                .error(R.drawable.placeholder_movie)
-                .transition(DrawableTransitionOptions.withCrossFade(200))
-                .centerCrop()
-                .into(ivPoster)
-        }
-    }
-
-    private fun bestRating(item: ViewMovie): String? {
-        return when {
-            item.ratingImdb > 0.0 -> String.format(
-                Locale.getDefault(),
-                "IMDb %.1f",
-                item.ratingImdb
-            )
-
-            item.ratingKp > 0.0 -> String.format(
-                Locale.getDefault(),
-                "KP %.1f",
-                item.ratingKp
-            )
-
-            else -> null
+            ivPoster.loadMoviePoster(item.img, baseUrl)
         }
     }
 
