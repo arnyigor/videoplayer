@@ -65,6 +65,7 @@ import com.google.android.exoplayer2.C
 import com.google.android.exoplayer2.DefaultLoadControl
 import com.google.android.exoplayer2.DefaultRenderersFactory
 import com.google.android.exoplayer2.ExoPlayer
+import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.Tracks
@@ -248,27 +249,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             shouldStartPaused = !playWhenReady
         }
 
-        override fun onTracksChanged(tracks: Tracks) {
-            val index = player?.currentMediaItemIndex ?: 0
-            if (index != mediaItemIndex) {
-                stopPlaybackProgressTracking()
-                mediaItemIndex = index
-                player?.let { exoPlayer ->
-                    val metadata = exoPlayer.currentMediaItem?.mediaMetadata
-                    val bundle = metadata?.extras
-                    val newSeason = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
-                    val newEpisode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            updateCurrentEpisodeFromPlayer()
+        }
 
-                    title = metadata?.title.toString()
-                    viewModel.updateCurrentEpisode(newSeason, newEpisode)
-                    currentEpisodeIndex = index
-                    setCurrentTitle()
-                }
-                setupPopupMenus = true
-                if (player?.isPlaying == true) {
-                    startPlaybackProgressTracking()
-                }
-            }
+        override fun onTracksChanged(tracks: Tracks) {
+            setupPopupMenus = true
         }
     }
 
@@ -1044,6 +1030,29 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private fun getCurrentPlaybackUrl(): String? =
         player?.currentMediaItem?.localConfiguration?.uri?.toString()
+
+    private fun updateCurrentEpisodeFromPlayer() {
+        val exoPlayer = player ?: return
+        val index = exoPlayer.currentMediaItemIndex
+        if (index == mediaItemIndex) return
+
+        stopPlaybackProgressTracking()
+        mediaItemIndex = index
+
+        val metadata = exoPlayer.currentMediaItem?.mediaMetadata
+        val bundle = metadata?.extras
+        val newSeason = bundle?.getInt(AppConstants.Player.SEASON) ?: 0
+        val newEpisode = bundle?.getInt(AppConstants.Player.EPISODE) ?: 0
+
+        title = metadata?.title.toString()
+        viewModel.updateCurrentEpisode(newSeason, newEpisode)
+        currentEpisodeIndex = index
+        setCurrentTitle()
+
+        if (exoPlayer.isPlaying) {
+            startPlaybackProgressTracking()
+        }
+    }
 
     private fun startPlaybackProgressTracking() {
         if (lastPlaybackProgressAt == 0L) {
