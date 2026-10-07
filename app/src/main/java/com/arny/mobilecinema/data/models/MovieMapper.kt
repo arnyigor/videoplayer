@@ -9,13 +9,15 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieInfo
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialSeason
+import com.arny.mobilecinema.domain.models.playableSourceUrls
+import com.arny.mobilecinema.domain.models.withPlayableSourceUrls
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
 
 class MovieMapper constructor() : Mapper<MovieEntity, Movie> {
     override fun transform(data: MovieEntity): Movie {
         val seasons = if (data.seasons.isNotBlank()) {
-            data.seasons.fromJsonToList<SerialSeason>(initGson())
+            data.seasons.fromJsonToList<SerialSeason>(initGson()).withPlayableSourceUrls()
         } else {
             emptyList()
         }
@@ -49,11 +51,11 @@ class MovieMapper constructor() : Mapper<MovieEntity, Movie> {
             customData = data.customData,
             cinemaUrlData = CinemaUrlData(
                 hdUrl = AnwapUrl(
-                    urls = data.hdUrls.split(","),
+                    urls = data.hdUrls.split(",").playableSourceUrls(),
                     poster = data.hdUrlsPoster
                 ),
                 cinemaUrl = AnwapUrl(
-                    urls = data.cinemaUrls.split(","),
+                    urls = data.cinemaUrls.split(",").playableSourceUrls(),
                     poster = data.cinemaUrlsPoster
                 ),
             ),

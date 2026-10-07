@@ -24,6 +24,7 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.domain.models.UpdateType
+import com.arny.mobilecinema.domain.models.withPlayableSourceUrls
 import com.arny.mobilecinema.domain.repository.JsoupUpdateRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import data.models.AnwapSeasonPlaylist
@@ -335,7 +336,7 @@ class JsoupUpdateInteractorImpl constructor(
                     flowCollector.emit(loading(UpdateType.MOVIE to movie.toString()))
                 }
 
-                !dbMovie.hasAllVideoData() -> {
+                !dbMovie.hasAllVideoData() || dbMovie.needsHdBackfill() -> {
                     val message =
                         "Обновление c \"${dbMovie.title}\" ${dbMovie.pageUrl} на \"${anwapMovie.title}\" ${anwapMovie.pageUrl}"
                     flowCollector.emit(loading(UpdateType.LINK to message))
@@ -664,8 +665,8 @@ class JsoupUpdateInteractorImpl constructor(
             pageUrl = filmLink.removeDomain(),
             img = img,
             info = info,
-            seasons = seasons,
-            cinemaUrlData = cinemaUrlData
+            seasons = seasons.withPlayableSourceUrls(),
+            cinemaUrlData = cinemaUrlData.withPlayableSourceUrls()
         )
     }
 

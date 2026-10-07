@@ -92,6 +92,33 @@ fun CinemaUrlData.isNoCinemaUrls(): Boolean {
     return cinemaUrl?.urls.isNullOrEmpty() && hdUrl?.urls.isNullOrEmpty()
 }
 
+private const val HD_BACKFILL_INTERVAL_MS = 30L * 24 * 60 * 60 * 1000
+
+/**
+ * Карточка разобрана давно и без HD-ссылок: стоит перепарсить её полностью,
+ * чтобы подтянуть HD (и не хранить вечно битые ссылки старого Collaps).
+ *
+ * Ограничение по [detailsFetchedAt] обязательно: HD-разбор дорогой (страница фильма
+ * + embed-плеер), а у значительной части каталога HD у источника просто нет — без
+ * троттлинга каждая волна обновления заново парсила бы одни и те же карточки.
+ */
+fun Movie.needsHdBackfill(now: Long = System.currentTimeMillis()): Boolean {
+    if (now - info.detailsFetchedAt < HD_BACKFILL_INTERVAL_MS) return false
+    return when (type) {
+        MovieType.CINEMA -> {
+            val urls = cinemaUrlData
+            urls?.hdUrl?.urls.isNullOrEmpty() && !urls?.cinemaUrl?.urls.isNullOrEmpty()
+        }
+
+        MovieType.SERIAL ->
+            seasons.isNotEmpty() &&
+                    seasons.all { it.episodes.isNotEmpty() } &&
+                    seasons.any { season -> season.episodes.any { it.dash.isBlank() } }
+
+        MovieType.NO_TYPE -> false
+    }
+}
+
 fun getUpdateTime(dateInfo: String, updateToNow: Boolean): Long {
     var dateTime: DateTime?
     val zone = DateTimeZone.forID("Europe/Moscow")
