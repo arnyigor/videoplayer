@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.domain.interactors.jsoupupdate
 
+import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataResultWithProgress
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.network.jsoup.JsoupServiceHelper
@@ -23,6 +24,7 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
+import com.arny.mobilecinema.domain.models.SiteSearchItem
 import com.arny.mobilecinema.domain.models.UpdateType
 import com.arny.mobilecinema.domain.models.withPlayableSourceUrls
 import com.arny.mobilecinema.domain.repository.JsoupUpdateRepository
@@ -37,6 +39,7 @@ import kotlinx.serialization.json.Json
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import timber.log.Timber
+import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
@@ -52,6 +55,9 @@ class JsoupUpdateInteractorImpl constructor(
         const val VENOM_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+
+        /** Разбор одиночной карточки идёт без UI-прогресса — прогресс не нужен. */
+        private val NO_PROGRESS = FlowCollector<DataResultWithProgress<LoadingData>> { }
     }
 
     private var loadPageTime = 0L
@@ -616,6 +622,96 @@ class JsoupUpdateInteractorImpl constructor(
         }
     }
 
+    override suspend fun searchOnSite(query: String, page: Int): DataResult<List<SiteSearchItem>> =
+        withContext(Dispatchers.IO) {
+            val trimmed = query.trim()
+            if (trimmed.isBlank()) {
+                return@withContext DataResult.Success(emptyList())
+            }
+            try {
+                val baseUrl = updateRepository.baseUrl.trimEnd('/')
+                val encoded = URLEncoder.encode(trimmed, "UTF-8")
+                val items = mutableListOf<SiteSearchItem>()
+                if (page <= 1) {
+                    // У поиска сериалов пагинации нет — одна страница результатов.
+                    val serialsUrl = "$baseUrl${Selectors.SEARCH_SERIALS_URL}" +
+                            "?${Selectors.SEARCH_SERIALS_QUERY_PARAM}=$encoded" +
+                            "&${Selectors.SEARCH_VID_PARAM}=${Selectors.SEARCH_VID_TITLES}"
+                    items.addAll(loadSearchItems(serialsUrl))
+                }
+                val filmsUrl = "$baseUrl${Selectors.SEARCH_FILMS_URL}" +
+                        "?${Selectors.SEARCH_FILMS_QUERY_PARAM}=$encoded" +
+                        "&${Selectors.SEARCH_VID_PARAM}=${Selectors.SEARCH_VID_TITLES}" +
+                        "&${Selectors.SEARCH_PAGE_PARAM}=$page"
+                items.addAll(loadSearchItems(filmsUrl))
+                DataResult.Success(items.distinctBy { it.pageUrl })
+            } catch (e: Exception) {
+                Timber.e(e, "searchOnSite failed")
+                DataResult.Error(e)
+            }
+        }
+
+    private suspend fun loadSearchItems(url: String): List<SiteSearchItem> {
+        val document = loadPage(url)
+        return getSearchItems(document, document.location())
+    }
+
+    override suspend fun fetchAndSaveMovieCard(url: String): DataResult<Long> =
+        withContext(Dispatchers.IO) {
+            try {
+                val filmLink = if (url.startsWith("http", ignoreCase = true)) {
+                    url
+                } else {
+                    updateRepository.baseUrl.trimEnd('/') + "/" + url.trimStart('/')
+                }
+                val document = loadPage(filmLink)
+                // Только шапка карточки: серии (десятки запросов) и ссылки на видео
+                // дозагрузит UpdateService уже на экране деталей.
+                val movie = getAnwapMovie(
+                    doc = document,
+                    full = false,
+                    filmLink = filmLink,
+                    flowCollector = NO_PROGRESS,
+                )
+                if (!movie.hasUsableTitle()) {
+                    DataResult.Error(ParsingIgnoreException("Пустая карточка $filmLink"))
+                } else {
+                    val dbId = saveMovieCard(movie)
+                    if (dbId <= 0L) {
+                        DataResult.Error(IllegalStateException("Не удалось сохранить ${movie.pageUrl}"))
+                    } else {
+                        DataResult.Success(dbId)
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "fetchAndSaveMovieCard failed")
+                DataResult.Error(e)
+            }
+        }
+
+    /**
+     * Запись быстрой карточки.
+     *
+     * Уже имеющуюся строку урезанными данными не перезаписываем: в них нет серий и ссылок,
+     * такая перезапись стёрла бы всё, что уже разобрано (для этого есть UpdateService).
+     * Исключение — битая строка без заголовка: её как раз полезно заменить.
+     */
+    private suspend fun saveMovieCard(movie: Movie): Long {
+        val existing = repository.selectMovieByUrl(movie.pageUrl)
+        if (existing != null && existing.dbId > 0L) {
+            if (existing.title.isBlank()) {
+                repository.updateMovie(movie = movie, dbId = existing.dbId)
+            }
+            return existing.dbId
+        }
+        val inserted = repository.insertMovie(movie)
+        return if (inserted) {
+            repository.selectMovieByUrl(movie.pageUrl)?.dbId ?: 0L
+        } else {
+            0L
+        }
+    }
+
     private suspend fun getAnwapMovie(
         doc: Document,
         full: Boolean,
@@ -657,7 +753,7 @@ class JsoupUpdateInteractorImpl constructor(
                 )
             }
         }
-        return Movie(
+        val movie = Movie(
             movieId = id,
             title = title,
             type = type,
@@ -668,6 +764,14 @@ class JsoupUpdateInteractorImpl constructor(
             seasons = seasons.withPlayableSourceUrls(),
             cinemaUrlData = cinemaUrlData.withPlayableSourceUrls()
         )
+        // Пустой разбор не должен затирать уже имеющуюся карточку в БД
+        // (антибот/заглушка отдаётся с кодом 200 — парсится «успешно», но без данных).
+        if (full && !movie.hasUsableData()) {
+            throw ParsingIgnoreException(
+                "Пустые данные карточки $filmLink: title=\"$title\", сезонов ${seasons.size}"
+            )
+        }
+        return movie
     }
 
 private suspend fun getCinemaUrlData(

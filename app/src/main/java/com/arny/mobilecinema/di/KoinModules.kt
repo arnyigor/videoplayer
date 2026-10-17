@@ -34,6 +34,7 @@ import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.comments.CommentsViewModel
 import com.arny.mobilecinema.presentation.details.DetailsViewModel
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel
+import com.arny.mobilecinema.presentation.sitesearch.SiteSearchViewModel
 import com.arny.mobilecinema.presentation.favorite.FavoritesViewModel
 import com.arny.mobilecinema.presentation.history.HistoryViewModel
 import com.arny.mobilecinema.presentation.home.HomeViewModel
@@ -105,6 +106,7 @@ val presentationModule = module {
     viewModel { (id: Long) -> DetailsViewModel(id, get(), get(), get(), get()) }
     viewModel { (pageUrl: String, title: String) -> CommentsViewModel(pageUrl, title, get()) }
     viewModel { ExtendedSearchViewModel(get()) }
+    viewModel { SiteSearchViewModel(get()) }
     viewModel { FavoritesViewModel(get()) }
     viewModel { HistoryViewModel(get(), get()) }
     viewModel { PlayerViewModel(get(), get(), get()) }

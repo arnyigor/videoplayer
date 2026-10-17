@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cvSiteSearchItem"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="@dimen/margin_smallest"
+    android:layout_marginVertical="@dimen/margin_smallest"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    app:cardBackgroundColor="@color/card_dark_bg"
+    app:cardCornerRadius="@dimen/cardview_radius"
+    app:cardElevation="0dp"
+    app:strokeWidth="0dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="@dimen/margin_small">
+
+        <ImageView
+            android:id="@+id/ivSiteSearchIcon"
+            android:layout_width="72dp"
+            android:layout_height="96dp"
+            android:scaleType="centerCrop"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:src="@tools:sample/backgrounds/scenic" />
+
+        <TextView
+            android:id="@+id/tvSiteSearchTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/margin_small"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textColor="@color/textColorPrimary"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/ivSiteSearchIcon"
+            app:layout_constraintTop_toTopOf="@id/ivSiteSearchIcon"
+            tools:text="Теория большого взрыва" />
+
+        <TextView
+            android:id="@+id/tvSiteSearchInfo"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/margin_small"
+            android:layout_marginTop="@dimen/margin_smallest"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="12sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/ivSiteSearchIcon"
+            app:layout_constraintTop_toBottomOf="@id/tvSiteSearchTitle"
+            tools:text="2013 • Сериал • 7.5" />
+
+        <TextView
+            android:id="@+id/tvSiteSearchDescription"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/margin_small"
+            android:layout_marginTop="@dimen/margin_smallest"
+            android:ellipsize="end"
+            android:maxLines="3"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="12sp"
+            app:layout_constraintBottom_toBottomOf="@id/ivSiteSearchIcon"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/ivSiteSearchIcon"
+            app:layout_constraintTop_toBottomOf="@id/tvSiteSearchInfo"
+            tools:text="Описание сериала" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>

@@ -125,8 +125,22 @@
             private const val TAG = "UpdateService"
         }
 
+        /**
+         * Фоновое обновление карточки (запущено с экрана деталей), а не импорт ссылки.
+         * Передаётся параметром в конкретный разбор: разборов может идти несколько
+         * параллельно, поэтому общее поле сервиса для этого не годится.
+         */
+        private fun isBackgroundUpdate(intent: Intent?): Boolean =
+            intent?.getBooleanExtra(AppConstants.SERVICE_PARAM_UPDATE_BACKGROUND, false) ?: false
+
+        /**
+         * Сколько разборов по URL идёт прямо сейчас.
+         *
+         * Раньше первый завершившийся разбор вызывал stop(), а stop() отменяет корутины сервиса —
+         * при быстром открытии нескольких карточек остальные разборы теряли и запись, и отчёт.
+         */
         @Volatile
-        private var importedMovieId = 0L
+        private var activeUrlParses = 0
 
         /** Repository for accessing and persisting movie data. */
         private val repository: UpdateRepository by inject()
@@ -230,6 +244,10 @@
          * data from the specified URL and update the local database.
          */
         private fun actionUpdateByUrl(intent: Intent?) {
+            // Свои значения на каждый запуск: параллельные разборы не должны перетирать друг друга.
+            val url = intent?.getStringExtra(SERVICE_PARAM_UPDATE_URL)
+            val background = isBackgroundUpdate(intent)
+            activeUrlParses++
             lifecycleScope.launch {
                 try {
                     sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
@@ -239,11 +257,12 @@
                         )
                     }
 
-                    val url = intent?.getStringExtra(SERVICE_PARAM_UPDATE_URL)
-                    getPageData(url)
+                    getPageData(url, background)
                 } catch (e: Exception) {
                     e.printStackTrace()
-                    updateCompleteWithError()
+                    updateCompleteWithError(background = background)
+                } finally {
+                    activeUrlParses--
                 }
             }
         }
@@ -254,7 +273,7 @@
          *
          * @param url URL of the remote resource to download.
          */
-        private suspend fun getPageData(url: String?) {
+        private suspend fun getPageData(url: String?, background: Boolean) {
             if (!url.isNullOrBlank()) {
                 val normalizedUrl = normalizeUpdateUrl(url)
 
@@ -265,8 +284,6 @@
                     ?.value
                     ?.toLongOrNull()
                     ?: throw DataThrowable(R.string.url_is_empty)
-
-                importedMovieId = movieId   // сохраняем для broadcast-а
 
                 jsoupUpdateInteractor.getPageData(normalizedUrl, true) { data ->
                     when (data) {
@@ -279,17 +296,17 @@
                             )
                             if (data.throwable is CancellationException) return@getPageData
 
-                            updateComplete(false)
+                            updateComplete(false, movieId, background)
                         }
 
                         is DataResultWithProgress.Progress -> {
                             val result = data.result
                             val progressMap = result.progress
-                            handleProgress(progressMap, result)
+                            handleProgress(progressMap, result, movieId, background)
                         }
 
                         is DataResultWithProgress.Success -> {
-                            updateComplete(true)
+                            updateComplete(true, movieId, background)
                         }
                     }
                 }
@@ -307,7 +324,9 @@
 
         private suspend fun handleProgress(
             progressMap: Map<String, String>,
-            result: LoadingData
+            result: LoadingData,
+            movieId: Long = 0L,
+            background: Boolean = false,
         ) {
             for ((key, value) in progressMap.entries) {
                 when (key) {
@@ -317,7 +336,7 @@
                         if (movie != null && result.complete) {
                             // 2️⃣ основной лог – запись о завершении обновления конкретного фильма
                             Timber.tag(TAG).d("handleProgress: Movie update complete: %s", movie)
-                            updateComplete(result.success)
+                            updateComplete(result.success, movieId, background)
                         }
                     }
 
@@ -363,7 +382,11 @@
          *
          * @param success `true` if the update succeeded, otherwise `false`.
          */
-        private suspend fun updateComplete(success: Boolean) {
+        private suspend fun updateComplete(
+            success: Boolean,
+            movieId: Long = 0L,
+            background: Boolean = false,
+        ) {
             // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Если корутину отменили, просто выходим
             if (!currentCoroutineContext().isActive) return
 
@@ -389,10 +412,25 @@
                         AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
                     }
                 )
-                putLong("EXTRA_MOVIE_ID", importedMovieId)
+                putLong("EXTRA_MOVIE_ID", movieId)
+                putBoolean(
+                    AppConstants.SERVICE_PARAM_UPDATE_BACKGROUND,
+                    background
+                )
             }
             delay(1000)
-            stop()
+            stopIfNoActiveParses()
+        }
+
+        /**
+         * Останавливает сервис только когда другие разборы по URL уже не идут:
+         * stop() отменяет корутины сервиса и убил бы их на середине.
+         * Текущий разбор тоже в счётчике, поэтому порог «1».
+         */
+        private fun stopIfNoActiveParses() {
+            if (activeUrlParses <= 1) {
+                stop()
+            }
         }
 
 
@@ -586,7 +624,10 @@
         /**
          * Broadcasts an error status and stops the service.
          */
-        private suspend fun updateCompleteWithError() {
+        private suspend fun updateCompleteWithError(
+            movieId: Long = 0L,
+            background: Boolean = false,
+        ) {
             // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Если корутину отменили, просто выходим
             if (!currentCoroutineContext().isActive) return
 
@@ -595,9 +636,14 @@
                     AppConstants.ACTION_UPDATE_STATUS,
                     AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
                 )
+                putLong("EXTRA_MOVIE_ID", movieId)
+                putBoolean(
+                    AppConstants.SERVICE_PARAM_UPDATE_BACKGROUND,
+                    background
+                )
             }
             delay(1000)
-            stop()
+            stopIfNoActiveParses()
         }
 
         /**

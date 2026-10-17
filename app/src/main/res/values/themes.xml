@@ -26,6 +26,14 @@
         <item name="md_color_content">@color/textColorPrimary</item>
         <item name="md_color_button_text">@color/textColorSecondary</item>
         <item name="md_corner_radius">8dp</item>
+
+        <!-- Цвет курсора/выделения/активных контролов: без него на тёмном фоне
+             курсор и ручки выделения почти чёрные. -->
+        <item name="colorControlActivated">@color/colorAccent</item>
+
+        <!-- Кнопки без своей стилизации (например, «Искать» на экране поиска по сайту)
+             по умолчанию берут colorPrimary — тёмную на тёмном фоне. -->
+        <item name="materialButtonStyle">@style/AccentButton</item>
     </style>
 
     <style name="ItemMenuTextAppearance">

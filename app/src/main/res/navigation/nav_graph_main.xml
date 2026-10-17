@@ -60,6 +60,13 @@
                 app:exitAnim="@anim/fade_out"
                 app:popEnterAnim="@anim/fade_in"
                 app:popExitAnim="@anim/fade_out" />
+        <action
+                android:id="@+id/action_nav_home_to_nav_site_search"
+                app:destination="@id/nav_site_search"
+                app:enterAnim="@anim/fade_in"
+                app:exitAnim="@anim/fade_out"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
     </fragment>
     <fragment
             android:id="@+id/nav_details"
@@ -225,6 +232,24 @@
         <action
                 android:id="@+id/action_nav_extended_search_to_nav_home"
                 app:destination="@id/nav_home"
+                app:enterAnim="@anim/fade_in"
+                app:exitAnim="@anim/fade_out"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
+    </fragment>
+    <fragment
+            android:id="@+id/nav_site_search"
+            android:name="com.arny.mobilecinema.presentation.sitesearch.SiteSearchFragment"
+            android:label="SiteSearchFragment"
+            tools:layout="@layout/f_site_search">
+        <argument
+                android:name="query"
+                app:argType="string"
+                app:nullable="true"
+                android:defaultValue="@null" />
+        <action
+                android:id="@+id/action_nav_site_search_to_nav_details"
+                app:destination="@id/nav_details"
                 app:enterAnim="@anim/fade_in"
                 app:exitAnim="@anim/fade_out"
                 app:popEnterAnim="@anim/fade_in"

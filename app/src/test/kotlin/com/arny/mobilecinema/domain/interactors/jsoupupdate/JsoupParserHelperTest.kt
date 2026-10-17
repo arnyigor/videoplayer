@@ -1,6 +1,10 @@
 package com.arny.mobilecinema.domain.interactors.jsoupupdate
 
 import org.jsoup.Jsoup
+import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.SerialEpisode
+import com.arny.mobilecinema.domain.models.SerialSeason
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -355,5 +359,100 @@ class JsoupParserHelperTest {
         assertFalse(isPlayableVideoUrl(null))
         assertFalse(isPlayableVideoUrl(""))
         assertFalse(isPlayableVideoUrl("null"))
+    }
+
+    @Test
+    fun `getSearchItems parses serial card from site search`() {
+        // Разметка карточки со страницы https://mm.anwap.media/serials/search/?word=Big+Bang&vid=1
+        val doc = Jsoup.parse(
+            """
+            <div class="my_razdel film"><a href="/serials/208">
+                <div class="screenfilm">
+                    <br>
+                    <img src="/serials/prev/208.jpg" loading="lazy" alt="Теория большого взрыва  / The Big Bang Theory" title="Теория большого взрыва  / The Big Bang Theory" class="screenf">
+                    <div class="filmlike">
+                        <span class="flike"><img src="/style/img/like-green-big.png" alt=""/>482</span>
+                        <span class="fdizlike"><img src="/style/img/disliked-red-big.png" alt=""/>31</span>
+                    </div>
+                </div>
+                <div class="opisfilm"><div class="namefilm"> Теория большого взрыва</div>
+                    <span class="in year">2007</span> <br />
+                    <span class="discripfilm">Оригинальное название: The Big Bang Theory</span>
+                </div>
+                <div class="clear"></div></a></div>
+            """.trimIndent(),
+            "https://mm.anwap.media/serials/search/?word=Big+Bang&vid=1"
+        )
+
+        val items = getSearchItems(doc, doc.location())
+
+        assertEquals(1, items.size)
+        assertEquals("serials/208", items[0].pageUrl)
+        assertEquals("Теория большого взрыва", items[0].title)
+        assertEquals("The Big Bang Theory", items[0].origTitle)
+        assertEquals("https://mm.anwap.media/serials/prev/208.jpg", items[0].img)
+        assertEquals(2007, items[0].year)
+        assertEquals(482, items[0].likes)
+        assertEquals(31, items[0].dislikes)
+        assertEquals(MovieType.SERIAL, items[0].type)
+    }
+
+    @Test
+    fun `getSearchItems parses film card with rating`() {
+        val doc = Jsoup.parse(
+            """
+            <div class="my_razdel film"><a href="/films/12552">
+                <div class="screenfilm">
+                    <span class="rei red">4.7</span><br/>
+                    <img src="/films/prew/12552.jpg" alt="Черный скорпион 2 / Black Scorpion II" class="screenf"/>
+                    <div class="filmlike">
+                        <span class="flike"><img src="x.png" alt=""/>7</span>
+                        <span class="fdizlike"><img src="y.png" alt=""/>6</span>
+                    </div>
+                </div>
+                <div class="opisfilm"><div class="namefilm"> Черный скорпион 2</div>
+                    <span class="in year">1996</span> <br />
+                    <span class="discripfilm">Описание фильма</span>
+                </div>
+                <div class="clear"></div></a></div>
+            """.trimIndent(),
+            "https://mm.anwap.media/films/search/?slv=scorpion&vid=1&page=1"
+        )
+
+        val items = getSearchItems(doc, doc.location())
+
+        assertEquals(1, items.size)
+        assertEquals("films/12552", items[0].pageUrl)
+        assertEquals(MovieType.CINEMA, items[0].type)
+        assertEquals(1996, items[0].year)
+        assertEquals(4.7f, items[0].rating)
+        assertEquals("Описание фильма", items[0].description)
+    }
+
+    @Test
+    fun `hasUsableData rejects empty card parse`() {
+        val emptyPage = Movie(
+            title = "",
+            type = MovieType.SERIAL,
+            seasons = emptyList()
+        )
+        assertFalse(emptyPage.hasUsableData())
+
+        val titleOnly = Movie(
+            title = "Теория большого взрыва",
+            type = MovieType.SERIAL,
+            seasons = emptyList()
+        )
+        assertFalse(titleOnly.hasUsableData())
+
+        val serialWithSeasons = Movie(
+            title = "Теория большого взрыва",
+            type = MovieType.SERIAL,
+            seasons = listOf(SerialSeason(id = 1, episodes = listOf(SerialEpisode())))
+        )
+        assertTrue(serialWithSeasons.hasUsableData())
+
+        val film = Movie(title = "Черный скорпион 2", type = MovieType.CINEMA)
+        assertTrue(film.hasUsableData())
     }
 }

@@ -249,20 +249,30 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
-                    toast(getString(R.string.update_finished_success))
-
-                    // 3️⃣ Получаем id и логируем, если он отсутствует
                     val movieId = intent.getLongExtra("EXTRA_MOVIE_ID", -1L)
-                    if (movieId > 0) {
-                        Timber.i("Found movie id: %d – loading details.", movieId)
-                        viewModel.findMovieByImportedUrl(movieId)
+                    val isBackgroundUpdate = intent.getBooleanExtra(
+                        AppConstants.SERVICE_PARAM_UPDATE_BACKGROUND,
+                        false
+                    )
+                    if (isBackgroundUpdate) {
+                        // Разбор запущен с экрана деталей (автообновление карточки):
+                        // карточка обновляет себя сама, отсюда никуда не переходим.
+                        Timber.i("Background update finished for movie id: %d", movieId)
                     } else {
-                        Timber.w(
-                            "No valid movie id in success broadcast. "
-                                    + "Fallback to list reload."
-                        )
-                        // fallback – reload list
-                        viewModel.loadMovies()
+                        toast(getString(R.string.update_finished_success))
+
+                        // 3️⃣ Получаем id и логируем, если он отсутствует
+                        if (movieId > 0) {
+                            Timber.i("Found movie id: %d – loading details.", movieId)
+                            viewModel.findMovieByImportedUrl(movieId)
+                        } else {
+                            Timber.w(
+                                "No valid movie id in success broadcast. "
+                                        + "Fallback to list reload."
+                            )
+                            // fallback – reload list
+                            viewModel.loadMovies()
+                        }
                     }
                 }
 
@@ -806,6 +816,15 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                 R.id.action_extended_search_settings -> {
                     findNavController().navigateSafely(
                         HomeFragmentDirections.actionNavHomeToNavExtendedSearch()
+                    )
+                    true
+                }
+
+                R.id.action_site_search -> {
+                    val query = searchView?.query?.toString().orEmpty()
+                    findNavController().navigateSafely(
+                        HomeFragmentDirections.actionNavHomeToNavSiteSearch()
+                            .setQuery(query.takeIf { it.isNotBlank() })
                     )
                     true
                 }

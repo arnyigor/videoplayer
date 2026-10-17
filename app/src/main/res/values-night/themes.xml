@@ -25,6 +25,12 @@
         <item name="md_color_content">@color/textColorPrimary</item>
         <item name="md_color_button_text">@color/textColorSecondary</item>
         <item name="md_corner_radius">8dp</item>
+
+        <!-- Цвет курсора/выделения/активных контролов на тёмном фоне. -->
+        <item name="colorControlActivated">@color/colorAccent</item>
+
+        <!-- Кнопки без своей стилизации по умолчанию берут colorPrimary — тёмную на тёмном фоне. -->
+        <item name="materialButtonStyle">@style/AccentButton</item>
     </style>
     <style name="ItemMenuTextAppearance">
         <item name="android:textColor">@android:color/white</item>

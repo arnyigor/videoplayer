@@ -414,6 +414,8 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
             AppConstants.ACTION_UPDATE_BY_URL
         ) {
             putString(AppConstants.SERVICE_PARAM_UPDATE_URL, url)
+            // Разбор начат с экрана деталей — TV Home не должен сам открывать карточку.
+            putBoolean(AppConstants.SERVICE_PARAM_UPDATE_BACKGROUND, true)
         }
     }
 

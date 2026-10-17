@@ -17,6 +17,10 @@
         android:title="@string/search_extended_title"
         app:showAsAction="never" />
     <item
+        android:id="@+id/action_site_search"
+        android:title="@string/site_search_menu"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_order_settings"
         android:title="@string/search_order_settings"
         android:icon="@android:drawable/ic_menu_sort_by_size"

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Курсор ввода.
+     Тема берёт цвет курсора из colorPrimary (#0D0D18) — на тёмном поле он почти не виден,
+     поэтому курсор задаётся явно. Высота обязательна: без неё drawable растягивается в линию. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <size android:width="2dp" android:height="22dp" />
+    <solid android:color="@color/colorAccent" />
+</shape>

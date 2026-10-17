@@ -125,6 +125,14 @@ class DetailsViewModel constructor(
     private val _uiState = MutableStateFlow(DetailsUiState())
     val uiState: StateFlow<DetailsUiState> = _uiState.asStateFlow()
 
+    /**
+     * Пользователь уже сам выбрал сезон/серию на этом экране.
+     *
+     * Фоновые перезагрузки данных (докачка карточки, возврат на экран) не должны
+     * откатывать этот выбор к сохранённой в БД позиции.
+     */
+    private var isUserPositionSelected = false
+
     // Actions - однократные эффекты (не воспроизводятся при пересоздании)
     private val _actions = Channel<DetailsAction>(Channel.BUFFERED)
     val actions: Flow<DetailsAction> = _actions.receiveAsFlow()
@@ -310,25 +318,24 @@ private suspend fun handleSaveDataResult(saveResult: DataResult<SaveData>, updat
                 _uiState.update { state ->
                     // Логика приоритета:
                     // 1. При updatePosition=false - НЕ обновляем позицию, только данные загрузки
-                    // 2. При первой загрузке - используем позицию из БД
-                    // 3. При обновлении с валидными данными - используем SaveData
-                    // 4. Иначе - оставляем выбор пользователя
+                    // 2. Если пользователь уже выбрал сезон/серию - оставляем его выбор
+                    // 3. При первой загрузке - используем позицию из БД
+                    // 4. Иначе - оставляем текущую позицию
 
                     val hasValidSaveData = data.movieDbId != null && data.time > 0
                     val savedSeason = data.seasonPosition.coerceAtLeast(0)
                     val savedEpisode = data.episodePosition.coerceAtLeast(0)
+                    val useSavedPosition = hasValidSaveData && !isUserPositionSelected
 
                     val finalSeason = when {
                         !updatePosition -> state.currentSeasonPosition
-                        !isInitialLoadComplete && hasValidSaveData -> savedSeason
-                        isInitialLoadComplete && hasValidSaveData -> savedSeason
+                        useSavedPosition -> savedSeason
                         else -> state.currentSeasonPosition
                     }
 
                     val finalEpisode = when {
                         !updatePosition -> state.currentEpisodePosition
-                        !isInitialLoadComplete && hasValidSaveData -> savedEpisode
-                        isInitialLoadComplete && hasValidSaveData -> savedEpisode
+                        useSavedPosition -> savedEpisode
                         else -> state.currentEpisodePosition
                     }
 
@@ -398,6 +405,7 @@ private suspend fun handleSaveDataResult(saveResult: DataResult<SaveData>, updat
     }
 
 private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChanged) {
+        isUserPositionSelected = true
         _uiState.update {
             it.copy(
                 currentSeasonPosition = event.seasonPosition,

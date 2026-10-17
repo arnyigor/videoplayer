@@ -18,6 +18,7 @@ import com.arny.mobilecinema.domain.models.MovieComment
 import com.arny.mobilecinema.domain.models.MovieInfo
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialSeason
+import com.arny.mobilecinema.domain.models.SiteSearchItem
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonDeserializer
 import kotlinx.serialization.json.Json
@@ -91,6 +92,26 @@ fun Movie.hasAllVideoData(): Boolean {
 fun CinemaUrlData.isNoCinemaUrls(): Boolean {
     return cinemaUrl?.urls.isNullOrEmpty() && hdUrl?.urls.isNullOrEmpty()
 }
+
+/**
+ * Данные карточки пригодны для записи в БД.
+ *
+ * Пустая страница (антибот/заглушка отдаётся с кодом 200) парсится без ошибок:
+ * заголовок пустой, ссылок на сезоны нет и [getSeasonsLinks] молча даёт пустой список.
+ * Если такую карточку записать, рабочая строка затирается: в деталях пусто,
+ * а поиск по названию её больше не находит.
+ */
+fun Movie.hasUsableData(): Boolean = title.isNotBlank() && when (type) {
+    MovieType.SERIAL -> seasons.isNotEmpty()
+    else -> true
+}
+
+/**
+ * Минимальная проверка для быстрой карточки (без серий и ссылок на видео):
+ * серии на этом этапе ещё не запрашиваются, но заголовок должен разобраться,
+ * иначе в БД попадёт пустая строка (в деталях пусто, в поиске не находится).
+ */
+fun Movie.hasUsableTitle(): Boolean = title.isNotBlank()
 
 private const val HD_BACKFILL_INTERVAL_MS = 30L * 24 * 60 * 60 * 1000
 
@@ -327,6 +348,41 @@ fun getComments(page: Element): List<MovieComment> =
                 authorUrl = authorElement?.attr(Selectors.HREF_ATTR).orEmpty(),
                 dateText = dateText,
                 text = text,
+            )
+        }
+    }
+
+/**
+ * Разбор результатов поиска на сайте. Страницы /films/search/ и /serials/search/
+ * отдают одну и ту же разметку карточки, поэтому парсер общий.
+ */
+fun getSearchItems(page: Document, location: String): List<SiteSearchItem> =
+    page.select(Selectors.SEARCH_ITEM).mapNotNull { item ->
+        val href = item.selectFirst(Selectors.SEARCH_ITEM_LINK)
+            ?.attr(Selectors.HREF_ATTR).orEmpty().trim()
+        val title = item.selectFirst(Selectors.SEARCH_ITEM_TITLE)?.text().orEmpty().trim()
+        val imgElement = item.selectFirst(Selectors.SEARCH_ITEM_IMG)
+        if (href.isBlank() || title.isBlank()) {
+            null
+        } else {
+            SiteSearchItem(
+                pageUrl = href.getWithDomain(location).removeDomain(),
+                title = title,
+                origTitle = imgElement?.attr("alt").orEmpty()
+                    .substringAfter("/", missingDelimiterValue = "")
+                    .trim(),
+                img = imgElement?.attr(Selectors.SRC_ATTR).orEmpty().getWithDomain(location),
+                year = item.selectFirst(Selectors.SEARCH_ITEM_YEAR)?.text().orEmpty()
+                    .trim().toIntOrNull() ?: 0,
+                rating = item.selectFirst(Selectors.SEARCH_ITEM_RATING)?.text().orEmpty()
+                    .trim().replace(',', '.').toFloatOrNull() ?: 0f,
+                likes = item.selectFirst(Selectors.SEARCH_ITEM_LIKES)?.text().orEmpty()
+                    .filter { it.isDigit() }.toIntOrNull() ?: 0,
+                dislikes = item.selectFirst(Selectors.SEARCH_ITEM_DISLIKES)?.text().orEmpty()
+                    .filter { it.isDigit() }.toIntOrNull() ?: 0,
+                description = item.selectFirst(Selectors.SEARCH_ITEM_DESCRIPTION)?.text().orEmpty()
+                    .trim(),
+                type = getMovieType(href),
             )
         }
     }

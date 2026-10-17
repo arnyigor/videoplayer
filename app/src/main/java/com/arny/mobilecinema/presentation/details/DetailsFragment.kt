@@ -111,19 +111,25 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
 
         private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (isUserTouchSeasons) {
-                    updateCurrentSerialPosition()
-                    currentEpisodePosition = 0
-                    fillSpinners(currentMovie)
-                    currentMovie?.let { updateLinksSpinner(it) }
-                    viewModel.handleEvent(
-                        DetailsEvent.SerialPositionChanged(
-                            currentSeasonPosition,
-                            currentEpisodePosition
-                        )
+                if (!isUserTouchSeasons) return
+                isUserTouchSeasons = false
+
+                // Позицию берём из самого события, а не из поля спиннера: пока шёл выбор,
+                // могла прийти запоздалая отрисовка (например, обновление статуса кэша),
+                // которая сверяет поля с состоянием и успевает откатить выбор назад —
+                // именно из-за этого выбор с первого раза «сбрасывался на 1-цу».
+                currentSeasonPosition = position
+                currentEpisodePosition = 0
+                // Состояние обновляем до перерисовки спиннеров, чтобы запоздалый рендер
+                // уже видел новый выбор и не откатывал его.
+                viewModel.handleEvent(
+                    DetailsEvent.SerialPositionChanged(
+                        currentSeasonPosition,
+                        currentEpisodePosition
                     )
-                    isUserTouchSeasons = false
-                }
+                )
+                fillSpinners(currentMovie)
+                currentMovie?.let { updateLinksSpinner(it) }
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -133,17 +139,17 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
 
         private val episodesChangeListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (isUserTouchEpisodes) {
-                    updateCurrentSerialPosition()
-                    currentMovie?.let { updateLinksSpinner(it) }
-                    viewModel.handleEvent(
-                        DetailsEvent.SerialPositionChanged(
-                            currentSeasonPosition,
-                            currentEpisodePosition
-                        )
+                if (!isUserTouchEpisodes) return
+                isUserTouchEpisodes = false
+
+                currentEpisodePosition = position
+                viewModel.handleEvent(
+                    DetailsEvent.SerialPositionChanged(
+                        currentSeasonPosition,
+                        currentEpisodePosition
                     )
-                    isUserTouchEpisodes = false
-                }
+                )
+                currentMovie?.let { updateLinksSpinner(it) }
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -387,11 +393,10 @@ override fun onResume() {
             state.movie?.let { movie ->
                 val shouldRefreshUI = currentMovie?.dbId != movie.dbId || needsUIRefresh
 
-                val cinemaLinksChanged = currentMovie?.type == MovieType.CINEMA &&
-                    movie.type == MovieType.CINEMA &&
-                    getCinemaUrlsRaw(currentMovie) != getCinemaUrlsRaw(movie)
+                val videoDataChanged = getVideoDataFingerprint(currentMovie) !=
+                    getVideoDataFingerprint(movie)
 
-                if (shouldRefreshUI || cinemaLinksChanged) {
+                if (shouldRefreshUI || videoDataChanged) {
                     needsUIRefresh = false
                     onMovieLoaded(movie)
                 }
@@ -556,6 +561,9 @@ override fun onResume() {
                 AppConstants.ACTION_UPDATE_BY_URL
             ) {
                 putString(AppConstants.SERVICE_PARAM_UPDATE_URL, url)
+                // Разбор начат с экрана деталей: не просим Home-экран открывать карточку
+                // и показывать тосты после завершения.
+                putBoolean(AppConstants.SERVICE_PARAM_UPDATE_BACKGROUND, true)
             }
         }
 
@@ -948,6 +956,26 @@ override fun onResume() {
             return "$host/$extension"
         }
 
+        /**
+         * Отпечаток видео-данных карточки (ссылки фильма / серии сериала).
+         *
+         * Нужен, чтобы экран деталей перерисовался, когда фоновая докачка данных
+         * (UpdateService по ACTION_UPDATE_BY_URL) добавила серии и ссылки к уже открытой карточке:
+         * dbId при этом не меняется, а раньше обновлялись только ссылки фильмов —
+         * у сериала список серий до повторного открытия экрана оставался пустым.
+         */
+        private fun getVideoDataFingerprint(movie: Movie?): String = when (movie?.type) {
+            MovieType.CINEMA -> getCinemaUrlsRaw(movie).joinToString("\n")
+
+            MovieType.SERIAL -> movie.seasons.joinToString("|") { season ->
+                "${season.id}:" + season.episodes.joinToString(",") { episode ->
+                    episode.hls + ";" + episode.dash
+                }
+            }
+
+            else -> ""
+        }
+
         private fun getCinemaUrlsRaw(movie: Movie?): List<String> {
             if (movie?.type != MovieType.CINEMA) return emptyList()
 
@@ -1229,23 +1257,34 @@ override fun onResume() {
 
         private fun makeBroadcastReceiver() = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent != null) {
-                    when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
-                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
-                            isAutoUpdateRunning = false
-                            setAutoUpdateIndicatorVisible(false)
-                            updatePlayButtonEnabled()
-                            viewModel.handleEvent(DetailsEvent.LoadMovie)
-                        }
+                if (intent == null) return
+                // Разборов может идти несколько (быстро открыли несколько карточек),
+                // поэтому на завершение чужой карточки не реагируем: иначе с этого экрана
+                // пропадает индикатор «обновление данных…», пока идёт своё обновление.
+                if (!isUpdateForCurrentMovie(intent)) return
+                when (intent.getStringExtra(AppConstants.ACTION_UPDATE_STATUS)) {
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+                        isAutoUpdateRunning = false
+                        setAutoUpdateIndicatorVisible(false)
+                        updatePlayButtonEnabled()
+                        viewModel.handleEvent(DetailsEvent.LoadMovie)
+                    }
 
-                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR,
-                        AppConstants.ACTION_UPDATE_STATUS_CANCELLED -> {
-                            isAutoUpdateRunning = false
-                            setAutoUpdateIndicatorVisible(false)
-                            updatePlayButtonEnabled()
-                        }
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR,
+                    AppConstants.ACTION_UPDATE_STATUS_CANCELLED -> {
+                        isAutoUpdateRunning = false
+                        setAutoUpdateIndicatorVisible(false)
+                        updatePlayButtonEnabled()
                     }
                 }
             }
+        }
+
+        /** Завершение разбора относится к карточке, открытой на этом экране. */
+        private fun isUpdateForCurrentMovie(intent: Intent): Boolean {
+            val updatedMovieId = intent.getLongExtra("EXTRA_MOVIE_ID", -1L)
+            if (updatedMovieId <= 0L) return true
+            val currentId = currentMovie?.movieId?.toLong() ?: return true
+            return currentId <= 0L || currentId == updatedMovieId
         }
     }

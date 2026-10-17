@@ -41,4 +41,22 @@ object Selectors {
     const val SERIAL_IFRAME_SCRIPT = "script:containsData(iframe)"
     const val SERIAL_IFRAME_SCRIPT_SEASONS = "script:containsData(seasons)"
     const val SERIAL_EPISODES_REGEXP = "seasons:\\s?(\\[\\{.*\\]\\}\\])"
+
+    // Поиск на сайте
+    const val SEARCH_FILMS_URL = "/films/search/"
+    const val SEARCH_SERIALS_URL = "/serials/search/"
+    const val SEARCH_FILMS_QUERY_PARAM = "slv"
+    const val SEARCH_SERIALS_QUERY_PARAM = "word"
+    const val SEARCH_VID_PARAM = "vid"
+    const val SEARCH_VID_TITLES = "1"
+    const val SEARCH_PAGE_PARAM = "page"
+    const val SEARCH_ITEM = "div.my_razdel.film"
+    const val SEARCH_ITEM_LINK = "a[href]"
+    const val SEARCH_ITEM_IMG = "img.screenf"
+    const val SEARCH_ITEM_TITLE = ".namefilm"
+    const val SEARCH_ITEM_YEAR = ".in.year"
+    const val SEARCH_ITEM_RATING = ".rei"
+    const val SEARCH_ITEM_LIKES = ".flike"
+    const val SEARCH_ITEM_DISLIKES = ".fdizlike"
+    const val SEARCH_ITEM_DESCRIPTION = ".discripfilm"
 }
