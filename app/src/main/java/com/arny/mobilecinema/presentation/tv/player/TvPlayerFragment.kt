@@ -1,6 +1,7 @@
 // presentation/tv/player/TvPlayerFragment.kt
 package com.arny.mobilecinema.presentation.tv.player
 
+import android.app.AlertDialog
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -26,6 +27,7 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.player.PlayerSource
+import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.player.getAllCinemaUrls
 import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
@@ -38,6 +40,9 @@ import com.google.android.exoplayer2.PlaybackException
 import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SeekParameters
 import com.google.android.exoplayer2.source.MediaSource
+import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
+import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
+import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -70,6 +75,17 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private val binding get() = _binding!!
 
     private var player: ExoPlayer? = null
+    private var trackSelector: DefaultTrackSelector? = null
+
+    /** Доступные качества текущего трека, от высокого разрешения к низкому. */
+    private var qualityOptions: List<Pair<String, TrackSelectionOverride>> = emptyList()
+
+    /** Выбранный пункт диалога качества: 0 — «Авто», 1..n — [qualityOptions]. */
+    private var selectedQualityIndex = 0
+
+    /** Пользователь сам выбрал качество — не перетираем его выбор максимумом. */
+    private var userSelectedQuality = false
+
     private var currentMovie: Movie? = null
     private var allEpisodes: List<SerialEpisode> = emptyList()
     private var serialSeasons: List<SerialSeason> = emptyList()
@@ -139,9 +155,15 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             )
             .build()
 
+        trackSelector = DefaultTrackSelector(
+            requireContext(),
+            AdaptiveTrackSelection.Factory()
+        )
+
         player = ExoPlayer.Builder(requireContext())
             .setLoadControl(loadControl)
             .setSeekParameters(SeekParameters.CLOSEST_SYNC)
+            .setTrackSelector(requireNotNull(trackSelector))
             .build()
             .apply {
                 playWhenReady = true
@@ -240,6 +262,11 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             binding.btnAspectRatio.requestFocus()
         }
 
+        binding.btnQuality.setOnClickListener {
+            Timber.d("Button Clicked: btnQuality")
+            showQualityDialog()
+        }
+
         updatePlayPauseButton()
     }
 
@@ -313,6 +340,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     // НОВОЕ: обновляем состояние кнопок
                     updateNavigationButtonsState()
                     updatePlayPauseButton()
+                    refreshQualityOptions()
                 }
                 Player.STATE_ENDED -> {
                     Timber.d("Playback ENDED")
@@ -415,6 +443,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 if (player?.isPlaying == true) {
                     startPlaybackProgressTracking()
                 }
+                resetQualitySelection()
             }
         }
 
@@ -454,6 +483,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         binding.controlsGroup.visibility = View.VISIBLE
         binding.tvTitle.visibility = View.VISIBLE
         binding.btnAspectRatio.visibility = View.VISIBLE
+        binding.btnQuality.isVisible = qualityOptions.size > 1
 
         if (allEpisodes.isNotEmpty()) {
             binding.tvEpisodeInfo.visibility = View.VISIBLE
@@ -463,6 +493,84 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         updateNavigationButtonsState()
 
         binding.btnPlayPause.requestFocus()
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Качество видео
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Пересобирает список качеств текущего трека.
+     *
+     * Как и в мобильном плеере, по умолчанию фиксируем максимальное доступное качество:
+     * адаптивный выбор на ТВ часто залипает на низком битрейте, и HD-источник
+     * выглядит как SD. Пункт «Авто» в диалоге возвращает адаптацию.
+     */
+    private fun refreshQualityOptions() {
+        val selector = trackSelector ?: return
+        val currentBinding = _binding ?: return
+
+        qualityOptions = runCatching { selector.generateQualityList(requireContext()) }
+            .getOrElse { error ->
+                Timber.w(error, "refreshQualityOptions: failed to read tracks")
+                emptyList()
+            }
+
+        currentBinding.btnQuality.isVisible = qualityOptions.size > 1
+        if (qualityOptions.isEmpty()) return
+
+        if (!userSelectedQuality) {
+            // Список отсортирован от высокого разрешения к низкому (см. generateQualityList),
+            // поэтому пункт 1 — максимальное качество.
+            selectedQualityIndex = 1
+        }
+        selectedQualityIndex = selectedQualityIndex.coerceIn(0, qualityOptions.size)
+        applyQuality(selectedQualityIndex)
+    }
+
+    /** @param dialogIndex 0 — авто, иначе индекс качества в [qualityOptions] плюс один. */
+    private fun applyQuality(dialogIndex: Int) {
+        val selector = trackSelector ?: return
+        val parameters = selector.parameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+        if (dialogIndex > 0) {
+            val override = qualityOptions.getOrNull(dialogIndex - 1)?.second ?: return
+            parameters.addOverride(override)
+        }
+        selector.parameters = parameters.build()
+        Timber.d("applyQuality: index=$dialogIndex of ${qualityOptions.size}")
+    }
+
+    private fun resetQualitySelection() {
+        userSelectedQuality = false
+        selectedQualityIndex = 0
+    }
+
+    private fun showQualityDialog() {
+        if (qualityOptions.size <= 1) return
+        val ctx = context ?: return
+
+        val labels = ArrayList<String>(qualityOptions.size + 1)
+        labels.add(getString(R.string.quality_auto))
+        qualityOptions.forEach { labels.add(it.first) }
+
+        AlertDialog.Builder(ctx)
+            .setTitle(R.string.video_quality)
+            .setSingleChoiceItems(labels.toTypedArray(), selectedQualityIndex) { dialog, which ->
+                userSelectedQuality = true
+                selectedQualityIndex = which
+                applyQuality(which)
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .setOnDismissListener {
+                // После диалога возвращаем фокус на контролы плеера.
+                if (_binding != null) {
+                    showControls()
+                    scheduleHide()
+                }
+            }
+            .show()
     }
 
     private fun setupDpadListener() {
@@ -891,7 +999,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         var episodeNumInSeason = 1
         var episodeCounter = 0
 
-        for ((sIdx, season) in serialSeasons.withIndex()) {
+        seasonLoop@ for ((sIdx, season) in serialSeasons.withIndex()) {
             val sortedEpisodes = season.episodes.sortedBy { ep ->
                 findByGroup(ep.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
             }
@@ -901,7 +1009,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     seasonNum = season.id ?: (sIdx + 1)
                     episodeNumInSeason = findByGroup(ep.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull()
                         ?: (eIdx + 1)
-                    break
+                    // Без метки break выходил только из внутреннего цикла и сезон
+                    // перезаписывался следующим — показывался последний сезон.
+                    break@seasonLoop
                 }
                 episodeCounter++
             }
@@ -978,6 +1088,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         binding.tvEpisodeInfo.visibility = View.GONE
         binding.tvTitle.visibility = View.GONE
         binding.btnAspectRatio.visibility = View.GONE
+        binding.btnQuality.visibility = View.GONE
         binding.root.requestFocus()
         Timber.d("hideControls: UI controls hidden")
     }

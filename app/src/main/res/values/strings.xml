@@ -247,6 +247,7 @@
 <string name="resize">Размер</string>
     <string name="screen_rotation">Поворот</string>
     <string name="quality">Качество</string>
+    <string name="quality_auto">Авто</string>
     <string name="language">Язык</string>
     <string name="brightness">Яркость</string>
     <string name="volume">Громкость</string>
@@ -335,7 +336,7 @@
     <string name="source_format">Источник %1$d</string>
     <string name="source_hd">HD</string>
     <string name="click_to_play">Нажмите для воспроизведения</string>
-    <string name="click_to_search">Tap to search</string>
+    <string name="click_to_search">Нажмите для поиска</string>
     <string name="no_description">Описание отсутствует</string>
     <string name="added_to_favorites">Добавлено в избранное</string>
     <string name="removed_from_favorites">Удалено из избранного</string>

@@ -96,7 +96,15 @@ fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String
             }
         }
     }
-    return trackOverrideList.distinctBy { it.first }.sortedByDescending { it.first }
+    // Разрешение сравниваем численно: при строковой сортировке «848 x 480»
+    // оказывается «выше» «1920 x 1080», и выбиралось не максимальное качество.
+    return trackOverrideList.distinctBy { it.first }.sortedWith(
+        compareByDescending<Pair<String, TrackSelectionOverride>> {
+            it.first.substringBefore(" x ").toIntOrNull() ?: 0
+        }.thenByDescending {
+            it.first.substringAfter(" x ", "0").toIntOrNull() ?: 0
+        }
+    )
 }
 
 fun DefaultTrackSelector.generateSubTitlesList(context: Context): List<Pair<String, TrackSelectionOverride>> {

@@ -94,6 +94,9 @@
 
 <!-- TV Styles -->
     <style name="AppTheme.TV" parent="Theme.Leanback">
+        <!-- Штатный стиль подзаголовка ограничен одной строкой: год/сезоны/страны/рейтинги
+             обрезались многоточием. -->
+        <item name="detailsDescriptionSubtitleStyle">@style/TvDetailsDescriptionSubtitleStyle</item>
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
@@ -101,6 +104,10 @@
         <item name="android:textColor">@color/textColorPrimary</item>
         <item name="android:dialogTheme">@style/TvDialogTheme</item>
         <item name="alertDialogTheme">@style/TvDialogTheme</item>
+    </style>
+
+    <style name="TvDetailsDescriptionSubtitleStyle" parent="Widget.Leanback.DetailsDescriptionSubtitleStyle">
+        <item name="android:maxLines">6</item>
     </style>
 
     <style name="TvDialogTheme" parent="Theme.AppCompat.Dialog.Alert">

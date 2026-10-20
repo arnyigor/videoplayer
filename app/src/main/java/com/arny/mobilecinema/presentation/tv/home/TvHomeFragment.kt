@@ -22,7 +22,9 @@ import androidx.paging.LoadState
 import androidx.recyclerview.widget.DiffUtil
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.domain.models.HomeHighlights
 import com.arny.mobilecinema.domain.models.ViewMovie
+import com.arny.mobilecinema.presentation.home.HomeContentType
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.tv.presenters.MovieCardPresenter
 import com.arny.mobilecinema.presentation.tv.update.TvUpdateDialogFragment
@@ -35,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import timber.log.Timber
 import kotlin.time.Duration.Companion.milliseconds
 
 class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.Callback {
@@ -45,11 +48,19 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     private lateinit var updateRowAdapter: ArrayObjectAdapter
     private lateinit var sortRowAdapter: ArrayObjectAdapter
     private lateinit var sortPresenter: SortCategoryPresenter
+    private lateinit var contentTypeAdapter: ArrayObjectAdapter
+    private lateinit var contentTypePresenter: ContentTypePresenter
+
+    private val recentHighlightAdapter = ArrayObjectAdapter(MovieCardPresenter())
+    private val bestNowHighlightAdapter = ArrayObjectAdapter(MovieCardPresenter())
+    private val forYouHighlightAdapter = ArrayObjectAdapter(MovieCardPresenter())
+    private val highlightRows = mutableListOf<ListRow>()
 
     private var isUpdatingDb = false
     private var isCancellingUpdate = false
 
     private var selectedSortCategory = MovieSortCategory.NEW
+    private var selectedContentType = HomeContentType.ALL
 
     private val movieDiffCallback = object : DiffUtil.ItemCallback<ViewMovie>() {
         override fun areItemsTheSame(oldItem: ViewMovie, newItem: ViewMovie): Boolean =
@@ -85,9 +96,11 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // ВАЖНО: Leanback не даёт менять click/select-слушатели после создания вида,
+        // поэтому сначала слушатели, затем адаптер.
+        setupClickListeners()
         adapter = rowsAdapter
         setupLoadStateListener()
-        setupClickListeners()
         setupDialogResultListener()
         observeData()
     }
@@ -122,6 +135,15 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
         rowsAdapter = ArrayObjectAdapter(presenterSelector)
 
+        contentTypePresenter = ContentTypePresenter()
+        contentTypeAdapter = ArrayObjectAdapter(contentTypePresenter).apply {
+            add(HomeContentType.ALL)
+            add(HomeContentType.CINEMA)
+            add(HomeContentType.SERIAL)
+        }
+        contentTypePresenter.setSelectedPosition(selectedContentType.ordinal)
+        rowsAdapter.add(ListRow(HeaderItem(HEADER_ID_CONTENT_TYPE, ""), contentTypeAdapter))
+
         sortPresenter = SortCategoryPresenter()
         sortRowAdapter = ArrayObjectAdapter(sortPresenter).apply {
             add(MovieSortCategory.NEW)
@@ -131,7 +153,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         }
 
         sortPresenter.setSelectedPosition(selectedSortCategory.ordinal)
-        rowsAdapter.add(ListRow(HeaderItem(-1, ""), sortRowAdapter))
+        rowsAdapter.add(ListRow(HeaderItem(HEADER_ID_SORT, ""), sortRowAdapter))
         rowsAdapter.add(ListRow(HeaderItem(0, getString(R.string.all_movies)), allMoviesAdapter))
 
         historyActionAdapter = ArrayObjectAdapter(HistoryActionPresenter()).apply {
@@ -145,7 +167,10 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         updateRowAdapter.add(UpdateAction.CHECK_UPDATE)
         rowsAdapter.add(ListRow(HeaderItem(3, getString(R.string.update_list)), updateRowAdapter))
 
-        adapter = rowsAdapter
+        val siteSearchAdapter = ArrayObjectAdapter(SiteSearchActionPresenter()).apply {
+            add(SiteSearchAction.SITE_SEARCH)
+        }
+        rowsAdapter.add(ListRow(HeaderItem(HEADER_ID_SITE_SEARCH, getString(R.string.home_search)), siteSearchAdapter))
     }
 
     private fun setupLoadStateListener() {
@@ -164,6 +189,7 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
     private fun setupClickListeners() {
 
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
+            Timber.d("Home clicked: ${item?.let { it::class.simpleName }}")
             when (item) {
                 is ViewMovie -> {
                     val bundle = Bundle().apply {
@@ -178,6 +204,17 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
                 is MovieSortCategory -> {
                     applySortCategory(item)
+                }
+
+                is HomeContentType -> {
+                    applyContentType(item)
+                }
+
+                is SiteSearchAction -> {
+                    when (item) {
+                        SiteSearchAction.SITE_SEARCH ->
+                            findNavController().navigate(R.id.actionToSiteSearch)
+                    }
                 }
 
                 is HistoryAction -> {
@@ -219,6 +256,16 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
 
     companion object {
         const val REQUEST_KEY_CLEAR_HISTORY = "CLEAR_HISTORY_REQUEST"
+
+        private const val HEADER_ID_CONTENT_TYPE = -2L
+        private const val HEADER_ID_SORT = -1L
+        private const val HEADER_ID_SITE_SEARCH = -3L
+        private const val HEADER_ID_HIGHLIGHT_RECENT = -4L
+        private const val HEADER_ID_HIGHLIGHT_BEST_NOW = -5L
+        private const val HEADER_ID_HIGHLIGHT_FOR_YOU = -6L
+
+        /** Ряды витрины вставляются сразу после двух рядов переключателей. */
+        private const val HIGHLIGHTS_START_INDEX = 2
     }
 
     private fun applySortCategory(category: MovieSortCategory) {
@@ -230,6 +277,57 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         sortPresenter.setSelectedPosition(category.ordinal)
         sortRowAdapter.notifyArrayItemRangeChanged(0, sortRowAdapter.size())
         viewModel.setSortCategory(category)
+    }
+
+    private fun applyContentType(contentType: HomeContentType) {
+        if (selectedContentType == contentType) {
+            return
+        }
+
+        selectedContentType = contentType
+        contentTypePresenter.setSelectedPosition(contentType.ordinal)
+        contentTypeAdapter.notifyArrayItemRangeChanged(0, contentTypeAdapter.size())
+        viewModel.setContentType(contentType)
+    }
+
+    /**
+     * Витрина как на телефоне: «Новинки», «Лучшее сейчас», «Для вас».
+     * Ряды идут сразу после переключателей (Все/Фильмы/Сериалы и сортировка).
+     */
+    private fun updateHighlightRows(highlights: HomeHighlights) {
+        highlightRows.forEach { rowsAdapter.remove(it) }
+        highlightRows.clear()
+
+        var index = HIGHLIGHTS_START_INDEX
+        index = addHighlightRow(
+            index, HEADER_ID_HIGHLIGHT_RECENT, R.string.home_highlights_recent,
+            recentHighlightAdapter, highlights.recent
+        )
+        index = addHighlightRow(
+            index, HEADER_ID_HIGHLIGHT_BEST_NOW, R.string.home_highlights_best_now,
+            bestNowHighlightAdapter, highlights.bestNow
+        )
+        addHighlightRow(
+            index, HEADER_ID_HIGHLIGHT_FOR_YOU, R.string.home_highlights_for_you,
+            forYouHighlightAdapter, highlights.forYou
+        )
+    }
+
+    private fun addHighlightRow(
+        index: Int,
+        headerId: Long,
+        titleRes: Int,
+        adapter: ArrayObjectAdapter,
+        items: List<ViewMovie>,
+    ): Int {
+        adapter.clear()
+        if (items.isEmpty()) return index
+
+        adapter.addAll(0, items)
+        val row = ListRow(HeaderItem(headerId, getString(titleRes)), adapter)
+        rowsAdapter.add(index, row)
+        highlightRows.add(row)
+        return index + 1
     }
 
     private fun setupDialogResultListener() {
@@ -309,6 +407,12 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.favoriteMoviesFlow.collectLatest { pagingData ->
                 favoritesAdapter.submitData(pagingData)
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.homeHighlights.collectLatest { highlights ->
+                updateHighlightRows(highlights)
             }
         }
 

@@ -29,6 +29,7 @@ import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getWithDomain
 import com.arny.mobilecinema.domain.models.CinemaUrlData
 import com.arny.mobilecinema.domain.models.Movie
@@ -51,10 +52,12 @@ import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import timber.log.Timber
 
 data class EpisodeItem(
     val episode: SerialEpisode,
     val seasonIndex: Int,
+    val seasonNumber: Int,
     val episodeIndex: Int,
 )
 
@@ -94,6 +97,9 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         private const val ROW_ID_ACTORS = 1005L
         private const val ROW_ID_UPDATE_PROGRESS = 1006L
 
+        /** Строка прогресса обновления — сразу под шапкой, иначе она не видна. */
+        private const val UPDATE_PROGRESS_ROW_INDEX = 1
+
         private const val AUTO_UPDATE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
     }
 
@@ -110,6 +116,9 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     private var selectedEpisodeIndex: Int = 0
     private var selectedSourceIndex: Int = 0
 
+    /** Последний выбранный (сфокусированный) элемент списка — нужен для кликов по карточкам. */
+    private var lastSelectedItem: Any? = null
+
     private var isUpdatingDb = false
     private var isCancellingUpdate = false
     private var autoUpdateRequestedForUrl: String? = null
@@ -120,8 +129,10 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        buildAdapter()
+        // ВАЖНО: Leanback не даёт менять click/select-слушатели после создания вида,
+        // поэтому сначала слушатели, затем адаптер.
         setupClickListeners()
+        buildAdapter()
         setupDialogResultListener()
         viewModel.loadMovie(args.movieId)
         observeData()
@@ -167,12 +178,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         onItemViewClickedListener = OnItemViewClickedListener { _, item, _, _ ->
             when (item) {
                 is SeasonItem -> handleSeasonChanged(item.seasonIndex)
-                is EpisodeItem -> {
-                    selectedSeasonIndex = item.seasonIndex
-                    selectedEpisodeIndex = item.episodeIndex
-                    selectedSourceIndex = 0
-                    navigateToPlayer(item.seasonIndex, item.episodeIndex)
-                }
+                is EpisodeItem -> onEpisodeClicked(item)
 
                 is SourceItem -> {
                     selectedSourceIndex = item.index
@@ -182,9 +188,11 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                 is TagItem -> navigateToSearch(item.query, item.searchType)
                 is UpdateProgressItem -> onCancelUpdateRequested()
             }
+            Timber.d("Details clicked: ${item::class.simpleName}")
         }
 
         setOnItemViewSelectedListener(OnItemViewSelectedListener { _, item, _, _ ->
+            lastSelectedItem = item
             when (item) {
                 is SeasonItem -> handleSeasonChanged(item.seasonIndex)
                 is EpisodeItem -> {
@@ -240,7 +248,9 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     private fun addUpdateProgressRow() {
         if (findUpdateProgressRowIndex() >= 0) return
-        detailsAdapter.add(createUpdateProgressRow())
+        // Строка прогресса должна быть видна сразу, под шапкой, а не в конце списка.
+        val index = UPDATE_PROGRESS_ROW_INDEX.coerceAtMost(detailsAdapter.size())
+        detailsAdapter.add(index, createUpdateProgressRow())
     }
 
     private fun refreshUpdateProgressRow() {
@@ -250,6 +260,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         } else {
             addUpdateProgressRow()
         }
+        updatePlayActionState()
     }
 
     private fun hideUpdateProgressRow() {
@@ -354,7 +365,9 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                     addSeasonsRow(movie)
                     addEpisodesRow(movie)
                     sources = prepareSourcesList(movie)
-                    selectedSourceIndex = sources.indexOfFirst { it.quality != "HD" }.takeIf { it >= 0 } ?: 0
+                    // HD-источник (dash) идёт первым — играем его по умолчанию,
+                    // как и у фильмов. Если HD нет, останется обычная ссылка.
+                    selectedSourceIndex = 0
                     if (sources.isNotEmpty()) {
                         addSourcesRow(sources)
                     }
@@ -372,6 +385,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         }
 
         addSearchRows(movie)
+        updatePlayActionState()
         view?.post { showUpdateDialogIfNeeded(movie) }
     }
 
@@ -422,7 +436,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     private fun syncSelectionState(movie: Movie) {
         when (movie.type) {
             MovieType.SERIAL -> {
-                val seasons = movie.seasons
+                val seasons = sortedSeasons(movie)
                 if (seasons.isEmpty()) {
                     selectedSeasonIndex = 0
                     selectedEpisodeIndex = 0
@@ -433,7 +447,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                 selectedSeasonIndex =
                     (movie.seasonPosition ?: selectedSeasonIndex).coerceIn(0, maxSeason)
 
-                val episodes = seasons.getOrNull(selectedSeasonIndex)?.episodes.orEmpty()
+                val episodes = sortedEpisodes(seasons.getOrNull(selectedSeasonIndex)?.episodes.orEmpty())
                 selectedEpisodeIndex = if (episodes.isEmpty()) {
                     0
                 } else {
@@ -504,11 +518,10 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     }
 
     private fun prepareSerialEpisodeSourcesList(movie: Movie): List<SourceItem> {
-        val episode = movie.seasons
-            .sortedBy { it.id }
+        val episode = sortedSeasons(movie)
             .getOrNull(selectedSeasonIndex)
             ?.episodes
-            ?.sortedBy { it.episode.toIntOrNull() ?: 0 }
+            ?.let { sortedEpisodes(it) }
             ?.getOrNull(selectedEpisodeIndex)
             ?: return emptyList()
 
@@ -543,7 +556,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         val header = HeaderItem(ROW_ID_SEASONS, getString(R.string.seasons))
         val rowAdapter = ArrayObjectAdapter(TvSourceCardPresenter())
 
-        movie.seasons.forEachIndexed { seasonIndex, season ->
+        sortedSeasons(movie).forEachIndexed { seasonIndex, season ->
             rowAdapter.add(
                 SeasonItem(
                     season = season,
@@ -556,27 +569,60 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     }
 
     private fun addEpisodesRow(movie: Movie) {
-        val header = HeaderItem(ROW_ID_EPISODES, getString(R.string.episodes))
-        val rowAdapter = ArrayObjectAdapter(TvEpisodeCardPresenter())
+        detailsAdapter.add(createEpisodesRow(movie))
+    }
 
-        val selectedSeason = movie.seasons.getOrNull(selectedSeasonIndex)
-        selectedSeason?.episodes
-            ?.sortedBy { it.episode }
-            ?.forEachIndexed { episodeIndex, episode ->
+    private fun createEpisodesRow(movie: Movie): ListRow {
+        val header = HeaderItem(ROW_ID_EPISODES, getString(R.string.episodes))
+        val rowAdapter = ArrayObjectAdapter(TvEpisodeCardPresenter { item -> onEpisodeClicked(item) })
+
+        val selectedSeason = sortedSeasons(movie).getOrNull(selectedSeasonIndex)
+        val seasonNumber = selectedSeason?.id ?: (selectedSeasonIndex + 1)
+        sortedEpisodes(selectedSeason?.episodes.orEmpty())
+            .forEachIndexed { episodeIndex, episode ->
                 rowAdapter.add(
                     EpisodeItem(
                         episode = episode,
                         seasonIndex = selectedSeasonIndex,
+                        seasonNumber = seasonNumber,
                         episodeIndex = episodeIndex,
                     )
                 )
             }
 
-        detailsAdapter.add(ListRow(header, rowAdapter))
+        return ListRow(header, rowAdapter)
     }
 
+    /** Ряд серий выбранного сезона без перестройки всего адаптера. */
+    private fun updateEpisodesRow(movie: Movie) {
+        val rowIndex = findRowIndex(ROW_ID_EPISODES)
+        if (rowIndex != null) {
+            detailsAdapter.replace(rowIndex, createEpisodesRow(movie))
+        } else {
+            addEpisodesRow(movie)
+        }
+    }
+
+    private fun findRowIndex(headerId: Long): Int? =
+        (0 until detailsAdapter.size()).firstOrNull { index ->
+            (detailsAdapter[index] as? ListRow)?.headerItem?.id == headerId
+        }
+
+    /** Сезоны всегда по возрастанию номера — так же, как в мобильном приложении и в плеере. */
+    private fun sortedSeasons(movie: Movie): List<SerialSeason> = movie.seasons.sortedBy { it.id }
+
+    /** Номер серии сравнивается численно: иначе «10» попадает между «1» и «2». */
+    private fun sortedEpisodes(episodes: List<SerialEpisode>): List<SerialEpisode> =
+        episodes.sortedBy { findByGroup(it.episode, "(\\d+)".toRegex(), 1)?.toIntOrNull() ?: 0 }
+
     private fun addSourcesRow(sources: List<SourceItem>) {
-        detailsAdapter.add(createSourcesRow(sources))
+        // Ряд источников держим сразу после серий, а не в конце списка.
+        val episodesRowIndex = findRowIndex(ROW_ID_EPISODES)
+        if (episodesRowIndex != null) {
+            detailsAdapter.add(episodesRowIndex + 1, createSourcesRow(sources))
+        } else {
+            detailsAdapter.add(createSourcesRow(sources))
+        }
     }
 
     private fun createSourcesRow(sources: List<SourceItem>): ListRow {
@@ -594,9 +640,7 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         if (movie?.type != MovieType.SERIAL) return
         sources = prepareSourcesList(movie)
         selectedSourceIndex = selectedSourceIndex.coerceIn(0, (sources.size - 1).coerceAtLeast(0))
-        val rowIndex = (0 until detailsAdapter.size()).firstOrNull { index ->
-            (detailsAdapter[index] as? ListRow)?.headerItem?.id == ROW_ID_SOURCES
-        }
+        val rowIndex = findRowIndex(ROW_ID_SOURCES)
         when {
             rowIndex != null && sources.isNotEmpty() -> detailsAdapter.replace(rowIndex, createSourcesRow(sources))
             rowIndex != null -> detailsAdapter.removeItems(rowIndex, 1)
@@ -677,7 +721,10 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
                     }
 
                     MovieType.SERIAL -> {
-                        val selectedUrl = sources.firstOrNull { it.quality != "HD" }?.url
+                        // Источник, выбранный в строке «Доступные источники» (в т.ч. HD),
+                        // важнее дефолтного SD: иначе выбор HD-ссылки игнорировался.
+                        val selectedUrl = sources.getOrNull(selectedSourceIndex)?.url
+                            ?: sources.firstOrNull { it.quality != "HD" }?.url
                             ?: sources.firstOrNull()?.url
                         navigateToPlayer(selectedSeasonIndex, selectedEpisodeIndex, selectedUrl.orEmpty())
                     }
@@ -689,6 +736,13 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
             ACTION_FAVORITE -> viewModel.toggleFavorite(args.movieId)
             ACTION_UPDATE -> {
                 if (isUpdatingDb) {
+                    // Строка прогресса может быть ниже свёрнутой панели — показываем статус сразу.
+                    val percent = currentUpdatePercent.takeIf { it in 0..100 }?.let { " $it%" }.orEmpty()
+                    Toast.makeText(
+                        requireContext(),
+                        getString(R.string.updating_data) + percent,
+                        Toast.LENGTH_SHORT
+                    ).show()
                     addUpdateProgressRow()
                 } else {
                     showUpdateDialog(currentMovie)
@@ -697,12 +751,30 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
         }
     }
 
+    private fun onEpisodeClicked(item: EpisodeItem?) {
+        // Презентер может не знать свой item (Leanback чистит ViewHolder при rebind),
+        // поэтому берём текущий сфокусированный эпизод.
+        val episodeItem = item ?: (lastSelectedItem as? EpisodeItem)
+        episodeItem ?: return
+        selectedSeasonIndex = episodeItem.seasonIndex
+        selectedEpisodeIndex = episodeItem.episodeIndex
+        selectedSourceIndex = 0
+        Timber.d("Episode clicked: season=${episodeItem.seasonIndex}, episode=${episodeItem.episodeIndex}")
+        navigateToPlayer(episodeItem.seasonIndex, episodeItem.episodeIndex)
+    }
+
     private fun handleSeasonChanged(newSeasonIndex: Int) {
         if (selectedSeasonIndex == newSeasonIndex) return
 
         selectedSeasonIndex = newSeasonIndex
         selectedEpisodeIndex = 0
-        currentMovie?.let { bindMovie(it) }
+        val movie = currentMovie ?: return
+
+        // Вызывается и из onItemViewSelectedListener (во время скролла), поэтому обновляем
+        // только ряды серий и источников, а не перестраиваем весь адаптер: полный
+        // bindMovie здесь падал с IllegalStateException и сбрасывал скролл наверх.
+        updateEpisodesRow(movie)
+        updateSourcesRow(movie)
     }
 
     private fun updateFavoriteLabel(isFav: Boolean) {
@@ -720,15 +792,32 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
 
     private fun updatePlayActionState() {
         val adapter = detailsRow?.actionsAdapter as? ArrayObjectAdapter ?: return
-        val playIndex = (0 until adapter.size()).firstOrNull { index ->
-            (adapter[index] as? Action)?.id == ACTION_PLAY
-        } ?: return
 
         // Блокируем (меняем label) только если обновление идёт и нет ни одной играбельной ссылки
         val block = isUpdatingDb && currentMovie?.hasPlayableLinks() == false
-        val action = adapter[playIndex] as Action
-        action.label1 = getString(if (block) R.string.please_wait else R.string.play)
-        adapter.notifyArrayItemRangeChanged(playIndex, 1)
+        val playIndex = (0 until adapter.size()).firstOrNull { index ->
+            (adapter[index] as? Action)?.id == ACTION_PLAY
+        }
+        if (playIndex != null) {
+            val action = adapter[playIndex] as Action
+            action.label1 = getString(if (block) R.string.please_wait else R.string.play)
+            adapter.notifyArrayItemRangeChanged(playIndex, 1)
+        }
+
+        // Кнопка «Обновить данные» — единственный всегда видимый индикатор обновления.
+        val updateIndex = (0 until adapter.size()).firstOrNull { index ->
+            (adapter[index] as? Action)?.id == ACTION_UPDATE
+        }
+        if (updateIndex != null) {
+            val updateAction = adapter[updateIndex] as Action
+            updateAction.label1 = if (isUpdatingDb) {
+                val percent = currentUpdatePercent.takeIf { it in 0..100 }?.let { " $it%" }.orEmpty()
+                getString(R.string.updating_data) + percent
+            } else {
+                getString(R.string.update_data)
+            }
+            adapter.notifyArrayItemRangeChanged(updateIndex, 1)
+        }
     }
 
     private fun getFavoriteText(value: Boolean): String = if (value) {
@@ -744,9 +833,11 @@ class TvDetailsFragment : DetailsSupportFragment(), KoinComponent {
     ) {
         // Блокируем только если обновление идёт и нет ни одной играбельной ссылки
         if (isUpdatingDb && currentMovie?.hasPlayableLinks() == false) {
+            Timber.w("navigateToPlayer blocked: updating=${isUpdatingDb}")
             Toast.makeText(requireContext(), R.string.please_wait, Toast.LENGTH_SHORT).show()
             return
         }
+        Timber.d("navigateToPlayer: season=$seasonIndex, episode=$episodeIndex, url=${selectedUrl.take(40)}")
 
         findNavController().navigate(
             R.id.tvPlayerFragment,

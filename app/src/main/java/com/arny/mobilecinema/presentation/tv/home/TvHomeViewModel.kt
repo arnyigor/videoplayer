@@ -11,7 +11,9 @@ import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.domain.models.CacheChangeType
+import com.arny.mobilecinema.domain.models.HomeHighlights
 import com.arny.mobilecinema.domain.models.ViewMovie
+import com.arny.mobilecinema.presentation.home.HomeContentType
 import com.arny.mobilecinema.presentation.uimodels.Alert
 import com.arny.mobilecinema.presentation.uimodels.AlertType
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
@@ -29,6 +31,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TvHomeViewModel(
@@ -50,6 +53,11 @@ class TvHomeViewModel(
     val loading: Flow<Boolean> = _loading.asStateFlow()
 
     private val _sortCategory = MutableStateFlow(MovieSortCategory.NEW)
+    private val _contentType = MutableStateFlow(HomeContentType.ALL)
+
+    /** Витрина как на телефоне: новинки, лучшее сейчас, для вас. */
+    private val _homeHighlights = MutableStateFlow(HomeHighlights())
+    val homeHighlights = _homeHighlights.asStateFlow()
 
     private var pendingForceUpdate = false
     private var pendingHasPartUpdate = false
@@ -60,19 +68,17 @@ class TvHomeViewModel(
 
     val moviesDataFlow: Flow<PagingData<ViewMovie>> = combine(
         _refreshTrigger,
-        _sortCategory
-    ) { _, sort ->
-        sort
+        _sortCategory,
+        _contentType
+    ) { _, sort, contentType ->
+        sort to contentType
     }
-        .flatMapLatest { sortCategory ->
+        .flatMapLatest { (sortCategory, contentType) ->
             moviesInteractor.getMovies(
                 search = "",
                 order = sortCategory.order,
                 searchType = "",
-                searchAddTypes = listOf(
-                    AppConstants.SearchType.CINEMA,
-                    AppConstants.SearchType.SERIAL
-                )
+                searchAddTypes = contentType.searchTypes
             )
         }
         .cachedIn(viewModelScope)
@@ -97,8 +103,29 @@ class TvHomeViewModel(
         .cachedIn(viewModelScope)
 
     init {
+        loadHomeHighlights()
         checkForUpdate()
         observeHistoryChanges()
+    }
+
+    fun setContentType(type: HomeContentType) {
+        if (_contentType.value == type) return
+        _contentType.value = type
+        _refreshTrigger.value++
+        loadHomeHighlights()
+    }
+
+    private fun loadHomeHighlights() {
+        viewModelScope.launch {
+            runCatching {
+                moviesInteractor.getHomeHighlights(searchAddTypes = _contentType.value.searchTypes)
+            }.onSuccess { highlights ->
+                _homeHighlights.value = highlights
+            }.onFailure { throwable ->
+                Timber.e(throwable, "Failed to load TV home highlights")
+                _homeHighlights.value = HomeHighlights()
+            }
+        }
     }
 
     private fun observeHistoryChanges() {

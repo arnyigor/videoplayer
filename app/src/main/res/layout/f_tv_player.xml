@@ -41,22 +41,42 @@
             tools:text="Название фильма"
             tools:visibility="visible" />
 
+    <!-- Переключение качества (адаптивное / конкретное разрешение) -->
+    <ImageButton
+            android:id="@+id/btnQuality"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@drawable/tv_button_selector"
+            android:contentDescription="@string/video_quality"
+            android:focusable="true"
+            android:visibility="gone"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="@dimen/margin_big"
+            android:layout_marginEnd="88dp"
+            android:src="@drawable/ic_hd"
+            android:scaleType="centerInside"
+            android:padding="12dp"
+            app:tint="@android:color/white"
+            android:nextFocusLeft="@id/btnBack"
+            android:nextFocusRight="@id/btnAspectRatio"
+            android:nextFocusDown="@id/btnRewind" />
+
     <ImageButton
             android:id="@+id/btnAspectRatio"
             android:layout_width="56dp"
             android:layout_height="56dp"
-            android:layout_marginStart="16dp"
             android:background="@drawable/tv_button_selector"
             android:contentDescription="@string/change_aspect"
             android:focusable="true"
             android:visibility="gone"
             android:layout_gravity="top|end"
-            android:layout_margin="@dimen/margin_big"
+            android:layout_marginTop="@dimen/margin_big"
+            android:layout_marginEnd="@dimen/margin_big"
             android:src="@drawable/ic_overscan"
             android:scaleType="centerInside"
             android:padding="12dp"
             app:tint="@android:color/white"
-            android:nextFocusLeft="@id/btnBack"
+            android:nextFocusLeft="@id/btnQuality"
             android:nextFocusRight="@id/seekBar"
             android:nextFocusDown="@id/btnRewind" />
 
@@ -122,6 +142,7 @@
                 android:background="@drawable/tv_button_selector"
                 android:contentDescription="@string/back"
                 android:focusable="true"
+                android:nextFocusUp="@id/btnQuality"
                 android:src="@drawable/ic_arrow_back"
                 android:scaleType="centerInside"
                 android:padding="12dp"

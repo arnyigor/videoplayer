@@ -12,6 +12,9 @@
                 android:id="@+id/actionToSearch"
                 app:destination="@id/tvSearchFragment" />
         <action
+                android:id="@+id/actionToSiteSearch"
+                app:destination="@id/tvSiteSearchFragment" />
+        <action
                 android:id="@+id/actionToDetails"
                 app:destination="@id/tvDetailsFragment" />
         <action
@@ -77,6 +80,15 @@
             android:id="@+id/tvSearchFragment"
             android:name="com.arny.mobilecinema.presentation.tv.search.TvSearchFragment"
             android:label="Search">
+        <action
+                android:id="@+id/actionToDetails"
+                app:destination="@id/tvDetailsFragment" />
+    </fragment>
+
+    <fragment
+            android:id="@+id/tvSiteSearchFragment"
+            android:name="com.arny.mobilecinema.presentation.tv.search.TvSiteSearchFragment"
+            android:label="Site search">
         <action
                 android:id="@+id/actionToDetails"
                 app:destination="@id/tvDetailsFragment" />
