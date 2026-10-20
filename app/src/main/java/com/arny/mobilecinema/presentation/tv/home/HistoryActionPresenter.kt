@@ -6,6 +6,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.presentation.utils.dpToPx
 
 class HistoryActionPresenter : Presenter() {
 
@@ -17,7 +18,10 @@ class HistoryActionPresenter : Presenter() {
             )
             isFocusable = true
             isFocusableInTouchMode = true
-            setPadding(48, 24, 48, 24)
+            setPadding(
+                32.dpToPx(context), 16.dpToPx(context),
+                32.dpToPx(context), 16.dpToPx(context)
+            )
             textSize = 18f
             gravity = Gravity.CENTER
             setBackgroundResource(R.drawable.tv_button_background)

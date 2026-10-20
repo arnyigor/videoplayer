@@ -98,6 +98,15 @@ fun TextView.setTextColorRes(@ColorRes color: Int) {
 fun Int.toPx(context: Context): Int =
     (this * (context.resources.displayMetrics.xdpi / DisplayMetrics.DENSITY_DEFAULT)).roundToInt()
 
+/**
+ * dp → px по плотности экрана (`displayMetrics.density`).
+ *
+ * Отличие от [toPx]: тот считает по физическому `xdpi`, из-за чего на TV-панелях с нестандартным
+ * xdpi отступы и размеры уезжают. Для размеров UI используем именно density.
+ */
+fun Int.dpToPx(context: Context): Int =
+    (this * context.resources.displayMetrics.density).roundToInt()
+
 fun Context.getDrawableColor(@ColorRes color: Int): Int =
     ContextCompat.getColor(this, color)
 

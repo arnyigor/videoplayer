@@ -27,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import com.arny.mobilecinema.presentation.utils.dpToPx
 
 /**
  * Presenter для отображения фильтров поиска
@@ -42,7 +43,10 @@ class SearchFilterPresenter : Presenter() {
             )
             isFocusable = true
             isFocusableInTouchMode = true
-            setPadding(24, 12, 24, 12)
+            setPadding(
+                24.dpToPx(context), 12.dpToPx(context),
+                24.dpToPx(context), 12.dpToPx(context)
+            )
             textSize = 14f
             setBackgroundResource(R.drawable.bg_sort_category_selector)
         }

@@ -229,13 +229,11 @@ class TvHomeFragment : BrowseSupportFragment(), TvUpdateProgressDialogFragment.C
         }
 
         onItemViewSelectedListener = OnItemViewSelectedListener { _, item, _, _ ->
-            when (item) {
-                is MovieSortCategory -> {
-                    applySortCategory(item)
-                }
-
-                else -> {
-                }
+            // ВАЖНО: сортировка применяется ТОЛЬКО по OK в onItemViewClickedListener.
+            // Раньше смена категории висела на фокусе: достаточно было провести пультом по ряду
+            // сортировки, чтобы каталог перезагрузился с другим порядком. См. TV-спеку §4.1.
+            if (item is MovieSortCategory) {
+                Timber.d("Sort chip focused (not applied): ${item.name}")
             }
         }
 

@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import androidx.leanback.widget.Action
 import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.presentation.utils.dpToPx
 
 class TvActionCardPresenter : Presenter() {
 
@@ -18,7 +19,10 @@ class TvActionCardPresenter : Presenter() {
             )
             isFocusable = true
             isFocusableInTouchMode = true
-            setPadding(32, 16, 32, 16)
+            setPadding(
+                24.dpToPx(context), 20.dpToPx(context),
+                24.dpToPx(context), 20.dpToPx(context)
+            )
             textSize = 16f
             gravity = Gravity.CENTER
             setBackgroundResource(R.drawable.bg_sort_category_selector)
