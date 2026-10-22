@@ -7,6 +7,7 @@ import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.getWithDomain
+import com.arny.mobilecinema.presentation.utils.dpToPx
 import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.bumptech.glide.Glide
@@ -18,15 +19,19 @@ class MovieCardPresenter : Presenter(), KoinComponent {
     private val prefs: Prefs by inject()
 
     companion object {
-        private const val CARD_WIDTH = 313
-        private const val CARD_HEIGHT = 176
+        // dp, а не пиксели: на 320 dpi прежние 313×176 px были почти вдвое меньше задуманного.
+        private const val CARD_WIDTH_DP = 156
+        private const val CARD_HEIGHT_DP = 88
     }
 
     override fun onCreateViewHolder(parent: ViewGroup): ViewHolder {
         val cardView = ImageCardView(parent.context).apply {
             isFocusable = true
             isFocusableInTouchMode = true
-            setMainImageDimensions(CARD_WIDTH, CARD_HEIGHT)
+            setMainImageDimensions(
+                CARD_WIDTH_DP.dpToPx(context),
+                CARD_HEIGHT_DP.dpToPx(context)
+            )
             setMainImageScaleType(ImageView.ScaleType.CENTER_CROP)
         }
         TvCardFocusHelper.setup(cardView)

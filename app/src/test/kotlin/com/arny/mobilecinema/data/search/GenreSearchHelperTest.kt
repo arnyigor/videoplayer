@@ -37,6 +37,27 @@ class GenreSearchHelperTest {
     }
 
     @Test
+    fun `canonical genres exclude values that are not real genres`() {
+        val genres = GenreSearchHelper.toCanonicalGenres(
+            listOf(
+                "12+",
+                "Семейный",
+                "Александра Леклер",
+                "Аниме",
+                "Криминальная драма",
+                "боевик",
+            )
+        )
+
+        assertTrue("Семейные" in genres)
+        assertTrue("Аниме" in genres)
+        assertTrue("Драмы" in genres)
+        assertTrue("Боевики" in genres)
+        assertFalse(genres.any { it.contains("12") })
+        assertFalse(genres.any { it.contains("Леклер") })
+    }
+
+    @Test
     fun `extended genre sql uses contains search instead of exact in search`() {
         val query = getMoviesSQL(
             search = "",

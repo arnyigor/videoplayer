@@ -36,7 +36,15 @@ fun getMoviesSQL(
     imdbs(imdbs, whereWrapper, sb, args)
     kps(kps, whereWrapper, sb, args)
     updatedFrom(updatedFrom, whereWrapper, sb, args)
-    order(order, sb, likesPriority)
+    order(
+        order = order,
+        sb = sb,
+        likesPriority = likesPriority,
+        // Совпадение по названию важнее популярности только когда ищут по названию.
+        relevanceQuery = search.trim()
+            .takeIf { it.isNotBlank() && searchType != AppConstants.SearchType.GENRES },
+        args = args,
+    )
     limit(sb, args, limit, offset)
     sb.append(";")
     val query = sb.toString()
@@ -193,14 +201,17 @@ private fun search(
     searchType: String,
     args: MutableList<Any?>
 ) {
-    if (search.isNotBlank()) {
-        if (!whereWrapper.hasWhere) {
-            sb.append(" WHERE ")
-            whereWrapper.hasWhere = true
-        } else {
-            sb.append(" AND ")
-        }
-        if (searchType == AppConstants.SearchType.GENRES) {
+    if (search.isBlank()) {
+        return
+    }
+    if (!whereWrapper.hasWhere) {
+        sb.append(" WHERE ")
+        whereWrapper.hasWhere = true
+    } else {
+        sb.append(" AND ")
+    }
+    when (searchType) {
+        AppConstants.SearchType.GENRES -> {
             val searchTerms = GenreSearchHelper.searchTermsForGenres(listOf(search))
             sb.append(
                 searchTerms.joinToString(
@@ -210,28 +221,93 @@ private fun search(
                 ) { "m.genre LIKE '%' || ? || '%'" }
             )
             args.addAll(searchTerms)
-        } else {
-            sb.append(
-                when (searchType) {
-                    AppConstants.SearchType.TITLE -> " m.title LIKE '%' || ? || '%' "
-                    AppConstants.SearchType.DIRECTORS -> " m.directors LIKE '%' || ? || '%' "
-                    AppConstants.SearchType.ACTORS -> " m.actors LIKE '%' || ? || '%' "
-                    else -> " "
-                }
-            )
-            extendedSearch(searchType, args, search, sb)
         }
+
+        // Название ищется и по оригинальному: латинский запрос иначе не находит
+        // русскоязычную карточку («matrix» → «Матрица», origTitle = «The Matrix»).
+        AppConstants.SearchType.TITLE -> {
+            val needles = titleNeedles(search)
+            sb.append(
+                needles.joinToString(
+                    prefix = " (",
+                    postfix = ") ",
+                    separator = " OR "
+                ) { "(m.title LIKE '%' || ? || '%' OR m.origTitle LIKE '%' || ? || '%')" }
+            )
+            needles.forEach { needle ->
+                args.add(needle)
+                args.add(needle)
+            }
+        }
+
+        AppConstants.SearchType.DIRECTORS -> {
+            sb.append(" m.directors LIKE '%' || ? || '%' ")
+            args.add(search)
+        }
+
+        AppConstants.SearchType.ACTORS -> {
+            sb.append(" m.actors LIKE '%' || ? || '%' ")
+            args.add(search)
+        }
+
+        else -> sb.append(" 1 = 1 ")
     }
 }
 
-private fun order(order: String, sb: StringBuilder, likesPriority: Boolean) {
+/**
+ * Варианты написания названия для запроса из двух слов: сайт хранит часть
+ * названий с подчёркиванием вместо пробела («Матрица_Перезагрузка»).
+ */
+private fun titleNeedles(search: String): List<String> {
+    val trimmed = search.trim()
+    val words = trimmed.split(" ").filter { it.isNotBlank() }
+    if (words.size != 2) {
+        return listOf(trimmed)
+    }
+    val first = words[0]
+    val second = words[1]
+    return listOf(
+        "$first $second",
+        "${first}_$second",
+        "${first}_ $second",
+        "$first _ $second",
+    ).distinct()
+}
+
+private fun order(
+    order: String,
+    sb: StringBuilder,
+    likesPriority: Boolean,
+    relevanceQuery: String? = null,
+    args: MutableList<Any?>? = null,
+) {
+    val terms = mutableListOf<String>()
+    val relevance = relevanceQuery?.trim().orEmpty()
+    if (relevance.isNotBlank() && args != null) {
+        // Точное название → название начинается с запроса → с запроса начинается слово
+        // в названии или оригинальном названии. Ранжирование сайта и вспомогательные
+        // поля (алиасы, транслит) здесь не учитываются — это следующий шаг SRCH-04.
+        terms.add(
+            """
+                CASE
+                    WHEN m.title LIKE ? THEN 0
+                    WHEN m.title LIKE ? || '%' THEN 1
+                    WHEN m.title LIKE '% ' || ? || '%' THEN 2
+                    WHEN m.origTitle LIKE ? THEN 3
+                    WHEN m.origTitle LIKE ? || '%' THEN 4
+                    WHEN m.origTitle LIKE '% ' || ? || '%' THEN 5
+                    ELSE 6
+                END
+            """.trimIndent().replace("\n", " ")
+        )
+        repeat(6) { args.add(relevance) }
+    }
     if (order.isNotBlank()) {
         var curOrder = order
-        sb.append(" ORDER BY ")
         if (curOrder == AppConstants.Order.LAST_TIME) {
             curOrder = AppConstants.Order.NONE
         }
-        sb.append(
+        terms.add(
             when (curOrder) {
                 AppConstants.Order.SMART -> smartOrder()
                 AppConstants.Order.NONE -> if (likesPriority) " m.updated DESC, m.likes DESC, m.ratingImdb DESC, m.ratingKp DESC " else " m.updated DESC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
@@ -239,9 +315,13 @@ private fun order(order: String, sb: StringBuilder, likesPriority: Boolean) {
                 AppConstants.Order.TITLE -> if (likesPriority) " m.title ASC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC " else " m.title ASC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
                 AppConstants.Order.YEAR_DESC -> if (likesPriority) " m.year DESC, m.likes DESC, m.ratingImdb DESC, m.ratingKp DESC " else " m.year DESC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
                 AppConstants.Order.YEAR_ASC -> if (likesPriority) " m.year ASC, m.likes DESC, m.ratingImdb DESC, m.ratingKp DESC " else " m.year ASC, m.ratingImdb DESC, m.ratingKp DESC, m.likes DESC "
-                else -> " "
+                else -> ""
             }
         )
+    }
+    if (terms.isNotEmpty()) {
+        sb.append(" ORDER BY ")
+        sb.append(terms.joinToString(", "))
     }
 }
 

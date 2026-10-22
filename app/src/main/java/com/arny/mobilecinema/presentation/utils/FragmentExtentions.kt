@@ -21,12 +21,26 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.NavController
 import androidx.navigation.NavDirections
+import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 
 fun NavController.navigateSafely(directions: NavDirections) {
     currentDestination?.getAction(directions.actionId)?.destinationId ?: return
     navigate(directions.actionId, directions.arguments, null)
+}
+
+/**
+ * Экран — корневая вкладка нижнего меню, а не экран поверх другого.
+ *
+ * Нижняя навигация держит стартовый экран в стеке (`popUpTo` без `inclusive`),
+ * поэтому `previousBackStackEntry` не равен null и на вкладках. Корневой экран
+ * определяется как прямой ребёнок корневого графа.
+ */
+fun Fragment.isRootDestination(): Boolean {
+    val navController = findNavController()
+    val destination = navController.currentDestination ?: return false
+    return destination.parent?.id == navController.graph.id
 }
 
 fun Fragment.isNotificationsFullyEnabled(): Boolean {

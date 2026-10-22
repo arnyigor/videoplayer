@@ -59,6 +59,58 @@ object GenreSearchHelper {
         .sorted()
         .toList()
 
+    /**
+     * Только канонические жанры — те, что совпадают с названием группы.
+     * В базе в поле `genre` лежат произвольные строки («12+», имена актёров), и как чипы фильтра
+     * они бесполезны: показывать их в каталоге нельзя.
+     *
+     * Сравнение идёт по заранее нормализованным алиасам: в базе может быть несколько тысяч
+     * различных значений, и нормализация каждого алиаса на каждой строке стоила секунды.
+     */
+    fun toCanonicalGenres(rawGenres: List<String>): List<String> {
+        val normalizedRaw = rawGenres
+            .asSequence()
+            .flatMap { splitGenres(it).asSequence() }
+            .map { normalize(it) }
+            .filter { it.isNotBlank() }
+            .distinct()
+            .map { text -> NormalizedValue(text, text.split(' ').toHashSet()) }
+            .toList()
+        if (normalizedRaw.isEmpty()) return emptyList()
+        return normalizedGroups
+            .filter { group -> normalizedRaw.any { value -> value.matches(group) } }
+            .map { it.title }
+            .sorted()
+    }
+
+    private class NormalizedValue(val text: String, val words: Set<String>) {
+        fun matches(group: NormalizedGroup): Boolean {
+            if (text == group.normalizedTitle) return true
+            return group.normalizedAliases.any { alias ->
+                // Та же семантика, что и в [containsAlias]: короткие алиасы — только целым словом.
+                if (alias.length <= 3) alias in words else text.contains(alias)
+            }
+        }
+    }
+
+    private class NormalizedGroup(
+        val title: String,
+        val normalizedTitle: String,
+        val normalizedAliases: List<String>,
+    )
+
+    private val normalizedGroups: List<NormalizedGroup> by lazy {
+        genreGroups.map { group ->
+            NormalizedGroup(
+                title = group.title,
+                normalizedTitle = normalize(group.title),
+                normalizedAliases = group.aliases
+                    .map { normalize(it) }
+                    .filter { it.isNotBlank() },
+            )
+        }
+    }
+
     fun searchTermsForGenres(genres: List<String>): List<String> = genres
         .asSequence()
         .flatMap { genre ->

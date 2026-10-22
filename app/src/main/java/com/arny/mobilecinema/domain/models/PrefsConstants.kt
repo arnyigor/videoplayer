@@ -12,4 +12,6 @@ object PrefsConstants {
 
     const val PREF_KEY_PIP_MODE = "pref_key_pip_mode"
     const val PREF_KEY_HOME_HIGHLIGHTS_ENABLED = "pref_key_home_highlights_enabled"
+    const val PREF_KEY_COMPOSE_HOME = "pref_compose_home"
+    const val PREF_KEY_AUTOPLAY_NEXT = "pref_autoplay_next"
 }

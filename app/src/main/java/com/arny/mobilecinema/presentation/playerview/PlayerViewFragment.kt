@@ -1085,36 +1085,29 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private fun savePlaybackProgress(playedMs: Long) {
         val movie = args.movie ?: return
-        val dbId = movie.dbId
-        if (dbId <= 0L) return
+        if (movie.dbId <= 0L) return
 
+        // positionMs — позиция для продолжения, playedMs — дельта с прошлого тика (MOB-10B).
+        val position = player?.currentPosition ?: 0L
+        val duration = player?.duration?.takeIf { it > 0L }
         when (movie.type) {
-            MovieType.CINEMA -> {
-                viewModel.addPlaybackProgress(
-                    dbId = dbId,
-                    season = 0,
-                    episode = 0,
-                    playedMs = playedMs
-                )
-            }
+            MovieType.CINEMA -> viewModel.recordProgress(
+                movie = movie,
+                seasonIndex = 0,
+                episodeIndex = 0,
+                positionMs = position,
+                durationMs = duration,
+                playedMsDelta = playedMs,
+            )
 
-            MovieType.SERIAL -> {
-                val metadata = player?.currentMediaItem?.mediaMetadata
-                val bundle = metadata?.extras
-                val currentSeason = viewModel.uiState.value.season
-                    ?: bundle?.getInt(AppConstants.Player.SEASON)
-                    ?: 0
-                val currentEpisode = viewModel.uiState.value.episode
-                    ?: bundle?.getInt(AppConstants.Player.EPISODE)
-                    ?: 0
-
-                viewModel.addPlaybackProgress(
-                    dbId = dbId,
-                    season = currentSeason,
-                    episode = currentEpisode,
-                    playedMs = playedMs
-                )
-            }
+            MovieType.SERIAL -> viewModel.recordProgress(
+                movie = movie,
+                seasonIndex = viewModel.uiState.value.season ?: 0,
+                episodeIndex = viewModel.uiState.value.episode ?: 0,
+                positionMs = position,
+                durationMs = duration,
+                playedMsDelta = playedMs,
+            )
 
             else -> {}
         }

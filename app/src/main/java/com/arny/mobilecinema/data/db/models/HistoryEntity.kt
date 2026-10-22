@@ -16,4 +16,7 @@ data class HistoryEntity(
     @ColumnInfo(name = "episode") var episode: Int = 0,
     @ColumnInfo(name = "season") var season: Int = 0,
     @ColumnInfo(name = "latest_time", defaultValue = "0") var latestTime: Long = 0L,
+    @ColumnInfo(name = "last_playable_id", defaultValue = "''") var lastPlayableId: String = "",
+    @ColumnInfo(name = "duration_ms", defaultValue = "0") var durationMs: Long = 0L,
+    @ColumnInfo(name = "completed", defaultValue = "0") var completed: Boolean = false,
 )

@@ -59,4 +59,11 @@ object Selectors {
     const val SEARCH_ITEM_LIKES = ".flike"
     const val SEARCH_ITEM_DISLIKES = ".fdizlike"
     const val SEARCH_ITEM_DESCRIPTION = ".discripfilm"
+
+    /**
+     * Плашка «ничего не найдено». Под ней сайт выводит fallback-подборку карточек
+     * той же разметкой, что и результаты поиска, поэтому её нельзя считать выдачей.
+     */
+    const val SEARCH_EMPTY_MARKER = "div.err"
+    const val SEARCH_NO_RESULTS_TEXT = "ничего не найдено"
 }

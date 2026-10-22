@@ -13,32 +13,26 @@
         android:title="@string/search_settings"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_extended_search_settings"
-        android:title="@string/search_extended_title"
-        app:showAsAction="never" />
-    <item
         android:id="@+id/action_site_search"
         android:title="@string/site_search_menu"
         app:showAsAction="never" />
+    <!-- Сортировка относится к ленте/каталогу, а не к шапке (аудит v2, §6): место в тулбаре
+         отдано настройкам, сам пункт остался в overflow. -->
     <item
         android:id="@+id/action_order_settings"
         android:title="@string/search_order_settings"
         android:icon="@android:drawable/ic_menu_sort_by_size"
+        app:showAsAction="never" />
+    <!-- Настройки как отдельный root больше не нужны (аудит v2, §3): вход иконкой в тулбаре. -->
+    <item
+        android:id="@+id/action_settings"
+        android:icon="@drawable/ic_settings"
+        android:title="@string/action_settings"
         app:showAsAction="ifRoom" />
     <item
         android:id="@+id/menu_action_from_path"
         android:title="@string/menu_from_path"
         app:showAsAction="never" />
-    <item
-        android:id="@+id/menu_action_check_update"
-        app:showAsAction="never"
-        android:icon="@android:drawable/stat_sys_download"
-        android:title="@string/menu_check_update" />
-    <item
-        android:id="@+id/menu_action_update_download_new"
-        app:showAsAction="never"
-        android:icon="@android:drawable/stat_sys_download"
-        android:title="@string/menu_download_new" />
     <item
         android:id="@+id/menu_action_import_link"
         app:showAsAction="never"
@@ -47,8 +41,4 @@
         android:id="@+id/menu_action_update_list"
         app:showAsAction="never"
         android:title="@string/update_list" />
-    <item
-        android:id="@+id/menu_action_compose_test"
-        app:showAsAction="never"
-        android:title="@string/menu_compose_test" />
 </menu>

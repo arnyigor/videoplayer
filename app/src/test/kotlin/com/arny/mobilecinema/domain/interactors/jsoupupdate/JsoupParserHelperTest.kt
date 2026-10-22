@@ -430,6 +430,54 @@ class JsoupParserHelperTest {
     }
 
     @Test
+    fun `search page without matches does not expose fallback picks`() {
+        // Реальная разметка https://mm.anwap.media/serials/search/?word=matrix&vid=1:
+        // плашка «ничего не найдено» и ниже fallback-подборка в той же разметке карточек.
+        val doc = Jsoup.parse(
+            """
+            <html><body>
+                <form action="/serials/search/" method="get">
+                    <div class="my_razdel"><input type="text" name="word" value="matrix"/></div>
+                </form>
+                <div class="err">К сожалению по вашему запросу в названии "<strong>matrix</strong>" ничего не найдено</div>
+                <div class="my_razdel film"><a href="/serials/2887">
+                    <div class="screenfilm"><img src="/serials/prev/2887.jpg" alt="Список смертников" class="screenf"/></div>
+                    <div class="opisfilm"><div class="namefilm"> Список смертников</div>
+                        <span class="in year">2022</span></div></a></div>
+            </body></html>
+            """.trimIndent(),
+            "https://mm.anwap.media/serials/search/?word=matrix&vid=1"
+        )
+
+        assertTrue(isSearchPageEmpty(doc))
+        // Парсер карточек сам по себе видит fallback-подборку...
+        assertEquals(1, getSearchItems(doc, doc.location()).size)
+        // ...но в выдачу она не попадает.
+        assertTrue(getSearchPageItems(doc, doc.location()).isEmpty())
+    }
+
+    @Test
+    fun `search page with matches is returned as is`() {
+        val doc = Jsoup.parse(
+            """
+            <html><body>
+                <div class="my_razdel film"><a href="/films/1091">
+                    <div class="screenfilm"><img src="/films/prew/1091.jpg" alt="Матрица / The Matrix" class="screenf"/></div>
+                    <div class="opisfilm"><div class="namefilm"> Матрица</div>
+                        <span class="in year">1999</span></div></a></div>
+            </body></html>
+            """.trimIndent(),
+            "https://mm.anwap.media/films/search/?slv=matrix&vid=1&page=1"
+        )
+
+        assertFalse(isSearchPageEmpty(doc))
+        val items = getSearchPageItems(doc, doc.location())
+        assertEquals(1, items.size)
+        assertEquals("Матрица", items[0].title)
+        assertEquals("The Matrix", items[0].origTitle)
+    }
+
+    @Test
     fun `hasUsableData rejects empty card parse`() {
         val emptyPage = Movie(
             title = "",

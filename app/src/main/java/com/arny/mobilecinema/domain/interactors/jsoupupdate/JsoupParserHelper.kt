@@ -353,6 +353,19 @@ fun getComments(page: Element): List<MovieComment> =
     }
 
 /**
+ * Сайт сообщает об отсутствии совпадений плашкой «ничего не найдено» и ниже показывает
+ * fallback-подборку карточек. Такая подборка совпадает для любого несуществующего
+ * запроса, поэтому выдачей поиска её считать нельзя.
+ */
+fun isSearchPageEmpty(page: Document): Boolean =
+    page.select(Selectors.SEARCH_EMPTY_MARKER)
+        .any { it.text().contains(Selectors.SEARCH_NO_RESULTS_TEXT, ignoreCase = true) }
+
+/** Карточки страницы результатов; пустой список, если сайт сообщил об отсутствии совпадений. */
+fun getSearchPageItems(page: Document, location: String): List<SiteSearchItem> =
+    if (isSearchPageEmpty(page)) emptyList() else getSearchItems(page, location)
+
+/**
  * Разбор результатов поиска на сайте. Страницы /films/search/ и /serials/search/
  * отдают одну и ту же разметку карточки, поэтому парсер общий.
  */

@@ -14,14 +14,22 @@ import java.util.Locale
  * подборок ([HomeHighlightMoviesAdapter]) и paging-сеткой ([VideoItemsAdapter]).
  */
 
-fun ImageView.loadMoviePoster(path: String, baseUrl: String) {
-    Glide.with(this)
+/**
+ * @param targetWidthPx ширина карточки в пикселях: без явного размера Glide декодирует
+ * картинку под размер вьюхи и на планшете тянет лишние мегабайты (MOB-07).
+ */
+fun ImageView.loadMoviePoster(path: String, baseUrl: String, targetWidthPx: Int = 0) {
+    val request = Glide.with(this)
         .load(path.getWithDomain(baseUrl))
         .placeholder(R.drawable.placeholder_movie)
         .error(R.drawable.placeholder_movie)
         .transition(DrawableTransitionOptions.withCrossFade(200))
         .centerCrop()
-        .into(this)
+    if (targetWidthPx > 0) {
+        // Постер 2:3 — высоту просим пропорционально ширине.
+        request.override(targetWidthPx, targetWidthPx * 3 / 2)
+    }
+    request.into(this)
 }
 
 fun ViewMovie.ratingLabel(): String? = when {

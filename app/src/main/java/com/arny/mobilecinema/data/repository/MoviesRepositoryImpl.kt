@@ -94,6 +94,25 @@ class MoviesRepositoryImpl(
         )
     }
 
+    override suspend fun getCatalogMoviesPage(
+        movieType: MovieType,
+        order: String,
+        genres: List<String>,
+        limit: Int,
+        offset: Int,
+    ): List<ViewMovie> = movieDao.getMovies(
+        getMoviesSQL(
+            search = "",
+            order = order,
+            searchType = AppConstants.SearchType.TITLE,
+            movieTypes = listOf(movieType),
+            genres = genres,
+            likesPriority = true,
+            limit = limit,
+            offset = offset,
+        )
+    )
+
     override suspend fun getRecentMovies(
         updatedFrom: Long,
         movieTypes: List<MovieType>,
@@ -111,6 +130,30 @@ class MoviesRepositoryImpl(
                 offset = 0
             )
         )
+
+    override suspend fun searchLocal(
+        query: String,
+        kinds: List<MovieType>,
+        genre: String?,
+        country: String?,
+        years: SimpleIntRange?,
+        order: String,
+        limit: Int,
+        offset: Int,
+    ): List<ViewMovie> = movieDao.getMovies(
+        getMoviesSQL(
+            search = query,
+            order = order,
+            searchType = AppConstants.SearchType.TITLE,
+            movieTypes = kinds,
+            genres = listOfNotNull(genre?.takeIf { it.isNotBlank() }),
+            countries = listOfNotNull(country?.takeIf { it.isNotBlank() }),
+            years = years,
+            likesPriority = true,
+            limit = limit,
+            offset = offset,
+        )
+    )
 
     override suspend fun getBestNowMovies(
         fromYear: Int,
@@ -303,6 +346,9 @@ class MoviesRepositoryImpl(
     override fun getMovie(pageUrl: String): Movie? =
         movieDao.getMovie(pageUrl)?.let { movieMapper.transform(it) }
 
+    override fun getCanonicalGenres(): List<String> = GenreSearchHelper
+        .toCanonicalGenres(movieDao.allGenres())
+
     override fun getGenres(): List<String> = GenreSearchHelper
         .toDisplayGenres(movieDao.allGenres())
         .ifEmpty { GenreSearchHelper.toDisplayGenres(appResources.getStringArray(R.array.genres)) }
@@ -336,21 +382,6 @@ class MoviesRepositoryImpl(
             currentTimeMs = currentTimeMillis
         ) != 0
     }
-
-    override fun addPlaybackProgress(
-        movieDbId: Long,
-        season: Int,
-        episode: Int,
-        playedMs: Long,
-        currentTimeMs: Long
-    ): Boolean =
-        playbackProgressDao.addProgress(
-            movieDbId = movieDbId,
-            season = season,
-            episode = episode,
-            playedMs = playedMs,
-            latestTime = currentTimeMs
-        )
 
     override fun insertSerialPosition(
         movieDbId: Long,

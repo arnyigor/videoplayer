@@ -468,22 +468,6 @@ class HomeViewModel constructor(
         kpRange = SimpleFloatRange()
     }
 
-    fun onActionUpdateAll() {
-        viewModelScope.launch {
-            _alert.trySend(
-                Alert(
-                    title = ResourceString(R.string.update_all_cinem_title),
-                    content = ResourceString(
-                        R.string.question_update_all,
-                    ),
-                    btnOk = ResourceString(android.R.string.ok),
-                    btnCancel = ResourceString(android.R.string.cancel),
-                    type = AlertType.UpdateAll
-                )
-            )
-        }
-    }
-
     fun reloadList() {
         refreshHome()
     }

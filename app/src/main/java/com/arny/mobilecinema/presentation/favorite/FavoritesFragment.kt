@@ -26,6 +26,7 @@ import com.arny.mobilecinema.presentation.home.HomeFragmentDirections
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.uimodels.ListScreenState
+import com.arny.mobilecinema.presentation.utils.PosterGrid
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
@@ -83,6 +84,11 @@ class FavoritesFragment : Fragment(), OnSearchListener, KoinComponent {
         initAdapters()
         observeData()
         initMenu()
+        binding.btnEmptyFind.setOnClickListener {
+            findNavController().navigateSafely(
+                FavoritesFragmentDirections.actionFavoritesFragmentToNavSiteSearch()
+            )
+        }
     }
 
     private fun initToolbar() {
@@ -262,7 +268,10 @@ class FavoritesFragment : Fragment(), OnSearchListener, KoinComponent {
     /** Создаём адаптер и привязываем к RecyclerView */
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
+        itemsAdapter = VideoItemsAdapter(
+            baseUrl = baseUrl,
+            posterWidthPx = posterWidthPx(),
+        ) { item ->
             val action = FavoritesFragmentDirections.actionFavoritesFragmentToNavDetails(item.dbId)
             findNavController().navigateSafely(action)
         }
@@ -274,11 +283,15 @@ class FavoritesFragment : Fragment(), OnSearchListener, KoinComponent {
                 refresh is LoadState.Loading -> {
                     binding.progressBar.isVisible = true
                     binding.tvEmptyView.isVisible = false
+                    binding.tvEmptySubtitle.isVisible = false
+                    binding.btnEmptyFind.isVisible = false
                     binding.errorView.isVisible = false
                 }
                 refresh is LoadState.Error -> {
                     binding.progressBar.isVisible = false
                     binding.tvEmptyView.isVisible = false
+                    binding.tvEmptySubtitle.isVisible = false
+                    binding.btnEmptyFind.isVisible = false
                     binding.errorView.isVisible = true
                     val errorMsg = (refresh as? LoadState.Error)?.error?.localizedMessage
                         ?: getString(R.string.error_loading_data)
@@ -289,6 +302,8 @@ class FavoritesFragment : Fragment(), OnSearchListener, KoinComponent {
                     binding.errorView.isVisible = false
                     val isEmpty = (itemsAdapter?.itemCount ?: 0) == 0
                     binding.tvEmptyView.isVisible = isEmpty
+                    binding.tvEmptySubtitle.isVisible = isEmpty
+                    binding.btnEmptyFind.isVisible = isEmpty
                     hasSavedData = !isEmpty
                     requireActivity().invalidateOptionsMenu()
                 }
@@ -298,6 +313,9 @@ class FavoritesFragment : Fragment(), OnSearchListener, KoinComponent {
         binding.rvFavoritesList.apply {
             adapter = itemsAdapter
             setHasFixedSize(true)
+            // Сетка из XML приходит с spanCount=2; на планшете колонок должно быть больше (MOB-07).
+            (layoutManager as? androidx.recyclerview.widget.GridLayoutManager)
+                ?.spanCount = posterSpans()
         }
 
         // Кнопка Retry
@@ -305,6 +323,16 @@ class FavoritesFragment : Fragment(), OnSearchListener, KoinComponent {
             itemsAdapter?.retry()
         }
     }
+
+    private fun posterSpans(): Int = PosterGrid.spansFor(
+        PosterGrid.windowWidthDp(requireContext(), horizontalPaddingDp = 8)
+    )
+
+    private fun posterWidthPx(): Int = PosterGrid.posterWidthPx(
+        widthDp = PosterGrid.windowWidthDp(requireContext(), horizontalPaddingDp = 8),
+        spans = posterSpans(),
+        density = resources.displayMetrics.density,
+    )
 
     /** Подписываемся на данные ViewModel */
     private fun observeData() {

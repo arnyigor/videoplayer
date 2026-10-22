@@ -29,6 +29,7 @@ import com.arny.mobilecinema.domain.models.UpdateType
 import com.arny.mobilecinema.domain.models.withPlayableSourceUrls
 import com.arny.mobilecinema.domain.repository.JsoupUpdateRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
+import com.arny.mobilecinema.domain.search.SearchRelevance
 import data.models.AnwapSeasonPlaylist
 import data.utils.isNumeric
 import kotlinx.coroutines.Dispatchers
@@ -631,29 +632,43 @@ class JsoupUpdateInteractorImpl constructor(
             try {
                 val baseUrl = updateRepository.baseUrl.trimEnd('/')
                 val encoded = URLEncoder.encode(trimmed, "UTF-8")
-                val items = mutableListOf<SiteSearchItem>()
+                val films = mutableListOf<SiteSearchItem>()
+                val serials = mutableListOf<SiteSearchItem>()
+                // Фильмы идут первыми: у сайта поиск сериалов строго по названию и для
+                // латинского запроса он часто пуст, а точное совпадение среди фильмов
+                // не должно оказываться ниже одинаково нулевых сериалов.
+                val filmsUrl = "$baseUrl${Selectors.SEARCH_FILMS_URL}" +
+                        "?${Selectors.SEARCH_FILMS_QUERY_PARAM}=$encoded" +
+                        "&${Selectors.SEARCH_VID_PARAM}=${Selectors.SEARCH_VID_TITLES}" +
+                        "&${Selectors.SEARCH_PAGE_PARAM}=$page"
+                films.addAll(loadSearchItems(filmsUrl))
                 if (page <= 1) {
                     // У поиска сериалов пагинации нет — одна страница результатов.
                     val serialsUrl = "$baseUrl${Selectors.SEARCH_SERIALS_URL}" +
                             "?${Selectors.SEARCH_SERIALS_QUERY_PARAM}=$encoded" +
                             "&${Selectors.SEARCH_VID_PARAM}=${Selectors.SEARCH_VID_TITLES}"
-                    items.addAll(loadSearchItems(serialsUrl))
+                    serials.addAll(loadSearchItems(serialsUrl))
                 }
-                val filmsUrl = "$baseUrl${Selectors.SEARCH_FILMS_URL}" +
-                        "?${Selectors.SEARCH_FILMS_QUERY_PARAM}=$encoded" +
-                        "&${Selectors.SEARCH_VID_PARAM}=${Selectors.SEARCH_VID_TITLES}" +
-                        "&${Selectors.SEARCH_PAGE_PARAM}=$page"
-                items.addAll(loadSearchItems(filmsUrl))
-                DataResult.Success(items.distinctBy { it.pageUrl })
+                val items = (films + serials).distinctBy { it.pageUrl }
+                DataResult.Success(
+                    SearchRelevance.rank(trimmed, items) { item ->
+                        listOf(item.title, item.origTitle)
+                    }
+                )
             } catch (e: Exception) {
                 Timber.e(e, "searchOnSite failed")
                 DataResult.Error(e)
             }
         }
 
+    /**
+     * Карточки со страницы результатов. Когда сайт пишет «ничего не найдено», он ниже
+     * показывает fallback-подборку в той же разметке — её отбрасываем, иначе поиск
+     * выдаёт чужие тайтлы как свои результаты.
+     */
     private suspend fun loadSearchItems(url: String): List<SiteSearchItem> {
         val document = loadPage(url)
-        return getSearchItems(document, document.location())
+        return getSearchPageItems(document, document.location())
     }
 
     override suspend fun fetchAndSaveMovieCard(url: String): DataResult<Long> =

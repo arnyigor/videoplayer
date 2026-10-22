@@ -7,6 +7,10 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
+import com.arny.mobilecinema.data.repository.playback.PlaybackProgressStore
+import com.arny.mobilecinema.domain.playback.NextEpisodeResolver
+import com.arny.mobilecinema.domain.playback.ResumeTarget
+import com.arny.mobilecinema.domain.playback.legacyPlayableRef
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SaveData
@@ -25,6 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
 import timber.log.Timber
 
 data class PlayerUiState(
@@ -37,10 +42,17 @@ data class PlayerUiState(
     val version: Long = 0,
 )
 
+/** Позиция продолжения из общего стора: серия каталога + время. */
+private data class PlayableResume(val seasonIndex: Int, val episodeIndex: Int, val positionMs: Long)
+
 class PlayerViewModel(
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
     private val feedbackInteractor: FeedbackInteractor,
+    /** Общий с TV слой прогресса: единственный владелец записи прогресса (MOB-10B). */
+    private val progressStore: PlaybackProgressStore,
+    /** Определяет актуальную серию по общему прогрессу — как на TV (MOB-10A). */
+    private val resolver: NextEpisodeResolver = NextEpisodeResolver(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlayerUiState())
@@ -88,6 +100,17 @@ fun setPlayData(
             when (dataResult) {
                 is DataResult.Error -> {
                     _error.trySend(ThrowableString(dataResult.throwable))
+                    // Не оставляем плеер без состояния: иначе экран ждёт данные, которых не будет.
+                    _uiState.update { current ->
+                        PlayerUiState(
+                            path = path,
+                            movie = movie,
+                            season = seasonIndex,
+                            episode = episodeIndex,
+                            time = 0L,
+                            version = current.version + 1,
+                        )
+                    }
                 }
 
                 is DataResult.Success -> {
@@ -98,6 +121,7 @@ fun setPlayData(
                         saveData = saveData,
                         argsSeason = seasonIndex,
                         argsEpisode = episodeIndex,
+                        sharedResume = sharedResume(movie),
                     )
 
                     lastKnownPosition = resolvedTime
@@ -119,14 +143,45 @@ fun setPlayData(
         }
     }
 
+/**
+ * Позиция из общего стора (DOM-04). Приоритетнее history: телефон и TV должны
+ * продолжать с одного места. Пустой стор или ошибка чтения — работаем по history.
+ */
+private suspend fun sharedResume(movie: Movie?): PlayableResume? {
+    val store = progressStore
+    val current = movie ?: return null
+    val progress = runCatching { store.progressForMovie(current.dbId) }
+        .onFailure { Timber.e(it, "sharedResume: failed to read progress") }
+        .getOrNull()
+        .orEmpty()
+    if (progress.isEmpty()) return null
+    return when (val target = resolver.resumeTarget(current, progress)) {
+        is ResumeTarget.Resume -> PlayableResume(target.ref.seasonIndex, target.ref.episodeIndex, target.positionMs)
+        is ResumeTarget.Start -> PlayableResume(target.ref.seasonIndex, target.ref.episodeIndex, 0L)
+        is ResumeTarget.Restart -> PlayableResume(target.ref.seasonIndex, target.ref.episodeIndex, 0L)
+        is ResumeTarget.Unavailable -> null
+    }
+}
+
 private fun resolvePosition(
         movie: Movie?,
         saveData: SaveData,
         argsSeason: Int,
         argsEpisode: Int,
+        sharedResume: PlayableResume? = null,
     ): Triple<Int, Int, Long> {
         if (movie == null) {
             return Triple(0, 0, 0L)
+        }
+
+        // Серия из общего прогресса важнее history; явный выбор другой серии сохраняется.
+        if (sharedResume != null) {
+            val requestedEpisode = argsSeason != 0 || argsEpisode != 0
+            val sameAsShared = argsSeason == sharedResume.seasonIndex &&
+                argsEpisode == sharedResume.episodeIndex
+            if (sameAsShared || !requestedEpisode) {
+                return Triple(sharedResume.seasonIndex, sharedResume.episodeIndex, sharedResume.positionMs)
+            }
         }
 
         return when (movie.type) {
@@ -213,25 +268,38 @@ private fun resolvePosition(
         }
     }
 
-    fun addPlaybackProgress(
-        dbId: Long?,
-        season: Int,
-        episode: Int,
-        playedMs: Long
+    /**
+     * Единственная запись прогресса мобильного плеера (MOB-10B).
+     *
+     * `seasonIndex`/`episodeIndex` — координаты каталога; они переводятся в `playableId` тем же
+     * маппером, что и ленивая миграция старых строк, поэтому прогресс с телефона виден на TV
+     * и наоборот. `positionMs` — позиция для продолжения, `playedMsDelta` — проигранное время
+     * с прошлого тика; оба значения пишутся в одну строку. Ошибка записи не должна ронять
+     * воспроизведение, поэтому корутина отвязана от отмены ViewModel.
+     */
+    fun recordProgress(
+        movie: Movie?,
+        seasonIndex: Int,
+        episodeIndex: Int,
+        positionMs: Long,
+        durationMs: Long?,
+        playedMsDelta: Long = 0L,
     ) {
-        if (dbId == null || playedMs <= 0L) return
-
-        viewModelScope.launch {
+        if (movie == null) return
+        if (positionMs <= 0L && playedMsDelta <= 0L) return
+        val ref = movie.legacyPlayableRef(seasonIndex, episodeIndex) ?: return
+        viewModelScope.launch(NonCancellable) {
             try {
-                historyInteractor.addPlaybackProgress(
-                    movieDbId = dbId,
-                    season = season,
-                    episode = episode,
-                    playedMs = playedMs
+                progressStore.record(
+                    ref = ref,
+                    positionMs = positionMs,
+                    durationMs = durationMs,
+                    legacySeasonIndex = seasonIndex,
+                    legacyEpisodeIndex = episodeIndex,
+                    playedMsDelta = playedMsDelta,
                 )
             } catch (e: Exception) {
-                // Периодическая фоновая запись не должна ронять приложение при сбое БД/диска.
-                Timber.e(e, "addPlaybackProgress failed")
+                Timber.e(e, "recordProgress failed")
             }
         }
     }

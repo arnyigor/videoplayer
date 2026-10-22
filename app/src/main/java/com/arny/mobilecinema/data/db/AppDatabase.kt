@@ -20,7 +20,7 @@ import com.arny.mobilecinema.data.db.models.PlaybackProgressEntity
         FavoriteEntity::class,
         PlaybackProgressEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -138,6 +138,58 @@ abstract class AppDatabase : RoomDatabase() {
                     ADD COLUMN `detailsFetchedAt` INTEGER NOT NULL DEFAULT 0
                     """.trimIndent()
                 )
+            }
+        }
+
+        /**
+         * Миграция 7 → 8
+         *
+         * Вводит стабильный playableId и полноценный прогресс: позиция, длительность,
+         * завершение, профиль. Строки старого формата получают playable_id = "legacy:...",
+         * номер сезона/серии и переносятся лениво при открытии тайтла.
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE playback_progress ADD COLUMN playable_id TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE playback_progress ADD COLUMN profile_id TEXT NOT NULL DEFAULT 'default'")
+                db.execSQL("ALTER TABLE playback_progress ADD COLUMN position_ms INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE playback_progress ADD COLUMN duration_ms INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE playback_progress ADD COLUMN season_number INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE playback_progress ADD COLUMN episode_number INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE playback_progress ADD COLUMN completed INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE playback_progress ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0")
+
+                db.execSQL("DROP INDEX IF EXISTS index_playback_progress_movie_dbid_season_episode")
+
+                db.execSQL(
+                    """
+                    UPDATE playback_progress
+                    SET playable_id = 'legacy:' || movie_dbid || ':' || season || ':' || episode,
+                        updated_at = latest_time
+                    WHERE playable_id = ''
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    UPDATE playback_progress
+                    SET season_number = CASE
+                            WHEN (SELECT type FROM movies WHERE movies.dbId = playback_progress.movie_dbid) = 2
+                            THEN season + 1 ELSE 0 END,
+                        episode_number = CASE
+                            WHEN (SELECT type FROM movies WHERE movies.dbId = playback_progress.movie_dbid) = 2
+                            THEN episode + 1 ELSE 0 END
+                    """.trimIndent()
+                )
+
+                // Индекс создаётся только после backfill: до него у всех строк playable_id = ''.
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_playback_progress_profile_id_playable_id " +
+                        "ON playback_progress (profile_id, playable_id)"
+                )
+
+                db.execSQL("ALTER TABLE history ADD COLUMN last_playable_id TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE history ADD COLUMN duration_ms INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE history ADD COLUMN completed INTEGER NOT NULL DEFAULT 0")
             }
         }
 

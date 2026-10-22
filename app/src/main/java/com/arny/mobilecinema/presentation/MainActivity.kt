@@ -10,10 +10,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
+import androidx.navigation.ui.NavigationUI
 import androidx.navigation.ui.setupWithNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.AMainBinding
 import com.arny.mobilecinema.presentation.listeners.OnPictureInPictureListener
+import com.arny.mobilecinema.presentation.listeners.OnScrollToTopListener
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.utils.showSnackBar
 
@@ -22,6 +24,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: AMainBinding
     private lateinit var navController: NavController
     private var backPressedTime: Long = 0
+
+    /**
+     * Вкладка, выбранная пользователем в нижнем меню. Отличает корень вкладки от экрана,
+     * который открыт с неё же (например, «Поиск» от главной): у первого Back выходит
+     * из приложения, у второго — возвращает назад.
+     */
+    private var selectedTabId: Int = R.id.nav_home
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Koin injection
@@ -36,6 +45,18 @@ class MainActivity : AppCompatActivity() {
 
         // Hook your navigation controller to bottom navigation view
         binding.bottomNavView.setupWithNavController(navController)
+        // Та же навигация, что настраивает NavigationUI, плюс запоминание выбранной вкладки.
+        binding.bottomNavView.setOnItemSelectedListener { item ->
+            val handled = NavigationUI.onNavDestinationSelected(item, navController)
+            if (handled) selectedTabId = item.itemId
+            handled
+        }
+        // Повторный тап по текущей вкладке — наверх, без сброса её состояния.
+        binding.bottomNavView.setOnItemReselectedListener { item ->
+            if (navController.currentDestination?.id == item.itemId) {
+                (getCurrentFragment() as? OnScrollToTopListener)?.scrollToTop()
+            }
+        }
 
         initOnBackPress()
         initUI()
@@ -43,7 +64,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun initUI() {
         navController.addOnDestinationChangedListener { _, destination, _ ->
-            // Bottom navigation - скрываем для PlayerView, Details, ExtendedSearch
+            // Bottom navigation - скрываем для PlayerView, Details, ExtendedSearch, Comments
             showBottomNav(
                 destination.id !in listOf(
                     R.id.nav_player_view,
@@ -52,6 +73,12 @@ class MainActivity : AppCompatActivity() {
                     R.id.nav_comments,
                 )
             )
+            // Программный переход на корневой экран (действие на экране, deep link) должен
+            // подсвечивать соответствующую вкладку, иначе нижняя панель противоречит экрану.
+            val tabItem = binding.bottomNavView.menu.findItem(destination.id)
+            if (tabItem != null && binding.bottomNavView.selectedItemId != tabItem.itemId) {
+                binding.bottomNavView.selectedItemId = tabItem.itemId
+            }
         }
     }
 
@@ -102,7 +129,7 @@ class MainActivity : AppCompatActivity() {
     private fun initOnBackPress() {
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                val isLastFragment = navController.currentDestination?.id == R.id.nav_home
+                val isLastFragment = navController.currentDestination?.id == selectedTabId
                 val currentFragment = getCurrentFragment()
                 when {
                     currentFragment is OnSearchListener && currentFragment.isSearchComplete() -> {

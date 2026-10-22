@@ -22,7 +22,7 @@
             android:layout_height="?attr/actionBarSize"
             android:background="@drawable/gradient_toolbar_home"
             app:contentInsetStartWithNavigation="0dp"
-            app:title="@string/app_name"
+            app:title="@string/app_brand"
             app:titleTextAppearance="@style/ToolbarTitleStyle"
             app:titleTextColor="@android:color/white" />
 
@@ -145,6 +145,7 @@
             app:spanCount="2"
             tools:listitem="@layout/i_home_video" />
 
+
         <ProgressBar
             android:id="@+id/pbLoading"
             android:layout_width="48dp"
@@ -254,6 +255,31 @@
                 app:strokeWidth="1dp" />
         </LinearLayout>
 
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/composeHome"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/homeContentTypeGroup" />
+
+        <!--
+            Каталог «Фильмы»/«Сериалы» внутри главной (аудит v2, CAT-01).
+            Накрывает ленту целиком: лента и её состояния остаются живы под ним,
+            поэтому переключение режима не сбрасывает прокрутку и данные.
+        -->
+        <FrameLayout
+            android:id="@+id/catalogHost"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@color/colorPrimary"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/homeContentTypeGroup" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

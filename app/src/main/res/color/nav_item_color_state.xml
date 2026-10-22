@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_checked="true" android:color="@color/colorAccentSecondary" /> <!-- Голубой для активного -->
+    <!-- Активная вкладка — брендовый акцент. Голубой акцент убран: на экране были
+         два несвязанных активных цвета (аудит UI-01). -->
+    <item android:state_checked="true" android:color="@color/colorAccent" />
     <item android:color="@color/textColorSecondary" /> <!-- Серый для неактивного -->
 </selector>

@@ -273,5 +273,73 @@
                 app:exitAnim="@anim/fade_out"
                 app:popEnterAnim="@anim/fade_in"
                 app:popExitAnim="@anim/fade_out" />
+        <!-- Из пустого избранного ведём искать (аудит v2, §6). -->
+        <action
+                android:id="@+id/action_favoritesFragment_to_nav_site_search"
+                app:destination="@id/nav_site_search"
+                app:launchSingleTop="true"
+                app:enterAnim="@anim/fade_in"
+                app:exitAnim="@anim/fade_out"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
+    </fragment>
+
+    <fragment
+            android:id="@+id/nav_catalog_movies"
+            android:name="com.arny.mobilecinema.presentation.mobile.catalog.MobileCatalogFragment"
+            android:label="MobileCatalogFragment">
+        <argument
+                android:name="section"
+                app:argType="string"
+                android:defaultValue="FILMS" />
+        <action
+                android:id="@+id/action_nav_catalog_to_nav_details"
+                app:destination="@id/nav_details"
+                app:enterAnim="@anim/fade_in"
+                app:exitAnim="@anim/fade_out"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
+    </fragment>
+    <fragment
+            android:id="@+id/nav_catalog_series"
+            android:name="com.arny.mobilecinema.presentation.mobile.catalog.MobileCatalogFragment"
+            android:label="MobileCatalogFragment">
+        <argument
+                android:name="section"
+                app:argType="string"
+                android:defaultValue="SERIES" />
+        <action
+                android:id="@+id/action_nav_catalog_to_nav_details"
+                app:destination="@id/nav_details"
+                app:enterAnim="@anim/fade_in"
+                app:exitAnim="@anim/fade_out"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
+    </fragment>
+    <fragment
+            android:id="@+id/nav_my"
+            android:name="com.arny.mobilecinema.presentation.mobile.my.MobileMyFragment"
+            android:label="MobileMyFragment">
+        <action
+                android:id="@+id/action_nav_my_to_nav_history"
+                app:destination="@id/nav_history"
+                app:enterAnim="@anim/fade_in"
+                app:exitAnim="@anim/fade_out"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
+        <action
+                android:id="@+id/action_nav_my_to_nav_favorite"
+                app:destination="@id/nav_favorite"
+                app:enterAnim="@anim/fade_in"
+                app:exitAnim="@anim/fade_out"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
+        <action
+                android:id="@+id/action_nav_my_to_nav_prefs"
+                app:destination="@id/nav_prefs"
+                app:enterAnim="@anim/fade_in"
+                app:exitAnim="@anim/fade_out"
+                app:popEnterAnim="@anim/fade_in"
+                app:popExitAnim="@anim/fade_out" />
     </fragment>
 </navigation>

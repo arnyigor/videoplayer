@@ -13,6 +13,7 @@ work = "2.8.0"
 splashscreen = "1.0.0"
 coordinatorlayout = "1.0.0"
 coroutines = "1.6.4"
+coroutinesTest = "1.6.4"
 lifecycleViewModel = "2.3.1"
 lifecycleExtensions = "2.2.0"
 lifecycleRuntimeKtx = "2.7.0"
@@ -45,7 +46,9 @@ bouncycastle = "1.46"
 ffmpeg = "2.1.0"
 leanback = "1.0.0"
 leanbackPaging = "1.1.0-alpha11"
-composeBom = "2024.02.02"
+composeBom = "2024.06.00"
+tvMaterial = "1.0.1"
+coil = "2.7.0"
 junit = "4.13.2"
 junitJupiter = "5.5.2"
 guava = "28.1-android"
@@ -76,6 +79,7 @@ androidx-lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtim
 androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 androidx-navigation-fragment-ktx = { module = "androidx.navigation:navigation-fragment-ktx", version.ref = "navigation" }
 androidx-navigation-ui-ktx = { module = "androidx.navigation:navigation-ui-ktx", version.ref = "navigation" }
 androidx-preference = { module = "androidx.preference:preference", version.ref = "preference" }
@@ -133,6 +137,8 @@ androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-tv-material = { module = "androidx.tv:tv-material", version.ref = "tvMaterial" }
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 junit = { module = "junit:junit", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junitJupiter" }

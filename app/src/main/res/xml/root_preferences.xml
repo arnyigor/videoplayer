@@ -1,12 +1,55 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <PreferenceCategory app:title="@string/pref_common">
+    <!--
+        Переходные флаги интерфейса (витрина, главная на Compose) и технические экраны:
+        категория целиком удаляется в release (DBG-01, аудит v2 §6).
+    -->
+    <PreferenceCategory
+        android:key="@string/pref_key_developer_category"
+        app:title="@string/pref_developer">
+
         <CheckBoxPreference
             android:defaultValue="true"
             android:key="@string/pref_key_home_highlights_enabled"
             android:summary="@string/pref_summary_home_highlights_enabled"
             android:title="@string/pref_title_home_highlights_enabled" />
+
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:key="@string/pref_key_compose_home"
+            android:summary="@string/pref_summary_compose_home"
+            android:title="@string/pref_title_compose_home" />
+
+        <Preference
+            android:key="@string/pref_key_developer_compose_test"
+            android:summary="@string/pref_summary_compose_test"
+            android:title="@string/menu_compose_test" />
+    </PreferenceCategory>
+
+    <!-- Служебные операции с каталогом: check → preview → apply → report (SYNC-01). -->
+    <PreferenceCategory app:title="@string/pref_catalog">
+
+        <Preference
+            android:key="@string/pref_key_sync_status"
+            android:selectable="false"
+            android:summary="@string/pref_sync_status_never"
+            android:title="@string/pref_sync_status" />
+
+        <Preference
+            android:key="@string/pref_key_sync_check"
+            android:summary="@string/pref_sync_check_summary"
+            android:title="@string/pref_sync_check" />
+
+        <Preference
+            android:key="@string/pref_key_sync_load"
+            android:summary="@string/pref_sync_load_summary"
+            android:title="@string/pref_sync_load" />
+
+        <Preference
+            android:key="@string/pref_key_sync_full"
+            android:summary="@string/pref_sync_full_summary"
+            android:title="@string/pref_sync_full" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/pref_player">
@@ -15,6 +58,12 @@
             android:key="@string/pref_key_pip_mode"
             android:summary="@string/pref_summary_pip_mode"
             android:title="@string/pref_title_pip_mode"/>
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="@string/pref_key_autoplay_next"
+            android:summary="@string/pref_summary_autoplay_next"
+            android:title="@string/pref_title_autoplay_next" />
 
         <EditTextPreference
             android:defaultValue="1000"

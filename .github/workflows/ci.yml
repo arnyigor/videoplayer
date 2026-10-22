@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: temurin
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Build-time secrets are not needed for compilation/tests, but the plugin
+      # requires the file to exist and the keys to be present.
+      - name: Create placeholder app secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > secrets.properties <<'EOF'
+          DATA_LINK=https://example.invalid/data.zip
+          DATA_0_LINK=https://example.invalid/data_0.zip
+          BASE_LINK_FILE=https://example.invalid/base_link.txt
+          UPDATE_LINK=https://example.invalid/update.json
+          BASE_LINK=https://example.invalid
+          FEEDBACK_URL=https://example.invalid/feedback
+          FEEDBACK_API_KEY=ci-placeholder
+          EOF
+
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
+      - name: Lint (report only)
+        continue-on-error: true
+        run: ./gradlew :app:lintDebug --no-daemon
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: ignore
+
+      - name: Remove temporary secrets
+        if: always()
+        shell: bash
+        run: rm -f secrets.properties

@@ -7,30 +7,35 @@ import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.getWithDomain
+import com.arny.mobilecinema.presentation.utils.dpToPx
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.PrefsConstants
-import com.arny.mobilecinema.domain.models.SiteSearchItem
+import com.arny.mobilecinema.domain.search.SearchHit
 import com.bumptech.glide.Glide
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 /**
- * Карточка результата поиска по сайту. В БД карточки ещё нет — только предпросмотр.
+ * Карточка результата единого поиска. У локального тайтла есть `stableId`, у внешнего —
+ * только `siteRef`: в БД он попадёт при открытии.
  */
 class SiteSearchCardPresenter : Presenter(), KoinComponent {
 
     private val prefs: Prefs by inject()
 
     companion object {
-        private const val CARD_WIDTH = 313
-        private const val CARD_HEIGHT = 176
+        private const val CARD_WIDTH_DP = 156
+        private const val CARD_HEIGHT_DP = 88
     }
 
     override fun onCreateViewHolder(parent: ViewGroup): ViewHolder {
         val cardView = ImageCardView(parent.context).apply {
             isFocusable = true
             isFocusableInTouchMode = true
-            setMainImageDimensions(CARD_WIDTH, CARD_HEIGHT)
+            setMainImageDimensions(
+                CARD_WIDTH_DP.dpToPx(context),
+                CARD_HEIGHT_DP.dpToPx(context)
+            )
             setMainImageScaleType(ImageView.ScaleType.CENTER_CROP)
         }
         TvCardFocusHelper.setup(cardView)
@@ -38,14 +43,14 @@ class SiteSearchCardPresenter : Presenter(), KoinComponent {
     }
 
     override fun onBindViewHolder(viewHolder: ViewHolder, item: Any?) {
-        val siteItem = item as? SiteSearchItem ?: return
+        val siteItem = item as? SearchHit ?: return
         val cardView = viewHolder.view as ImageCardView
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
 
         val contentText = buildList {
             if (siteItem.year > 0) add(siteItem.year.toString())
             add(
-                when (siteItem.type) {
+                when (siteItem.kind) {
                     MovieType.SERIAL -> cardView.context.getString(R.string.serial)
                     MovieType.CINEMA -> cardView.context.getString(R.string.cinema)
                     else -> ""
@@ -63,9 +68,9 @@ class SiteSearchCardPresenter : Presenter(), KoinComponent {
 
             TvCardFocusHelper.applyFocusState(this, hasFocus())
 
-            if (siteItem.img.isNotBlank()) {
+            if (siteItem.posterUrl.isNotBlank()) {
                 Glide.with(context)
-                    .load(siteItem.img.getWithDomain(baseUrl))
+                    .load(siteItem.posterUrl.getWithDomain(baseUrl))
                     .centerCrop()
                     .placeholder(R.drawable.placeholder_movie)
                     .error(R.drawable.placeholder_movie)

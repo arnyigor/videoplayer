@@ -12,6 +12,7 @@ import com.arny.mobilecinema.data.models.MovieMapper
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.network.jsoup.JsoupServiceHelper
 import com.arny.mobilecinema.data.repository.MoviesRepositoryImpl
+import com.arny.mobilecinema.data.repository.playback.PlaybackProgressStore
 import com.arny.mobilecinema.data.repository.jsoupupdate.JsoupUpdateRepositoryImpl
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.repository.resources.AppResourcesProvider
@@ -28,19 +29,24 @@ import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractorImpl
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractorImpl
+import com.arny.mobilecinema.domain.playback.NextEpisodeResolver
+import com.arny.mobilecinema.domain.playback.ProgressCompletionPolicy
 import com.arny.mobilecinema.domain.repository.JsoupUpdateRepository
 import com.arny.mobilecinema.domain.repository.MoviesRepository
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.comments.CommentsViewModel
 import com.arny.mobilecinema.presentation.details.DetailsViewModel
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendedSearchViewModel
+import com.arny.mobilecinema.presentation.settings.CatalogSyncViewModel
 import com.arny.mobilecinema.presentation.sitesearch.SiteSearchViewModel
 import com.arny.mobilecinema.presentation.favorite.FavoritesViewModel
 import com.arny.mobilecinema.presentation.history.HistoryViewModel
 import com.arny.mobilecinema.presentation.home.HomeViewModel
 import com.arny.mobilecinema.presentation.player.PlayerSource
+import com.arny.mobilecinema.presentation.mobile.home.MobileHomeViewModel
 import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import com.arny.mobilecinema.presentation.splash.SplashViewModel
+import com.arny.mobilecinema.presentation.catalog.CatalogViewModel
 import com.arny.mobilecinema.presentation.tv.home.TvHomeViewModel
 import com.arny.mobilecinema.presentation.tv.search.TvSearchViewModel
 import com.arny.mobilecinema.presentation.tv.viewmodel.TvDetailsViewModel
@@ -78,6 +84,7 @@ val dataModule = module {
                 AppDatabase.MIGRATION_4_5,
                 AppDatabase.MIGRATION_5_6,
                 AppDatabase.MIGRATION_6_7,
+                AppDatabase.MIGRATION_7_8,
             )
             .build()
     }
@@ -90,10 +97,20 @@ val dataModule = module {
     single<MoviesRepository> { MoviesRepositoryImpl(get(), get(), get(), get(), get(), get(), get()) }
     single<JsoupUpdateRepository> { JsoupUpdateRepositoryImpl(get(), get()) }
     single<AppResourcesProvider> { AppResourcesProviderImpl(androidContext()) }
+    single {
+        PlaybackProgressStore(
+            playbackProgressDao = get(),
+            historyDao = get(),
+            policy = get(),
+            dispatcher = get<CoroutineDispatcher>(),
+        )
+    }
     single { PlayerSource(androidContext(), get(), get<CoroutineDispatcher>()) }
 }
 
 val domainModule = module {
+    single { ProgressCompletionPolicy() }
+    single { NextEpisodeResolver(get()) }
     single<MoviesInteractor> { MoviesInteractorImpl(get(), get(), get(), get<CoroutineDispatcher>()) }
     single<HistoryInteractor> { HistoryInteractorImpl(get(), get<CoroutineDispatcher>(), get()) }
     single<DataUpdateInteractor> { DataUpdateInteractorImpl(get()) }
@@ -106,12 +123,15 @@ val presentationModule = module {
     viewModel { (id: Long) -> DetailsViewModel(id, get(), get(), get(), get()) }
     viewModel { (pageUrl: String, title: String) -> CommentsViewModel(pageUrl, title, get()) }
     viewModel { ExtendedSearchViewModel(get()) }
-    viewModel { SiteSearchViewModel(get()) }
+    viewModel { SiteSearchViewModel(get(), get()) }
+    viewModel { CatalogSyncViewModel(get()) }
     viewModel { FavoritesViewModel(get()) }
     viewModel { HistoryViewModel(get(), get()) }
-    viewModel { PlayerViewModel(get(), get(), get()) }
+    viewModel { PlayerViewModel(get(), get(), get(), get()) }
+    viewModel { MobileHomeViewModel(get(), get(), get()) }
     viewModel { SplashViewModel(get()) }
-    viewModel { TvHomeViewModel(get(), get(), get()) }
-    viewModel { TvDetailsViewModel(get()) }
+    viewModel { TvHomeViewModel(get(), get(), get(), get()) }
+    viewModel { (sectionKey: String) -> CatalogViewModel(get(), sectionKey) }
+    viewModel { TvDetailsViewModel(get(), get(), get()) }
     viewModel { TvSearchViewModel(get()) }
 }

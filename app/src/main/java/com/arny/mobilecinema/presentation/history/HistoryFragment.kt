@@ -22,10 +22,12 @@ import com.arny.mobilecinema.databinding.FHistoryBinding
 import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.uimodels.ListScreenState
+import com.arny.mobilecinema.presentation.utils.PosterGrid
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
 import com.arny.mobilecinema.presentation.utils.launchWhenCreated
+import com.arny.mobilecinema.presentation.utils.isRootDestination
 import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.setupSearchView
 import kotlinx.coroutines.flow.collectLatest
@@ -69,8 +71,14 @@ class HistoryFragment : Fragment(), OnSearchListener {
     }
 
     private fun initToolbar() {
-        binding.toolbar.setNavigationOnClickListener {
-            findNavController().navigateUp()
+        // История — корневая вкладка (аудит v2, §3): стрелка назад нужна только когда
+        // экран открыт поверх другого (например, из деталей).
+        if (!isRootDestination()) {
+            binding.toolbar.setNavigationOnClickListener {
+                findNavController().navigateUp()
+            }
+        } else {
+            binding.toolbar.navigationIcon = null
         }
     }
 
@@ -88,7 +96,9 @@ class HistoryFragment : Fragment(), OnSearchListener {
 
     private fun initMenu() {
         binding.toolbar.inflateMenu(R.menu.history_menu)
-        binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back)
+        if (!isRootDestination()) {
+            binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back)
+        }
         val menu = binding.toolbar.menu
         searchMenuItem = menu.findItem(R.id.action_search)
         searchView = setupSearchView(
@@ -247,9 +257,22 @@ class HistoryFragment : Fragment(), OnSearchListener {
         )
     }
 
+    private fun posterSpans(): Int = PosterGrid.spansFor(
+        PosterGrid.windowWidthDp(requireContext(), horizontalPaddingDp = 8)
+    )
+
+    private fun posterWidthPx(): Int = PosterGrid.posterWidthPx(
+        widthDp = PosterGrid.windowWidthDp(requireContext(), horizontalPaddingDp = 8),
+        spans = posterSpans(),
+        density = resources.displayMetrics.density,
+    )
+
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapter(baseUrl) { item ->
+        itemsAdapter = VideoItemsAdapter(
+            baseUrl = baseUrl,
+            posterWidthPx = posterWidthPx(),
+        ) { item ->
             val action = HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId)
             findNavController().navigateSafely(action)
         }
@@ -285,6 +308,9 @@ class HistoryFragment : Fragment(), OnSearchListener {
         binding.rvHistoryList.apply {
             adapter = itemsAdapter
             setHasFixedSize(true)
+            // Сетка из XML приходит с spanCount=2; на планшете колонок должно быть больше (MOB-07).
+            (layoutManager as? androidx.recyclerview.widget.GridLayoutManager)
+                ?.spanCount = posterSpans()
         }
 
         // Кнопка Retry

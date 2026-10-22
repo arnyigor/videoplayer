@@ -17,13 +17,17 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SearchView
+import android.widget.TextView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.view.MenuProvider
+import androidx.core.widget.doAfterTextChanged
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResultListener
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.paging.LoadState
 import androidx.recyclerview.widget.ConcatAdapter
@@ -34,15 +38,41 @@ import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.FilePathUtils
 import com.arny.mobilecinema.data.utils.getConnectionType
+import com.arny.mobilecinema.databinding.DAddByLinkBinding
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHomeBinding
 
+import com.arny.mobilecinema.domain.links.SiteLink
+import com.arny.mobilecinema.domain.links.SiteLinkParser
+import com.arny.mobilecinema.domain.links.SiteLinkResult
+import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.presentation.extendedsearch.ExtendSearchResult
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
+import com.arny.mobilecinema.presentation.catalog.CatalogSection
+import com.arny.mobilecinema.presentation.catalog.CatalogViewModel
+import com.arny.mobilecinema.presentation.mobile.ui.catalog.MobileCatalogScreen
+import com.arny.mobilecinema.presentation.mobile.ui.theme.MobileDimens
+import com.arny.mobilecinema.presentation.mobile.home.MobileHomeViewModel
+import com.arny.mobilecinema.presentation.mobile.ui.home.MobileHomeScreen
+import com.arny.mobilecinema.presentation.mobile.ui.theme.MobileTheme
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import com.arny.mobilecinema.presentation.listeners.OnScrollToTopListener
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.uimodels.AlertType
+import com.arny.mobilecinema.presentation.utils.PosterGrid
 import com.arny.mobilecinema.presentation.utils.DeviceUtils
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
@@ -63,19 +93,22 @@ import com.arny.mobilecinema.presentation.utils.toastError
 import com.arny.mobilecinema.presentation.utils.unlockOrientation
 import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
 import com.arny.mobilecinema.presentation.utils.updateTitle
+import com.afollestad.materialdialogs.MaterialDialog
 import com.google.android.material.chip.Chip
+import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.flow.collectLatest
 import timber.log.Timber
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import org.koin.core.parameter.parametersOf
 
 /**
  * HomeFragment handles the primary UI for browsing videos.
  * It coordinates with [HomeViewModel] to fetch and display data,
  * manages search state, user permissions, and interactions with other app components.
  */
-class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
+class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinComponent {
     /** Companion object holding request codes for activity results. */
     private companion object {
         const val REQUEST_LOAD: Int = 99
@@ -86,6 +119,33 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
     private val prefs: Prefs by inject()
 
     private val viewModel: HomeViewModel by viewModel()
+
+    /** Главная на Compose (MOB-09C); создаётся только когда включён флаг в настройках. */
+    private val mobileHomeViewModel: MobileHomeViewModel by viewModel()
+
+    /**
+     * Каталог внутри главной (CAT-01): на раздел свой ViewModel и своя прокрутка,
+     * поэтому Фильмы/Сериалы не делят фильтры и позицию с лентой «Все».
+     */
+    private val filmsCatalogViewModel: CatalogViewModel by viewModel {
+        parametersOf(CatalogSection.FILMS.name)
+    }
+    private val seriesCatalogViewModel: CatalogViewModel by viewModel {
+        parametersOf(CatalogSection.SERIES.name)
+    }
+    private val filmsGridState: LazyGridState by lazy {
+        LazyGridState(
+            firstVisibleItemIndex = filmsCatalogViewModel.gridFirstIndex,
+            firstVisibleItemScrollOffset = filmsCatalogViewModel.gridScrollOffset,
+        )
+    }
+    private val seriesGridState: LazyGridState by lazy {
+        LazyGridState(
+            firstVisibleItemIndex = seriesCatalogViewModel.gridFirstIndex,
+            firstVisibleItemScrollOffset = seriesCatalogViewModel.gridScrollOffset,
+        )
+    }
+    private val moviesInteractor: MoviesInteractor by inject()
     private lateinit var binding: FHomeBinding
     private var searchMenuItem: MenuItem? = null
     private var searchView: SearchView? = null
@@ -160,6 +220,8 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
     /** Initializes UI listeners and starts data loading. */
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        setupComposeHome()
+        setupCatalogHost()
         initToolbar()
         initListeners()
         initMenu()
@@ -181,7 +243,6 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         menu.findItem(R.id.action_search).isVisible = hasQuery
         menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
         menu.findItem(R.id.action_order_settings).isVisible = hasQuery
-        menu.findItem(R.id.action_extended_search_settings).isVisible = true
     }
 
     /** Sets up button listeners. */
@@ -208,6 +269,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         checkPermission()
         updateHomeContentTypeVisibility()
         updateHighlightsVisibility()
+        updateComposeHomeVisibility()
         viewModel.reloadList()
     }
 
@@ -457,7 +519,8 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         }
         itemsAdapter = VideoItemsAdapter(
             baseUrl = baseUrl,
-            showFreshness = true
+            showFreshness = true,
+            posterWidthPx = posterWidthPx()
         ) { item ->
             val action = HomeFragmentDirections.actionNavHomeToNavDetails(item.dbId)
             findNavController().navigateSafely(action)
@@ -498,7 +561,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
             val pagingAdapter = requireNotNull(itemsAdapter)
             val headerAdapter = requireNotNull(highlightsAdapter)
             val concatAdapter = ConcatAdapter(headerAdapter, pagingAdapter)
-            val gridLayoutManager = GridLayoutManager(context, 2).apply {
+            val gridLayoutManager = GridLayoutManager(context, posterSpans()).apply {
                 spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                     override fun getSpanSize(position: Int): Int =
                         if (position < headerAdapter.itemCount) spanCount else 1
@@ -514,6 +577,17 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
             itemsAdapter?.retry()
         }
     }
+
+    /** Колонок в сетке постеров: 2 на телефоне, до 6 на планшете (MOB-07). */
+    private fun posterSpans(): Int = PosterGrid.spansFor(
+        PosterGrid.windowWidthDp(requireContext(), horizontalPaddingDp = 8)
+    )
+
+    private fun posterWidthPx(): Int = PosterGrid.posterWidthPx(
+        widthDp = PosterGrid.windowWidthDp(requireContext(), horizontalPaddingDp = 8),
+        spans = posterSpans(),
+        density = resources.displayMetrics.density,
+    )
 
     /** Collects flows from the ViewModel and updates UI accordingly. */
     private fun observeData() {
@@ -552,6 +626,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                     binding.homeContentTypeGroup.check(checkedId)
                     syncingContentTypeSelection = false
                 }
+                updateCatalogVisibility()
             }
         }
         launchWhenCreated {
@@ -715,15 +790,173 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
 
     override fun isSearchComplete(): Boolean = emptySearch && !extendSearch
 
+    /** Повторный тап по вкладке «Главная» возвращает ленту в начало, не перезагружая данные. */
+    override fun scrollToTop() {
+        if (!isAdded || view == null) return
+        if (binding.catalogHost.isVisible) {
+            val gridState = when (viewModel.contentType.value) {
+                HomeContentType.CINEMA -> filmsGridState
+                HomeContentType.SERIAL -> seriesGridState
+                HomeContentType.ALL -> null
+            } ?: return
+            viewLifecycleOwner.lifecycleScope.launch { gridState.scrollToItem(0) }
+            return
+        }
+        binding.rcVideoList.smoothScrollToPosition(0)
+    }
+
     private fun updateHighlightsVisibility() {
         highlightsAdapter?.setShowHighlights(shouldShowHighlights())
+        updateComposeHomeVisibility()
+        // Поиск и сброс поиска меняют режим главной — каталог должен следовать за ним.
+        updateCatalogVisibility()
+    }
+
+    private fun isComposeHomeEnabled(): Boolean =
+        prefs.get<Boolean>(PrefsConstants.PREF_KEY_COMPOSE_HOME) ?: false
+
+    /**
+     * Compose-главная (MOB-09C) показывается только в обычном режиме ленты: во время поиска
+     * на экране остаётся прежний список, потому что результаты поиска живут в нём.
+     */
+    private fun updateComposeHomeVisibility() {
+        if (!isComposeHomeEnabled()) {
+            binding.composeHome.isVisible = false
+            return
+        }
+        binding.composeHome.isVisible = isSearchComplete()
+    }
+
+    /**
+     * Каталог «Фильмы»/«Сериалы» внутри главной (аудит v2, CAT-01).
+     *
+     * Вложенный экран накрывает ленту целиком, поэтому переключение разделов не сбрасывает
+     * ни позицию ленты, ни выдачу каталога. Видимостью управляет [updateCatalogVisibility].
+     */
+    private fun setupCatalogHost() {
+        val composeView = ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+        }
+        binding.catalogHost.addView(
+            composeView,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+        )
+        composeView.setContent {
+            MobileTheme(darkTheme = true) {
+                val contentType by viewModel.contentType.collectAsState()
+                when (contentType) {
+                    HomeContentType.ALL -> Unit
+                    HomeContentType.CINEMA -> CatalogSectionContent(
+                        catalogViewModel = filmsCatalogViewModel,
+                        gridState = filmsGridState,
+                    )
+
+                    HomeContentType.SERIAL -> CatalogSectionContent(
+                        catalogViewModel = seriesCatalogViewModel,
+                        gridState = seriesGridState,
+                    )
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun CatalogSectionContent(
+        catalogViewModel: CatalogViewModel,
+        gridState: LazyGridState,
+    ) {
+        val state by catalogViewModel.uiState.collectAsState()
+        val baseUrl = remember { prefs.get<String>(PrefsConstants.BASE_URL).orEmpty() }
+        DisposableEffect(catalogViewModel) {
+            onDispose {
+                catalogViewModel.saveGridScroll(
+                    gridState.firstVisibleItemIndex,
+                    gridState.firstVisibleItemScrollOffset,
+                )
+            }
+        }
+        MobileCatalogScreen(
+            state = state,
+            onOpenTitle = { movieId ->
+                findNavController().navigateSafely(
+                    HomeFragmentDirections.actionNavHomeToNavDetails(movieId)
+                )
+            },
+            onSelectSort = catalogViewModel::selectSort,
+            onSelectGenre = catalogViewModel::selectGenre,
+            onLoadMore = catalogViewModel::loadMore,
+            onRetry = catalogViewModel::retry,
+            imageBaseUrl = baseUrl,
+            gridState = gridState,
+            columns = PosterGrid.spansFor(
+                PosterGrid.windowWidthDp(
+                    requireContext(),
+                    horizontalPaddingDp = (MobileDimens.ScreenPadding.value * 2).toInt(),
+                )
+            ),
+            // Заголовок раздела уже есть в переключателе над каталогом.
+            showTitle = false,
+        )
+    }
+
+    /** Каталог показывается вместо ленты только в выбранном разделе и вне поиска. */
+    private fun updateCatalogVisibility() {
+        binding.catalogHost.isVisible =
+            isSearchComplete() && viewModel.contentType.value != HomeContentType.ALL
+    }
+
+    private fun setupComposeHome() {
+        if (!isComposeHomeEnabled()) return
+        binding.composeHome.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+        )
+        binding.composeHome.setContent {
+            MobileTheme(darkTheme = true) {
+                val homeState by mobileHomeViewModel.uiState.collectAsState()
+                MobileHomeScreen(
+                    state = homeState,
+                    onPlay = ::playMovie,
+                    onOpenDetails = { movieId ->
+                        findNavController().navigateSafely(
+                            HomeFragmentDirections.actionNavHomeToNavDetails(movieId)
+                        )
+                    },
+                    onRetry = mobileHomeViewModel::retry,
+                )
+            }
+        }
+    }
+
+    /**
+     * Запуск тайтла прямо с главной: плеер сам решает, что играть дальше (позиция, серия),
+     * поэтому отсюда передаётся только карточка тайтла. Без загруженного `Movie` плеер
+     * открывать нечего — тогда честно уходим в детали.
+     */
+    private fun playMovie(movieId: Long) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val movie = runCatching { moviesInteractor.getMovie(movieId).first() }
+                .getOrNull()
+            val data = (movie as? DataResult.Success)?.result
+            if (data == null) {
+                findNavController().navigateSafely(
+                    HomeFragmentDirections.actionNavHomeToNavDetails(movieId)
+                )
+                return@launch
+            }
+            findNavController().navigateSafely(
+                HomeFragmentDirections.actionNavHomeToNavPlayerView(null, data)
+            )
+        }
     }
 
     private fun updateHomeContentTypeVisibility() {
-        val showContentType = isHomeHighlightsEnabled() && !extendSearch
+        // Переключатель Все/Фильмы/Сериалы — постоянный режим главной, а не часть витрины.
+        val showContentType = isSearchComplete() && !extendSearch
         binding.homeContentTypeGroup.isVisible = showContentType
+        // Во время поиска режим сохраняется: раздел не должен теряться из-за ввода в строку.
         if (!showContentType &&
-            !extendSearch &&
+            extendSearch &&
             binding.homeContentTypeGroup.checkedButtonId != R.id.btnHomeContentAll
         ) {
             syncingContentTypeSelection = true
@@ -767,9 +1000,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
             menu.findItem(R.id.action_search).isVisible = hasQuery
             menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
             menu.findItem(R.id.action_order_settings).isVisible = hasQuery
-            menu.findItem(R.id.action_extended_search_settings).isVisible = true
-            menu.findItem(R.id.menu_action_compose_test).isVisible = com.arny.mobilecinema.BuildConfig.DEBUG
-        }
+            }
 
         val menu = binding.toolbar.menu
         searchMenuItem = menu.findItem(R.id.action_search)
@@ -787,6 +1018,8 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                 requireActivity().hideKeyboard()
                 updateMenuVisibility()
                 updateHighlightsVisibility()
+                // Переключатель Все/Фильмы/Сериалы прятался на время поиска и должен вернуться.
+                updateFilterChips()
             },
             onSubmitAvailable = true,
             onQuerySubmit = { query ->
@@ -813,9 +1046,10 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                     true
                 }
 
-                R.id.action_extended_search_settings -> {
+                // Настройки — не root-вкладка, а действие в тулбаре (аудит v2, §3).
+                R.id.action_settings -> {
                     findNavController().navigateSafely(
-                        HomeFragmentDirections.actionNavHomeToNavExtendedSearch()
+                        HomeFragmentDirections.actionNavHomeToNavPrefs()
                     )
                     true
                 }
@@ -823,24 +1057,21 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                 R.id.action_site_search -> {
                     val query = searchView?.query?.toString().orEmpty()
                     findNavController().navigateSafely(
+                        // Пустая строка, а не null: null означает «экран открыт как вкладка».
                         HomeFragmentDirections.actionNavHomeToNavSiteSearch()
-                            .setQuery(query.takeIf { it.isNotBlank() })
+                            .setQuery(query)
                     )
                     true
                 }
 
-                R.id.menu_action_check_update -> {
-                    showVideoUpdateDialog()
-                    true
-                }
-
+                // «Открыть ссылку» и «Импорт ссылки» — один диалог с двумя действиями.
                 R.id.menu_action_from_path -> {
-                    openPath()
+                    showAddByLinkDialog()
                     true
                 }
 
                 R.id.menu_action_import_link -> {
-                    showImportLinkDialog()
+                    showAddByLinkDialog()
                     true
                 }
 
@@ -849,36 +1080,9 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
                     true
                 }
 
-                R.id.menu_action_update_download_new -> {
-                    viewModel.onActionUpdateAll()
-                    true
-                }
-
-                R.id.menu_action_compose_test -> {
-                    if (com.arny.mobilecinema.BuildConfig.DEBUG) {
-                        startActivity(
-                            Intent().setClassName(
-                                requireContext(),
-                                "com.arny.mobilecinema.presentation.compose.ComposeTestActivity"
-                            )
-                        )
-                    }
-                    true
-                }
-
                 else -> false
             }
         }
-    }
-
-    private fun showVideoUpdateDialog() {
-        alertDialog(
-            title = getString(R.string.check_new_video_data),
-            btnCancelText = getString(android.R.string.cancel),
-            onConfirm = {
-                downloadData(force = true)
-            }
-        )
     }
 
     private fun showCustomOrderDialog() {
@@ -1041,35 +1245,95 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
         }
     }
 
-    private fun openPath() {
-        inputDialog(
-            title = getString(R.string.enter_url),
-            prefill = "",
-            btnOkText = getString(android.R.string.ok),
-            dialogListener = { result ->
-                findNavController().navigateSafely(
-                    HomeFragmentDirections.actionNavHomeToNavPlayerView(result, null)
-                )
+    /**
+     * Единый диалог «Добавить по ссылке» (MENU-01, аудит v2 §5.1).
+     *
+     * Один UI на два действия: `Открыть` отдаёт ссылку в плеер, `Сохранить в каталог` —
+     * в `UpdateService`. Семантика разная, поэтому действия разделены, а не слиты.
+     * Ссылка проверяется до любого действия: только http(s), только домены сайта,
+     * только путь карточки `/films/<id>` или `/serials/<id>`; внутренние адреса запрещены.
+     */
+    private fun showAddByLinkDialog() {
+        val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
+        var urlInput: TextInputEditText? = null
+        lateinit var dialog: MaterialDialog
+
+        fun currentLink(): SiteLink? =
+            (SiteLinkParser.parse(urlInput?.text?.toString().orEmpty(), baseUrl)
+                    as? SiteLinkResult.Valid)?.link
+
+        fun renderPreview(preview: TextView) {
+            val input = urlInput ?: return
+            when (val parsed = SiteLinkParser.parse(input.text?.toString().orEmpty(), baseUrl)) {
+                is SiteLinkResult.Valid -> {
+                    preview.setText(
+                        getString(
+                            if (parsed.link.kind == MovieType.SERIAL) {
+                                R.string.add_by_link_preview_serial
+                            } else {
+                                R.string.add_by_link_preview_film
+                            },
+                            parsed.link.movieId
+                        )
+                    )
+                    preview.setTextColor(ContextCompat.getColor(requireContext(), R.color.colorAccent))
+                }
+
+                is SiteLinkResult.Invalid -> {
+                    preview.setText(
+                        when (parsed.reason) {
+                            SiteLinkResult.Reason.EMPTY -> R.string.add_by_link_error_empty
+                            SiteLinkResult.Reason.NOT_HTTP -> R.string.add_by_link_error_scheme
+                            SiteLinkResult.Reason.UNSAFE_HOST -> R.string.add_by_link_error_unsafe
+                            SiteLinkResult.Reason.FOREIGN_HOST -> R.string.add_by_link_error_host
+                            SiteLinkResult.Reason.UNKNOWN_PATH -> R.string.add_by_link_error_path
+                        }
+                    )
+                    preview.setTextColor(
+                        ContextCompat.getColor(requireContext(), android.R.color.holo_red_light)
+                    )
+                }
+            }
+        }
+
+        dialog = createCustomLayoutDialog(
+            title = getString(R.string.add_by_link_title),
+            layout = R.layout.d_add_by_link,
+            autoDismiss = false,
+            btnOkText = getString(R.string.add_by_link_import),
+            btnNeutralText = getString(R.string.add_by_link_open),
+            btnCancelText = getString(android.R.string.cancel),
+            onConfirm = {
+                val link = currentLink()
+                if (link == null) {
+                    toast(getString(R.string.add_by_link_error_path))
+                } else {
+                    dialog.dismiss()
+                    importVideoByUrl(link.url)
+                }
+            },
+            onNeutral = {
+                val link = currentLink()
+                if (link == null) {
+                    toast(getString(R.string.add_by_link_error_path))
+                } else {
+                    dialog.dismiss()
+                    findNavController().navigateSafely(
+                        HomeFragmentDirections.actionNavHomeToNavPlayerView(link.url, null)
+                    )
+                }
+            },
+            initView = {
+                val binding = DAddByLinkBinding.bind(this)
+                urlInput = binding.tiedtLink
+                binding.tiedtLink.doAfterTextChanged { renderPreview(binding.tvLinkPreview) }
+                renderPreview(binding.tvLinkPreview)
+                binding.tiedtLink.requestFocus()
             }
         )
     }
 
     private var lastImportedUrl: String? = null
-
-    private fun showImportLinkDialog() {
-        inputDialog(
-            title = getString(R.string.import_link_dialog_title),
-            prefill = "",
-            hint = getString(R.string.enter_video_url_hint),
-            btnOkText = getString(android.R.string.ok),
-            btnCancelText = getString(android.R.string.cancel),
-            dialogListener = { url ->
-                if (url.isNotBlank()) {
-                    importVideoByUrl(url.trim())
-                }
-            }
-        )
-    }
 
     private fun importVideoByUrl(url: String) {
         val movieId = extractMovieIdFromUrl(url)
@@ -1090,7 +1354,7 @@ class HomeFragment : Fragment(), OnSearchListener, KoinComponent {
     }
 
     private fun extractMovieIdFromUrl(url: String): Long? {
-        val regex = Regex("""(?:films|serials)/(\d+)$""")
+        val regex = Regex("""(?:films|serials)/(\d+)""")
         val matchResult = regex.find(url)
         return matchResult?.groupValues?.get(1)?.toLongOrNull()
     }

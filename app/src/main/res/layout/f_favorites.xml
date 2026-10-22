@@ -41,6 +41,37 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
+        <!-- Пустое избранное объясняет, как добавлять, и ведёт в поиск (аудит v2, §6). -->
+        <TextView
+            android:id="@+id/tvEmptySubtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="@string/favorites_empty_subtitle"
+            android:textColor="@color/textColorSecondary"
+            android:textSize="14sp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvEmptyView" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnEmptyFind"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/favorites_empty_action"
+            android:textColor="@color/colorAccent"
+            android:visibility="gone"
+            app:cornerRadius="20dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvEmptySubtitle"
+            app:strokeColor="@color/colorAccent"
+            app:strokeWidth="1dp" />
+
         <LinearLayout
             android:id="@+id/errorView"
             android:layout_width="wrap_content"

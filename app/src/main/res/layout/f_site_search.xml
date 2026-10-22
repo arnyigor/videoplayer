@@ -27,9 +27,12 @@
         android:paddingHorizontal="@dimen/margin"
         android:paddingTop="@dimen/margin">
 
+        <!-- Одно широкое поле на всю строку и компактная иконочная кнопка:
+             раньше поле и текстовая кнопка «Искать» делили ширину экрана (аудит UI-04). -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
             android:orientation="horizontal">
 
             <com.google.android.material.textfield.TextInputLayout
@@ -55,23 +58,135 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSiteSearch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/margin_small"
-                android:text="@string/site_search_action"
-                android:textColor="@color/colorOnAccent"
-                app:backgroundTint="@color/colorAccent" />
+                style="@style/Widget.MaterialComponents.Button.Icon"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_marginStart="@dimen/margin_smallest"
+                android:contentDescription="@string/site_search_action"
+                app:backgroundTint="@color/colorAccent"
+                app:icon="@drawable/ic_nav_search"
+                app:iconGravity="textStart"
+                app:iconPadding="0dp"
+                app:iconTint="@color/colorPrimaryDark" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvSiteSearchHint"
+        <!-- Источник и фильтры — отдельная строка под полем (аудит v2, §4.1).
+             Широкое поле остаётся главным элементом, поэтому переключатель компактный. -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/margin_small"
-            android:paddingHorizontal="@dimen/margin_small"
-            android:text="@string/site_search_description"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/searchSourceGroup"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:checkedButton="@id/btnSourceAll"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSourceAll"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:checkable="true"
+                    android:minWidth="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="@string/search_source_all"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="12sp"
+                    android:maxLines="1"
+                    android:paddingLeft="6dp"
+                    android:paddingRight="6dp"
+                    app:iconPadding="0dp"
+                    android:textColor="@color/home_content_toggle_text"
+                    app:backgroundTint="@color/home_content_toggle_bg"
+                    app:strokeColor="@color/home_content_toggle_stroke"
+                    app:strokeWidth="1dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSourceLocal"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:checkable="true"
+                    android:minWidth="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="@string/search_source_local"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="12sp"
+                    android:maxLines="1"
+                    android:paddingLeft="6dp"
+                    android:paddingRight="6dp"
+                    app:iconPadding="0dp"
+                    android:textColor="@color/home_content_toggle_text"
+                    app:backgroundTint="@color/home_content_toggle_bg"
+                    app:strokeColor="@color/home_content_toggle_stroke"
+                    app:strokeWidth="1dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSourceRemote"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:checkable="true"
+                    android:minWidth="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:text="@string/search_source_remote"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:autoSizeTextType="uniform"
+                    android:autoSizeMinTextSize="9sp"
+                    android:autoSizeMaxTextSize="12sp"
+                    android:maxLines="1"
+                    android:paddingLeft="6dp"
+                    android:paddingRight="6dp"
+                    app:iconPadding="0dp"
+                    android:textColor="@color/home_content_toggle_text"
+                    app:backgroundTint="@color/home_content_toggle_bg"
+                    app:strokeColor="@color/home_content_toggle_stroke"
+                    app:strokeWidth="1dp" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSearchFilters"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/margin_smallest"
+                android:minWidth="0dp"
+                android:text="@string/search_filters"
+                android:textAllCaps="false"
+                android:textColor="@color/colorAccent" />
+        </LinearLayout>
+
+        <!-- Фильтры умеет только каталог: про внешнюю выдачу говорим прямо. -->
+        <TextView
+            android:id="@+id/tvFiltersNotice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/margin_smallest"
+            android:text="@string/search_filters_site_notice"
             android:textColor="@color/textColorSecondary"
-            android:textSize="12sp" />
+            android:textSize="11sp"
+            android:visibility="gone"
+            tools:visibility="visible" />
 
         <FrameLayout
             android:layout_width="match_parent"
@@ -96,33 +211,41 @@
                 android:visibility="gone"
                 tools:visibility="visible" />
 
-            <TextView
-                android:id="@+id/tvSiteSearchEmpty"
+            <LinearLayout
+                android:id="@+id/llSiteSearchState"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:gravity="center"
+                android:orientation="vertical"
                 android:paddingHorizontal="@dimen/margin"
-                android:textColor="@color/textColorSecondary"
-                android:textSize="14sp"
                 android:visibility="gone"
-                tools:text="Ничего не найдено"
-                tools:visibility="visible" />
-        </FrameLayout>
+                tools:visibility="visible">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSiteSearchMore"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/margin_small"
-            android:text="@string/site_search_load_more"
-            android:textColor="@color/colorAccent"
-            android:visibility="gone"
-            app:backgroundTint="@android:color/transparent"
-            app:rippleColor="#44B6A0FF"
-            app:strokeColor="@color/colorAccent"
-            app:strokeWidth="1dp"
-            tools:visibility="visible" />
+                <TextView
+                    android:id="@+id/tvSiteSearchEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:textColor="@color/textColorSecondary"
+                    android:textSize="14sp"
+                    tools:text="Ничего не найдено" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSiteSearchRetry"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/margin"
+                    android:text="@string/retry"
+                    android:textColor="@color/colorAccent"
+                    android:visibility="gone"
+                    app:backgroundTint="@android:color/transparent"
+                    app:cornerRadius="20dp"
+                    app:strokeColor="@color/colorAccent"
+                    app:strokeWidth="1dp"
+                    tools:visibility="visible" />
+            </LinearLayout>
+        </FrameLayout>
     </LinearLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

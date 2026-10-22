@@ -19,12 +19,15 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:minHeight="108dp"
         android:padding="@dimen/margin_small">
 
+        <!-- Постер 2:3 — та же пропорция, что у каталога (аудит §8.4/UI-06). -->
         <ImageView
             android:id="@+id/ivSiteSearchIcon"
             android:layout_width="72dp"
-            android:layout_height="96dp"
+            android:layout_height="108dp"
+            android:background="@color/card_light_bg"
             android:scaleType="centerCrop"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
@@ -51,13 +54,33 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/margin_small"
             android:layout_marginTop="@dimen/margin_smallest"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:textColor="@color/textColorSecondary"
             android:textSize="12sp"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/tvSiteSearchBadge"
+            app:layout_constraintHorizontal_bias="0"
             app:layout_constraintStart_toEndOf="@id/ivSiteSearchIcon"
             app:layout_constraintTop_toBottomOf="@id/tvSiteSearchTitle"
-            tools:text="2013 • Сериал • 7.5" />
+            tools:text="2013 • Сериал" />
 
+        <!-- Откуда результат: «В каталоге» — карточка уже в базе (аудит v2, §4.3). -->
+        <TextView
+            android:id="@+id/tvSiteSearchBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/margin_smallest"
+            android:background="@drawable/bg_search_badge"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:textColor="@color/colorAccent"
+            android:textSize="10sp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="@id/tvSiteSearchInfo"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/tvSiteSearchInfo" />
+
+        <!-- Описание — не больше двух строк: выдача должна читаться списком (аудит §8.4). -->
         <TextView
             android:id="@+id/tvSiteSearchDescription"
             android:layout_width="0dp"
@@ -65,10 +88,9 @@
             android:layout_marginStart="@dimen/margin_small"
             android:layout_marginTop="@dimen/margin_smallest"
             android:ellipsize="end"
-            android:maxLines="3"
+            android:maxLines="2"
             android:textColor="@color/textColorSecondary"
             android:textSize="12sp"
-            app:layout_constraintBottom_toBottomOf="@id/ivSiteSearchIcon"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toEndOf="@id/ivSiteSearchIcon"
             app:layout_constraintTop_toBottomOf="@id/tvSiteSearchInfo"

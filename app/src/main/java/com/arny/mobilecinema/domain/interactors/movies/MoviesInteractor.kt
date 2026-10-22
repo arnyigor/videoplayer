@@ -28,6 +28,31 @@ interface MoviesInteractor {
     ): Flow<PagingData<ViewMovie>>
 
     fun isPipModeEnable(): Boolean
+
+    /** Одна страница каталога для TV-экрана «Фильмы»/«Сериалы»; пагинация — на экране. */
+    suspend fun getCatalogPage(
+        movieType: MovieType,
+        order: String,
+        genres: List<String> = emptyList(),
+        limit: Int,
+        offset: Int,
+    ): List<ViewMovie>
+
+    /**
+     * Поиск по локальному каталогу для единого экрана поиска (SRCH-02/SRCH-03).
+     * Фильтры — только те, которые поддерживает локальный SQL.
+     */
+    suspend fun searchLocal(
+        query: String,
+        kinds: List<MovieType>,
+        genre: String? = null,
+        country: String? = null,
+        years: SimpleIntRange? = null,
+        order: String = AppConstants.Order.SMART,
+        limit: Int = 40,
+        offset: Int = 0,
+    ): List<ViewMovie>
+
     suspend fun getHomeHighlights(
         searchAddTypes: List<String> = listOf(
             AppConstants.SearchType.CINEMA,
@@ -47,6 +72,7 @@ interface MoviesInteractor {
     fun isMoviesEmpty(): Flow<DataResult<Boolean>>
     fun getBaseUrl(): String
     suspend fun loadDistinctGenres(): List<String>
+    suspend fun loadCanonicalGenres(): List<String>
     suspend fun getMinMaxYears(): SimpleIntRange
     suspend fun getCountries(): List<String>
     fun isAvailableToDownload(selectedCinemaUrl: String?, type: MovieType): Boolean

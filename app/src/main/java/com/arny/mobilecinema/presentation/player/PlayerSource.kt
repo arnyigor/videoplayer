@@ -120,12 +120,13 @@ suspend fun getSource(
         url: String?,
         title: String? = null,
         season: Int? = null,
-        episode: Int? = null
+        episode: Int? = null,
+        mediaId: String? = null
     ): MediaSource? = url?.let {
         val uri = Uri.parse(url)
         // Используем factory с отключенной проверкой SSL для обхода проблем с сертификатами
         val factory = getUnsafeDataSourceFactory()
-        val mediaItem = getMediaItem(url, title, season, episode)
+        val mediaItem = getMediaItem(url, title, season, episode, mediaId)
         when (val type: @C.ContentType Int = Util.inferContentType(uri)) {
             C.CONTENT_TYPE_DASH -> getDashMediaSourceFactory(factory, mediaItem)
             C.CONTENT_TYPE_HLS -> getHlsMedialSource(factory, mediaItem)
@@ -494,9 +495,11 @@ suspend fun getSource(
         url: String?,
         title: String? = null,
         season: Int? = null,
-        episode: Int? = null
+        episode: Int? = null,
+        mediaId: String? = null
     ): MediaItem {
         return MediaItem.Builder().apply {
+            if (!mediaId.isNullOrBlank()) setMediaId(mediaId)
             val builder = MediaMetadata.Builder()
             if (!title.isNullOrBlank()) {
                 builder.setTitle(title)

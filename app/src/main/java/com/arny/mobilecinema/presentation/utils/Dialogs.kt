@@ -20,6 +20,8 @@ fun Fragment.createCustomLayoutDialog(
     title: String,
     @LayoutRes layout: Int,
     cancelable: Boolean = true,
+    /** `false` — диалог сам решает, закрываться ли (нужно для валидации ввода). */
+    autoDismiss: Boolean = true,
     btnOkText: String? = null,
     btnCancelText: String? = null,
     btnNeutralText: String? = null,
@@ -33,7 +35,7 @@ fun Fragment.createCustomLayoutDialog(
         title = title,
         cancelable = cancelable,
         btnOkText = btnOkText,
-        autoDismiss = true,
+        autoDismiss = autoDismiss,
         onConfirm = onConfirm,
         btnCancelText = btnCancelText,
         onCancel = onCancel,

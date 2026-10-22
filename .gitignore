@@ -90,3 +90,6 @@ nul
 /Arch.md
 .serena/
 task-context.md
+
+# Временные входные данные инструментов (скриншоты сессий)
+.taskbridge-input/

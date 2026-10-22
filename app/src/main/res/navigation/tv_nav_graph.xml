@@ -6,7 +6,7 @@
 
     <fragment
             android:id="@+id/tvHomeFragment"
-            android:name="com.arny.mobilecinema.presentation.tv.home.TvHomeFragment"
+            android:name="com.arny.mobilecinema.presentation.tv.home.TvComposeHomeFragment"
             android:label="Home">
         <action
                 android:id="@+id/actionToSearch"
@@ -20,11 +20,27 @@
         <action
                 android:id="@+id/actionToPlayer"
                 app:destination="@id/tvPlayerFragment" />
+        <action
+                android:id="@+id/actionToCatalog"
+                app:destination="@id/tvCatalogFragment" />
+    </fragment>
+
+    <fragment
+            android:id="@+id/tvCatalogFragment"
+            android:name="com.arny.mobilecinema.presentation.tv.catalog.TvCatalogFragment"
+            android:label="Catalog">
+        <argument
+                android:name="section"
+                app:argType="string"
+                android:defaultValue="FILMS" />
+        <action
+                android:id="@+id/actionToDetails"
+                app:destination="@id/tvDetailsFragment" />
     </fragment>
 
     <fragment
             android:id="@+id/tvDetailsFragment"
-            android:name="com.arny.mobilecinema.presentation.tv.details.TvDetailsFragment"
+            android:name="com.arny.mobilecinema.presentation.tv.details.TvComposeDetailsFragment"
             android:label="Details">
         <argument
                 android:name="movieId"

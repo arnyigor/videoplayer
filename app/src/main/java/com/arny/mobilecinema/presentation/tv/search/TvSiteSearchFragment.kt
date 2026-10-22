@@ -14,8 +14,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
-import com.arny.mobilecinema.domain.models.SiteSearchItem
-import com.arny.mobilecinema.presentation.sitesearch.SiteSearchUiState
+import com.arny.mobilecinema.domain.search.SearchHit
+import com.arny.mobilecinema.domain.search.SearchSource
+import com.arny.mobilecinema.presentation.sitesearch.SearchUiState
 import com.arny.mobilecinema.presentation.sitesearch.SiteSearchViewModel
 import com.arny.mobilecinema.presentation.tv.presenters.SiteSearchCardPresenter
 import com.arny.mobilecinema.presentation.utils.navigateSafely
@@ -39,7 +40,7 @@ class TvSiteSearchFragment : SearchSupportFragment(), SearchSupportFragment.Sear
 
     private var searchJob: Job? = null
     private var lastEmptyQuery: String? = null
-    private var lastItems: List<SiteSearchItem> = emptyList()
+    private var lastItems: List<SearchHit> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +53,7 @@ class TvSiteSearchFragment : SearchSupportFragment(), SearchSupportFragment.Sear
         rowsAdapter.add(ListRow(HeaderItem(0, getString(R.string.search_results)), resultsAdapter))
 
         setOnItemViewClickedListener { _, item, _, _ ->
-            (item as? SiteSearchItem)?.let { viewModel.openItem(it) }
+            (item as? SearchHit)?.let { viewModel.openHit(it) }
         }
 
         setSearchResultProvider(this)
@@ -112,10 +113,10 @@ class TvSiteSearchFragment : SearchSupportFragment(), SearchSupportFragment.Sear
         }
     }
 
-    private fun render(state: SiteSearchUiState) {
-        submitItems(state.items)
+    private fun render(state: SearchUiState) {
+        submitItems(state.hits)
 
-        if (state.searched && !state.isLoading && state.items.isEmpty()) {
+        if (state.isEmpty) {
             val query = state.query.trim()
             if (query.isNotEmpty() && lastEmptyQuery != query) {
                 lastEmptyQuery = query
@@ -124,7 +125,7 @@ class TvSiteSearchFragment : SearchSupportFragment(), SearchSupportFragment.Sear
         }
     }
 
-    private fun submitItems(items: List<SiteSearchItem>) {
+    private fun submitItems(items: List<SearchHit>) {
         if (items == lastItems) return
         lastItems = items
         resultsAdapter.clear()

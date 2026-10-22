@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.WindowManager
 import android.view.View
 import android.view.ViewGroup
 import android.widget.SeekBar
@@ -20,12 +21,20 @@ import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getErrorUrl
 import com.arny.mobilecinema.databinding.FTvPlayerBinding
+import com.arny.mobilecinema.data.repository.prefs.Prefs
+import com.arny.mobilecinema.data.repository.playback.PlaybackProgressStore
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
+import com.arny.mobilecinema.domain.playback.NextEpisodeResolver
+import com.arny.mobilecinema.domain.playback.PlayableId
+import com.arny.mobilecinema.domain.playback.PlayableRef
+import com.arny.mobilecinema.domain.playback.flatPlayableIndex
+import com.arny.mobilecinema.domain.playback.playableRefs
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
@@ -44,9 +53,14 @@ import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
 import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
 import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -56,17 +70,25 @@ import timber.log.Timber
 class TvPlayerFragment : Fragment(), KoinComponent {
 
     companion object {
-        private const val SEEK_STEP_MS = 5_000L
+        private const val SEEK_STEP_MS = 10_000L
+        private const val SEEK_STEP_MAX_MS = 60_000L
         private const val HIDE_DELAY_MS = 5_000L
         private const val PROGRESS_INTERVAL_MS = 1_000L
         private const val PLAYBACK_PROGRESS_INTERVAL_MS = 5_000L
         private const val MAX_PLAYBACK_PROGRESS_DELTA_MS = 15_000L
+        private const val NEXT_EPISODE_SECONDS = 10
+
+        /** Запись прогресса не должна зависеть от жизненного цикла фрагмента. */
+        private val progressWrites = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
 
     private val viewModel: PlayerViewModel by inject()
     private val moviesInteractor: MoviesInteractor by inject()
     private val historyInteractor: HistoryInteractor by inject()
     private val playerSource: PlayerSource by inject()
+    private val progressStore: PlaybackProgressStore by inject()
+    private val resolver: NextEpisodeResolver by inject()
+    private val prefs: Prefs by inject()
     private var currentResizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
 
     private val args: TvPlayerFragmentArgs by navArgs()
@@ -91,14 +113,22 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private var serialSeasons: List<SerialSeason> = emptyList()
     private var currentEpisodeIndex = 0
 
+    /** Рефы, выровненные по индексам media items: [playlistRefs][i] соответствует item i. */
+    private val playlistRefs = mutableListOf<PlayableRef>()
+
     private val hideHandler = Handler(Looper.getMainLooper())
     private val hideRunnable = Runnable { hideControls() }
 
     private var progressJob: Job? = null
     private var playbackProgressJob: Job? = null
     private var lastPlaybackProgressAt: Long = 0L
+
+    /** Объект, которому принадлежит текущий интервал учёта времени (см. startPlaybackProgressTracking). */
+    private var trackingRef: PlayableRef? = null
     private var mediaLoaded = false
     private var tvExcludeUrls: Set<String> = emptySet()
+    private var nextEpisodeRef: PlayableRef? = null
+    private var nextEpisodeJob: Job? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -110,6 +140,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        requireActivity().window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Timber.i("onViewCreated: Starting Player Setup. Args -> sharedUrl:${args.sharedUrl.takeIf { it.isNotEmpty() }} , movieId: ${args.movieId}}")
 
         initPlayer()
@@ -124,13 +155,16 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         player?.pause()
         stopPlaybackProgressTracking()
         savePosition()
+        if (binding.nextEpisodePanel.isVisible) dismissNextEpisodePanel()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
+        requireActivity().window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Timber.i("onDestroyView: Releasing resources")
 
         hideHandler.removeCallbacks(hideRunnable)
+        hideHandler.removeCallbacks(hideSeekPreviewRunnable)
         stopProgressUpdates()
         stopPlaybackProgressTracking()
         player?.removeListener(playerListener)
@@ -183,6 +217,22 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
     private fun initControls() {
         Timber.d("initControls: Setting up UI clicks")
+
+        binding.btnRetry.setOnClickListener {
+            hideError()
+            retryPlayback()
+        }
+        binding.btnErrorBack.setOnClickListener { savePositionAndExit() }
+        binding.btnNextPlay.setOnClickListener { playNextEpisode() }
+        binding.btnNextCancel.setOnClickListener { dismissNextEpisodePanel() }
+        binding.nextEpisodePanel.setOnKeyListener { _, keyCode, event ->
+            if (event.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_BACK) {
+                dismissNextEpisodePanel()
+                true
+            } else {
+                false
+            }
+        }
 
         binding.btnBack.setOnClickListener {
             Timber.d("Button Clicked: btnBack")
@@ -273,15 +323,15 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private fun toggleAspectRatio() {
         currentResizeMode = when (currentResizeMode) {
             AspectRatioFrameLayout.RESIZE_MODE_FIT -> {
-                toast("Масштаб: Заполнение (ZOOM)")
+                toast(getString(R.string.aspect_zoom))
                 AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             }
             AspectRatioFrameLayout.RESIZE_MODE_ZOOM -> {
-                toast("Масштаб: Растянуть (FILL)")
+                toast(getString(R.string.aspect_fill))
                 AspectRatioFrameLayout.RESIZE_MODE_FILL
             }
             else -> {
-                toast("Масштаб: Оригинал (FIT)")
+                toast(getString(R.string.aspect_fit))
                 AspectRatioFrameLayout.RESIZE_MODE_FIT
             }
         }
@@ -347,10 +397,17 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     showLoading(false)
                     stopProgressUpdates()
                     stopPlaybackProgressTracking()
-                    if (player?.hasNextMediaItem() == true) {
-                        Timber.d("Auto-playing next media item")
-                        player?.seekToNextMediaItem()
-                        player?.play()
+                    // Фиксируем завершение до показа панели: позиция уже у конца.
+                    savePosition()
+                    val movie = currentMovie
+                    val current = currentPlayableRef()
+                    val next = if (movie?.type == MovieType.SERIAL && current != null) {
+                        resolver.next(movie, current.id)
+                    } else {
+                        null
+                    }
+                    if (next != null) {
+                        showNextEpisodePanel(next)
                     } else {
                         toast(getString(R.string.playback_complete))
                     }
@@ -404,8 +461,16 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     toast(getString(R.string.try_open_next_link))
                     when (movie.type) {
                         MovieType.CINEMA -> playCinema(movie)
-                        MovieType.SERIAL -> playSerial(movie, args.seasonIndex, args.episodeIndex)
-                        else -> showError("Ошибка воспроизведения")
+                        MovieType.SERIAL -> {
+                            val ref = currentPlayableRef()
+                            playSerial(
+                                movie = movie,
+                                seasonIndex = ref?.seasonIndex ?: args.seasonIndex,
+                                episodeIndex = ref?.episodeIndex ?: args.episodeIndex,
+                                position = player?.currentPosition ?: 0L,
+                            )
+                        }
+                        else -> showError(getString(R.string.playback_error))
                     }
                 } else if (when (movie.type) {
                         MovieType.CINEMA -> movie.getAllCinemaUrls().all { it.isBlank() || it in tvExcludeUrls }
@@ -420,10 +485,10 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     toast(getString(R.string.update_available_title))
                     findNavController().navigate(R.id.actionToHome)
                 } else {
-                    showError("Ошибка: ${error.localizedMessage.orEmpty()}")
+                    showError(getString(R.string.playback_error_detail, error.localizedMessage.orEmpty()))
                 }
             } else {
-                showError("Ошибка: ${error.localizedMessage.orEmpty()}")
+                showError(getString(R.string.playback_error_detail, error.localizedMessage.orEmpty()))
             }
         }
 
@@ -580,6 +645,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
         binding.root.setOnKeyListener { _, keyCode, event ->
             if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+            if (binding.errorPanel.isVisible || binding.nextEpisodePanel.isVisible) {
+                return@setOnKeyListener false
+            }
 
             val keyName = when(keyCode) {
                 KeyEvent.KEYCODE_DPAD_CENTER -> "DPAD_CENTER"
@@ -611,14 +679,14 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
                 KeyEvent.KEYCODE_DPAD_LEFT,
                 KeyEvent.KEYCODE_MEDIA_REWIND -> {
-                    seekBackward()
+                    seekBackward(seekStepFor(event))
                     binding.root.requestFocus()
                     true
                 }
 
                 KeyEvent.KEYCODE_DPAD_RIGHT,
                 KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                    seekForward()
+                    seekForward(seekStepFor(event))
                     binding.root.requestFocus()
                     true
                 }
@@ -697,24 +765,40 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         Timber.d("loadMovieAndPlay: Fetching movie details for ID=$movieId")
 
         viewLifecycleOwner.lifecycleScope.launch {
-            moviesInteractor.getMovie(movieId).collectLatest { result ->
-                when (result) {
-                    is DataResult.Success -> {
-                        if (!mediaLoaded) {
-                            mediaLoaded = true
-                            currentMovie = result.result
-                            Timber.d("loadMovieAndPlay: Movie loaded successfully. Title: ${result.result.title}")
-                            addToHistory(movieId)
-                            binding.tvTitle.text = currentMovie?.title ?: "Неизвестный фильм"
-                            playMovie(result.result)
-                        } else {
-                            Timber.w("loadMovieAndPlay: Media already loaded, ignoring new data")
-                        }
+            when (val result = moviesInteractor.getMovie(movieId).first()) {
+                is DataResult.Success -> {
+                    if (mediaLoaded) {
+                        Timber.w("loadMovieAndPlay: Media already loaded, ignoring new data")
+                        return@launch
                     }
-                    is DataResult.Error -> {
-                        Timber.e(result.throwable, "Failed to load movie ID=$movieId")
-                        showError(getString(R.string.error_loading_data))
-                    }
+                    mediaLoaded = true
+                    val movie = result.result
+                    currentMovie = movie
+                    Timber.d("loadMovieAndPlay: Movie loaded successfully. Title: ${movie.title}")
+                    addToHistory(movieId)
+                    binding.tvTitle.text = movie.title.ifBlank { getString(R.string.unknown_movie) }
+
+                    // Резолвим сохранённую позицию/серию до старта: раньше TV всегда начинал с 0.
+                    viewModel.setPlayData(
+                        path = null,
+                        movie = movie,
+                        seasonIndex = args.seasonIndex,
+                        episodeIndex = args.episodeIndex,
+                    )
+                    val saved = runCatching {
+                        viewModel.uiState.filter { it.movie != null }.first()
+                    }.getOrNull()
+                    playMovie(
+                        movie = movie,
+                        seasonIndex = saved?.season ?: args.seasonIndex,
+                        episodeIndex = saved?.episode ?: args.episodeIndex,
+                        position = saved?.time ?: 0L,
+                    )
+                }
+
+                is DataResult.Error -> {
+                    Timber.e(result.throwable, "Failed to load movie ID=$movieId")
+                    showError(getString(R.string.error_loading_data))
                 }
             }
         }
@@ -734,7 +818,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private fun getCurrentPlaybackUrl(): String? =
         player?.currentMediaItem?.localConfiguration?.uri?.toString()
 
-    private fun playMovie(movie: Movie) {
+    private fun playMovie(movie: Movie, seasonIndex: Int, episodeIndex: Int, position: Long) {
         when (movie.type) {
             MovieType.CINEMA -> {
                 Timber.i("Playing Cinema Movie: ${movie.title}")
@@ -742,10 +826,10 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 hideEpisodeNavigation()
             }
             MovieType.SERIAL -> {
-                Timber.i("Playing Serial Episode: S${args.seasonIndex} E${args.episodeIndex}")
-                playSerial(movie, args.seasonIndex, args.episodeIndex)
+                Timber.i("Playing Serial Episode: S$seasonIndex E$episodeIndex at $position")
+                playSerial(movie, seasonIndex, episodeIndex, position)
             }
-            else -> showError("Неподдерживаемый тип")
+            else -> showError(getString(R.string.unsupported_type))
         }
     }
 
@@ -758,16 +842,19 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
         if (url.isNullOrBlank()) {
             Timber.e("playCinema: No valid URL found for ${movie.title} after exclusions")
-            showError("Видео недоступно")
+            showError(getString(R.string.video_unavailable))
             return
         }
 
         binding.tvEpisodeInfo.visibility = View.GONE
-        playUrl(url, movie.title)
+        val filmRef = movie.playableRefs().firstOrNull()
+        playlistRefs.clear()
+        if (filmRef != null) playlistRefs.add(filmRef)
+        playUrl(url, movie.title, filmRef?.id?.value)
     }
 
-    private fun playSerial(movie: Movie, seasonIndex: Int, episodeIndex: Int) {
-        Timber.i("playSerial: Preparing to load serial data for S${seasonIndex} E${episodeIndex}")
+    private fun playSerial(movie: Movie, seasonIndex: Int, episodeIndex: Int, position: Long = 0L) {
+        Timber.i("playSerial: Preparing to load serial data for S$seasonIndex E$episodeIndex at $position")
 
         viewLifecycleOwner.lifecycleScope.launch {
             try {
@@ -778,14 +865,14 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     movie = movie,
                     seasonIndex = seasonIndex,
                     episodeIndex = episodeIndex,
-                    position = 0L,
+                    position = position,
                     excludeUrls = tvExcludeUrls,
                     selectedUrl = args.sharedUrl.takeIf { it.isNotBlank() }
                 )
 
             } catch (e: Exception) {
                 Timber.e(e, "Error loading serial data structure")
-                showError(e.localizedMessage ?: "Ошибка загрузки сериала")
+                showError(e.localizedMessage ?: getString(R.string.series_load_error))
             }
         }
     }
@@ -812,14 +899,18 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
         if (allEpisodes.all { it.dash.isNotBlank() || it.hls.isNotBlank() }) {
             currentEpisodeIndex = fillPlayerEpisodes(
-                serialSeasons = serialSeasons,
+                movie = movie,
                 seasonIndex = seasonIndex,
                 episodeIndex = episodeIndex,
-                allEpisodes = allEpisodes,
                 excludeUrls = excludeUrls,
                 selectedUrl = selectedUrl
             )
 
+            if (currentEpisodeIndex < 0) {
+                showLoading(false)
+                showError(getString(R.string.video_unavailable))
+                return
+            }
             Timber.d("setSerialUrls: Selected target index: $currentEpisodeIndex")
 
             updateEpisodeNavigationVisibility(size)
@@ -836,17 +927,16 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             Timber.w("setSerialUrls: Some episodes missing URLs but proceeding anyway if valid sources exist.")
 
             currentEpisodeIndex = fillPlayerEpisodes(
-                serialSeasons = serialSeasons,
+                movie = movie,
                 seasonIndex = seasonIndex,
                 episodeIndex = episodeIndex,
-                allEpisodes = allEpisodes,
                 excludeUrls = excludeUrls,
                 selectedUrl = selectedUrl
             )
 
-            if (currentEpisodeIndex == 0 && player?.mediaItemCount == 0) {
-                toast(getString(R.string.episodes_not_found))
-                findNavController().navigateUp()
+            if (currentEpisodeIndex < 0 || player?.mediaItemCount == 0) {
+                showLoading(false)
+                showError(getString(R.string.video_unavailable))
             } else {
                 updateEpisodeNavigationVisibility(size)
                 updateEpisodeInfoFromIndex(currentEpisodeIndex)
@@ -860,75 +950,66 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     }
 
     private suspend fun fillPlayerEpisodes(
-        serialSeasons: List<SerialSeason>,
+        movie: Movie,
         seasonIndex: Int?,
         episodeIndex: Int?,
-        allEpisodes: List<SerialEpisode>,
         excludeUrls: Set<String>,
         selectedUrl: String? = null
     ): Int {
-        var currentIndexEpisode = 0
+        val refs = movie.playableRefs()
+        val selectedFlatIndex = movie.flatPlayableIndex(seasonIndex ?: 0, episodeIndex ?: 0)
         val mediaSources = mutableListOf<MediaSource>()
+        val orderedRefs = mutableListOf<PlayableRef>()
+        var selectedMediaIndex = -1
 
-        for ((s, season) in serialSeasons.withIndex()) {
-            val episodes = season.episodes.sortedBy { episode ->
-                findByGroup(episode.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
+        refs.forEachIndexed { flatIndex, ref ->
+            val isSelected = flatIndex == selectedFlatIndex
+            // На TV обычный HLS безопаснее как дефолт: HD DASH можно выбрать явно в источниках.
+            val url = when {
+                isSelected && !selectedUrl.isNullOrBlank() && selectedUrl !in excludeUrls -> selectedUrl
+                !ref.hlsUrl.isNullOrBlank() && ref.hlsUrl !in excludeUrls -> ref.hlsUrl
+                !ref.dashUrl.isNullOrBlank() && ref.dashUrl !in excludeUrls -> ref.dashUrl
+                else -> null
             }
 
-            for ((e, episode) in episodes.withIndex()) {
-                if (seasonIndex == s && episodeIndex == e) {
-                    currentIndexEpisode = allEpisodes.indexOf(episode)
-                    if (currentIndexEpisode == -1) {
-                        currentIndexEpisode = 0
-                    }
-                }
-
-                // На TV обычный HLS безопаснее как дефолт: HD DASH можно выбрать явно в источниках.
-                val isSelectedEpisode = seasonIndex == s && episodeIndex == e
-                val url = when {
-                    isSelectedEpisode && !selectedUrl.isNullOrBlank() && selectedUrl !in excludeUrls -> selectedUrl
-                    episode.hls.isNotBlank() && episode.hls !in excludeUrls -> episode.hls
-                    episode.dash.isNotBlank() && episode.dash !in excludeUrls -> episode.dash
-                    else -> episode.hls.ifBlank { episode.dash } // Фолбэк если оба были исключены (редкий кейс, но защита от NPE)
-                }
-
-                if (url.isBlank()) {
-                    Timber.w("fillPlayerEpisodes: Skipping Episode ${episode.episode} - No valid URL source found")
-                    continue
-                }
-
-                // Логирование добавления источника
-                Timber.d("fillPlayerEpisodes: Adding source for S${s+1} E${e+1}, URL type: ${if(url.contains("m3u8")) "HLS" else "DASH"}")
-
-                val source = playerSource.getSource(
-                    url = url,
-                    title = episode.title,
-                    season = s,
-                    episode = e
-                )
-
-                if (source != null) {
-                    mediaSources.add(source)
-                } else {
-                    Timber.w("fillPlayerEpisodes: Failed to create ExoPlayer source for Episode ${episode.episode}")
-                }
+            if (url.isNullOrBlank()) {
+                Timber.w("fillPlayerEpisodes: skipping ${ref.id.value} - no valid source")
+                return@forEachIndexed
             }
+
+            val source = playerSource.getSource(
+                url = url,
+                title = ref.episodeTitle,
+                season = ref.seasonNumber,
+                episode = ref.episodeNumber,
+                mediaId = ref.id.value,
+            )
+            if (source == null) {
+                Timber.w("fillPlayerEpisodes: failed to create source for ${ref.id.value}")
+                return@forEachIndexed
+            }
+
+            if (isSelected) selectedMediaIndex = mediaSources.size
+            mediaSources.add(source)
+            orderedRefs.add(ref)
         }
 
-        Timber.d("fillPlayerEpisodes: Created $mediaSources sources out of available episodes")
+        playlistRefs.clear()
+        playlistRefs.addAll(orderedRefs)
+        Timber.d("fillPlayerEpisodes: ${mediaSources.size} sources, selected media index $selectedMediaIndex")
         player?.setMediaSources(mediaSources)
 
-        return currentIndexEpisode
+        return selectedMediaIndex
     }
 
-    private fun playUrl(url: String, title: String) {
+    private fun playUrl(url: String, title: String, mediaId: String? = null) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 Timber.i("playUrl: Preparing source. URL: ${url.take(50)}..., Title: $title")
                 showLoading(true)
                 hideError()
 
-                val source = playerSource.getSource(url, title)
+                val source = playerSource.getSource(url, title, mediaId = mediaId)
                 if (source != null) {
                     player?.apply {
                         setMediaSource(source)
@@ -937,11 +1018,11 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                         Timber.i("playUrl: Source prepared successfully")
                     }
                 } else {
-                    showError("Не удалось создать источник видео")
+                    showError(getString(R.string.video_source_error))
                 }
             } catch (e: Exception) {
                 Timber.e(e, "playUrl error during preparation for title: $title")
-                showError(e.localizedMessage ?: "Ошибка воспроизведения")
+                showError(e.localizedMessage ?: getString(R.string.playback_error))
             }
         }
     }
@@ -983,41 +1064,31 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         binding.btnNext.isVisible = false
     }
 
-    private fun updateEpisodeInfoFromIndex(index: Int) {
-        if (allEpisodes.isEmpty() || serialSeasons.isEmpty()) {
+    private fun updateEpisodeInfoFromIndex(index: Int = player?.currentMediaItemIndex ?: 0) {
+        val ref = currentPlayableRef(index)
+        if (ref == null) {
             binding.tvEpisodeInfo.visibility = View.GONE
             return
         }
+        showEpisodeInfo(
+            ref.seasonNumber ?: 1,
+            ref.episodeNumber ?: 1,
+            ref.episodeTitle.orEmpty(),
+        )
+    }
 
-        val episode = allEpisodes.getOrNull(index)
-        if (episode == null) {
-            binding.tvEpisodeInfo.visibility = View.GONE
-            return
-        }
-
-        var seasonNum = 1
-        var episodeNumInSeason = 1
-        var episodeCounter = 0
-
-        seasonLoop@ for ((sIdx, season) in serialSeasons.withIndex()) {
-            val sortedEpisodes = season.episodes.sortedBy { ep ->
-                findByGroup(ep.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
-            }
-
-            for ((eIdx, ep) in sortedEpisodes.withIndex()) {
-                if (episodeCounter == index) {
-                    seasonNum = season.id ?: (sIdx + 1)
-                    episodeNumInSeason = findByGroup(ep.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull()
-                        ?: (eIdx + 1)
-                    // Без метки break выходил только из внутреннего цикла и сезон
-                    // перезаписывался следующим — показывался последний сезон.
-                    break@seasonLoop
-                }
-                episodeCounter++
+    /**
+     * Текущий воспроизводимый объект. Источник истины — mediaId, а не арифметика индексов:
+     * серии без URL пропускаются, поэтому индекс media item не равен индексу в каталоге.
+     */
+    private fun currentPlayableRef(index: Int = player?.currentMediaItemIndex ?: 0): PlayableRef? {
+        val mediaId = player?.currentMediaItem?.mediaId
+        if (!mediaId.isNullOrBlank()) {
+            PlayableId.parse(mediaId)?.let { id ->
+                playlistRefs.firstOrNull { it.id == id }?.let { return it }
             }
         }
-
-        showEpisodeInfo(seasonNum, episodeNumInSeason, episode.title ?: "")
+        return playlistRefs.getOrNull(index)
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1049,27 +1120,47 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
     }
 
-    private fun seekForward() {
+    /** Обычное нажатие — 10 с; удержание ускоряет шаг до 60 с (ТЗ §7.2). */
+    private fun seekStepFor(event: KeyEvent): Long {
+        if (event.repeatCount <= 0) return SEEK_STEP_MS
+        val step = SEEK_STEP_MS * (1 + event.repeatCount / 2)
+        return step.coerceAtMost(SEEK_STEP_MAX_MS)
+    }
+
+    private fun seekForward(stepMs: Long = SEEK_STEP_MS) {
         val p = player ?: return
-        val newPos = minOf(p.duration, p.currentPosition + SEEK_STEP_MS)
-        Timber.d("seekForward: Moving to $newPos ms")
+        val duration = p.duration.takeIf { it > 0L } ?: return
+        val newPos = (p.currentPosition + stepMs).coerceAtMost(duration)
+        Timber.d("seekForward: +$stepMs -> $newPos ms")
 
         p.seekTo(newPos)
+        showSeekPreview(newPos)
         showControls()
         scheduleHide()
         updateProgress()
     }
 
-    private fun seekBackward() {
+    private fun seekBackward(stepMs: Long = SEEK_STEP_MS) {
         val p = player ?: return
-        val newPos = maxOf(0L, p.currentPosition - SEEK_STEP_MS)
-        Timber.d("seekBackward: Moving to $newPos ms")
+        if (p.duration <= 0L) return
+        val newPos = (p.currentPosition - stepMs).coerceAtLeast(0L)
+        Timber.d("seekBackward: -$stepMs -> $newPos ms")
 
         p.seekTo(newPos)
+        showSeekPreview(newPos)
         showControls()
         scheduleHide()
         updateProgress()
     }
+
+    private fun showSeekPreview(positionMs: Long) {
+        binding.tvSeekPreview.text = getString(R.string.tv_seek_preview, formatTime(positionMs))
+        binding.tvSeekPreview.isVisible = true
+        hideHandler.removeCallbacks(hideSeekPreviewRunnable)
+        hideHandler.postDelayed(hideSeekPreviewRunnable, 1_500L)
+    }
+
+    private val hideSeekPreviewRunnable = Runnable { binding.tvSeekPreview.isVisible = false }
 
     // ─────────────────────────────────────────────────────────────
     // UI: controls visibility
@@ -1099,22 +1190,112 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     }
 
     private fun showLoading(show: Boolean) {
-        // Можно добавить логику отображения прогресс-бара, если он есть в layout
+        binding.loadingIndicator.isVisible = show
     }
 
     private fun showError(msg: String) {
         Timber.e("UI Error Displayed: $msg")
+        showLoading(false)
+        dismissNextEpisodePanel()
         binding.tvError.text = msg
-        binding.tvError.visibility = View.VISIBLE
+        binding.errorPanel.visibility = View.VISIBLE
+        binding.controlsGroup.visibility = View.GONE
+        binding.btnRetry.requestFocus()
     }
 
     private fun hideError() {
-        binding.tvError.visibility = View.GONE
+        binding.errorPanel.visibility = View.GONE
+    }
+
+    private fun retryPlayback() {
+        val movie = currentMovie
+        if (movie == null) {
+            val sharedUrl = args.sharedUrl.takeIf { it.isNotBlank() }
+            if (sharedUrl != null) playUrl(sharedUrl, getString(R.string.unknown_movie)) else savePositionAndExit()
+            return
+        }
+        when (movie.type) {
+            MovieType.CINEMA -> playCinema(movie)
+            MovieType.SERIAL -> {
+                val ref = currentPlayableRef()
+                playSerial(
+                    movie = movie,
+                    seasonIndex = ref?.seasonIndex ?: args.seasonIndex,
+                    episodeIndex = ref?.episodeIndex ?: args.episodeIndex,
+                    position = player?.currentPosition ?: 0L,
+                )
+            }
+            else -> Unit
+        }
+    }
+
+    private fun showNextEpisodePanel(ref: PlayableRef) {
+        nextEpisodeRef = ref
+        val label = if (ref.seasonNumber != null && ref.episodeNumber != null) {
+            getString(R.string.tv_next_episode_label, ref.seasonNumber, ref.episodeNumber)
+        } else {
+            getString(R.string.next_episode)
+        }
+        binding.tvNextEpisodeTitle.text = buildString {
+            append(label)
+            ref.episodeTitle?.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
+        }
+        binding.nextEpisodePanel.visibility = View.VISIBLE
+        binding.controlsGroup.visibility = View.GONE
+        binding.btnNextPlay.requestFocus()
+        startNextEpisodeCountdown()
+    }
+
+    private fun startNextEpisodeCountdown() {
+        nextEpisodeJob?.cancel()
+        nextEpisodeJob = viewLifecycleOwner.lifecycleScope.launch {
+            var seconds = NEXT_EPISODE_SECONDS
+            while (isActive && seconds > 0) {
+                binding.tvNextEpisodeCountdown.text = getString(R.string.tv_next_in, seconds)
+                delay(1_000L)
+                seconds--
+            }
+            if (!isActive) return@launch
+            val autoplay = prefs.get<Boolean>(PrefsConstants.PREF_KEY_AUTOPLAY_NEXT) ?: true
+            if (autoplay) {
+                playNextEpisode()
+            } else {
+                binding.tvNextEpisodeCountdown.text = getString(R.string.tv_next_ready)
+            }
+        }
+    }
+
+    private fun playNextEpisode() {
+        val ref = nextEpisodeRef ?: return
+        nextEpisodeJob?.cancel()
+        nextEpisodeJob = null
+        binding.nextEpisodePanel.visibility = View.GONE
+        nextEpisodeRef = null
+        val index = playlistRefs.indexOfFirst { it.id == ref.id }
+        if (index >= 0) {
+            player?.seekTo(index, 0L)
+            player?.play()
+        } else if (player?.hasNextMediaItem() == true) {
+            player?.seekToNextMediaItem()
+            player?.play()
+        }
+        showControls()
+        binding.root.requestFocus()
+    }
+
+    private fun dismissNextEpisodePanel() {
+        nextEpisodeJob?.cancel()
+        nextEpisodeJob = null
+        nextEpisodeRef = null
+        if (_binding == null) return
+        binding.nextEpisodePanel.visibility = View.GONE
+        binding.root.requestFocus()
+        showControls()
     }
 
     private fun showEpisodeInfo(seasonNum: Int, episodeNum: Int, title: String) {
         binding.tvEpisodeInfo.text = buildString {
-            append("Сезон $seasonNum • Серия $episodeNum")
+            append(getString(R.string.tv_season_episode_short, seasonNum, episodeNum))
             if (title.isNotBlank()) append("\n$title")
         }
         binding.tvEpisodeInfo.visibility = View.VISIBLE
@@ -1146,6 +1327,10 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private fun startPlaybackProgressTracking() {
         if (playbackProgressJob?.isActive == true) return
 
+        // Фиксируем объект на старте интервала: при смене серии onMediaItemTransition
+        // коммитит время уже после того, как плеер переключил media item, и live-ref
+        // отдал бы чужую секунду.
+        trackingRef = currentPlayableRef()
         lastPlaybackProgressAt = System.currentTimeMillis()
         playbackProgressJob = viewLifecycleOwner.lifecycleScope.launch {
             while (isActive) {
@@ -1160,6 +1345,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         playbackProgressJob = null
         commitPlaybackProgressDelta()
         lastPlaybackProgressAt = 0L
+        trackingRef = null
     }
 
     private fun commitPlaybackProgressDelta() {
@@ -1178,31 +1364,16 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     }
 
     private fun savePlaybackProgress(playedMs: Long) {
-        val movie = currentMovie ?: return
-        val dbId = movie.dbId
-        if (dbId <= 0L) return
+        val ref = trackingRef ?: return
+        if (playedMs <= 0L) return
 
-        when (movie.type) {
-            MovieType.CINEMA -> {
-                viewModel.addPlaybackProgress(
-                    dbId = dbId,
-                    season = 0,
-                    episode = 0,
-                    playedMs = playedMs
-                )
-            }
-
-            MovieType.SERIAL -> {
-                val (seasonIdx, episodeIdx) = getSeasonEpisodeFromIndex(currentEpisodeIndex)
-                viewModel.addPlaybackProgress(
-                    dbId = dbId,
-                    season = seasonIdx,
-                    episode = episodeIdx,
-                    playedMs = playedMs
-                )
-            }
-
-            else -> {}
+        // Позиция для продолжения и время просмотра — одна строка по playableId (MOB-10B).
+        val position = player?.currentPosition ?: 0L
+        val duration = player?.duration?.takeIf { it > 0L }
+        progressWrites.launch {
+            runCatching {
+                progressStore.record(ref, position, duration, playedMsDelta = playedMs)
+            }.onFailure { Timber.e(it, "progress write failed for ${ref.id.value}") }
         }
     }
 
@@ -1242,34 +1413,25 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
         if (pos <= 0) return
 
-        val (seasonIdx, episodeIdx) = getSeasonEpisodeFromIndex(currentEpisodeIndex)
+        val duration = exo.duration.takeIf { it > 0L }
+        val ref = currentPlayableRef()
+        if (ref != null) {
+            // Запись переживает уничтожение view: store выполняет её в NonCancellable.
+            progressWrites.launch {
+                runCatching { progressStore.record(ref, pos, duration) }
+                    .onFailure { Timber.e(it, "progress write failed for ${ref.id.value}") }
+            }
+        }
 
+        val seasonIdx = (ref?.seasonNumber ?: 1) - 1
+        val episodeIdx = (ref?.episodeNumber ?: 1) - 1
         when (movie.type) {
             MovieType.CINEMA ->
                 viewModel.saveMoviePosition(movie.dbId, pos, 0, 0)
             MovieType.SERIAL ->
-                viewModel.saveMoviePosition(movie.dbId, pos, seasonIdx, episodeIdx)
+                viewModel.saveMoviePosition(movie.dbId, pos, seasonIdx.coerceAtLeast(0), episodeIdx.coerceAtLeast(0))
             else -> {}
         }
-    }
-
-    private fun getSeasonEpisodeFromIndex(playlistIndex: Int): Pair<Int, Int> {
-        var counter = 0
-
-        for ((sIdx, season) in serialSeasons.withIndex()) {
-            val sortedEpisodes = season.episodes.sortedBy { ep ->
-                findByGroup(ep.episode, "(\\d+).*".toRegex(), 1)?.toIntOrNull() ?: 0
-            }
-
-            for ((eIdx, _) in sortedEpisodes.withIndex()) {
-                if (counter == playlistIndex) {
-                    return sIdx to eIdx
-                }
-                counter++
-            }
-        }
-
-        return 0 to 0
     }
 
     private fun savePositionAndExit() {

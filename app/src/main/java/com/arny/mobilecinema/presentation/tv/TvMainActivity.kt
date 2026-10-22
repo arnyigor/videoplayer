@@ -3,6 +3,7 @@ package com.arny.mobilecinema.presentation.tv
 import android.content.Intent
 import android.os.Bundle
 import android.app.AlertDialog
+import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.FragmentActivity
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
@@ -23,14 +24,21 @@ class TvMainActivity : FragmentActivity() {
             .findFragmentById(R.id.tv_nav_host_fragment) as NavHostFragment
         navController = navHost.navController
 
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!navController.popBackStack()) {
+                    showExitDialog()
+                }
+            }
+        })
+
         handleSharedUrl()
     }
 
     private fun handleSharedUrl() {
         val sharedUrl = intent.getStringExtra(StartActivity.KEY_SHARED_URL)
         if (!sharedUrl.isNullOrBlank()) {
-            // Navigate to player with shared URL
-            // For now, just navigate to home - player handling will be added later
+            // TODO(SYS-05): открыть плеер по deep link; сейчас ссылка не теряется, но и не проигрывается.
         }
     }
 
@@ -39,16 +47,6 @@ class TvMainActivity : FragmentActivity() {
             action = AppConstants.ACTION_UPDATE_ALL_CANCEL
         }
         startService(intent)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        val navHost = supportFragmentManager
-            .findFragmentById(R.id.tv_nav_host_fragment) as NavHostFragment
-        val navController = navHost.navController
-        if (!navController.popBackStack()) {
-            showExitDialog()
-        }
     }
 
     private fun showExitDialog() {

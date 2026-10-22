@@ -15,6 +15,8 @@ import com.arny.mobilecinema.presentation.utils.diffItemCallback
 class VideoItemsAdapter(
     private val baseUrl: String,
     private val showFreshness: Boolean = false,
+    /** Ширина постера в пикселях для запроса Glide (MOB-07); 0 — по размеру вьюхи. */
+    private val posterWidthPx: Int = 0,
     private val onItemClick: (item: ViewMovie) -> Unit
 ) : PagingDataAdapter<ViewMovie, VideoItemsAdapter.VideosViewHolder>(
     diffItemCallback(
@@ -45,7 +47,7 @@ class VideoItemsAdapter(
                     onItemClick(item)
                 }
                 tvVideoTitle.text = item.title
-                ivVideoIcon.loadMoviePoster(item.img, baseUrl)
+                ivVideoIcon.loadMoviePoster(item.img, baseUrl, posterWidthPx)
                 val type = getType(item, context)
                 val isFresh = showFreshness &&
                     item.updated > 0L &&

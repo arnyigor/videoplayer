@@ -7,6 +7,7 @@ import androidx.paging.cachedIn
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.data.repository.playback.PlaybackProgressStore
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
@@ -26,7 +27,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -38,6 +41,7 @@ class TvHomeViewModel(
     private val dataUpdateInteractor: DataUpdateInteractor,
     private val moviesInteractor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
+    private val progressStore: PlaybackProgressStore,
 ) : ViewModel() {
 
     private val _updateAvailable = MutableStateFlow(false)
@@ -58,6 +62,36 @@ class TvHomeViewModel(
     /** Витрина как на телефоне: новинки, лучшее сейчас, для вас. */
     private val _homeHighlights = MutableStateFlow(HomeHighlights())
     val homeHighlights = _homeHighlights.asStateFlow()
+
+    /** Готовый контент главной для Compose: порядок блоков и «Продолжить просмотр». */
+    val homeContent: Flow<HomeContent> = combine(
+        _homeHighlights,
+        progressStore.observeContinueWatching(),
+    ) { highlights, continueWatching ->
+        HomeRowsFactory.build(highlights, continueWatching)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = HomeContent(hero = null, rows = emptyList()),
+    )
+
+    /** Позиция списка главной: переживает уничтожение view при переходе в детали. */
+    var homeScrollIndex: Int = 0
+        private set
+    var homeScrollOffset: Int = 0
+        private set
+
+    var focusedTitleId: Long? = null
+        private set
+
+    fun saveFocusedTitle(titleId: Long?) {
+        focusedTitleId = titleId
+    }
+
+    fun saveHomeScroll(index: Int, offset: Int) {
+        homeScrollIndex = index
+        homeScrollOffset = offset
+    }
 
     private var pendingForceUpdate = false
     private var pendingHasPartUpdate = false

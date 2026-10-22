@@ -67,6 +67,44 @@ class MoviesInteractorImpl(
         HomeHighlights(recent = recent, bestNow = bestNow, forYou = forYou)
     }
 
+    override suspend fun getCatalogPage(
+        movieType: MovieType,
+        order: String,
+        genres: List<String>,
+        limit: Int,
+        offset: Int,
+    ): List<ViewMovie> = withContext(dispatcher) {
+        repository.getCatalogMoviesPage(
+            movieType = movieType,
+            order = order,
+            genres = genres,
+            limit = limit,
+            offset = offset,
+        )
+    }
+
+    override suspend fun searchLocal(
+        query: String,
+        kinds: List<MovieType>,
+        genre: String?,
+        country: String?,
+        years: SimpleIntRange?,
+        order: String,
+        limit: Int,
+        offset: Int,
+    ): List<ViewMovie> = withContext(dispatcher) {
+        repository.searchLocal(
+            query = query,
+            kinds = kinds,
+            genre = genre,
+            country = country,
+            years = years,
+            order = order,
+            limit = limit,
+            offset = offset,
+        )
+    }
+
     private fun List<String>.toMovieTypes(): List<MovieType> =
         mapNotNull { type ->
             when (type) {
@@ -108,6 +146,10 @@ class MoviesInteractorImpl(
 
     override suspend fun loadDistinctGenres(): List<String> = withContext(dispatcher) {
         repository.getGenres()
+    }
+
+    override suspend fun loadCanonicalGenres(): List<String> = withContext(dispatcher) {
+        repository.getCanonicalGenres()
     }
 
     override suspend fun getMinMaxYears(): SimpleIntRange = withContext(dispatcher) {
