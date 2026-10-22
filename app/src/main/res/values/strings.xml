@@ -302,6 +302,14 @@
     <string name="feedback_dialog_result_failed">Сообщение не отправлено!</string>
     <string name="f_favorites_title">Избранное</string>
     <string name="history_empty_title">История просмотра пуста</string>
+    <!-- Строка истории (HIST-01, план v3 §8). -->
+    <string name="history_resume">Продолжить просмотр</string>
+    <string name="history_status_completed">Просмотрено</string>
+    <string name="history_status_in_progress">Продолжить</string>
+    <string name="history_status_not_started">Ещё не начинали</string>
+    <string name="history_last_watched">Просмотрено %1$s</string>
+    <string name="history_open_details">Подробнее</string>
+    <string name="history_resume_error">Не удалось открыть тайтл. Попробуйте ещё раз.</string>
     <string name="favorites_empty_title">Нет избранного</string>
     <string name="error_loading_data">Ошибка загрузки</string>
     <string name="retry">Повторить</string>
@@ -418,6 +426,12 @@
     <string name="site_search_load_more">Показать ещё</string>
     <!-- Компактный селектор сортировки в тулбаре каталога (аудит §3.2). -->
     <string name="catalog_sort_selector">Сортировка: %1$s</string>
+    <!-- Источник на экране деталей: подпись вместо технического URL (план v3 §9.2). -->
+    <string name="details_source_label">Источник %1$d · %2$s</string>
+    <string name="details_no_source">Нет источника</string>
+    <string name="play_error_no_movie">Данные тайтла ещё не загружены. Откройте карточку заново.</string>
+    <string name="play_error_no_source">У этого тайтла нет доступного источника воспроизведения.</string>
+    <string name="play_error_navigation">Не удалось открыть плеер.</string>
     <string name="site_search_error">Не удалось выполнить поиск на сайте</string>
     <string name="site_search_open_error">Не удалось загрузить карточку с сайта</string>
     <!-- TV player / общие состояния -->

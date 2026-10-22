@@ -534,19 +534,8 @@ override fun onResume() {
             return fetchedAt <= 0L || System.currentTimeMillis() - fetchedAt > AUTO_UPDATE_MAX_AGE_MS
         }
 
-        private fun Movie.hasPlayableLinks(): Boolean = when (type) {
-            MovieType.CINEMA -> {
-                val urls = cinemaUrlData?.cinemaUrl?.urls.orEmpty()
-                val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty()
-                urls.any { it.isNotBlank() } || hdUrls.any { it.isNotBlank() }
-            }
-            MovieType.SERIAL -> seasons.any { season ->
-                season.episodes.any { episode ->
-                    episode.hls.isNotBlank() || episode.dash.isNotBlank()
-                }
-            }
-            else -> false
-        }
+        private fun Movie.hasPlayableLinks(): Boolean =
+            PlayStartResolver.sources(this).isNotEmpty()
 
         private fun setAutoUpdateIndicatorVisible(visible: Boolean) {
             _binding?.llUpdatingIndicator?.isVisible = visible
@@ -751,18 +740,19 @@ override fun onResume() {
                     viewModel.handleEvent(DetailsEvent.InvalidateCache)
                 }
 
-                if (movie.type == MovieType.CINEMA) {
-                    val urls = movie.cinemaUrlData?.cinemaUrl?.urls.orEmpty()
-                    val hdUrls = movie.cinemaUrlData?.hdUrl?.urls.orEmpty()
-                    btnPlay.isVisible = urls.isNotEmpty() || hdUrls.isNotEmpty()
-                } else {
-                    val hasAnyLink = movie.seasons.any { season ->
-                        season.episodes.any { episode ->
-                            episode.hls.isNotBlank() || episode.dash.isNotBlank()
-                        }
-                    }
-                    btnPlay.isVisible = hasAnyLink
+                // Кнопка остаётся на месте и тогда, когда играть нечем: состояние
+                // «Нет источника» понятнее, чем исчезающий CTA (PLAY-01, план v3 §9.2).
+                val hasAnyLink = when (movie.type) {
+                    MovieType.CINEMA -> PlayStartResolver.cinemaSources(movie).isNotEmpty()
+                    MovieType.SERIAL -> PlayStartResolver.sources(
+                        movie,
+                        currentSeasonPosition,
+                        currentEpisodePosition
+                    ).isNotEmpty()
+                    else -> false
                 }
+                btnPlay.isVisible = hasAnyLink || movie.type == MovieType.CINEMA ||
+                    movie.type == MovieType.SERIAL
 
                 updatePlayButtonEnabled()
             }
@@ -770,13 +760,25 @@ override fun onResume() {
 
         private fun updatePlayButtonEnabled() {
             _binding?.btnPlay?.apply {
-                // Блокируем только если обновление идёт и нет ни одной играбельной ссылки
-                val hasLinks = currentMovie?.hasPlayableLinks() == true
-                val enabled = !isAutoUpdateRunning || hasLinks
+                val movie = currentMovie
+                // Отсутствие ссылки — явное состояние кнопки, а не молчаливое нажатие (PLAY-01).
+                val hasLinks = movie != null && PlayStartResolver.sources(
+                    movie,
+                    currentSeasonPosition,
+                    currentEpisodePosition
+                ).isNotEmpty()
+                // Обновление данных не должно запирать уже доступные ссылки: играем тем, что есть.
+                val enabled = hasLinks
                 isEnabled = enabled
                 isClickable = enabled
                 alpha = if (enabled) 1f else 0.5f
-                text = getString(if (enabled) R.string.watch else R.string.please_wait)
+                text = getString(
+                    when {
+                        hasLinks -> R.string.watch
+                        isAutoUpdateRunning -> R.string.please_wait
+                        else -> R.string.details_no_source
+                    }
+                )
             }
         }
 
@@ -911,50 +913,21 @@ override fun onResume() {
             }
         }
 
-        private fun getVideoUrlsItems(movie: Movie): List<Pair<String, String>> = when (movie.type) {
-            MovieType.CINEMA -> getCinemaUrlsItems(movie)
-            MovieType.SERIAL -> getSerialEpisodeUrlsItems(movie)
-            else -> emptyList()
-        }
-
-        private fun getCinemaUrlsItems(movie: Movie): List<Pair<String, String>> {
-            val cinemaUrlData = movie.cinemaUrlData
-            val hdUrls = cinemaUrlData?.hdUrl?.urls.orEmpty().filter { it.isNotBlank() }
-            val cinemaUrls = cinemaUrlData?.cinemaUrl?.urls.orEmpty().filter { it.isNotBlank() }
-            val fullLinkList = (hdUrls + cinemaUrls).distinct()
-
-            return fullLinkList.mapIndexed { index, url ->
-                val type = if (url in hdUrls) "HD" else "SD"
-                getString(R.string.link_format, "${index + 1} $type (${url.toShortLinkLabel()})") to url
-            }
-        }
-
-        private fun getSerialEpisodeUrlsItems(movie: Movie): List<Pair<String, String>> {
-            val episode = movie.seasons
-                .sortedBy { it.id }
-                .getOrNull(currentSeasonPosition)
-                ?.episodes
-                ?.sortedBy { findByGroup(it.episode, "(\\d+)".toRegex(), 1)?.toIntOrNull() ?: 0 }
-                ?.getOrNull(currentEpisodePosition)
-                ?: return emptyList()
-            val urls = listOf(
-                "HD" to episode.dash,
-                "SD" to episode.hls
-            ).filter { (_, url) -> url.isNotBlank() }
-                .distinctBy { (_, url) -> url }
-
-            return urls.mapIndexed { index, (type, url) ->
-                getString(R.string.link_format, "${index + 1} $type (${url.toShortLinkLabel()})") to url
-            }
-        }
-
-        private fun String.toShortLinkLabel(): String {
-            val urlWithoutQuery = substringBefore("?")
-            val afterProtocol = urlWithoutQuery.substringAfter("://")
-            val host = afterProtocol.substringBefore("/")
-            val extension = urlWithoutQuery.substringAfterLast(".", "link").uppercase(Locale.getDefault())
-            return "$host/$extension"
-        }
+        /**
+         * Источники текущей серии/фильма: подпись для спиннера + адрес.
+         *
+         * Сама логика выбора живёт в [PlayStartResolver]: там же её можно проверить
+         * без Android, а здесь остаётся только форматирование подписи (план v3 §4.2).
+         */
+        private fun getVideoUrlsItems(movie: Movie): List<Pair<String, String>> =
+            PlayStartResolver.sources(movie, currentSeasonPosition, currentEpisodePosition)
+                .mapIndexed { index, source ->
+                    getString(
+                        R.string.details_source_label,
+                        index + 1,
+                        source.quality
+                    ) to source.url
+                }
 
         /**
          * Отпечаток видео-данных карточки (ссылки фильма / серии сериала).
@@ -1147,77 +1120,123 @@ override fun onResume() {
         }
 
         private fun playMovie() {
-            // Блокируем только если обновление идёт и нет ни одной играбельной ссылки
-            if (isAutoUpdateRunning && currentMovie?.hasPlayableLinks() == false) {
-                toast(getString(R.string.please_wait))
-                return
+            // Единственный вход в воспроизведение: сначала типизированный результат,
+            // потом уже сетевые предупреждения. Молчаливого «ничего не произошло» нет (PLAY-01).
+            val start = PlayStartResolver.resolve(
+                movie = currentMovie,
+                seasonPosition = currentSeasonPosition,
+                episodePosition = currentEpisodePosition,
+                selectedIndex = binding.spinLinks.selectedItemPosition.coerceAtLeast(0)
+            )
+
+            val movie = currentMovie
+            when (start) {
+                is PlayStart.Failed -> {
+                    Timber.w(
+                        "playMovie: %s (movieId=%s, season=%d, episode=%d)",
+                        start.reason,
+                        movie?.dbId,
+                        currentSeasonPosition,
+                        currentEpisodePosition
+                    )
+                    toast(getString(start.reason.messageRes))
+                    updatePlayButtonEnabled()
+                    return
+                }
+
+                is PlayStart.Ready -> {
+                    Timber.d(
+                        "playMovie: ready (movieId=%s, quality=%s, season=%d, episode=%d)",
+                        movie?.dbId,
+                        start.source.quality,
+                        currentSeasonPosition,
+                        currentEpisodePosition
+                    )
+                }
             }
 
-            currentMovie?.let { movie ->
-                val connectionType = getConnectionType(requireContext())
+            if (movie == null) return
+            val connectionType = getConnectionType(requireContext())
 
-                when {
-                    movie.type == MovieType.CINEMA && downloadAll -> {
-                        navigateToPlayer(movie)
-                    }
+            when {
+                movie.type == MovieType.CINEMA && downloadAll -> {
+                    navigateToPlayer(movie)
+                }
 
-                    connectionType is ConnectionType.WIFI -> {
-                        navigateToPlayer(movie)
-                    }
+                connectionType is ConnectionType.WIFI -> {
+                    navigateToPlayer(movie)
+                }
 
-                    connectionType is ConnectionType.MOBILE -> {
-                        alertDialog(
-                            title = getString(R.string.attention),
-                            content = getString(R.string.mobile_network_play),
-                            btnOkText = getString(android.R.string.ok),
-                            btnCancelText = getString(android.R.string.cancel),
-                            onConfirm = { navigateToPlayer(movie) }
-                        )
-                    }
+                connectionType is ConnectionType.MOBILE -> {
+                    alertDialog(
+                        title = getString(R.string.attention),
+                        content = getString(R.string.mobile_network_play),
+                        btnOkText = getString(android.R.string.ok),
+                        btnCancelText = getString(android.R.string.cancel),
+                        onConfirm = { navigateToPlayer(movie) }
+                    )
+                }
 
-                    connectionType is ConnectionType.NONE -> {
-                        alertDialog(
-                            title = getString(R.string.attention),
-                            content = getString(R.string.connection_network_none_dialog_content),
-                            btnOkText = getString(android.R.string.ok),
-                            btnCancelText = getString(android.R.string.cancel),
-                            onConfirm = { navigateToPlayer(movie) }
-                        )
-                    }
+                connectionType is ConnectionType.NONE -> {
+                    alertDialog(
+                        title = getString(R.string.attention),
+                        content = getString(R.string.connection_network_none_dialog_content),
+                        btnOkText = getString(android.R.string.ok),
+                        btnCancelText = getString(android.R.string.cancel),
+                        onConfirm = { navigateToPlayer(movie) }
+                    )
+                }
 
-                    else -> {
-                        navigateToPlayer(movie)
-                    }
+                else -> {
+                    navigateToPlayer(movie)
                 }
             }
         }
 
+        /** Сообщение для отказа запуска: одно место, одна причина на каждое состояние. */
+        private val PlayStartFailure.messageRes: Int
+            get() = when (this) {
+                PlayStartFailure.NO_MOVIE -> R.string.play_error_no_movie
+                PlayStartFailure.NO_SOURCE -> R.string.play_error_no_source
+            }
+
         private fun navigateToPlayer(movie: Movie) {
-            // Блокируем только если обновление идёт и нет ни одной играбельной ссылки
-            if (isAutoUpdateRunning && movie.hasPlayableLinks() == false) return
+            val start = PlayStartResolver.resolve(
+                movie = movie,
+                seasonPosition = currentSeasonPosition,
+                episodePosition = currentEpisodePosition,
+                selectedIndex = binding.spinLinks.selectedItemPosition.coerceAtLeast(0)
+            )
+            if (start is PlayStart.Failed) {
+                // Раньше при пустом списке ссылок плеер получал path = null, сам уходил
+                // назад — со стороны это выглядело как «кнопка не работает».
+                Timber.w("navigateToPlayer: %s (movieId=%s)", start.reason, movie.dbId)
+                toast(getString(start.reason.messageRes))
+                return
+            }
+            val selectedUrl = (start as PlayStart.Ready).source.url
 
-            val popupItems = getVideoUrlsItems(movie)
-            currentLinkPosition = binding.spinLinks.selectedItemPosition
-            val selectedUrl = popupItems
-                .getOrNull(currentLinkPosition)
-                ?.second
-                ?: popupItems.firstOrNull()?.second
-
-            if (movie.type == MovieType.CINEMA) {
-                findNavController().navigate(
-                    R.id.nav_player_view,
-                    bundleOf("path" to selectedUrl, "movie" to movie)
-                )
-            } else {
-                findNavController().navigate(
-                    R.id.nav_player_view,
-                    bundleOf(
-                        "path" to selectedUrl,
-                        "movie" to movie,
-                        "seasonIndex" to currentSeasonPosition,
-                        "episodeIndex" to currentEpisodePosition
+            try {
+                if (movie.type == MovieType.CINEMA) {
+                    findNavController().navigate(
+                        R.id.nav_player_view,
+                        bundleOf("path" to selectedUrl, "movie" to movie)
                     )
-                )
+                } else {
+                    findNavController().navigate(
+                        R.id.nav_player_view,
+                        bundleOf(
+                            "path" to selectedUrl,
+                            "movie" to movie,
+                            "seasonIndex" to currentSeasonPosition,
+                            "episodeIndex" to currentEpisodePosition
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                // Навигация — тоже возможная точка отказа: сообщаем, а не падаем/молчим.
+                Timber.e(e, "navigateToPlayer failed (movieId=%s)", movie.dbId)
+                toast(getString(R.string.play_error_navigation))
             }
         }
 
