@@ -96,6 +96,13 @@ interface PlaybackProgressDao {
     @Query("DELETE FROM playback_progress WHERE movie_dbid = :movieDbId")
     fun deleteForMovie(movieDbId: Long?): Int
 
+    /**
+     * Весь прогресс профиля: экран истории сопоставляет его со списком тайтлов.
+     * Без этого каждая строка списка делала бы свой запрос.
+     */
+    @Query("SELECT * FROM playback_progress WHERE profile_id = :profileId ORDER BY updated_at DESC")
+    fun observeAllForProfile(profileId: String): Flow<List<PlaybackProgressEntity>>
+
     @Query("DELETE FROM playback_progress")
     fun deleteAll(): Int
 }

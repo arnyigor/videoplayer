@@ -325,6 +325,9 @@ private class FakePlaybackProgressDao : PlaybackProgressDao {
         limit: Int,
     ): Flow<List<ContinueWatchingRow>> = flowOf(emptyList())
 
+    override fun observeAllForProfile(profileId: String): Flow<List<PlaybackProgressEntity>> =
+        flowOf(rows.filter { it.profileId == profileId }.sortedByDescending { it.updatedAt })
+
     override fun deleteForMovie(movieDbId: Long?): Int {
         val size = rows.size
         rows.removeAll { it.movieDbId == movieDbId }

@@ -126,7 +126,7 @@ val presentationModule = module {
     viewModel { SiteSearchViewModel(get(), get()) }
     viewModel { CatalogSyncViewModel(get()) }
     viewModel { FavoritesViewModel(get()) }
-    viewModel { HistoryViewModel(get(), get()) }
+    viewModel { HistoryViewModel(get(), get(), get()) }
     viewModel { PlayerViewModel(get(), get(), get(), get()) }
     viewModel { MobileHomeViewModel(get(), get(), get()) }
     viewModel { SplashViewModel(get()) }

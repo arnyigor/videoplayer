@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Строка истории (HIST-01, план v3 §8): превью 16:9, название, серия, остаток,
+  дата последнего просмотра и полоса прогресса вместо карточки каталога.
+-->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="4dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    app:cardBackgroundColor="@color/card_dark_bg"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="0dp"
+    app:strokeWidth="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="96dp"
+        android:orientation="horizontal"
+        android:padding="8dp">
+
+        <FrameLayout
+            android:layout_width="128dp"
+            android:layout_height="72dp">
+
+            <ImageView
+                android:id="@+id/ivPoster"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@color/colorPrimary"
+                android:contentDescription="@null"
+                android:scaleType="centerCrop"
+                tools:src="@drawable/placeholder_movie" />
+
+            <ImageView
+                android:id="@+id/ivResume"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_circle_glass"
+                android:contentDescription="@string/history_resume"
+                android:padding="8dp"
+                app:srcCompat="@drawable/ic_play_arrow"
+                app:tint="@color/colorAccent" />
+
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:textColor="@color/textColorPrimary"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                tools:text="Матрица" />
+
+            <TextView
+                android:id="@+id/tvMeta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/colorAccent"
+                android:textSize="13sp"
+                tools:text="S02E05 · осталось 34 мин" />
+
+            <TextView
+                android:id="@+id/tvLastWatched"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/textColorSecondary"
+                android:textSize="12sp"
+                tools:text="Просмотрено 21.10.26" />
+
+            <ProgressBar
+                android:id="@+id/pbProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:layout_marginTop="6dp"
+                android:max="100"
+                android:progressBackgroundTint="@color/colorSeparator"
+                android:progressTint="@color/colorAccent"
+                tools:progress="35" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

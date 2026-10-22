@@ -19,10 +19,8 @@ import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.databinding.DCustomOrderBinding
 import com.arny.mobilecinema.databinding.DCustomSearchBinding
 import com.arny.mobilecinema.databinding.FHistoryBinding
-import com.arny.mobilecinema.presentation.home.VideoItemsAdapter
 import com.arny.mobilecinema.presentation.listeners.OnSearchListener
 import com.arny.mobilecinema.presentation.uimodels.ListScreenState
-import com.arny.mobilecinema.presentation.utils.PosterGrid
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.createCustomLayoutDialog
 import com.arny.mobilecinema.presentation.utils.hideKeyboard
@@ -30,8 +28,10 @@ import com.arny.mobilecinema.presentation.utils.launchWhenCreated
 import com.arny.mobilecinema.presentation.utils.isRootDestination
 import com.arny.mobilecinema.presentation.utils.navigateSafely
 import com.arny.mobilecinema.presentation.utils.setupSearchView
+import com.arny.mobilecinema.presentation.utils.toast
 import kotlinx.coroutines.flow.collectLatest
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import timber.log.Timber
 import org.koin.core.component.KoinComponent
 import org.koin.android.ext.android.inject
 
@@ -39,7 +39,7 @@ class HistoryFragment : Fragment(), OnSearchListener {
     private val prefs: Prefs by inject()
     private val viewModel: HistoryViewModel by viewModel()
     private lateinit var binding: FHistoryBinding
-    private var itemsAdapter: VideoItemsAdapter? = null
+    private var itemsAdapter: HistoryRowAdapter? = null
     private var searchMenuItem: MenuItem? = null
     private var searchView: SearchView? = null
     private var onQueryChangeSubmit = true
@@ -257,25 +257,21 @@ class HistoryFragment : Fragment(), OnSearchListener {
         )
     }
 
-    private fun posterSpans(): Int = PosterGrid.spansFor(
-        PosterGrid.windowWidthDp(requireContext(), horizontalPaddingDp = 8)
-    )
-
-    private fun posterWidthPx(): Int = PosterGrid.posterWidthPx(
-        widthDp = PosterGrid.windowWidthDp(requireContext(), horizontalPaddingDp = 8),
-        spans = posterSpans(),
-        density = resources.displayMetrics.density,
-    )
+    /** Превью в строке истории 128dp — просим Glide декодировать именно этот размер. */
+    private fun thumbWidthPx(): Int = (128 * resources.displayMetrics.density).toInt()
 
     private fun initAdapters() {
         val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-        itemsAdapter = VideoItemsAdapter(
+        itemsAdapter = HistoryRowAdapter(
             baseUrl = baseUrl,
-            posterWidthPx = posterWidthPx(),
-        ) { item ->
-            val action = HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId)
-            findNavController().navigateSafely(action)
-        }
+            thumbWidthPx = thumbWidthPx(),
+            progressByMovie = { viewModel.progressByMovie.value },
+            onOpenDetails = { item ->
+                val action = HistoryFragmentDirections.actionNavHistoryToNavDetails(item.dbId)
+                findNavController().navigateSafely(action)
+            },
+            onResume = { item -> viewModel.playFromHistory(item.dbId) },
+        )
 
         // LoadStateListener — единый источник правды для loading/empty/error
         itemsAdapter?.addLoadStateListener { loadState ->
@@ -308,9 +304,12 @@ class HistoryFragment : Fragment(), OnSearchListener {
         binding.rvHistoryList.apply {
             adapter = itemsAdapter
             setHasFixedSize(true)
-            // Сетка из XML приходит с spanCount=2; на планшете колонок должно быть больше (MOB-07).
-            (layoutManager as? androidx.recyclerview.widget.GridLayoutManager)
-                ?.spanCount = posterSpans()
+            // История — список строк «продолжить просмотр», а не сетка постеров (HIST-01).
+            layoutManager = androidx.recyclerview.widget.LinearLayoutManager(
+                requireContext(),
+                androidx.recyclerview.widget.LinearLayoutManager.VERTICAL,
+                false
+            )
         }
 
         // Кнопка Retry
@@ -356,6 +355,38 @@ class HistoryFragment : Fragment(), OnSearchListener {
             viewModel.order.collectLatest { order ->
                 currentOrder = order
             }
+        }
+        launchWhenCreated {
+            viewModel.progressByMovie.collectLatest {
+                itemsAdapter?.refreshProgress()
+            }
+        }
+        launchWhenCreated {
+            viewModel.commands.collectLatest { command ->
+                when (command) {
+                    is HistoryCommand.Play -> navigateToPlayer(command)
+                    is HistoryCommand.PlayError -> toast(getString(R.string.history_resume_error))
+                }
+            }
+        }
+    }
+
+    /**
+     * Плеер открывается с полным тайтлом; серию и позицию он берёт из общего стора
+     * прогресса — поэтому из истории не нужно передавать индексы сезона/серии.
+     */
+    private fun navigateToPlayer(command: HistoryCommand.Play) {
+        try {
+            // `path` объявлен в графе как nullable без defaultValue: ключ должен присутствовать,
+            // иначе Safe Args падает с «Required argument path is missing». Серию и позицию
+            // подставляет сам плеер из общего стора прогресса.
+            findNavController().navigate(
+                R.id.nav_player_view,
+                androidx.core.os.bundleOf("path" to null, "movie" to command.movie)
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "history: failed to open player for movieId=%d", command.movie.dbId)
+            toast(getString(R.string.history_resume_error))
         }
     }
 }

@@ -190,6 +190,28 @@ class PlaybackProgressStore(
         playbackProgressDao.observeContinueWatching(profileId, minPositionMs, limit)
             .map { rows -> rows.mapNotNull { it.toItem() } }
 
+    /**
+     * Последний прогресс по каждому тайтлу (HIST-01).
+     *
+     * Экран истории показывает серию/остаток/дату по одной строке на тайтл, поэтому
+     * из нескольких эпизодов берётся самый свежий. Пустые `playableId` (старый формат)
+     * пропускаются: для них остаются каталоговые данные без прогресса.
+     */
+    fun observeProgressByMovie(
+        profileId: String = PlaybackProgress.DEFAULT_PROFILE_ID,
+    ): Flow<Map<Long, PlaybackProgress>> =
+        playbackProgressDao.observeAllForProfile(profileId).map { rows ->
+            val latest = LinkedHashMap<Long, PlaybackProgress>()
+            for (row in rows) {
+                if (row.playableId.isBlank()) continue
+                val current = latest[row.movieDbId]
+                if (current == null || row.updatedAt > current.updatedAt) {
+                    latest[row.movieDbId] = row.toDomain()
+                }
+            }
+            latest
+        }
+
     private fun ContinueWatchingRow.toItem(): ContinueWatchingItem? {
         if (progress.playableId.isBlank()) return null
         return ContinueWatchingMapper.map(
