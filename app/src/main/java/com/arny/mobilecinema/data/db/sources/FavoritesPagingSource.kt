@@ -16,24 +16,23 @@ class FavoritesPagingSource(
 ) : PagingSource<Int, ViewMovie>() {
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ViewMovie> {
-        val page = params.key ?: 0
-        val limit = params.loadSize
-        val offset = page * limit
-
-        // Обновляем latest_time при каждом доступе к избранному
-        dao.updateLatestTime(System.currentTimeMillis())
-
-        /* ---------------------- формируем SQL --------------------- */
-        val query = buildFavoritesQuery(search, order, searchType, limit, offset)
+        // Keys are row boundaries, not page numbers: initial and subsequent load sizes differ.
+        val boundary = params.key ?: 0
+        val offset = if (params is LoadParams.Prepend) (boundary - params.loadSize).coerceAtLeast(0) else boundary
+        val limit = if (params is LoadParams.Prepend) boundary - offset else params.loadSize
 
         return try {
+            dao.updateLatestTime(System.currentTimeMillis())
+            val query = buildFavoritesQuery(search, order, searchType, limit, offset)
             val movies = dao.getFavoriteMovies(query)
             LoadResult.Page(
                 data = movies,
-                prevKey = if (page == 0) null else page - 1,
-                nextKey = if (movies.isEmpty()) null else page + 1
+                prevKey = offset.takeIf { it > 0 },
+                nextKey = (offset + movies.size).takeIf { movies.isNotEmpty() && movies.size == limit },
+                itemsBefore = offset,
             )
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             LoadResult.Error(e)
         }
     }
@@ -103,7 +102,6 @@ class FavoritesPagingSource(
 
     override fun getRefreshKey(state: PagingState<Int, ViewMovie>): Int? =
         state.anchorPosition?.let { anchor ->
-            val page = state.closestPageToPosition(anchor)
-            page?.prevKey?.plus(1) ?: page?.nextKey?.minus(1)
+            state.closestPageToPosition(anchor)?.itemsBefore?.takeIf { it != LoadResult.Page.COUNT_UNDEFINED }
         }
 }

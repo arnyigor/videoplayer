@@ -100,7 +100,6 @@ class UpdateRepositoryImpl constructor(
         url: String,
         fileName: String
     ): Flow<DataResultWithProgress<DownloadFileResult>> {
-        removeOldMP4Downloads()
         val file = File(context.filesDir, fileName).apply { create() }
         return apiService.downloadFileWithProgress(file, url)
     }

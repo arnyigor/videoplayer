@@ -60,7 +60,10 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.presentation.catalog.CatalogSection
+import com.arny.mobilecinema.presentation.catalog.CatalogSort
 import com.arny.mobilecinema.presentation.catalog.CatalogViewModel
+import com.arny.mobilecinema.presentation.mobile.ui.catalog.CatalogGenreChips
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arny.mobilecinema.presentation.mobile.ui.catalog.MobileCatalogScreen
 import com.arny.mobilecinema.presentation.mobile.ui.theme.MobileDimens
 import com.arny.mobilecinema.presentation.mobile.home.MobileHomeViewModel
@@ -222,6 +225,8 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
         super.onViewCreated(view, savedInstanceState)
         setupComposeHome()
         setupCatalogHost()
+        setupAllGenresHost()
+        setupCatalogSort()
         initToolbar()
         initListeners()
         initMenu()
@@ -248,7 +253,7 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
     /** Sets up button listeners. */
     private fun initListeners() {
         binding.btnUpdateList.setOnClickListener {
-            viewModel.loadMovies()
+            downloadData(force = true)
         }
         binding.homeContentTypeGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (syncingContentTypeSelection) return@addOnButtonCheckedListener
@@ -637,8 +642,21 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
             }
         }
         launchWhenCreated {
+            viewModel.genre.collectLatest {
+                updateHighlightsVisibility()
+                binding.rcVideoList.scrollToPosition(0)
+            }
+        }
+        launchWhenCreated {
             viewModel.order.collectLatest { order ->
+                val changed = currentOrder.isNotBlank() && currentOrder != order
                 currentOrder = order
+                // Recommendation rails have a fixed order; explicit sorting must reveal the ordered grid.
+                updateHighlightsVisibility()
+                if (changed) {
+                    updateFilterChips()
+                    binding.rcVideoList.scrollToPosition(0)
+                }
             }
         }
         launchWhenCreated {
@@ -829,6 +847,27 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
         binding.composeHome.isVisible = isSearchComplete()
     }
 
+    /** Ряд жанров для ленты «Все»: только у этого раздела нет своего Compose-каталога. */
+    private fun setupAllGenresHost() {
+        binding.allGenresHost.setViewCompositionStrategy(
+            ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
+        )
+        binding.allGenresHost.setContent {
+            MobileTheme(darkTheme = true) {
+                val genres by viewModel.genreOptions.collectAsStateWithLifecycle()
+                val selected by viewModel.genre.collectAsStateWithLifecycle()
+                if (genres.isNotEmpty()) {
+                    CatalogGenreChips(
+                        genres = genres,
+                        selected = selected,
+                        onSelectGenre = { viewModel.setGenre(it) },
+                    )
+                }
+            }
+        }
+        viewModel.loadGenreOptions()
+    }
+
     /**
      * Каталог «Фильмы»/«Сериалы» внутри главной (аудит v2, CAT-01).
      *
@@ -902,10 +941,39 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
         )
     }
 
+    /** Прежний диалог «Настройки сортировки»: один выбор из шести режимов каталога. */
+    private fun setupCatalogSort() {
+        binding.btnCatalogSort.setOnClickListener {
+            val catalog = when (viewModel.contentType.value) {
+                HomeContentType.CINEMA -> filmsCatalogViewModel
+                HomeContentType.SERIAL -> seriesCatalogViewModel
+                // «Все» — лента с собственным порядком: используем её прежний диалог.
+                HomeContentType.ALL -> return@setOnClickListener showCustomOrderDialog()
+            }
+            val current = catalog.uiState.value.sort
+            val entries = CatalogSort.entries
+            val answer = arrayOfNulls<CatalogSort>(1)
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle(R.string.search_order_settings)
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    answer[0]?.let(catalog::selectSort)
+                }
+                .setSingleChoiceItems(
+                    entries.map { getString(it.titleRes) }.toTypedArray(),
+                    entries.indexOf(current),
+                ) { _, which -> answer[0] = entries[which] }
+                .show()
+        }
+    }
+
     /** Каталог показывается вместо ленты только в выбранном разделе и вне поиска. */
     private fun updateCatalogVisibility() {
         binding.catalogHost.isVisible =
             isSearchComplete() && viewModel.contentType.value != HomeContentType.ALL
+        // Жанры: у каталогов свой ряд внутри Compose, у ленты «Все» — этот хост.
+        binding.allGenresHost.isVisible =
+            isSearchComplete() && viewModel.contentType.value == HomeContentType.ALL
         binding.rcVideoList.isVisible = !binding.catalogHost.isVisible
     }
 
@@ -974,6 +1042,8 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
 
     private fun shouldShowHighlights(): Boolean =
         isHomeHighlightsEnabled() &&
+                isRecommendedHomeOrder(viewModel.order.value) &&
+                viewModel.genre.value == null &&
                 isSearchComplete() &&
                 (highlightsAdapter?.hasHighlights() == true)
 
@@ -1079,7 +1149,8 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
                 }
 
                 R.id.menu_action_update_list -> {
-                    viewModel.loadMovies()
+                    // The action also works while the local catalog is only partially populated.
+                    downloadData(force = true)
                     true
                 }
 
@@ -1089,6 +1160,8 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
     }
 
     private fun showCustomOrderDialog() {
+        var selectedOrder = viewModel.order.value.ifBlank { AppConstants.Order.SMART }
+        var selectedPriority = likesPriority
         createCustomLayoutDialog(
             title = getString(R.string.search_order_settings),
             layout = R.layout.d_custom_order,
@@ -1096,8 +1169,8 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
             btnOkText = getString(android.R.string.ok),
             btnCancelText = getString(android.R.string.cancel),
             onConfirm = {
-                viewModel.setOrder(currentOrder, likesPriority)
-                updateFilterChips()
+                likesPriority = selectedPriority
+                viewModel.setOrder(selectedOrder, selectedPriority)
             },
             initView = {
                 with(DCustomOrderBinding.bind(this)) {
@@ -1107,14 +1180,14 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
                         )
                     }
                     fun updatePriorityVisibility() {
-                        swPriority.isVisible = currentOrder != AppConstants.Order.SMART
+                        swPriority.isVisible = selectedOrder != AppConstants.Order.SMART
                     }
                     rbLastTime.isVisible = false
-                    swPriority.isChecked = likesPriority
-                    updatePriorityText(likesPriority)
+                    swPriority.isChecked = selectedPriority
+                    updatePriorityText(selectedPriority)
                     swPriority.setOnCheckedChangeListener { _, isChecked ->
-                        likesPriority = isChecked
-                        updatePriorityText(likesPriority)
+                        selectedPriority = isChecked
+                        updatePriorityText(selectedPriority)
                     }
                     val radioBtn = listOf(
                         rbSmart to AppConstants.Order.SMART,
@@ -1124,9 +1197,10 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
                         rbYearDesc to AppConstants.Order.YEAR_DESC,
                         rbYearAsc to AppConstants.Order.YEAR_ASC,
                     )
-                    currentOrder.takeIf { it.isNotBlank() }?.let {
+                    selectedOrder.takeIf { it.isNotBlank() }?.let {
                         when (it) {
                             AppConstants.Order.SMART -> rbSmart.isChecked = true
+                            AppConstants.Order.NONE -> rbNone.isChecked = true
                             AppConstants.Order.TITLE -> rbTitle.isChecked = true
                             AppConstants.Order.RATINGS -> rbRatings.isChecked = true
                             AppConstants.Order.YEAR_DESC -> rbYearDesc.isChecked = true
@@ -1135,12 +1209,12 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
                         }
                     } ?: kotlin.run {
                         rbSmart.isChecked = true
-                        currentOrder = AppConstants.Order.SMART
+                        selectedOrder = AppConstants.Order.SMART
                     }
                     radioBtn.forEach { (rb, orderString) ->
                         rb.setOnCheckedChangeListener { _, isChecked ->
                             if (isChecked) {
-                                currentOrder = orderString
+                                selectedOrder = orderString
                                 updatePriorityVisibility()
                             }
                         }

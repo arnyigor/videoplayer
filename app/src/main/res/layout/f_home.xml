@@ -63,59 +63,81 @@
                 app:singleLine="true" />
         </HorizontalScrollView>
 
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/homeContentTypeGroup"
+        <!-- Переключатель разделов и сортировка каталога в одной строке: экономит полосу экрана. -->
+        <LinearLayout
+            android:id="@+id/homeContentRow"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
             android:paddingHorizontal="8dp"
             android:paddingTop="8dp"
             android:paddingBottom="4dp"
-            app:checkedButton="@id/btnHomeContentAll"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/filterChipsScroll"
-            app:selectionRequired="true"
-            app:singleSelection="true">
+            app:layout_constraintTop_toBottomOf="@id/filterChipsScroll">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnHomeContentAll"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:checkable="true"
-                android:text="@string/home_content_all"
-                android:textColor="@color/home_content_toggle_text"
-                app:backgroundTint="@color/home_content_toggle_bg"
-                app:cornerRadius="8dp"
-                app:strokeColor="@color/home_content_toggle_stroke"
-                app:strokeWidth="1dp" />
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/homeContentTypeGroup"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:checkedButton="@id/btnHomeContentAll"
+                app:selectionRequired="true"
+                app:singleSelection="true">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnHomeContentCinema"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:checkable="true"
-                android:text="@string/home_content_cinema"
-                android:textColor="@color/home_content_toggle_text"
-                app:backgroundTint="@color/home_content_toggle_bg"
-                app:cornerRadius="8dp"
-                app:strokeColor="@color/home_content_toggle_stroke"
-                app:strokeWidth="1dp" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnHomeContentSerial"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:checkable="true"
-                android:text="@string/home_content_serial"
-                android:textColor="@color/home_content_toggle_text"
-                app:backgroundTint="@color/home_content_toggle_bg"
-                app:cornerRadius="8dp"
-                app:strokeColor="@color/home_content_toggle_stroke"
-                app:strokeWidth="1dp" />
-        </com.google.android.material.button.MaterialButtonToggleGroup>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnHomeContentAll"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:checkable="true"
+                    android:text="@string/home_content_all"
+                    android:textColor="@color/home_content_toggle_text"
+                    app:backgroundTint="@color/home_content_toggle_bg"
+                    app:cornerRadius="8dp"
+                    app:strokeColor="@color/home_content_toggle_stroke"
+                    app:strokeWidth="1dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnHomeContentCinema"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:checkable="true"
+                    android:text="@string/home_content_cinema"
+                    android:textColor="@color/home_content_toggle_text"
+                    app:backgroundTint="@color/home_content_toggle_bg"
+                    app:cornerRadius="8dp"
+                    app:strokeColor="@color/home_content_toggle_stroke"
+                    app:strokeWidth="1dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnHomeContentSerial"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:checkable="true"
+                    android:text="@string/home_content_serial"
+                    android:textColor="@color/home_content_toggle_text"
+                    app:backgroundTint="@color/home_content_toggle_bg"
+                    app:cornerRadius="8dp"
+                    app:strokeColor="@color/home_content_toggle_stroke"
+                    app:strokeWidth="1dp" />
+
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <ImageButton
+                android:id="@+id/btnCatalogSort"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/catalog_sort_title"
+                android:padding="12dp"
+                android:src="@drawable/ic_sort"
+                android:tint="@color/home_content_toggle_text" />
+        </LinearLayout>
 
         <!-- Градиент снизу списка -->
         <View
@@ -126,6 +148,18 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent" />
+
+        <!-- Жанры раздела «Все»: тот же ряд чипов, что и в каталогах. -->
+        <androidx.compose.ui.platform.ComposeView
+            android:id="@+id/allGenresHost"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/homeContentRow" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rcVideoList"
@@ -141,7 +175,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/homeContentTypeGroup"
+            app:layout_constraintTop_toBottomOf="@id/allGenresHost"
             app:spanCount="2"
             tools:listitem="@layout/i_home_video" />
 
@@ -263,7 +297,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/homeContentTypeGroup" />
+            app:layout_constraintTop_toBottomOf="@id/homeContentRow" />
 
         <!--
             Каталог «Фильмы»/«Сериалы» внутри главной (аудит v2, CAT-01).
@@ -279,7 +313,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/homeContentTypeGroup" />
+            app:layout_constraintTop_toBottomOf="@id/homeContentRow" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

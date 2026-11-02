@@ -4,7 +4,6 @@ import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResultWithProgress
 import com.arny.mobilecinema.data.models.DataThrowable
 import com.arny.mobilecinema.data.models.DownloadFileResult
-import com.arny.mobilecinema.data.utils.getFullError
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.timeout
@@ -19,12 +18,11 @@ import io.ktor.util.InternalAPI
 import io.ktor.util.cio.writeChannel
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.copyAndClose
-import io.ktor.utils.io.core.isEmpty
-import io.ktor.utils.io.core.readBytes
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import java.io.File
 import java.io.IOException
 
@@ -63,71 +61,62 @@ class ApiService(
         file: File,
         url: String
     ): Flow<DataResultWithProgress<DownloadFileResult>> {
-        return callbackFlow {
+        return flow<DataResultWithProgress<DownloadFileResult>> {
+            var complete = false
             try {
                 httpClient.prepareGet(url) {
+                    header("User-Agent", BROWSER_USER_AGENT)
+                    header("Accept", "application/octet-stream,application/zip,*/*")
+                    header("Accept-Encoding", "identity")
                     timeout {
                         connectTimeoutMillis = 60000 * 60
                         requestTimeoutMillis = 60000 * 60
                         socketTimeoutMillis = 60000 * 60
                     }
-                }
-                    .execute { httpResponse ->
-                        val channel: ByteReadChannel = httpResponse.body<ByteReadChannel>()
-                        val contentLength = httpResponse.contentLength() ?: 0L
-                        if (contentLength > 0) {
-                            while (!channel.isClosedForRead) {
-                                val packet = channel.readRemaining(DEFAULT_BUFFER_SIZE.toLong())
-                                while (!packet.isEmpty) {
-                                    val bytes = packet.readBytes()
-                                    file.appendBytes(bytes)
-                                    val length = file.length()
-                                    val percent: Int =
-                                        (length * 100 / contentLength).toInt()
-                                    trySend(
-                                        DataResultWithProgress.Progress(
-                                            DownloadFileResult(
-                                                progress = percent,
-                                                size = length,
-                                                total = contentLength
-                                            )
-                                        )
-                                    )
-                                }
+                }.execute { response ->
+                    if (!response.status.isSuccess()) {
+                        throw IOException("HTTP ${response.status.value}: ${response.status.description}")
+                    }
+                    val channel: ByteReadChannel = response.body()
+                    val total = response.contentLength()?.takeIf { it > 0 }
+                    var downloaded = 0L
+                    var reportedBytes = 0L
+                    var lastPercent = -1
+                    file.outputStream().buffered().use { output ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            val count = channel.readAvailable(buffer, 0, buffer.size)
+                            if (count < 0) break
+                            if (count == 0) continue
+                            output.write(buffer, 0, count)
+                            downloaded += count
+                            // Reserve 100% until EOF, size validation and closing the file.
+                            val percent = if (total != null) (downloaded * 100 / total).toInt().coerceIn(0, 99) else 0
+                            if ((total != null && percent != lastPercent) ||
+                                (total == null && downloaded - reportedBytes >= 256 * 1024)) {
+                                emit(DataResultWithProgress.Progress(DownloadFileResult(
+                                    progress = percent, size = downloaded, total = total,
+                                )))
+                                lastPercent = percent
+                                reportedBytes = downloaded
                             }
-                            if (httpResponse.status.isSuccess()) {
-                                trySend(
-                                    DataResultWithProgress.Success(
-                                        DownloadFileResult(file = file)
-                                    )
-                                )
-                            } else {
-                                trySend(
-                                    DataResultWithProgress.Error(
-                                        Throwable(
-                                            getFullError(
-                                                httpResponse.body<Throwable>().fillInStackTrace()
-                                            )
-                                        )
-                                    )
-                                )
-                            }
-                        } else {
-                            trySend(
-                                DataResultWithProgress.Error(
-                                    DataThrowable(R.string.download_error_file_is_empty)
-                                )
-                            )
                         }
                     }
-
-            } catch (e: TimeoutCancellationException) {
-                trySend(DataResultWithProgress.Error(Throwable(getFullError(e))))
-            } catch (t: Throwable) {
-                trySend(DataResultWithProgress.Error(Throwable(getFullError(t))))
+                    if (downloaded == 0L) throw DataThrowable(R.string.download_error_file_is_empty)
+                    if (total != null && downloaded != total) throw IOException("Incomplete download: $downloaded / $total bytes")
+                    complete = true
+                    emit(DataResultWithProgress.Progress(DownloadFileResult(
+                        progress = if (total != null) 100 else 0, size = downloaded, total = total,
+                    )))
+                    emit(DataResultWithProgress.Success(DownloadFileResult(file = file, size = downloaded, total = total)))
+                }
+            } finally {
+                // Interrupted attempts are not resumable: never leave an incomplete archive as a valid file.
+                if (!complete) file.delete()
             }
-            awaitClose()
-        }
+        }.catch { cause ->
+            emit(DataResultWithProgress.Error(cause))
+        }.flowOn(Dispatchers.IO)
     }
 
     suspend fun checkPath(url: String, timeoutMillis: Long? = null): HttpStatusCode =

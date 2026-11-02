@@ -1,6 +1,10 @@
 package com.arny.mobilecinema.presentation.mobile.ui.catalog
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -97,7 +101,7 @@ fun MobileCatalogScreen(
             .fillMaxSize()
             .background(MobileColors.Background),
     ) {
-        Row(
+        if (showTitle) Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
@@ -107,15 +111,13 @@ fun MobileCatalogScreen(
                     bottom = MobileDimens.RowGap,
                 ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = if (showTitle) Arrangement.SpaceBetween else Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            if (showTitle) {
-                Text(
-                    text = stringResource(state.section.titleRes),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MobileColors.OnBackground,
-                )
-            }
+            Text(
+                text = stringResource(state.section.titleRes),
+                style = MaterialTheme.typography.titleLarge,
+                color = MobileColors.OnBackground,
+            )
             CatalogSortSelector(
                 sort = state.sort,
                 onSelectSort = onSelectSort,
@@ -161,8 +163,8 @@ fun MobileCatalogScreen(
 }
 
 /**
- * Сортировка в тулбаре каталога: «Сортировка: Новинки ▾» открывает меню.
- * Три chip-а в ряд отнимали полосу у жанров (аудит §3.2).
+ * Сортировка — только небольшая иконка справа: текстовый селектор занимал полосу
+ * у жанров. Текущий режим остаётся в contentDescription и в меню.
  */
 @Composable
 private fun CatalogSortSelector(
@@ -170,27 +172,23 @@ private fun CatalogSortSelector(
     onSelectSort: (CatalogSort) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val sortTitle = stringResource(sort.titleRes)
-    val selectorLabel = stringResource(R.string.catalog_sort_selector, sortTitle)
+    val selectorLabel = stringResource(R.string.catalog_sort_selector, stringResource(sort.titleRes))
     Box {
-        TextButton(
-            onClick = { expanded = true },
+        // 48dp область нажатия для доступности, визуально — иконка 20dp.
+        Box(
             modifier = Modifier
-                .height(MobileDimens.MinTouchTarget)
-                .semantics { contentDescription = selectorLabel },
+                .size(MobileDimens.MinTouchTarget)
+                .clip(CircleShape)
+                .clickable { expanded = true }
+                .semantics { contentDescription = selectorLabel }
+                .testTag("catalog.sort"),
+            contentAlignment = Alignment.Center,
         ) {
-            // Одна видимая кнопка: иконка + текущий режим вместо текстовой ссылки (SORT-01).
             Icon(
                 painter = painterResource(R.drawable.ic_sort),
                 contentDescription = null,
                 tint = MobileColors.Accent,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = "$selectorLabel ▾",
-                style = MaterialTheme.typography.labelLarge,
-                color = MobileColors.Accent,
+                modifier = Modifier.size(20.dp),
             )
         }
         DropdownMenu(
@@ -222,7 +220,7 @@ private fun CatalogSortSelector(
  * раньше активный chip мог остаться обрезанным на краю экрана (аудит §3.4).
  */
 @Composable
-private fun CatalogGenreChips(
+internal fun CatalogGenreChips(
     genres: List<String>,
     selected: String?,
     onSelectGenre: (String?) -> Unit,

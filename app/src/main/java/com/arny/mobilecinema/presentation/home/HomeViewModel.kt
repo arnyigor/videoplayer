@@ -270,8 +270,11 @@ class HomeViewModel constructor(
         }
     }
 
+    private var intentJob: Job? = null
+
     fun checkIntent() {
-        viewModelScope.launch {
+        if (intentJob?.isActive == true) return
+        intentJob = viewModelScope.launch {
             dataUpdateInteractor.intentUrl()
                 .onStart { _loading.value = true }
                 .onCompletion { _loading.value = false }
@@ -395,6 +398,28 @@ class HomeViewModel constructor(
         }
     }
 
+    private val _genre = MutableStateFlow<String?>(null)
+    val genre = _genre.asStateFlow()
+    private val _genreOptions = MutableStateFlow<List<String>>(emptyList())
+    val genreOptions = _genreOptions.asStateFlow()
+
+    /** Жанры для раздела «Все»: тот же источник, что и у каталогов. */
+    fun loadGenreOptions() {
+        if (_genreOptions.value.isNotEmpty()) return
+        viewModelScope.launch {
+            _genreOptions.value = runCatching { moviesInteractor.loadCanonicalGenres() }
+                .onFailure { Timber.e(it, "Failed to load home genres") }
+                .getOrDefault(emptyList())
+        }
+    }
+
+    /** Жанр применяется к ленте «Все» тем же SQL-фильтром, что и в каталоге. */
+    fun setGenre(genre: String?) {
+        _genre.value = genre
+        genres = listOfNotNull(genre)
+        viewModelScope.launch { emitCurrentSearch() }
+    }
+
     fun setOrder(order: String, likesPriority: Boolean) {
         viewModelScope.launch {
             moviesInteractor.saveOrder(order)
@@ -433,6 +458,7 @@ class HomeViewModel constructor(
             searchAddTypes = searchResult.types
             queryString = searchResult.search
             genres = searchResult.genres
+            _genre.value = searchResult.genres.firstOrNull()
             countries = searchResult.countries
             years = searchResult.yearsRange
             imdbRange = searchResult.imdbRange
@@ -462,6 +488,7 @@ class HomeViewModel constructor(
         searchAddTypes = _contentType.value.searchTypes
         queryString = ""
         genres = emptyList()
+        _genre.value = null
         countries = emptyList()
         years = SimpleIntRange()
         imdbRange = SimpleFloatRange()

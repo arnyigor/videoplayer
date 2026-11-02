@@ -97,3 +97,7 @@ class HomeHighlightsAdapter(
         }
     }
 }
+
+/** Only recommendation mode uses fixed recommendation rails; explicit orders use the paged grid. */
+internal fun isRecommendedHomeOrder(order: String): Boolean =
+    order.isBlank() || order == com.arny.mobilecinema.data.repository.AppConstants.Order.SMART

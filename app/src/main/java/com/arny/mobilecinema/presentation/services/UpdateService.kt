@@ -151,6 +151,7 @@
         private val supervisorJob = SupervisorJob()
         private var canceled = false
         private var downloadAllJob: Job? = null
+        private var archiveJob: Job? = null
 
         // Хранение последнего известного прогресса
         private var lastKnownCurrent: Int = -1
@@ -439,13 +440,16 @@
          * download the ZIP file from the given URL and then update the database.
          */
         private fun actionDownload(intent: Intent?) {
-            lifecycleScope.launch {
+            // Do not import the same catalog concurrently on repeated manual requests.
+            if (archiveJob?.isActive == true) return
+            archiveJob = lifecycleScope.launch {
                 try {
                     download(
                         intent?.getStringExtra(SERVICE_PARAM_URL),
                         intent?.getBooleanExtra(SERVICE_PARAM_FORCE_ALL, false)
                     )
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     e.printStackTrace()
                     updateCompleteWithError()
                 }
@@ -473,6 +477,19 @@
             }
         }
 
+
+        /** Текст прогресса: процент и объём, если сервер отдал размер. */
+        private fun formatDownloadProgress(percent: Int, downloaded: Long, total: Long): String =
+            if (total > 0L) {
+                "%d%% (%s / %s)".format(
+                    percent,
+                    android.text.format.Formatter.formatShortFileSize(applicationContext, downloaded),
+                    android.text.format.Formatter.formatShortFileSize(applicationContext, total),
+                )
+            } else {
+                android.text.format.Formatter.formatShortFileSize(applicationContext, downloaded)
+            }
+
         /**
          * Downloads a ZIP file from the given URL and initiates an update with its contents.
          *
@@ -483,15 +500,34 @@
 
             withContext(Dispatchers.IO) {
                 if (!url.isNullOrBlank()) {
+                    var downloadedFile: File? = null
+                    var downloaded = 0L
+                    var total = 0L
                     updateNotification(
-                        title = getString(R.string.downloading_database),
-                        text = "",
-                        silent = false
+                        title = getString(R.string.downloading_database), text = "", silent = false,
+                        indeterminate = true,
                     )
-                    val file = repository.downloadFile(url, "tmp_${System.currentTimeMillis()}.zip")
+                    // The flow ends after Success/Error; import starts after the file is closed.
+                    repository.downloadFileWithProgress(url, "tmp_${System.currentTimeMillis()}.zip").collect { result ->
+                        when (result) {
+                            is DataResultWithProgress.Progress -> {
+                                downloaded = result.result.size ?: downloaded
+                                total = result.result.total ?: total
+                                updateNotification(
+                                    title = getString(R.string.downloading_database),
+                                    text = formatDownloadProgress(result.result.progress, downloaded, total),
+                                    silent = true, progress = result.result.progress,
+                                    progressMax = if (total > 0) 100 else 0,
+                                    indeterminate = total <= 0,
+                                )
+                            }
+                            is DataResultWithProgress.Success -> downloadedFile = result.result.file
+                            is DataResultWithProgress.Error -> throw java.io.IOException("Archive download failed", result.throwable)
+                        }
+                    }
                     update(
-                        filePath = file.absolutePath,
-                        forceAll = forceAll ?: false
+                        filePath = downloadedFile?.absolutePath ?: throw java.io.IOException("Download finished without a file"),
+                        forceAll = forceAll ?: false,
                     )
                 } else {
                     stop()
@@ -675,6 +711,8 @@
          * @param forceAll Whether a full update should be performed.
          */
         private suspend fun readFile(filePath: String, forceAll: Boolean) {
+            // 100% referred to transfer; the database still needs unpacking, parsing and import.
+            updateNotification(getString(R.string.updating_data), text = "", silent = true, indeterminate = true)
             val file = File(filePath)
             if (!file.isZipArchive()) {
                 Timber.tag(TAG).e("Downloaded update file is not a ZIP: %s, size=%d", file.absolutePath, file.length())
@@ -748,7 +786,8 @@
                             // Прерываем работу, если сервис был отменен
                             if (canceled) throw CancellationException("Update cancelled")
 
-                            updateNotification(getString(R.string.updating, percent), text = "", true)
+                            updateNotification(getString(R.string.updating, percent), text = "", silent = true,
+                                progress = percent, progressMax = 100)
                             // Broadcast progress for TV UI
                             sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
                                 putString(
@@ -893,11 +932,14 @@
             text: String,
             silent: Boolean,
             addStopAction: Boolean = false,
+            progress: Int = 0,
+            progressMax: Int = 0,
+            indeterminate: Boolean = false,
         ) {
             if (!canceled) {
                 getNoticeManager().notify(
                     NOTICE_ID,
-                    getNotice("channelId", "channelName", title, text, addStopAction, silent)
+                    getNotice("channelId", "channelName", title, text, addStopAction, silent, progress, progressMax, indeterminate)
                 )
             }
         }
@@ -927,7 +969,10 @@
             title: String,
             text: String,
             addStopAction: Boolean = false,
-            silent: Boolean
+            silent: Boolean,
+            progress: Int = 0,
+            progressMax: Int = 0,
+            indeterminate: Boolean = false,
         ): Notification {
             val contentIntent = PendingIntent.getActivity(
                 /* context = */ this,
@@ -952,6 +997,11 @@
                         setContentText(text)
                     }
                     setContentText(text)
+                    if (progressMax > 0) {
+                        setProgress(progressMax, progress.coerceIn(0, progressMax), false)
+                    } else {
+                        setProgress(0, 0, indeterminate)
+                    }
                     setAutoCancel(false)
                     setSilent(silent)
                     priority = NotificationCompat.PRIORITY_DEFAULT

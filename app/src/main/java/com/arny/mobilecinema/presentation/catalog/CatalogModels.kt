@@ -25,15 +25,19 @@ enum class CatalogSection(
 
 /**
  * Сортировка каталога. Порядок отдаёт существующий слой (`AppConstants.Order`),
- * поэтому список ограничен тремя вариантами, которые дают разные выдачи.
+ * все шесть вариантов используют собственный порядок в существующем SQL.
  */
 enum class CatalogSort(
     val order: String,
     val titleRes: Int,
 ) {
-    NEW(AppConstants.Order.YEAR_DESC, R.string.new_movies),
-    RATING(AppConstants.Order.RATINGS, R.string.by_rating_movies),
-    ALPHABET(AppConstants.Order.TITLE, R.string.alphabet_movies),
+    // Порядок и подписи совпадают с прежним диалогом «Настройки сортировки».
+    RECOMMENDED(AppConstants.Order.SMART, R.string.order_recommended),
+    UPDATED(AppConstants.Order.NONE, R.string.sort_updated),
+    ALPHABET(AppConstants.Order.TITLE, R.string.sort_title),
+    RATING(AppConstants.Order.RATINGS, R.string.sort_ratings),
+    NEW(AppConstants.Order.YEAR_DESC, R.string.sort_year_desc),
+    YEAR_ASC(AppConstants.Order.YEAR_ASC, R.string.sort_year_asc),
 }
 
 data class CatalogUiState(

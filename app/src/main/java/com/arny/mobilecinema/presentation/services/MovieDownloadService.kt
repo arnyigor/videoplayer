@@ -338,6 +338,8 @@ class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
                 false
             )
             downloadHelper.reset()
+            // Video-only cleanup must not run when the same progress API downloads a catalog ZIP.
+            updateRepository.removeOldMP4Downloads()
             updateRepository.downloadFileWithProgress(url, fileName).collectLatest { download ->
                 when (download) {
                     is DataResultWithProgress.Error -> {
