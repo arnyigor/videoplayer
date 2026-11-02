@@ -60,6 +60,7 @@ interface MoviesRepository {
         order: String = AppConstants.Order.SMART,
         limit: Int = 40,
         offset: Int = 0,
+        searchType: String = AppConstants.SearchType.TITLE,
     ): List<ViewMovie>
 
     suspend fun getBestNowMovies(

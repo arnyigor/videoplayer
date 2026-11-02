@@ -3,6 +3,10 @@ package com.arny.mobilecinema.presentation.details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.repository.playback.PlaybackProgressStore
+import com.arny.mobilecinema.domain.playback.PlaybackProgress
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.feedback.FeedbackInteractor
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
@@ -42,6 +46,7 @@ import kotlinx.coroutines.launch
 data class DetailsUiState(
     val movie: Movie? = null,
     val isLoading: Boolean = false,
+    val playbackProgress: Map<String, PlaybackProgress> = emptyMap(),
     val downloadedData: MovieDownloadedData? = null,
     val canDownload: Boolean = false,
     val canDownloadFile: Boolean = false,
@@ -114,7 +119,8 @@ class DetailsViewModel constructor(
     private val interactor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
     private val feedbackInteractor: FeedbackInteractor,
-    private val playerSource: PlayerSource
+    private val playerSource: PlayerSource,
+    private val progressStore: PlaybackProgressStore,
 ) : ViewModel() {
 
     private companion object {
@@ -144,6 +150,25 @@ class DetailsViewModel constructor(
 
     // Флаг для отслеживания первой загрузки
     private var isInitialLoadComplete = false
+    private var progressJob: Job? = null
+
+    private fun refreshPlaybackProgress() {
+        val movie = _uiState.value.movie ?: return
+        progressJob?.cancel()
+        progressJob = viewModelScope.launch {
+            try {
+                progressStore.migrateLegacy(movie)
+                val progress = progressStore.progressForMovie(movie.dbId)
+                _uiState.update { state ->
+                    if (state.movie?.dbId == movie.dbId) state.copy(playbackProgress = progress) else state
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                _actions.send(DetailsAction.ShowError(ThrowableString(error)))
+            }
+        }
+    }
 
     init {
         observeCacheChanges()
@@ -181,6 +206,7 @@ class DetailsViewModel constructor(
      * Обновляет статус загрузки (download), НЕ трогая позицию сезона/эпизода
      */
     fun refreshDownloadStatus() {
+        refreshPlaybackProgress()
         reloadSaveData()
     }
 
@@ -383,6 +409,7 @@ private suspend fun handleSaveDataResult(saveResult: DataResult<SaveData>, updat
                         )
                     )
                 }
+                refreshPlaybackProgress()
                 initDownloadData(movie)
             }
         }

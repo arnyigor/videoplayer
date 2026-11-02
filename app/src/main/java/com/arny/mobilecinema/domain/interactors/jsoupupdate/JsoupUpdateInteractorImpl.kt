@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.domain.interactors.jsoupupdate
 
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.data.models.DataResultWithProgress
 import com.arny.mobilecinema.data.network.jsoup.JsoupService
@@ -623,7 +624,7 @@ class JsoupUpdateInteractorImpl constructor(
         }
     }
 
-    override suspend fun searchOnSite(query: String, page: Int): DataResult<List<SiteSearchItem>> =
+    override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> =
         withContext(Dispatchers.IO) {
             val trimmed = query.trim()
             if (trimmed.isBlank()) {
@@ -632,6 +633,11 @@ class JsoupUpdateInteractorImpl constructor(
             try {
                 val baseUrl = updateRepository.baseUrl.trimEnd('/')
                 val encoded = URLEncoder.encode(trimmed, "UTF-8")
+                val vid = when (searchType) {
+                    AppConstants.SearchType.ACTORS -> "3"
+                    AppConstants.SearchType.DIRECTORS -> "4"
+                    else -> Selectors.SEARCH_VID_TITLES
+                }
                 val films = mutableListOf<SiteSearchItem>()
                 val serials = mutableListOf<SiteSearchItem>()
                 // Фильмы идут первыми: у сайта поиск сериалов строго по названию и для
@@ -639,14 +645,14 @@ class JsoupUpdateInteractorImpl constructor(
                 // не должно оказываться ниже одинаково нулевых сериалов.
                 val filmsUrl = "$baseUrl${Selectors.SEARCH_FILMS_URL}" +
                         "?${Selectors.SEARCH_FILMS_QUERY_PARAM}=$encoded" +
-                        "&${Selectors.SEARCH_VID_PARAM}=${Selectors.SEARCH_VID_TITLES}" +
+                        "&${Selectors.SEARCH_VID_PARAM}=${vid}" +
                         "&${Selectors.SEARCH_PAGE_PARAM}=$page"
                 films.addAll(loadSearchItems(filmsUrl))
-                if (page <= 1) {
+                if (page <= 1 && searchType == AppConstants.SearchType.TITLE) {
                     // У поиска сериалов пагинации нет — одна страница результатов.
                     val serialsUrl = "$baseUrl${Selectors.SEARCH_SERIALS_URL}" +
                             "?${Selectors.SEARCH_SERIALS_QUERY_PARAM}=$encoded" +
-                            "&${Selectors.SEARCH_VID_PARAM}=${Selectors.SEARCH_VID_TITLES}"
+                            "&${Selectors.SEARCH_VID_PARAM}=${vid}"
                     serials.addAll(loadSearchItems(serialsUrl))
                 }
                 val items = (films + serials).distinctBy { it.pageUrl }

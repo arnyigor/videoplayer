@@ -32,6 +32,7 @@
             android:id="@+id/playerView"
             android:layout_width="0dp"
             android:layout_height="0dp"
+            app:animation_enabled="false"
             app:dtpv_controller="@+id/youtube_overlay"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -78,7 +79,7 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:text="Название" />
 
-    <com.google.android.exoplayer2.ui.SubtitleView
+    <androidx.media3.ui.SubtitleView
             android:id="@+id/sbtvSubtitles"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -248,4 +249,9 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
+    <!-- Kept hidden: subtitle selection is not exposed until functional. -->
+    <ImageView android:id="@+id/ivSubtitle"
+        android:layout_width="44dp" android:layout_height="44dp"
+        android:visibility="gone" android:contentDescription="@string/subtitles"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>

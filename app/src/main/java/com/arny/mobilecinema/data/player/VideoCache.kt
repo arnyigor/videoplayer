@@ -5,11 +5,11 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.os.StatFs
 import com.arny.mobilecinema.data.utils.SingletonHolder
-import com.google.android.exoplayer2.database.DatabaseProvider
-import com.google.android.exoplayer2.database.StandaloneDatabaseProvider
-import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor
-import com.google.android.exoplayer2.upstream.cache.NoOpCacheEvictor
-import com.google.android.exoplayer2.upstream.cache.SimpleCache
+import androidx.media3.database.DatabaseProvider
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.NoOpCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
 import java.io.File
 
 class VideoCache private constructor(private val context: Context) {
@@ -75,7 +75,7 @@ class VideoCache private constructor(private val context: Context) {
     /**
      * Минимальная реализация [DatabaseProvider] с собственным именем БД, чтобы стрим-кэш
      * не делил индекс с кэшем офлайн-загрузок (у [StandaloneDatabaseProvider] в 2.19.1
-     * нет конструктора с именем). Таблицы создаются [com.google.android.exoplayer2.upstream.cache.CachedContentIndex]
+     * нет конструктора с именем). Таблицы создаются [androidx.media3.datasource.cache.CachedContentIndex]
      * при первом обращении [SimpleCache].
      */
     private class CacheDatabaseProvider(

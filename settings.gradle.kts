@@ -23,3 +23,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "MobileCinema"
 include(":app")
+include(":doubletapplayerview-media3")
+project(":doubletapplayerview-media3").projectDir = file("third_party/doubletapplayerview-media3")

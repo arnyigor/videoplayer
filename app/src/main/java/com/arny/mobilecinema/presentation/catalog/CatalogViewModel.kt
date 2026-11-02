@@ -63,6 +63,11 @@ class CatalogViewModel(
         reload()
     }
 
+    fun refresh() {
+        loadGenres()
+        retry()
+    }
+
     fun retry() {
         _uiState.update { it.copy(items = emptyList(), isLoading = true, error = false, endReached = false) }
         reload()
@@ -94,6 +99,11 @@ class CatalogViewModel(
                     offset = offset,
                 )
                 _uiState.update { CatalogPaging.withNextPage(it, page) }
+                Timber.d(
+                    "catalog page: offset=%d received=%d total=%d section=%s order=%s",
+                    offset, page.size, _uiState.value.items.size,
+                    _uiState.value.section, _uiState.value.sort
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

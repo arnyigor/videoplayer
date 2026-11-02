@@ -1,16 +1,21 @@
 package com.arny.mobilecinema.presentation.sitesearch
 
 import android.os.Bundle
+import android.graphics.Rect
+import androidx.core.view.doOnLayout
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.view.WindowManager
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.DSearchFiltersBinding
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.search.SearchFilters
 import com.arny.mobilecinema.domain.search.SearchSort
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 
 /**
  * Панель фильтров единого поиска (SRCH-03).
@@ -27,6 +32,9 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
         private const val ARG_GENRES = "arg_genres"
         private const val ARG_YEAR_MIN = "arg_year_min"
         private const val ARG_YEAR_MAX = "arg_year_max"
+        private const val STATE_DRAFT = "draft_filters"
+        private const val STATE_YEAR_FROM = "draft_year_from"
+        private const val STATE_YEAR_TO = "draft_year_to"
 
         fun newInstance(
             filters: SearchFilters,
@@ -49,6 +57,15 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
     private var current: SearchFilters = SearchFilters()
     private var genres: List<String> = emptyList()
 
+    override fun onStart() {
+        super.onStart()
+        (dialog as? BottomSheetDialog)?.behavior?.apply {
+            skipCollapsed = true
+            state = BottomSheetBehavior.STATE_EXPANDED
+        }
+        dialog?.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -61,18 +78,18 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val args = requireNotNull(arguments)
-        current = SearchFilters.decode(args.getString(ARG_FILTERS))
+        current = SearchFilters.decode(savedInstanceState?.getString(STATE_DRAFT) ?: args.getString(ARG_FILTERS))
         genres = args.getStringArray(ARG_GENRES)?.toList().orEmpty()
-
-        binding.kindGroup.check(
-            when (current.kinds.firstOrNull()) {
-                MovieType.CINEMA -> R.id.btnKindCinema
-                MovieType.SERIAL -> R.id.btnKindSerial
-                else -> R.id.btnKindAll
-            }
-        )
+        val initialKind = when (current.kinds.firstOrNull()) {
+            MovieType.CINEMA -> R.id.btnKindCinema
+            MovieType.SERIAL -> R.id.btnKindSerial
+            else -> R.id.btnKindAll
+        }
+        binding.kindGroup.check(initialKind)
+        revealKind(initialKind)
         binding.kindGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
+            revealKind(checkedId)
             current = current.copy(
                 kinds = when (checkedId) {
                     R.id.btnKindCinema -> listOf(MovieType.CINEMA)
@@ -103,8 +120,8 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
             current = current.copy(sort = SearchSort.entries[position])
         }
 
-        binding.tiedtYearFrom.setText(current.yearFrom?.toString().orEmpty())
-        binding.tiedtYearTo.setText(current.yearTo?.toString().orEmpty())
+        binding.tiedtYearFrom.setText(savedInstanceState?.getString(STATE_YEAR_FROM) ?: current.yearFrom?.toString().orEmpty())
+        binding.tiedtYearTo.setText(savedInstanceState?.getString(STATE_YEAR_TO) ?: current.yearTo?.toString().orEmpty())
 
         binding.btnFiltersReset.setOnClickListener {
             current = current.reset()
@@ -112,7 +129,8 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
             binding.actGenre.setText(genreOptions.first(), false)
             binding.tiedtYearFrom.setText("")
             binding.tiedtYearTo.setText("")
-            binding.actSort.setText(sortTitles[SearchSort.RELEVANCE.ordinal], false)
+            // Domain reset() сохраняет сортировку — подпись не должна обещать другую.
+            binding.actSort.setText(sortTitles[current.sort.ordinal], false)
         }
 
         binding.btnFiltersApply.setOnClickListener {
@@ -129,6 +147,21 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
                 Bundle().apply { putString(RESULT_FILTERS, filters.encode()) },
             )
             dismiss()
+        }
+    }
+
+    private fun revealKind(checkedId: Int) {
+        binding.kindGroup.findViewById<View>(checkedId).doOnLayout { selected ->
+            selected.requestRectangleOnScreen(Rect(0, 0, selected.width, selected.height), false)
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(STATE_DRAFT, current.encode())
+        _binding?.let {
+            outState.putString(STATE_YEAR_FROM, it.tiedtYearFrom.text?.toString().orEmpty())
+            outState.putString(STATE_YEAR_TO, it.tiedtYearTo.text?.toString().orEmpty())
         }
     }
 

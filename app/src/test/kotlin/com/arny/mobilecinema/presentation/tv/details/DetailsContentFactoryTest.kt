@@ -34,13 +34,13 @@ class DetailsContentFactoryTest {
 
         assertEquals(listOf(1, 2), seasons.map { it.seasonNumber })
         assertEquals(listOf(3, 2), seasons.map { it.episodeCount })
-        // seasonIndex остаётся координатой каталога, нужной плееру.
-        assertEquals(listOf(1, 0), seasons.map { it.seasonIndex })
+        // Индексы относятся к отсортированному каталогу, как в мобильном плеере.
+        assertEquals(listOf(0, 1), seasons.map { it.seasonIndex })
     }
 
     @Test
     fun `episodes of second season keep numbers and availability`() {
-        val episodes = DetailsContentFactory.episodes(series(), seasonIndex = 0)
+        val episodes = DetailsContentFactory.episodes(series(), seasonIndex = 1)
 
         assertEquals(listOf(1, 2), episodes.map { it.episodeNumber })
         // episodeIndex — позиция в массиве сезона, а не id серии из каталога.
@@ -67,7 +67,7 @@ class DetailsContentFactoryTest {
         val movie = series()
         val episodes = DetailsContentFactory.episodes(
             movie = movie,
-            seasonIndex = 0,
+            seasonIndex = 1,
             progress = mapOf(
                 "ep:$TEST_MOVIE_ID:2:21" to testProgress("ep:$TEST_MOVIE_ID:2:21", positionMs = 20 * 60_000L),
                 "ep:$TEST_MOVIE_ID:2:22" to testProgress("ep:$TEST_MOVIE_ID:2:22", positionMs = 45 * 60_000L),
@@ -90,7 +90,7 @@ class DetailsContentFactoryTest {
 
         val episodes = DetailsContentFactory.episodes(
             movie = series(),
-            seasonIndex = 0,
+            seasonIndex = 1,
             recommendedPlayableId = ref.id.value,
         )
 

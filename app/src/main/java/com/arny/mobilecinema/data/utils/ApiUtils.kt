@@ -7,10 +7,10 @@ import android.net.NetworkInfo
 import android.os.Build
 import android.telephony.TelephonyManager
 import com.arny.mobilecinema.data.models.DataThrowable
-import com.google.android.exoplayer2.ExoPlaybackException
-import com.google.android.exoplayer2.source.UnrecognizedInputFormatException
-import com.google.android.exoplayer2.upstream.HttpDataSource
-import com.google.android.exoplayer2.upstream.HttpDataSource.HttpDataSourceException
+import androidx.media3.common.PlaybackException
+import androidx.media3.exoplayer.source.UnrecognizedInputFormatException
+import androidx.media3.datasource.HttpDataSource
+import androidx.media3.datasource.HttpDataSource.HttpDataSourceException
 import kotlinx.coroutines.TimeoutCancellationException
 import java.net.URI
 import java.net.URLEncoder
@@ -33,9 +33,13 @@ fun getDomainName(url: String): String = try {
 fun String.getWithDomain(location: String): String {
     val url = trim()
     return when {
-        url.startsWith("http", ignoreCase = true) -> url
+        url.isBlank() -> ""
+        url.startsWith("https://", ignoreCase = true) || url.startsWith("http://", ignoreCase = true) -> url
+        url.startsWith("//") -> "${if (location.trim().startsWith("http://", ignoreCase = true)) "http" else "https"}:$url"
         else -> {
+            // Без настроенного baseUrl постеры оставались пустыми: берём домен по умолчанию.
             val domain = getDomainName(location).trimEnd('/')
+                .ifBlank { com.arny.mobilecinema.data.repository.AppConstants.ENTRY_POINT_URL.trimEnd('/') }
             val path = url.trimStart('/')
             if (domain.isNotBlank() && path.isNotBlank()) {
                 "$domain/$path"
@@ -105,7 +109,7 @@ private fun getMaxSpeedKbps(it: NetworkInfo): Int = when (it.subtype) {
 }
 
 fun getErrorUrl(throwable: Throwable): String? {
-    return ((throwable as? ExoPlaybackException)?.sourceException as? HttpDataSourceException)?.dataSpec?.key
+    return ((throwable as? PlaybackException)?.cause as? HttpDataSourceException)?.dataSpec?.key
 }
 
 fun getFullError(throwable: Throwable, context: Context? = null): String {
@@ -122,11 +126,11 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
                 error = "Время ожидания истекло"
             }
 
-            is ExoPlaybackException -> {
-                when (val sourceException = throwable.sourceException) {
+            is PlaybackException -> {
+                when (val cause = throwable.cause) {
                     is HttpDataSource.InvalidResponseCodeException -> {
-                        code = sourceException.responseCode
-                        val url = sourceException.dataSpec.key
+                        code = cause.responseCode
+                        val url = cause.dataSpec.key
                         when (code) {
                             500 -> error = "Внутренняя ошибка сервера $url"
                             504 -> error = "Время ожидания истекло, повторите запрос позже $url"
@@ -136,8 +140,8 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
                         }
                     }
                     is HttpDataSourceException->{
-                        val url = sourceException.dataSpec.key
-                        when (val cause = sourceException.cause) {
+                        val url = cause.dataSpec.key
+                        when (val cause = cause.cause) {
                             is HttpDataSource.InvalidResponseCodeException -> {
                                 code = cause.responseCode
                                 when (code) {
@@ -158,7 +162,7 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
                     }
 
                     is UnrecognizedInputFormatException -> {
-                        error = "${sourceException.uri} ${sourceException.message}"
+                        error = "${cause.uri} ${cause.message}"
                     }
 
                     is SSLHandshakeException -> {
@@ -166,7 +170,7 @@ fun getFullError(throwable: Throwable, context: Context? = null): String {
                     }
 
                     else -> {
-                        error = sourceException.message.toString()
+                        error = cause?.message.toString()
                     }
                 }
             }

@@ -2,6 +2,7 @@ package com.arny.mobilecinema.presentation.sitesearch
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.jsoupupdate.JsoupUpdateInteractor
@@ -33,9 +34,21 @@ import timber.log.Timber
  * Локальный и внешний источники работают независимо: ошибка сайта не стирает локальные
  * результаты и не превращает весь экран в «Ошибку» (аудит v2, §4.2).
  */
+/**
+ * Состояние одного источника (S-015). Раньше это были четыре несвязанных флага
+ * (`isLoadingLocal`, `localError`, `searched`, `hits`), и «пусто» отличалось от «не искали»
+ * только по их комбинации — легко было показать пустоту вместо загрузки.
+ */
+enum class ResultSection { IDLE, LOADING, SUCCESS, EMPTY, ERROR }
+
 data class SearchUiState(
     val query: String = "",
+    val searchType: String = AppConstants.SearchType.TITLE,
     val source: SearchSource = SearchSource.ALL,
+    /**
+     * Применённые фильтры. Черновик живёт в [SearchFiltersSheet] и попадает сюда только по
+     * кнопке Apply — отдельного draft-поля в состоянии не нужно, иначе появятся две правды.
+     */
     val filters: SearchFilters = SearchFilters(),
     val hits: List<SearchHit> = emptyList(),
     val isLoadingLocal: Boolean = false,
@@ -44,11 +57,38 @@ data class SearchUiState(
     val searched: Boolean = false,
     val localError: Boolean = false,
     val remoteError: Boolean = false,
+    /**
+     * Идентификатор актуального запроса (S-015). Ответы с другим идентификатором отбрасываются,
+     * поэтому устаревшая выдача не может перетереть свежую при смене scope или фильтров.
+     */
+    val pendingRequestId: Long = 0L,
     val filmsPage: Int = 0,
     val hasMoreFilms: Boolean = false,
     val genres: List<String> = emptyList(),
     val yearsRange: SimpleIntRange? = null,
 ) {
+    /** Состояние локального источника — для раздельной индикации и текстов. */
+    val localSection: ResultSection
+        get() = when {
+            source == SearchSource.REMOTE -> ResultSection.IDLE
+            isLoadingLocal -> ResultSection.LOADING
+            localError -> ResultSection.ERROR
+            !searched -> ResultSection.IDLE
+            hits.any { it.inCatalog } -> ResultSection.SUCCESS
+            else -> ResultSection.EMPTY
+        }
+
+    /** Состояние сайта: отдельная ветка, чтобы ошибка одного не выглядела ошибкой другого. */
+    val remoteSection: ResultSection
+        get() = when {
+            source == SearchSource.LOCAL -> ResultSection.IDLE
+            isLoadingRemote -> ResultSection.LOADING
+            remoteError -> ResultSection.ERROR
+            !searched -> ResultSection.IDLE
+            hits.any { !it.inCatalog } -> ResultSection.SUCCESS
+            else -> ResultSection.EMPTY
+        }
+
     val isLoading: Boolean get() = isLoadingLocal || isLoadingRemote
 
     /** Ни один источник ничего не отдал: показываем «Ничего не найдено», а не пустоту. */
@@ -96,6 +136,12 @@ class SiteSearchViewModel(
     /** Текущий запрос: новый запрос отменяет предыдущий, чтобы устаревший ответ не перетёр свежий. */
     private var searchJob: Job? = null
 
+    /**
+     * Идентификатор актуального запроса (S-015). Сравнения строки запроса мало: при смене scope
+     * или фильтров строка прежняя, а выдача должна быть новой. Ответ с чужим id отбрасывается.
+     */
+    private var requestId: Long = 0L
+
     init {
         loadFilterData()
     }
@@ -107,6 +153,10 @@ class SiteSearchViewModel(
             val years = runCatching { moviesInteractor.getMinMaxYears() }.getOrNull()
             _uiState.update { it.copy(genres = genres, yearsRange = years) }
         }
+    }
+
+    fun setSearchType(searchType: String) {
+        _uiState.update { it.copy(searchType = searchType) }
     }
 
     fun setQuery(query: String) {
@@ -137,13 +187,17 @@ class SiteSearchViewModel(
         val query = _uiState.value.query.trim()
         if (query.isBlank()) {
             _uiState.update {
-                it.copy(hits = emptyList(), searched = false, localError = false, remoteError = false)
+                it.copy(
+                    hits = emptyList(), searched = false, localError = false, remoteError = false,
+                    pendingRequestId = ++requestId
+                )
             }
             return
         }
         val source = _uiState.value.source
         val filters = _uiState.value.filters
         searchJob?.cancel()
+        val generation = ++requestId
         searchJob = viewModelScope.launch {
             _uiState.update {
                 it.copy(
@@ -153,6 +207,7 @@ class SiteSearchViewModel(
                     isLoadingRemote = source != SearchSource.LOCAL,
                     localError = false,
                     remoteError = false,
+                    pendingRequestId = generation,
                     filmsPage = 0,
                     hasMoreFilms = false,
                 )
@@ -164,7 +219,7 @@ class SiteSearchViewModel(
                 LocalResult(hits = emptyList(), failed = false)
             }
             // Локальная выдача показывается сразу, не дожидаясь сайта.
-            if (_uiState.value.query.trim() != query) return@launch
+            if (generation != requestId) return@launch
             if (local.hits.isNotEmpty()) {
                 _uiState.update { it.copy(hits = local.hits, isLoadingLocal = false) }
             }
@@ -174,7 +229,7 @@ class SiteSearchViewModel(
             } else {
                 RemoteResult(items = emptyList(), failed = false)
             }
-            if (_uiState.value.query.trim() != query) return@launch
+            if (generation != requestId) return@launch
 
             val remoteHits = remote.items.map { it.toHit(query) }
             val merged = SearchMerge.merge(local.hits, remoteHits)
@@ -212,11 +267,12 @@ class SiteSearchViewModel(
         val query = state.query.trim()
         if (query.isBlank()) return
         viewModelScope.launch {
+            val generation = requestId
             val nextPage = state.filmsPage + 1
             _uiState.update { it.copy(isLoadingRemote = true) }
             val remote = loadRemote(query, nextPage)
             // Пока грузилась страница, запрос или источник могли смениться.
-            if (_uiState.value.query.trim() != query) return@launch
+            if (generation != requestId) return@launch
             if (remote.failed) {
                 _uiState.update { it.copy(isLoadingRemote = false, hasMoreFilms = false) }
                 _toast.trySend(ResourceString(R.string.site_search_error))
@@ -276,6 +332,7 @@ class SiteSearchViewModel(
                 years = filters.yearRange,
                 order = filters.sort.order,
                 limit = LOCAL_LIMIT,
+                searchType = _uiState.value.searchType,
             )
         }
         return result.fold(
@@ -288,7 +345,7 @@ class SiteSearchViewModel(
     }
 
     private suspend fun loadRemote(query: String, page: Int): RemoteResult =
-        when (val result = jsoupInteractor.searchOnSite(query = query, page = page)) {
+        when (val result = jsoupInteractor.searchOnSite(query = query, page = page, searchType = _uiState.value.searchType)) {
             is DataResult.Success -> RemoteResult(items = result.result, failed = false)
             is DataResult.Error -> {
                 Timber.e(result.throwable, "site search failed")

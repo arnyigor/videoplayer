@@ -14,7 +14,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.support.v4.media.session.MediaSessionCompat
 import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -50,6 +49,7 @@ import com.arny.mobilecinema.presentation.listeners.OnPictureInPictureListener
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
+import com.arny.mobilecinema.presentation.player.generateSubTitlesList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.utils.getOrientation
 import com.arny.mobilecinema.presentation.utils.initAudioManager
@@ -61,22 +61,26 @@ import com.arny.mobilecinema.presentation.utils.setTextColorRes
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.unregisterContentResolver
 import com.github.vkay94.dtpv.youtube.YouTubeOverlay
-import com.google.android.exoplayer2.C
-import com.google.android.exoplayer2.DefaultLoadControl
-import com.google.android.exoplayer2.DefaultRenderersFactory
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.PlaybackException
-import com.google.android.exoplayer2.Player
-import com.google.android.exoplayer2.Tracks
-import com.google.android.exoplayer2.analytics.AnalyticsListener
-import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
-import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
-import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
-import com.google.android.exoplayer2.util.Util
+import timber.log.Timber
+import androidx.media3.common.C
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaSession
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.Tracks
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime
+import androidx.media3.exoplayer.DecoderReuseEvaluation
+import androidx.media3.common.Format
+import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.common.util.Util
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -92,6 +96,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         const val PLAYBACK_PROGRESS_INTERVAL_MS = 5_000L
         const val MAX_PLAYBACK_PROGRESS_DELTA_MS = 15_000L
         const val KEY_START_PAUSED = "player_view_start_paused"
+
+        /** В меню субтитров itemId 0 — «Выключить», реальные дорожки начинаются с 1. */
+        const val SUBTITLE_OFF_ITEM_ID = 0
     }
 
     private val prefs: Prefs by inject()
@@ -106,6 +113,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var qualityVisible: Boolean = false
     private var volumeObserver: ContentObserver? = null
     private var langVisible: Boolean = false
+    private var subtitleVisible: Boolean = false
     private var mediaItemIndex: Int = 0
     private var movie: Movie? = null
 
@@ -124,7 +132,14 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private var qualityPopUp: PopupMenu? = null
     private var langPopUp: PopupMenu? = null
-    private var player: ExoPlayer? = null
+    private var subtitlePopUp: PopupMenu? = null
+    private val playbackSession = PlaybackSession<ExoPlayer> { engine ->
+        engine.removeListener(listener)
+        engine.removeAnalyticsListener(analytic)
+        engine.stop()
+        engine.release()
+    }
+    private val player: ExoPlayer? get() = playbackSession.player
     private var trackSelector: DefaultTrackSelector? = null
     private var resizeModeIndex = 0
     private var setupPopupMenus = true
@@ -211,26 +226,75 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             ): Boolean = false
         }
 
-    private var mediaSession: MediaSessionCompat? = null
+    /** Media3-сессия заменяет MediaSessionConnector: медиа-кнопки идут прямо в engine. */
+    private var mediaSession: MediaSession? = null
+    private var playbackErrorDialog: androidx.appcompat.app.AlertDialog? = null
 
-    private val analytic = object : AnalyticsListener {}
+    /** Correlation ID клика, пришедший из деталей: склеивает этапы плеера с экраном деталей (§4.2). */
+    private val playId: String? by lazy {
+        arguments?.getString("playId")
+    }
+
+    // Диагностика цепочки запуска (S-008): фиксируем этапы плеера, которых раньше не было в логах.
+    // Отсутствие этих строк означало неясность — дошли ли до MediaItem/prepare или нет.
+    private val analytic = object : AnalyticsListener {
+        override fun onRenderedFirstFrame(
+            eventTime: EventTime,
+            surface: Any,
+            renderTimeMs: Long
+        ) {
+            // PlaybackStarted: экран действительно показал кадр (§4.2).
+            Timber.tag("PlayChain").d("%s playbackStarted (render %d ms)", playId, renderTimeMs)
+        }
+
+        override fun onVideoInputFormatChanged(
+            eventTime: EventTime,
+            format: Format,
+            decoderReuseEvaluation: DecoderReuseEvaluation?
+        ) {
+            Timber.tag("PlayChain").d(
+                "%s videoFormat %s mime=%s",
+                playId,
+                format.id,
+                format.sampleMimeType
+            )
+        }
+    }
 
     private val listener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
+            // PlayerError: типизированная ветка контракта — пользователь всегда видит причину.
+            Timber.tag("PlayChain").e(error, "%s playerError %s", playId, error.errorCodeName)
             binding.progressBar.isVisible = false
             val lastError = when (getConnectionType(requireContext())) {
                 ConnectionType.NONE -> getString(R.string.internet_connection_error)
                 else -> getFullError(error)
             }
-            toast(lastError)
             viewModel.setLastPlayerError(lastError)
             val errorUrl = getErrorUrl(error)
             val currentUrl = getCurrentPlaybackUrl()
             val serialEpisode = allEpisodes.getOrNull(currentEpisodeIndex)
-            viewModel.retryOpenCinema(errorUrl, currentUrl, serialEpisode)
+            playbackErrorDialog?.dismiss()
+            playbackErrorDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle(R.string.playback_error)
+                .setMessage(lastError)
+                .setPositiveButton(R.string.retry) { _, _ ->
+                    player?.apply {
+                        prepare()
+                        playWhenReady = true
+                    }
+                }
+                .setNeutralButton(R.string.select_source) { _, _ ->
+                    viewModel.retryOpenCinema(errorUrl, currentUrl, serialEpisode)
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .create()
+                .also { it.show() }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            // S-008: состояние плеера в логе — иначе не видно, дошло ли до BUFFERING/READY.
+            Timber.tag("PlayChain").d("%s state=%d", playId, playbackState)
             if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) {
                 stopPlaybackProgressTracking()
             }
@@ -255,6 +319,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
         override fun onTracksChanged(tracks: Tracks) {
             setupPopupMenus = true
+            // Меню дорожек строится по уже известным трекам. Раньше оно собиралось только при
+            // STATE_READY: если треки приходили позже (или в момент READY списка ещё не было),
+            // кнопки языка/субтитров оставались скрытыми навсегда.
+            setUpPopups()
         }
     }
 
@@ -305,7 +373,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private fun fixControllerPadding() {
         val controlView =
-            binding.playerView.findViewById<View>(com.google.android.exoplayer2.ui.R.id.exo_controller)
+            binding.playerView.findViewById<View>(androidx.media3.ui.R.id.exo_controller)
                 ?: return
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
@@ -409,6 +477,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     override fun onDestroyView() {
+        controlsShown = null
+        playbackErrorDialog?.dismiss()
+        playbackErrorDialog = null
         super.onDestroyView()
         btnsHandler.removeCallbacksAndMessages(null)
         volumeHandler.removeCallbacksAndMessages(null)
@@ -454,7 +525,15 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         outState.putBoolean(KEY_START_PAUSED, shouldStartPaused)
     }
 
+    /**
+     * PiP — это «свёрнуто, но смотрю»: активность уходит в onPause, однако воспроизведение
+     * должно продолжаться, иначе PiP показывает застывший кадр.
+     */
+    private fun isInPictureInPictureMode(): Boolean =
+        activity?.isInPictureInPictureMode == true
+
     private fun forcePausedOnRestore() {
+        if (isInPictureInPictureMode()) return
         shouldStartPaused = true
         player?.pause()
     }
@@ -578,7 +657,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     @SuppressLint("ClickableViewAccessibility")
     private fun initSystemUI() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, windowInsets ->
-            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             topInset = insets.top
             bottomInset = insets.bottom
             updateControlsPadding()
@@ -604,7 +683,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                             android.view.WindowInsets.Type.navigationBars()
                 )
 
-                if (isVisible && !currentBinding.playerView.isControllerVisible) {
+                if (isVisible && !currentBinding.playerView.isControllerFullyVisible) {
                     hideSystemUIImmediately()
                 } else if (isVisible) {
                     currentBinding.playerView.showController()
@@ -619,7 +698,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 val currentBinding = _binding ?: return@setOnSystemUiVisibilityChangeListener
 
                 if (visibility and View.SYSTEM_UI_FLAG_FULLSCREEN == 0) {
-                    if (currentBinding.playerView.isControllerVisible) {
+                    if (currentBinding.playerView.isControllerFullyVisible) {
                         currentBinding.playerView.showController()
                     } else {
                         hideSystemUIImmediately()
@@ -757,12 +836,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         when (orientation) {
             Configuration.ORIENTATION_PORTRAIT -> {
                 if (reset) setPlayerResizeMode(0) else setPlayerResizeMode(resizeModeIndex)
-                binding.ivScreenRotation.isVisible = binding.playerView.isControllerVisible
+                binding.ivScreenRotation.isVisible = binding.playerView.isControllerFullyVisible
             }
 
             Configuration.ORIENTATION_LANDSCAPE -> {
                 if (reset) setPlayerResizeMode(minOf(1, resizeModes.lastIndex)) else setPlayerResizeMode(resizeModeIndex)
-                binding.ivScreenRotation.isVisible = binding.playerView.isControllerVisible
+                binding.ivScreenRotation.isVisible = binding.playerView.isControllerFullyVisible
             }
         }
     }
@@ -778,6 +857,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         with(currentBinding) {
             ivQuality.setOnClickListener { qualityPopUp?.show() }
             ivLang.setOnClickListener { langPopUp?.show() }
+            ivSubtitle.setOnClickListener { subtitlePopUp?.show() }
             ivResizes.setOnClickListener { changeResize() }
             ivBack.setOnClickListener { findNavController().popBackStack() }
             ivScreenRotation.setOnClickListener { toggleScreenOrientation() }
@@ -1199,14 +1279,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun initMediaSession() {
-        mediaSession = MediaSessionCompat(requireContext(), MEDIA_SESSION_TAG)
-        mediaSession?.let {
-            it.setFlags(
-                MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
-                        MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS
-            )
-            MediaSessionConnector(it).setPlayer(player)
-        }
+        val engine = player ?: return
+        mediaSession = MediaSession.Builder(requireContext(), engine)
+            .setId(MEDIA_SESSION_TAG)
+            .build()
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -1236,7 +1312,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     .build()
             }
 
-            player = ExoPlayer.Builder(requireContext())
+            playbackSession.acquire {
+                ExoPlayer.Builder(requireContext())
                 .setLoadControl(loadControl)
                 .setRenderersFactory(DefaultRenderersFactory(requireContext()))
                 .setTrackSelector(trackSelector!!)
@@ -1248,6 +1325,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                     addAnalyticsListener(analytic)
                     addListener(listener)
                 }
+            }
 
             mediaItemIndex = viewModel.uiState.value.episode ?: 0
 
@@ -1272,11 +1350,13 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             playerView.player = player
             setPlayerResizeMode(resizeModeIndex)
 
-            playerView.setControllerVisibilityListener { visibility ->
-                if (isVisible) {
-                    changeVisible(visibility == View.VISIBLE)
+            // Controller animation is disabled in XML. One visibility callback drives
+            // both the Media3 controls and our overlay; no second timer/alpha animation.
+            playerView.setControllerVisibilityListener(
+                androidx.media3.ui.PlayerView.ControllerVisibilityListener { visibility ->
+                    applyControllerVisibility(visibility == View.VISIBLE)
                 }
-            }
+            )
 
             playerView.setOnTouchListener { _, event ->
                 gestureDetectorCompat?.onTouchEvent(event)
@@ -1364,6 +1444,15 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             false
         }
 
+    /** Текущее состояние, которое мы показали для оверлеев поверх видео. */
+    private var controlsShown: Boolean? = null
+
+    private fun applyControllerVisibility(visible: Boolean) {
+        if (controlsShown == visible) return
+        controlsShown = visible
+        _binding?.changeVisible(visible)
+    }
+
     private fun FPlayerViewBinding.changeVisible(visible: Boolean) {
         if (_binding == null) return
 
@@ -1374,52 +1463,44 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             ivScreenRotation,
             ivBack,
             ivLang,
+            ivSubtitle,
             ivBrightness,
             ivVolume
         )
 
         if (visible) {
+            // Один переход видимости без собственных alpha-анимаций: DoubleTapPlayerView уже
+            // анимирует контроллер, и наложение двух анимаций давало двойное мигание.
             views.forEach { view ->
                 val shouldBeVisible = when (view) {
                     ivQuality -> qualityVisible
                     ivLang -> langVisible
+                    // S-075: выбор субтитров не работает — кнопка не показывается.
+                    ivSubtitle -> false
                     else -> true
                 }
-                if (shouldBeVisible) {
-                    view.alpha = 0f
-                    view.isVisible = true
-                    view.animate()
-                        .alpha(1f)
-                        .setDuration(CONTROLS_ANIMATION_DURATION)
-                        .start()
-                }
+                view.animate().cancel()
+                view.alpha = 1f
+                view.isVisible = shouldBeVisible
             }
 
-            topGradient.animate().alpha(1f)
-                .setDuration(CONTROLS_ANIMATION_DURATION)
-                .start()
-            bottomGradient.animate().alpha(1f)
-                .setDuration(CONTROLS_ANIMATION_DURATION)
-                .start()
+            topGradient.animate().cancel()
+            bottomGradient.animate().cancel()
+            topGradient.alpha = 1f
+            bottomGradient.alpha = 1f
 
             setScreenRotIconVisible(getOrientation(), false)
         } else {
             views.forEach { view ->
-                view.animate()
-                    .alpha(0f)
-                    .setDuration(CONTROLS_ANIMATION_DURATION)
-                    .withEndAction {
-                        if (_binding != null) view.isVisible = false
-                    }
-                    .start()
+                view.animate().cancel()
+                view.alpha = 0f
+                view.isVisible = false
             }
 
-            topGradient.animate().alpha(0f)
-                .setDuration(CONTROLS_ANIMATION_DURATION)
-                .start()
-            bottomGradient.animate().alpha(0f)
-                .setDuration(CONTROLS_ANIMATION_DURATION)
-                .start()
+            topGradient.animate().cancel()
+            bottomGradient.animate().cancel()
+            topGradient.alpha = 0f
+            bottomGradient.alpha = 0f
         }
     }
 
@@ -1463,8 +1544,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         setupPopupMenus = false
 
         trackSelector?.generateLanguagesList(requireContext())?.let { list ->
+            Timber.tag("PlayChain").d(
+                "tracks: audio=%d",
+                list.size
+            )
             langVisible = list.size > 1
-            binding.ivLang.isVisible = langVisible
+            binding.ivLang.isVisible = langVisible && controlsShown == true
             if (langVisible) {
                 langPopUp = PopupMenu(requireContext(), binding.ivLang).apply {
                     list.forEachIndexed { i, item ->
@@ -1478,9 +1563,37 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
         }
 
+        // S-011 п.7: субтитры. Раньше список дорожек собирался, но кнопки в разметке не было,
+        // поэтому включить субтитры на потоке с ними было нельзя.
+        trackSelector?.generateSubTitlesList(requireContext())?.let { list ->
+            subtitleVisible = list.isNotEmpty()
+            // S-075: выбор субтитров не работает, поэтому кнопку не показываем совсем.
+            binding.ivSubtitle.isVisible = false
+            if (list.isNotEmpty()) {
+                subtitlePopUp = PopupMenu(requireContext(), binding.ivSubtitle).apply {
+                    menu.add(0, SUBTITLE_OFF_ITEM_ID, 0, getString(R.string.subtitles_off))
+                    list.forEachIndexed { i, item ->
+                        menu.add(0, i + 1, 0, item.first)
+                    }
+                    setOnMenuItemClickListener {
+                        val itemId = it.itemId
+                        if (itemId == SUBTITLE_OFF_ITEM_ID) {
+                            trackSelector?.parameters = trackSelector!!.parameters
+                                .buildUpon()
+                                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                                .build()
+                        } else {
+                            setLang(list[itemId - 1].second)
+                        }
+                        true
+                    }
+                }
+            }
+        }
+
         trackSelector?.generateQualityList(requireContext())?.let { list ->
             qualityVisible = list.size > 1
-            binding.ivQuality.isVisible = qualityVisible
+            binding.ivQuality.isVisible = qualityVisible && controlsShown == true
             if (qualityVisible) {
                 qualityPopUp = PopupMenu(requireContext(), binding.ivQuality).apply {
                     list.forEachIndexed { i, item ->
@@ -1551,17 +1664,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         mediaSession = null
         releaseEnhancer()
 
-        player?.let {
-            it.removeListener(listener)
-            it.removeAnalyticsListener(analytic)
-            it.stop()
-            it.release()
-        }
-        player = null
+        playbackSession.release()
 
         isPlayerPrepared = false
         setupPopupMenus = true
         qualityPopUp = null
         langPopUp = null
+        subtitlePopUp = null
     }
 }

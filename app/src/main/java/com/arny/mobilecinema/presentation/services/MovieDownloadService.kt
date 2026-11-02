@@ -28,7 +28,7 @@ import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.utils.ActivityNavigator
 import com.arny.mobilecinema.presentation.utils.DownloadHelper
 import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
-import com.google.android.exoplayer2.offline.Download
+import androidx.media3.exoplayer.offline.Download
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

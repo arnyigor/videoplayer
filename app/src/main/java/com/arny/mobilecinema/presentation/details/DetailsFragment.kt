@@ -5,6 +5,8 @@
     import android.content.Context
     import android.content.Intent
     import android.os.Bundle
+    import com.arny.mobilecinema.domain.playback.legacyPlayableRef
+import android.os.SystemClock
     import android.view.LayoutInflater
     import android.view.View
     import android.view.ViewGroup
@@ -56,7 +58,6 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
     import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
     import com.arny.mobilecinema.presentation.utils.updateTitle
     import com.bumptech.glide.Glide
-    import com.google.android.material.appbar.AppBarLayout
     import com.google.android.material.chip.Chip
     import kotlinx.coroutines.flow.collectLatest
     import org.joda.time.DateTime
@@ -70,6 +71,8 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
 
     class DetailsFragment : Fragment(R.layout.f_details) {
         private companion object {
+        /** Тег диагностики цепочки запуска (§4.2). */
+        private const val TAG_PLAY = "PlayChain"
             const val AUTO_UPDATE_MAX_AGE_MS = 7L * 24 * 60 * 60 * 1000
         }
 
@@ -89,6 +92,8 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
         private var linksAdapter: TrackSelectorSpinnerAdapter? = null
 
         // State (локальные копии для UI логики)
+        private val playClickGate = PlayClickGate()
+
         private var currentMovie: Movie? = null
         private var currentSeasonPosition: Int = 0
         private var currentEpisodePosition: Int = 0
@@ -108,6 +113,9 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
 
         // ДОБАВЛЕНО: Флаг для отслеживания пересоздания View
         private var needsUIRefresh = true
+
+        /** Позиция продолжения из SaveData; 0 — начинать сначала или данных нет. */
+        private var resumePositionMs = 0L
 
         private val seasonsChangeListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -402,6 +410,7 @@ override fun onResume() {
                 }
 
                 updateSpinnerPositionsIfNeeded(state)
+                updateResumeState(state)
             }
 
             updateDownloadedData(state.downloadedData)
@@ -693,8 +702,16 @@ override fun onResume() {
 
         private fun navigateToHomeSearch(param: String, value: String) {
             findNavController().navigate(
-                R.id.action_nav_details_to_nav_home,
-                bundleOf(param to value)
+                R.id.action_nav_details_to_nav_site_search,
+                bundleOf(
+                    "query" to value,
+                    "searchType" to when (param) {
+                        AppConstants.PARAMS.ACTOR -> AppConstants.SearchType.ACTORS
+                        AppConstants.PARAMS.DIRECTOR -> AppConstants.SearchType.DIRECTORS
+                        else -> AppConstants.SearchType.GENRES
+                    },
+                    "scope" to if (param == AppConstants.PARAMS.GENRE) "CATALOG" else null,
+                )
             )
         }
 
@@ -758,15 +775,30 @@ override fun onResume() {
             }
         }
 
+        /**
+         * Экран до плеера показывает, что запуск продолжит просмотр.
+         *
+         * Тот же canonical playable ID, что и в плеере. Прогресс другой серии не должен
+         * попадать в подпись при ручном выборе сезона/эпизода; completed не продолжаем.
+         */
+        private fun updateResumeState(state: DetailsUiState) {
+            val playable = state.movie?.legacyPlayableRef(currentSeasonPosition, currentEpisodePosition)
+            val progress = playable?.let { state.playbackProgress[it.id.value] }
+            val resumeMs = progress?.takeUnless { it.completed }?.positionMs?.coerceAtLeast(0L) ?: 0L
+            resumePositionMs = resumeMs
+            updatePlayButtonEnabled()
+        }
+
         private fun updatePlayButtonEnabled() {
             _binding?.btnPlay?.apply {
                 val movie = currentMovie
                 // Отсутствие ссылки — явное состояние кнопки, а не молчаливое нажатие (PLAY-01).
-                val hasLinks = movie != null && PlayStartResolver.sources(
-                    movie,
-                    currentSeasonPosition,
-                    currentEpisodePosition
-                ).isNotEmpty()
+                val hasLinks = PlayStartResolver.resolve(
+                    movie = movie,
+                    seasonPosition = currentSeasonPosition,
+                    episodePosition = currentEpisodePosition,
+                    selectedIndex = binding.spinLinks.selectedItemPosition.coerceAtLeast(0)
+                ) is PlayStart.Ready
                 // Обновление данных не должно запирать уже доступные ссылки: играем тем, что есть.
                 val enabled = hasLinks
                 isEnabled = enabled
@@ -774,6 +806,7 @@ override fun onResume() {
                 alpha = if (enabled) 1f else 0.5f
                 text = getString(
                     when {
+                        hasLinks && resumePositionMs > 0L -> R.string.details_resume
                         hasLinks -> R.string.watch
                         isAutoUpdateRunning -> R.string.please_wait
                         else -> R.string.details_no_source
@@ -891,9 +924,10 @@ override fun onResume() {
             val popupItems = getVideoUrlsItems(movie)
             val sizeMoreOne = popupItems.size > 1
 
-            binding.cardLinks.isVisible = sizeMoreOne
+            binding.cardLinks.isVisible = popupItems.isNotEmpty()
+            binding.spinLinks.isEnabled = sizeMoreOne
 
-            if (sizeMoreOne) {
+            if (popupItems.isNotEmpty()) {
                 binding.spinLinks.updateSpinnerItems(linksChangeListener)
                 linksAdapter?.clear()
                 linksAdapter?.addAll(popupItems.map { it.first })
@@ -1120,8 +1154,16 @@ override fun onResume() {
         }
 
         private fun playMovie() {
+            // Двойной тап не должен открывать два плеера (§4.3).
+            if (!playClickGate.tryAccept(SystemClock.elapsedRealtime())) {
+                Timber.tag(TAG_PLAY).d("duplicate click ignored")
+                return
+            }
             // Единственный вход в воспроизведение: сначала типизированный результат,
             // потом уже сетевые предупреждения. Молчаливого «ничего не произошло» нет (PLAY-01).
+            // Correlation ID склеивает этапы клика в логах (§4.2).
+            val playId = PlayTrace.nextId()
+            Timber.tag(TAG_PLAY).d("%s click", playId)
             val start = PlayStartResolver.resolve(
                 movie = currentMovie,
                 seasonPosition = currentSeasonPosition,
@@ -1132,8 +1174,9 @@ override fun onResume() {
             val movie = currentMovie
             when (start) {
                 is PlayStart.Failed -> {
-                    Timber.w(
-                        "playMovie: %s (movieId=%s, season=%d, episode=%d)",
+                    Timber.tag(TAG_PLAY).w(
+                        "%s resolve failed: %s (movieId=%s, season=%d, episode=%d)",
+                        playId,
                         start.reason,
                         movie?.dbId,
                         currentSeasonPosition,
@@ -1145,8 +1188,9 @@ override fun onResume() {
                 }
 
                 is PlayStart.Ready -> {
-                    Timber.d(
-                        "playMovie: ready (movieId=%s, quality=%s, season=%d, episode=%d)",
+                    Timber.tag(TAG_PLAY).d(
+                        "%s resolve ready (movieId=%s, quality=%s, season=%d, episode=%d)",
+                        playId,
                         movie?.dbId,
                         start.source.quality,
                         currentSeasonPosition,
@@ -1160,11 +1204,11 @@ override fun onResume() {
 
             when {
                 movie.type == MovieType.CINEMA && downloadAll -> {
-                    navigateToPlayer(movie)
+                    navigateToPlayer(movie, playId)
                 }
 
                 connectionType is ConnectionType.WIFI -> {
-                    navigateToPlayer(movie)
+                    navigateToPlayer(movie, playId)
                 }
 
                 connectionType is ConnectionType.MOBILE -> {
@@ -1173,7 +1217,7 @@ override fun onResume() {
                         content = getString(R.string.mobile_network_play),
                         btnOkText = getString(android.R.string.ok),
                         btnCancelText = getString(android.R.string.cancel),
-                        onConfirm = { navigateToPlayer(movie) }
+                        onConfirm = { navigateToPlayer(movie, playId) }
                     )
                 }
 
@@ -1183,12 +1227,12 @@ override fun onResume() {
                         content = getString(R.string.connection_network_none_dialog_content),
                         btnOkText = getString(android.R.string.ok),
                         btnCancelText = getString(android.R.string.cancel),
-                        onConfirm = { navigateToPlayer(movie) }
+                        onConfirm = { navigateToPlayer(movie, playId) }
                     )
                 }
 
                 else -> {
-                    navigateToPlayer(movie)
+                    navigateToPlayer(movie, playId)
                 }
             }
         }
@@ -1198,9 +1242,10 @@ override fun onResume() {
             get() = when (this) {
                 PlayStartFailure.NO_MOVIE -> R.string.play_error_no_movie
                 PlayStartFailure.NO_SOURCE -> R.string.play_error_no_source
+                PlayStartFailure.INVALID_SOURCE -> R.string.play_error_invalid_source
             }
 
-        private fun navigateToPlayer(movie: Movie) {
+        private fun navigateToPlayer(movie: Movie, playId: String) {
             val start = PlayStartResolver.resolve(
                 movie = movie,
                 seasonPosition = currentSeasonPosition,
@@ -1210,17 +1255,24 @@ override fun onResume() {
             if (start is PlayStart.Failed) {
                 // Раньше при пустом списке ссылок плеер получал path = null, сам уходил
                 // назад — со стороны это выглядело как «кнопка не работает».
-                Timber.w("navigateToPlayer: %s (movieId=%s)", start.reason, movie.dbId)
+                Timber.tag(TAG_PLAY).w(
+                    "%s navigate skipped: %s (movieId=%s)", playId, start.reason, movie.dbId
+                )
                 toast(getString(start.reason.messageRes))
                 return
             }
             val selectedUrl = (start as PlayStart.Ready).source.url
+            // URL логируется только отредактированным: query может содержать токены (§4.2).
+            Timber.tag(TAG_PLAY).d(
+                "%s navigate playableId=%s quality=%s url=%s",
+                playId, movie.dbId, start.source.quality, PlayTrace.redactUrl(selectedUrl)
+            )
 
             try {
                 if (movie.type == MovieType.CINEMA) {
                     findNavController().navigate(
                         R.id.nav_player_view,
-                        bundleOf("path" to selectedUrl, "movie" to movie)
+                        bundleOf("path" to selectedUrl, "movie" to movie, "playId" to playId)
                     )
                 } else {
                     findNavController().navigate(
@@ -1229,13 +1281,14 @@ override fun onResume() {
                             "path" to selectedUrl,
                             "movie" to movie,
                             "seasonIndex" to currentSeasonPosition,
-                            "episodeIndex" to currentEpisodePosition
+                            "episodeIndex" to currentEpisodePosition,
+                            "playId" to playId
                         )
                     )
                 }
             } catch (e: Exception) {
                 // Навигация — тоже возможная точка отказа: сообщаем, а не падаем/молчим.
-                Timber.e(e, "navigateToPlayer failed (movieId=%s)", movie.dbId)
+                Timber.tag(TAG_PLAY).e(e, "%s navigation failed (movieId=%s)", playId, movie.dbId)
                 toast(getString(R.string.play_error_navigation))
             }
         }

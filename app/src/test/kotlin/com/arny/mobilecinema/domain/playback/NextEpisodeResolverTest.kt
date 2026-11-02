@@ -167,4 +167,17 @@ class NextEpisodeResolverTest {
         assertNull(resolver.next(twoSeasons, all.last().id))
         assertNull(resolver.previous(twoSeasons, all.first().id))
     }
+    @Test
+    fun `resume coordinates follow sorted catalog not input order`() {
+        val movie = testSeries(listOf(
+            testSeason(2, testEpisode(202, "2"), testEpisode(201, "1")),
+            testSeason(1, testEpisode(102, "2"), testEpisode(101, "1")),
+        ))
+        val target = resolver.resumeTarget(movie, mapOf(
+            "ep:42:2:201" to testProgress("ep:42:2:201", positionMs = 10000, durationMs = 300000)
+        )) as ResumeTarget.Resume
+        assertEquals(1, target.ref.seasonIndex)
+        assertEquals(0, target.ref.episodeIndex)
+        assertEquals(10000L, target.positionMs)
+    }
 }

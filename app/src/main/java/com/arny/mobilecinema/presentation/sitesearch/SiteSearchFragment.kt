@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.presentation.sitesearch
 
 import android.os.Bundle
+import android.graphics.Rect
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -43,6 +44,9 @@ class SiteSearchFragment : Fragment(R.layout.f_site_search), KoinComponent {
     private companion object {
         /** Сколько последних видимых элементов остаётся до запроса следующей страницы. */
         const val PRELOAD_DISTANCE = 3
+
+        /** Значение `scope`, при котором экран открывается сразу по локальному каталогу. */
+        const val SCOPE_CATALOG = "CATALOG"
     }
 
     private val viewModel: SiteSearchViewModel by viewModel()
@@ -100,6 +104,7 @@ class SiteSearchFragment : Fragment(R.layout.f_site_search), KoinComponent {
         binding.btnSiteSearchRetry.setOnClickListener {
             viewModel.retry()
         }
+        binding.btnSourceRetry.setOnClickListener { viewModel.retry() }
         binding.tiedtSiteSearch.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                 requireActivity().hideKeyboard()
@@ -134,6 +139,12 @@ class SiteSearchFragment : Fragment(R.layout.f_site_search), KoinComponent {
         }
 
         observeState()
+
+        viewModel.setSearchType(args.searchType)
+        // scope=CATALOG открывает поиск сразу по локальному каталогу (переход с главной).
+        if (args.scope.equals(SCOPE_CATALOG, ignoreCase = true)) {
+            viewModel.setSource(SearchSource.LOCAL)
+        }
 
         val initialQuery = args.query.orEmpty()
         if (initialQuery.isNotBlank()) {
@@ -195,27 +206,73 @@ class SiteSearchFragment : Fragment(R.layout.f_site_search), KoinComponent {
             syncingSourceSelection = true
             binding.searchSourceGroup.check(checkedId)
             syncingSourceSelection = false
+            val selected = binding.searchSourceGroup.findViewById<View>(checkedId)
+            selected.post {
+                selected.requestRectangleOnScreen(Rect(0, 0, selected.width, selected.height), false)
+            }
         }
+        val filtersAvailable = SearchListSections.areFiltersAvailable(state.source)
+        binding.btnSearchFilters.isEnabled = filtersAvailable
         binding.btnSearchFilters.text = if (state.filters.isActive) {
             getString(R.string.search_filters_count, state.filters.activeCount)
         } else {
             getString(R.string.search_filters)
         }
-        binding.tvFiltersNotice.isVisible = state.filtersNotAppliedToSite
+        binding.btnSearchFilters.contentDescription = when {
+            !filtersAvailable -> getString(R.string.search_filters_disabled_for_site)
+            state.filters.isActive -> getString(R.string.search_filters_count, state.filters.activeCount)
+            else -> getString(R.string.search_filters)
+        }
+        // Объяснение не раздувает кнопку фильтров до нескольких строк.
+        binding.tvFiltersNotice.isVisible = !filtersAvailable || state.filtersNotAppliedToSite
+        binding.tvFiltersNotice.setText(
+            if (!filtersAvailable) R.string.search_filters_disabled_for_site
+            else R.string.search_filters_site_notice
+        )
+
+        renderSourceStatus(state)
 
         // Пустой поиск — не чёрная поверхность: подсказка вместо пустоты (аудит v2, §4.6).
         val showState = state.query.isBlank() || state.isEmpty || state.isFailed
         binding.llSiteSearchState.isVisible = showState
+        // Очистка поля не должна оставлять прежнюю выдачу под idle/empty/error-состоянием.
+        binding.rvSiteSearch.isVisible = !showState
         binding.tvSiteSearchEmpty.setText(
             when {
+                // Ошибки источников различаются: каталог — это база, сайт — сеть.
                 state.isFailed -> R.string.site_search_error
-                state.localError || state.remoteError -> R.string.site_search_error
+                state.localError && !state.remoteError -> R.string.search_local_error
+                state.remoteError -> R.string.site_search_error
                 state.query.isBlank() -> R.string.search_empty_hint
-                else -> R.string.site_search_empty
+                // Пустая выдача называется тем источником, по которому искали.
+                state.source == SearchSource.LOCAL -> R.string.search_catalog_empty
+                state.source == SearchSource.REMOTE -> R.string.site_search_empty
+                else -> R.string.search_all_empty
             }
         )
         binding.btnSiteSearchRetry.isVisible = state.isFailed || state.remoteError || state.localError
-        searchAdapter.submitList(state.hits)
+        searchAdapter.submitList(SearchListSections.build(state.hits, state.source, state.filters))
+    }
+
+    /**
+     * Загрузка и ошибки по каждому источнику: общий прогресс-бар не говорил, что именно
+     * ещё грузится, а ошибка сайта при готовом каталоге выглядела как пустой экран.
+     */
+    private fun renderSourceStatus(state: SearchUiState) {
+        // Статус берётся из состояния конкретного источника (S-015), а не из комбинации флагов.
+        val status = when {
+            state.localSection == ResultSection.LOADING -> R.string.search_status_catalog_loading
+            state.remoteSection == ResultSection.LOADING -> R.string.search_status_site_loading
+            state.remoteSection == ResultSection.ERROR && state.hits.isNotEmpty() ->
+                R.string.search_status_site_error
+            state.localSection == ResultSection.ERROR && state.hits.isNotEmpty() ->
+                R.string.search_status_catalog_error
+            else -> null
+        }
+        binding.tvSourceStatus.isVisible = status != null
+        binding.btnSourceRetry.isVisible = state.hits.isNotEmpty() && (state.localError || state.remoteError)
+        binding.btnSourceRetry.isEnabled = !state.isLoading && !state.isOpening
+        status?.let { binding.tvSourceStatus.setText(it) }
     }
 
     override fun onDestroyView() {

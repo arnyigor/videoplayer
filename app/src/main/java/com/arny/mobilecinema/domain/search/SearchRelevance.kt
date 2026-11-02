@@ -1,39 +1,90 @@
 package com.arny.mobilecinema.domain.search
 
+import java.text.Normalizer
+import java.util.Locale
+
 /**
- * Релевантность совпадения запроса с названием тайтла.
+ * Релевантность совпадения запроса с названием тайтла (S-014).
  *
- * Оценки упорядочены по убыванию: точное совпадение названия → название начинается
- * с запроса → с запроса начинается отдельное слово → запрос встречается внутри названия.
- * Ноль означает, что по названию совпадения нет: такие результаты нельзя поднимать
- * выше совпадений (аудит v2, §4.4).
+ * Приоритет строго по убыванию: точное совпадение **названия** → точное совпадение
+ * **оригинального названия** → название начинается с запроса → с запроса начинается слово →
+ * запрос встречается внутри → «почти совпадает» (опечатка) → нет совпадения.
  *
- * Сравнение регистронезависимое для ASCII (как SQLite `LIKE`). Транслитерация
- * кириллицы в латиницу здесь намеренно не угадывается: для этого служит поле
- * оригинального названия, которое приходит с сайта вместе с русским.
+ * Нормализация: Unicode NFC, нижний регистр, `ё`→`е`, обрезка и сжатие пробелов. Транслитерация
+ * кириллицы в латиницу намеренно **не** угадывается: для этого служит поле оригинального
+ * названия, которое приходит с сайта вместе с русским (аудит v2, §4.4).
+ *
+ * Рейтинг IMDb в оценку не входит: он не отражает совпадение с запросом.
  */
 object SearchRelevance {
 
     const val EXACT: Int = 100
+    const val EXACT_ORIGINAL: Int = 90
     const val STARTS_WITH: Int = 80
     const val WORD_STARTS_WITH: Int = 60
     const val CONTAINS: Int = 40
+    const val FUZZY: Int = 20
     const val NO_MATCH: Int = 0
 
-    /** Наибольшая оценка по всем переданным названиям (русское, оригинальное, алиасы). */
-    fun score(query: String, vararg titles: String): Int =
-        titles.maxOfOrNull { scoreSingle(query, it) } ?: NO_MATCH
+    /** Наибольшая оценка по названиям: первое название считается основным (title). */
+    fun score(query: String, vararg titles: String): Int {
+        if (query.isBlank()) return NO_MATCH
+        val q = normalize(query)
+        if (q.isEmpty()) return NO_MATCH
+        var best = NO_MATCH
+        titles.forEachIndexed { index, title ->
+            val base = scoreSingle(q, normalize(title))
+            // Точное совпадение оригинального названия слабее точного совпадения основного.
+            val adjusted = if (base == EXACT && index > 0) EXACT_ORIGINAL else base
+            if (adjusted > best) best = adjusted
+        }
+        return best
+    }
 
-    private fun scoreSingle(query: String, title: String): Int {
-        val q = query.trim()
-        val t = title.trim()
-        if (q.isEmpty() || t.isEmpty()) return NO_MATCH
-        if (t.equals(q, ignoreCase = true)) return EXACT
-        if (t.startsWith(q, ignoreCase = true)) return STARTS_WITH
+    private fun scoreSingle(q: String, t: String): Int {
+        if (t.isEmpty()) return NO_MATCH
+        if (t == q) return EXACT
+        if (t.startsWith(q)) return STARTS_WITH
         val words = t.split(*SEPARATORS).filter { it.isNotBlank() }
-        if (words.any { it.startsWith(q, ignoreCase = true) }) return WORD_STARTS_WITH
-        if (t.contains(q, ignoreCase = true)) return CONTAINS
+        if (words.any { it.startsWith(q) }) return WORD_STARTS_WITH
+        if (t.contains(q)) return CONTAINS
+        if (isCloseEnough(q, words)) return FUZZY
         return NO_MATCH
+    }
+
+    /**
+     * «Почти совпадение» только для достаточно длинных запросов: на коротких запросах (1–3 символа)
+     * расстояние Левенштейна превращает поиск в случайные подсказки.
+     */
+    private fun isCloseEnough(q: String, words: List<String>): Boolean {
+        if (q.length < 4) return false
+        val allowed = if (q.length >= 7) 2 else 1
+        return words.any { word ->
+            word.length >= q.length - allowed && levenshtein(q, word) <= allowed
+        }
+    }
+
+    private fun levenshtein(a: String, b: String): Int {
+        if (a == b) return 0
+        if (a.isEmpty()) return b.length
+        if (b.isEmpty()) return a.length
+        var previous = IntArray(b.length + 1) { it }
+        var current = IntArray(b.length + 1)
+        for (i in 1..a.length) {
+            current[0] = i
+            for (j in 1..b.length) {
+                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+                current[j] = minOf(
+                    current[j - 1] + 1,
+                    previous[j] + 1,
+                    previous[j - 1] + cost
+                )
+            }
+            val swap = previous
+            previous = current
+            current = swap
+        }
+        return previous[b.length]
     }
 
     /**
@@ -52,5 +103,14 @@ object SearchRelevance {
             .map { it.value }
     }
 
-    private val SEPARATORS = charArrayOf(' ', '\t', '\n', ':', ',', '.', '-', '–', '—', '/', '(', ')', '!', '?', '«', '»', '\'')
+    /** Единая нормализация для сравнения: NFC, нижний регистр, ё→е, одиночные пробелы. */
+    fun normalize(value: String): String = Normalizer.normalize(value, Normalizer.Form.NFC)
+        .lowercase(Locale.ROOT)
+        .replace('ё', 'е')
+        .replace(Regex("\\s+"), " ")
+        .trim()
+
+    private val SEPARATORS = charArrayOf(
+        ' ', '\t', '\n', ':', ',', '.', '-', '–', '—', '/', '(', ')', '!', '?', '«', '»', '\''
+    )
 }

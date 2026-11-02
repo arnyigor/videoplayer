@@ -170,6 +170,7 @@
     <string name="search_settings">Настройки поиска</string>
     <string name="search_settings_title">Где искать?</string>
     <string name="search_order_settings">Настройки сортировки</string>
+    <string name="order_settings_all_feed">Порядок ленты «Все»</string>
     <string name="sort_updated">По дате обновления</string>
     <string name="sort_last_time">По дате просмотра</string>
     <string name="sort_year_desc">По году убывание</string>
@@ -289,6 +290,8 @@
     <string name="quality">Качество</string>
     <string name="quality_auto">Авто</string>
     <string name="language">Язык</string>
+    <string name="subtitles">Субтитры</string>
+    <string name="subtitles_off">Выключить</string>
     <string name="brightness">Яркость</string>
     <string name="volume">Громкость</string>
 
@@ -395,9 +398,11 @@
 
     <string name="site_search_title">Поиск</string>
     <!-- Единый поиск: источники и фильтры (SRCH-02/SRCH-03) -->
+    <!-- S-021: короткие подписи — при крупном шрифте (font_scale 2.0) три источника
+         не помещались в строку и обрезались до «Вез…»/«В к…»/«На …». -->
     <string name="search_source_all">Везде</string>
-    <string name="search_source_local">В каталоге</string>
-    <string name="search_source_remote">На сайте</string>
+    <string name="search_source_local">Каталог</string>
+    <string name="search_source_remote">Сайт</string>
     <string name="search_filters">Фильтры</string>
     <string name="search_filters_count">Фильтры: %1$d</string>
     <string name="search_filters_site_notice">Фильтры применяются только к каталогу: сайт их не поддерживает</string>
@@ -423,16 +428,28 @@
     <string name="site_search_action">Искать</string>
     <string name="site_search_description">Ищет по каталогу сайта, а не по скачанной базе. Карточка добавляется в базу сразу, серии и ссылки дозагружаются на экране деталей.</string>
     <string name="site_search_empty">Ничего не найдено на сайте</string>
+    <string name="search_catalog_empty">Ничего не найдено в каталоге</string>
+    <string name="search_section_catalog">В каталоге (фильтры применены)</string>
+    <string name="search_section_site">На сайте (фильтры недоступны)</string>
+    <string name="search_filters_disabled_for_site">Фильтры каталога недоступны в режиме «На сайте»</string>
+    <string name="search_all_empty">Ничего не найдено</string>
     <string name="site_search_load_more">Показать ещё</string>
     <!-- Компактный селектор сортировки в тулбаре каталога (аудит §3.2). -->
     <string name="catalog_sort_selector">Сортировка: %1$s</string>
+    <string name="catalog_sort_title">Сортировка каталога</string>
     <!-- Источник на экране деталей: подпись вместо технического URL (план v3 §9.2). -->
     <string name="details_source_label">Источник %1$d · %2$s</string>
     <string name="details_no_source">Нет источника</string>
     <string name="play_error_no_movie">Данные тайтла ещё не загружены. Откройте карточку заново.</string>
     <string name="play_error_no_source">У этого тайтла нет доступного источника воспроизведения.</string>
+    <string name="play_error_invalid_source">Адрес источника некорректен — открыть его нельзя.</string>
     <string name="play_error_navigation">Не удалось открыть плеер.</string>
     <string name="site_search_error">Не удалось выполнить поиск на сайте</string>
+    <string name="search_local_error">Не удалось выполнить поиск в каталоге</string>
+    <string name="search_status_catalog_loading">Ищем в каталоге…</string>
+    <string name="search_status_site_loading">Ищем на сайте…</string>
+    <string name="search_status_site_error">Сайт не ответил — показаны результаты каталога</string>
+    <string name="search_status_catalog_error">Каталог недоступен — показаны результаты сайта</string>
     <string name="site_search_open_error">Не удалось загрузить карточку с сайта</string>
     <!-- TV player / общие состояния -->
     <string name="unknown_movie">Неизвестный фильм</string>
@@ -486,4 +503,5 @@
     <string name="tv_details_error">Не удалось загрузить тайтл</string>
     <string name="mobile_remaining_minutes">осталось %1$d мин</string>
     <string name="tv_details_no_links">Нет доступных источников — обновите данные</string>
+    <string name="details_resume">Продолжить</string>
 </resources>

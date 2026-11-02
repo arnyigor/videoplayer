@@ -18,7 +18,7 @@ ksp {
 
 android {
     namespace = "com.arny.mobilecinema"
-    testBuildType = "release"
+    testBuildType = if (providers.gradleProperty("mobileUiTest").orNull == "true") "debug" else "release"
 
     signingConfigs {
         create("release")
@@ -97,6 +97,7 @@ android {
     }
 
     kotlinOptions {
+        freeCompilerArgs += listOf("-opt-in=androidx.media3.common.util.UnstableApi")
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
@@ -105,6 +106,7 @@ android {
         viewBinding = true
         buildConfig = true
     }
+
 
     buildTypes {
         release {
@@ -117,9 +119,27 @@ android {
             testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
         }
 
+        create("benchmark") {
+            initWith(getByName("release"))
+            // Isolated profiling target; never use the production signing key.
+            applicationIdSuffix = if (providers.gradleProperty("perfIsolated").orNull == "true") {
+                ".perfbenchmark"
+            } else {
+                ".benchmark"
+            }
+            versionNameSuffix = "-BENCHMARK"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+        }
+
         debug {
             resValue("string", "app_name", "[DEBUG]Anwap Movies")
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = if (providers.gradleProperty("perfIsolated").orNull == "true") {
+                ".perfdebug"
+            } else {
+                ".debug"
+            }
             versionNameSuffix = "-DEBUG"
             isDebuggable = true
             isMinifyEnabled = false
@@ -127,7 +147,21 @@ android {
             testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
         }
     }
+    if (providers.gradleProperty("perfIsolated").orNull == "true") {
+        // Local fixtures are opt-in and never part of production/TV builds.
+        sourceSets.getByName("debug").res.srcDir("src/perfFixtures/res")
+        sourceSets.getByName("benchmark").res.srcDir("src/perfFixtures/res")
+        listOf("debug", "benchmark").forEach { name ->
+            buildTypes.getByName(name).apply {
+                buildConfigField("String", "UPDATE_LINK", "\"http://127.0.0.1:8765/update.txt\"")
+                buildConfigField("String", "DATA_0_LINK", "\"http://127.0.0.1:8765/data.zip\"")
+                buildConfigField("String", "DATA_LINK", "\"http://127.0.0.1:8765/data.zip\"")
+            }
+        }
+    }
+
 }
+
 
 android.applicationVariants.all {
     outputs.all {
@@ -208,6 +242,9 @@ gradle.taskGraph.whenReady {
     val releaseRequested = allTasks.any { task ->
         task.project == project && task.name.lowercase().contains("release")
     }
+    if (releaseRequested && providers.gradleProperty("perfIsolated").orNull == "true") {
+        throw GradleException("perfIsolated is restricted to debug/benchmark fixture APKs, not release.")
+    }
     if (releaseRequested && !releaseSigningConfigured) {
         throw GradleException("Release signing is not configured. Provide all ANDROID_* values via the environment or ignored signing.properties.")
     }
@@ -217,6 +254,12 @@ secrets {
     propertiesFileName = "secrets.properties"
     ignoreList.add("keyToIgnore")
     ignoreList.add("sdk.*")
+    // Secrets plugin 2.0.1 retains its mutable ignore list across daemon builds.
+    ignoreList.removeAll(listOf("UPDATE_LINK", "DATA_0_LINK", "DATA_LINK"))
+    if (providers.gradleProperty("perfIsolated").orNull == "true") {
+        // Prevent secrets plugin from overwriting isolated fixture endpoints.
+        ignoreList.addAll(listOf("UPDATE_LINK", "DATA_0_LINK", "DATA_LINK"))
+    }
 }
 
 dependencies {
@@ -258,19 +301,16 @@ dependencies {
     implementation(libs.material.dialogs.files)
     implementation(libs.androidx.preference)
     implementation(libs.androidx.constraintlayout)
-    implementation(libs.exoplayer)
-    implementation(libs.exoplayer.core)
-    implementation(libs.exoplayer.common)
-    implementation(libs.exoplayer.dash)
-    implementation(libs.exoplayer.hls)
-    implementation(libs.exoplayer.smoothstreaming)
-    implementation(libs.exoplayer.rtsp)
-    implementation(libs.exoplayer.extension.cronet)
-    implementation(libs.exoplayer.extension.ima)
-    implementation(libs.exoplayer.datasource)
-    implementation(libs.exoplayer.ui)
-    implementation(libs.exoplayer.extension.mediasession)
-    implementation(libs.double.tap.player.view)
+    // Media3 replaces the legacy ExoPlayer artefacts; the YouTube-style gestures come from the
+    // local MIT fork :doubletapplayerview-media3 that targets Media3.
+    implementation(project(":doubletapplayerview-media3"))
+    // Engine under test for the mobile-only Media3 migration (see docs/PLAYER_MEDIA3_PLAN.md).
+    // Nothing in the app references androidx.media3 yet, so behaviour is unchanged.
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-ui:1.4.1")
+    implementation("androidx.media3:media3-session:1.4.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.4.1")
+    implementation("androidx.media3:media3-exoplayer-dash:1.4.1")
     implementation(libs.timber)
     implementation(libs.commons.codec)
     implementation(libs.ktor.client.okhttp)
@@ -291,6 +331,7 @@ dependencies {
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.tv.material)
     implementation(libs.coil.compose)
@@ -314,6 +355,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
+    androidTestImplementation(project(":doubletapplayerview-media3"))
     implementation(libs.androidx.test.ext.junit.ktx)
 
     debugImplementation(libs.androidx.compose.ui.test.manifest)

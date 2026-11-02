@@ -76,6 +76,8 @@
         <argument
                 android:name="id"
                 app:argType="long" />
+        <action android:id="@+id/action_nav_details_to_nav_site_search"
+                app:destination="@id/nav_site_search" />
         <action
                 android:id="@+id/action_nav_details_to_nav_player_view"
                 app:destination="@id/nav_player_view"
@@ -242,8 +244,14 @@
             android:name="com.arny.mobilecinema.presentation.sitesearch.SiteSearchFragment"
             android:label="SiteSearchFragment"
             tools:layout="@layout/f_site_search">
+        <argument android:name="searchType" app:argType="string" android:defaultValue="title" />
         <argument
                 android:name="query"
+                app:argType="string"
+                app:nullable="true"
+                android:defaultValue="@null" />
+        <argument
+                android:name="scope"
                 app:argType="string"
                 app:nullable="true"
                 android:defaultValue="@null" />

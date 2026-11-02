@@ -105,7 +105,12 @@ class MoviesRepositoryImpl(
             search = "",
             order = order,
             searchType = AppConstants.SearchType.TITLE,
-            movieTypes = listOf(movieType),
+            // «Все» = оба типа: иначе комбинированный список пуст.
+            movieTypes = if (movieType == MovieType.NO_TYPE) {
+                listOf(MovieType.CINEMA, MovieType.SERIAL)
+            } else {
+                listOf(movieType)
+            },
             genres = genres,
             likesPriority = true,
             limit = limit,
@@ -140,11 +145,12 @@ class MoviesRepositoryImpl(
         order: String,
         limit: Int,
         offset: Int,
+        searchType: String,
     ): List<ViewMovie> = movieDao.getMovies(
         getMoviesSQL(
             search = query,
             order = order,
-            searchType = AppConstants.SearchType.TITLE,
+            searchType = searchType,
             movieTypes = kinds,
             genres = listOfNotNull(genre?.takeIf { it.isNotBlank() }),
             countries = listOfNotNull(country?.takeIf { it.isNotBlank() }),

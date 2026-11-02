@@ -132,4 +132,15 @@ class PlayStartResolverTest {
         assertEquals(12, PlayStartResolver.episodeNumber(SerialEpisode(episode = "12")))
         assertEquals(0, PlayStartResolver.episodeNumber(SerialEpisode(episode = "special")))
     }
+
+    @Test
+    fun `relative address is rejected as invalid source`() {
+        // Раньше такой адрес уходил в плеер как есть и падал уже внутри.
+        val movie = testFilm(urls = listOf("/films/comm/47737"))
+        val result = PlayStartResolver.resolve(movie = movie)
+        assertEquals(
+            PlayStart.Failed(PlayStartFailure.INVALID_SOURCE),
+            result
+        )
+    }
 }

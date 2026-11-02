@@ -133,6 +133,8 @@ private fun Movie.orderedSeasons(): List<OrderedSeason> = seasons
                 OrderedEpisode(episode, episodeIndex, episode.episodeNumber())
             }
             .sortedWith(compareBy({ it.number ?: Int.MAX_VALUE }, { it.index }))
+            .mapIndexed { sortedIndex, episode -> episode.copy(index = sortedIndex) }
         OrderedSeason(season, index, episodes)
     }
     .sortedWith(compareBy({ it.season.id ?: Int.MAX_VALUE }, { it.index }))
+    .mapIndexed { sortedIndex, season -> season.copy(index = sortedIndex) }

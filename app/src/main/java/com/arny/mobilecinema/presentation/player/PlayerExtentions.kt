@@ -2,12 +2,13 @@ package com.arny.mobilecinema.presentation.player
 
 import android.content.Context
 import com.arny.mobilecinema.domain.models.Movie
-import com.google.android.exoplayer2.C
-import com.google.android.exoplayer2.text.SubtitleDecoderFactory
-import com.google.android.exoplayer2.trackselection.DefaultTrackSelector
-import com.google.android.exoplayer2.trackselection.MappingTrackSelector.MappedTrackInfo
-import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
-import com.google.android.exoplayer2.trackselection.TrackSelectionParameters
+import androidx.media3.common.C
+import androidx.media3.common.MimeTypes
+import androidx.media3.exoplayer.text.SubtitleDecoderFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrackInfo
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
 
 fun Movie.getCinemaUrl(): String = getAllCinemaUrls().firstOrNull().orEmpty()
 
@@ -128,8 +129,14 @@ fun DefaultTrackSelector.generateSubTitlesList(context: Context): List<Pair<Stri
                         if (isTrackSupported) {
                             val track = trackGroups[groupIndex]
                             val format = track.getFormat(trackIndex)
+                            // С Media3 1.4 субтитры из Matroska отдаются как
+                            // application/x-media3-cues: их отрисовывает сам Media3, поэтому
+                            // SubtitleDecoderFactory их не знает и возвращает false. Без этой
+                            // ветки список субтитров был пустым, хотя дорожка есть.
                             val subtitleDecoderFactory = SubtitleDecoderFactory.DEFAULT
-                            val supportsFormat = subtitleDecoderFactory.supportsFormat(format)
+                            val supportsFormat =
+                                format.sampleMimeType == MimeTypes.APPLICATION_MEDIA3_CUES ||
+                                    subtitleDecoderFactory.supportsFormat(format)
                             var trackName = format.language
                             if (supportsFormat) {
                                 if (trackName.isNullOrBlank()) {

@@ -46,6 +46,7 @@ import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.mobile.home.MobileHomeViewModel
 import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import com.arny.mobilecinema.presentation.splash.SplashViewModel
+import com.arny.mobilecinema.presentation.catalog.CatalogSection
 import com.arny.mobilecinema.presentation.catalog.CatalogViewModel
 import com.arny.mobilecinema.presentation.tv.home.TvHomeViewModel
 import com.arny.mobilecinema.presentation.tv.search.TvSearchViewModel
@@ -55,6 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.core.qualifier.named
 
 val dataModule = module {
     single { Prefs.getInstance(androidContext()) }
@@ -120,7 +122,7 @@ val domainModule = module {
 
 val presentationModule = module {
     viewModel { HomeViewModel(get(), get()) }
-    viewModel { (id: Long) -> DetailsViewModel(id, get(), get(), get(), get()) }
+    viewModel { (id: Long) -> DetailsViewModel(id, get(), get(), get(), get(), get()) }
     viewModel { (pageUrl: String, title: String) -> CommentsViewModel(pageUrl, title, get()) }
     viewModel { ExtendedSearchViewModel(get()) }
     viewModel { SiteSearchViewModel(get(), get()) }
@@ -132,6 +134,9 @@ val presentationModule = module {
     viewModel { SplashViewModel(get()) }
     viewModel { TvHomeViewModel(get(), get(), get(), get()) }
     viewModel { (sectionKey: String) -> CatalogViewModel(get(), sectionKey) }
+    // The qualifier is also part of the ViewModelStore key within HomeFragment.
+    viewModel(named(CatalogSection.FILMS.name)) { CatalogViewModel(get(), CatalogSection.FILMS.name) }
+    viewModel(named(CatalogSection.SERIES.name)) { CatalogViewModel(get(), CatalogSection.SERIES.name) }
     viewModel { TvDetailsViewModel(get(), get(), get()) }
     viewModel { TvSearchViewModel(get()) }
 }

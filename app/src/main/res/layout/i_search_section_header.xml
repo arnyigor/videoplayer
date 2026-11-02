@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- S-013: заголовок секции выдачи: «В каталоге (фильтры применены)» / «На сайте (фильтры недоступны)». -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/tvSectionTitle"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingHorizontal="@dimen/margin_small"
+    android:paddingTop="@dimen/margin_small"
+    android:paddingBottom="@dimen/margin_smallest"
+    android:textColor="@color/colorAccent"
+    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2"
+    android:accessibilityHeading="true"
+    tools:text="В каталоге (фильтры применены)" />

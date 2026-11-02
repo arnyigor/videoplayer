@@ -29,6 +29,9 @@ enum class PlayStartFailure {
 
     /** У тайтла/выбранной серии нет ни одного непустого адреса. */
     NO_SOURCE,
+
+    /** Адрес есть, но это не абсолютный http(s)-URL: плеер гарантированно не откроет. */
+    INVALID_SOURCE,
 }
 
 /**
@@ -57,6 +60,10 @@ object PlayStartResolver {
         val available = sources(movie, seasonPosition, episodePosition)
         if (available.isEmpty()) return PlayStart.Failed(PlayStartFailure.NO_SOURCE)
         val source = available.getOrNull(selectedIndex) ?: available.first()
+        // Типизированная проверка адреса: иначе плеер получит мусор и упадёт уже внутри.
+        if (!PlayTrace.isPlayableUrl(source.url)) {
+            return PlayStart.Failed(PlayStartFailure.INVALID_SOURCE)
+        }
         return PlayStart.Ready(source)
     }
 

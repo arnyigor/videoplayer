@@ -61,4 +61,42 @@ class SearchRelevanceTest {
             SearchRelevance.score("матрица", "Матрица") >= SearchRelevance.STARTS_WITH
         )
     }
+
+    @Test
+    fun `exact title beats exact original title`() {
+        assertEquals(SearchRelevance.EXACT, SearchRelevance.score("matrix", "Matrix", "The Matrix"))
+        assertEquals(
+            SearchRelevance.EXACT_ORIGINAL,
+            SearchRelevance.score("the matrix", "Матрица", "The Matrix")
+        )
+        assertTrue(SearchRelevance.EXACT > SearchRelevance.EXACT_ORIGINAL)
+    }
+
+    @Test
+    fun `normalization ignores case, extra spaces and yo`() {
+        assertEquals(SearchRelevance.EXACT, SearchRelevance.score("  MATRIX  ", "matrix"))
+        assertEquals(SearchRelevance.EXACT, SearchRelevance.score("ёлка", "Елка"))
+        assertEquals(
+            SearchRelevance.EXACT,
+            SearchRelevance.score("the   matrix", "The  Matrix")
+        )
+    }
+
+    @Test
+    fun `typo matches as fuzzy but stays below substring`() {
+        assertEquals(SearchRelevance.FUZZY, SearchRelevance.score("matrixx", "Matrix"))
+        assertTrue(SearchRelevance.FUZZY < SearchRelevance.CONTAINS)
+        // Короткие запросы не «угадываются»: иначе выдача забивается случайными подсказками.
+        assertEquals(SearchRelevance.NO_MATCH, SearchRelevance.score("mx", "Matrix"))
+    }
+
+    @Test
+    fun `rating does not affect relevance`() {
+        data class Item(val title: String, val rating: Float)
+        val ranked = SearchRelevance.rank("matrix", listOf(
+            Item("Матрица", 5.1f),
+            Item("Матрица: Перезагрузка", 8.9f),
+        )) { listOf(it.title) }
+        assertEquals("Матрица", ranked.first().title)
+    }
 }

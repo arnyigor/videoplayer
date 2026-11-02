@@ -92,6 +92,7 @@ class MoviesInteractorImpl(
         order: String,
         limit: Int,
         offset: Int,
+        searchType: String,
     ): List<ViewMovie> = withContext(dispatcher) {
         repository.searchLocal(
             query = query,
@@ -102,6 +103,7 @@ class MoviesInteractorImpl(
             order = order,
             limit = limit,
             offset = offset,
+            searchType = searchType,
         )
     }
 

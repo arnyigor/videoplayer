@@ -8,11 +8,16 @@ import com.arny.mobilecinema.data.models.doAsync
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.DataUpdateResult
 import com.arny.mobilecinema.domain.repository.UpdateRepository
+import com.arny.mobilecinema.domain.models.PrefsConstants
+import com.arny.mobilecinema.data.repository.prefs.Prefs
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import kotlinx.coroutines.flow.Flow
 
 class DataUpdateInteractorImpl constructor(
     private val repository: UpdateRepository
-) : DataUpdateInteractor {
+) : DataUpdateInteractor, KoinComponent {
+    private val prefs by inject<Prefs>()
     private companion object {
         private val UPDATE_DATE_REGEX = Regex("""\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}""")
     }
@@ -42,7 +47,17 @@ class DataUpdateInteractorImpl constructor(
         repository.checkUpdate = false
     }
 
-    override suspend fun isAutoUpdateAllowed(): Boolean = repository.isAutoUpdateAllowed()
+    /**
+     * Без настроенного baseUrl сайт недоступен: авто-обновление давало шумное
+     * уведомление и тост «Обновление не завершено» при каждом запуске.
+     */
+    /**
+     * Без настроенного baseUrl сайт недоступен: авто-обновление давало при запуске
+     * уведомление «Загрузка базы фильмов…» и тост об ошибке.
+     */
+    override suspend fun isAutoUpdateAllowed(): Boolean =
+        prefs.get<String>(PrefsConstants.BASE_URL).orEmpty().isNotBlank() &&
+            repository.isAutoUpdateAllowed()
 
     override suspend fun setIntentUrl(url: String) {
         repository.onNewUrl(url)

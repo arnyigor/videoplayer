@@ -24,7 +24,7 @@ interface JsoupUpdateInteractor {
      * Поиск по каталогу самого сайта (/films/search/ и /serials/search/).
      * Нужен для карточек, до которых обход листингов ещё не дошёл.
      */
-    suspend fun searchOnSite(query: String, page: Int = 1): DataResult<List<SiteSearchItem>>
+    suspend fun searchOnSite(query: String, page: Int = 1, searchType: String = com.arny.mobilecinema.data.repository.AppConstants.SearchType.TITLE): DataResult<List<SiteSearchItem>>
 
     /**
      * Быстрое сохранение карточки по её адресу: разбирается только шапка страницы

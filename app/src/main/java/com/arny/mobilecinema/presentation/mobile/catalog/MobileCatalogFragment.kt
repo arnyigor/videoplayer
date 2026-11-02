@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -69,7 +69,7 @@ class MobileCatalogFragment : Fragment(), KoinComponent, OnScrollToTopListener {
         setContent {
             MobileTheme {
                 val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-                val state by viewModel.uiState.collectAsState()
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
                 DisposableEffect(Unit) {
                     onDispose {
                         viewModel.saveGridScroll(

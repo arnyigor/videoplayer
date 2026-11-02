@@ -101,7 +101,7 @@ import timber.log.Timber
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
-import org.koin.core.parameter.parametersOf
+import org.koin.core.qualifier.named
 
 /**
  * HomeFragment handles the primary UI for browsing videos.
@@ -127,12 +127,12 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
      * Каталог внутри главной (CAT-01): на раздел свой ViewModel и своя прокрутка,
      * поэтому Фильмы/Сериалы не делят фильтры и позицию с лентой «Все».
      */
-    private val filmsCatalogViewModel: CatalogViewModel by viewModel {
-        parametersOf(CatalogSection.FILMS.name)
-    }
-    private val seriesCatalogViewModel: CatalogViewModel by viewModel {
-        parametersOf(CatalogSection.SERIES.name)
-    }
+    private val filmsCatalogViewModel: CatalogViewModel by viewModel(
+        qualifier = named(CatalogSection.FILMS.name)
+    )
+    private val seriesCatalogViewModel: CatalogViewModel by viewModel(
+        qualifier = named(CatalogSection.SERIES.name)
+    )
     private val filmsGridState: LazyGridState by lazy {
         LazyGridState(
             firstVisibleItemIndex = filmsCatalogViewModel.gridFirstIndex,
@@ -311,6 +311,8 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS -> {
+                    filmsCatalogViewModel.refresh()
+                    seriesCatalogViewModel.refresh()
                     val movieId = intent.getLongExtra("EXTRA_MOVIE_ID", -1L)
                     val isBackgroundUpdate = intent.getBooleanExtra(
                         AppConstants.SERVICE_PARAM_UPDATE_BACKGROUND,
@@ -339,7 +341,7 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
                 }
 
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
-                    toast(getString(R.string.update_finished_error))
+                    toast(getString(R.string.update_error_simple))
                     Timber.e("Update finished with error.")
                     viewModel.loadMovies()
                 }
@@ -812,8 +814,7 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
         updateCatalogVisibility()
     }
 
-    private fun isComposeHomeEnabled(): Boolean =
-        prefs.get<Boolean>(PrefsConstants.PREF_KEY_COMPOSE_HOME) ?: false
+    private fun isComposeHomeEnabled(): Boolean = false
 
     /**
      * Compose-главная (MOB-09C) показывается только в обычном режиме ленты: во время поиска
@@ -822,6 +823,7 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
     private fun updateComposeHomeVisibility() {
         if (!isComposeHomeEnabled()) {
             binding.composeHome.isVisible = false
+            binding.rcVideoList.isVisible = !binding.catalogHost.isVisible
             return
         }
         binding.composeHome.isVisible = isSearchComplete()
@@ -904,6 +906,7 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
     private fun updateCatalogVisibility() {
         binding.catalogHost.isVisible =
             isSearchComplete() && viewModel.contentType.value != HomeContentType.ALL
+        binding.rcVideoList.isVisible = !binding.catalogHost.isVisible
     }
 
     private fun setupComposeHome() {
