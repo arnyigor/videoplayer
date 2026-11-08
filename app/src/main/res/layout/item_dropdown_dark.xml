@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Пункт выпадающего списка: тёмная тема приложения задана цветами, а не ночным режимом,
+     поэтому фон и цвет текста задаём явно. -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_dropdown_item_dark"
+    android:ellipsize="end"
+    android:maxLines="1"
+    android:minHeight="48dp"
+    android:gravity="center_vertical"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:textColor="@color/textColorPrimary"
+    android:textSize="16sp" />

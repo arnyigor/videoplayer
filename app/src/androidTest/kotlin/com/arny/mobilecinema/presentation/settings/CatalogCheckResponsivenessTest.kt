@@ -1,5 +1,9 @@
 package com.arny.mobilecinema.presentation.settings
 
+import android.Manifest
+import android.os.Build
+import android.os.ParcelFileDescriptor
+import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
@@ -43,6 +47,14 @@ class CatalogCheckResponsivenessTest {
     @Before
     fun holdUpdateResponse() {
         DeviceGuard.requireApprovedDevice()
+        // Fresh Gradle test installs have no runtime grants; a system dialog pauses MainActivity.
+        if (Build.VERSION.SDK_INT < 33) {
+            val instrumentation = InstrumentationRegistry.getInstrumentation()
+            val command = "pm grant ${instrumentation.targetContext.packageName} ${Manifest.permission.WRITE_EXTERNAL_STORAGE}"
+            ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand(command)).use {
+                it.readBytes()
+            }
+        }
         original = GlobalContext.get().get()
         val held = object : DataUpdateInteractor by original {
             override suspend fun getUpdateDate(force: Boolean): Flow<DataResult<DataUpdateResult>> =

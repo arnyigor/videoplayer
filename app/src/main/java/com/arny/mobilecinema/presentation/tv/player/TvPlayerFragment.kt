@@ -1,4 +1,6 @@
 // presentation/tv/player/TvPlayerFragment.kt
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.arny.mobilecinema.presentation.tv.player
 
 import android.app.AlertDialog
@@ -34,25 +36,28 @@ import com.arny.mobilecinema.domain.playback.NextEpisodeResolver
 import com.arny.mobilecinema.domain.playback.PlayableId
 import com.arny.mobilecinema.domain.playback.PlayableRef
 import com.arny.mobilecinema.domain.playback.flatPlayableIndex
+import com.arny.mobilecinema.domain.playback.legacyPlayableRef
 import com.arny.mobilecinema.domain.playback.playableRefs
 import com.arny.mobilecinema.presentation.player.PlayerSource
-import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.player.getAllCinemaUrls
 import com.arny.mobilecinema.presentation.playerview.PlayerViewModel
 import com.arny.mobilecinema.presentation.utils.toast
 import androidx.media3.common.C
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.Tracks
+import androidx.media3.session.MediaSession
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.ui.AspectRatioFrameLayout
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -98,6 +103,10 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
     private var player: ExoPlayer? = null
     private var trackSelector: DefaultTrackSelector? = null
+    private var mediaSession: MediaSession? = null
+    private var trackDialog: AlertDialog? = null
+    private var qualityDialog: AlertDialog? = null
+    private var audioChoices: List<TvTrackChoice> = emptyList()
 
     /** Доступные качества текущего трека, от высокого разрешения к низкому. */
     private var qualityOptions: List<Pair<String, TrackSelectionOverride>> = emptyList()
@@ -112,9 +121,12 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     private var allEpisodes: List<SerialEpisode> = emptyList()
     private var serialSeasons: List<SerialSeason> = emptyList()
     private var currentEpisodeIndex = 0
+    private var completedBoundaryId: String? = null
 
     /** Рефы, выровненные по индексам media items: [playlistRefs][i] соответствует item i. */
     private val playlistRefs = mutableListOf<PlayableRef>()
+    private val playlistSourceUrls = mutableListOf<String>()
+    private var activeSourceUrl: String? = null
 
     private val hideHandler = Handler(Looper.getMainLooper())
     private val hideRunnable = Runnable { hideControls() }
@@ -141,7 +153,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         requireActivity().window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        Timber.i("onViewCreated: Starting Player Setup. Args -> sharedUrl:${args.sharedUrl.takeIf { it.isNotEmpty() }} , movieId: ${args.movieId}}")
+        Timber.i("onViewCreated: Starting Player Setup. Args -> sharedLinkPresent:${args.sharedUrl.isNotEmpty()} , movieId: ${args.movieId}}")
 
         initPlayer()
         initControls()
@@ -163,8 +175,14 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         requireActivity().window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         Timber.i("onDestroyView: Releasing resources")
 
+        trackDialog?.dismiss()
+        trackDialog = null
+        qualityDialog?.dismiss()
+        qualityDialog = null
         hideHandler.removeCallbacks(hideRunnable)
         hideHandler.removeCallbacks(hideSeekPreviewRunnable)
+        mediaSession?.release()
+        mediaSession = null
         stopProgressUpdates()
         stopPlaybackProgressTracking()
         player?.removeListener(playerListener)
@@ -192,19 +210,26 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         trackSelector = DefaultTrackSelector(
             requireContext(),
             AdaptiveTrackSelection.Factory()
-        )
+        ).apply { parameters = parameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true).build() }
 
         player = ExoPlayer.Builder(requireContext())
             .setLoadControl(loadControl)
-            .setSeekParameters(SeekParameters.CLOSEST_SYNC)
             .setTrackSelector(requireNotNull(trackSelector))
             .build()
             .apply {
+                configureTvPlayback()
+                setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
+                setHandleAudioBecomingNoisy(true)
                 playWhenReady = true
                 addListener(playerListener)
                 Timber.d("initPlayer: ExoPlayer instance created and attached")
             }
 
+        val sessionPlayer = TvSessionPlayer(requireNotNull(player),
+            onPause = { cancelNextEpisodeCountdown(); savePosition() },
+            onPlayPending = { if (nextEpisodeRef != null) { playNextEpisode(); true } else false })
+        mediaSession = MediaSession.Builder(requireContext(), sessionPlayer).build()
         binding.playerView.apply {
             player = this@TvPlayerFragment.player
             useController = false // Используем кастомные контролы для TV
@@ -219,10 +244,12 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         Timber.d("initControls: Setting up UI clicks")
 
         binding.btnRetry.setOnClickListener {
+            tvExcludeUrls = emptySet()
             hideError()
             retryPlayback()
         }
         binding.btnErrorBack.setOnClickListener { savePositionAndExit() }
+        binding.btnAudio.setOnClickListener { showAudioDialog() }
         binding.btnNextPlay.setOnClickListener { playNextEpisode() }
         binding.btnNextCancel.setOnClickListener { dismissNextEpisodePanel() }
         binding.nextEpisodePanel.setOnKeyListener { _, keyCode, event ->
@@ -375,7 +402,23 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
     }
 
-    // ОБНОВИТЕ метод onMediaItemTransition
+    private fun handlePlaybackBoundary() {
+        val p = player ?: return
+        val id = currentPlayableRef()?.id?.value ?: p.currentMediaItem?.mediaId ?: return
+        if (completedBoundaryId == id) return
+        completedBoundaryId = id
+        stopProgressUpdates()
+        stopPlaybackProgressTracking()
+        savePosition()
+        val next = if (currentMovie?.type == MovieType.SERIAL) {
+            playlistRefs.getOrNull(p.currentMediaItemIndex + 1)
+        } else {
+            null
+        }
+        if (next != null) showNextEpisodePanel(next) else toast(getString(R.string.playback_complete))
+        updatePlayPauseButton()
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(state: Int) {
             Timber.d("Player State Changed: ${stateName(state)}")
@@ -385,6 +428,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     Timber.d("Player is READY to play")
                     showLoading(false)
                     updateDuration()
+                    updateEpisodeInfoFromIndex()
                     startProgressUpdates()
                     scheduleHide()
                     // НОВОЕ: обновляем состояние кнопок
@@ -397,20 +441,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     showLoading(false)
                     stopProgressUpdates()
                     stopPlaybackProgressTracking()
-                    // Фиксируем завершение до показа панели: позиция уже у конца.
-                    savePosition()
-                    val movie = currentMovie
-                    val current = currentPlayableRef()
-                    val next = if (movie?.type == MovieType.SERIAL && current != null) {
-                        resolver.next(movie, current.id)
-                    } else {
-                        null
-                    }
-                    if (next != null) {
-                        showNextEpisodePanel(next)
-                    } else {
-                        toast(getString(R.string.playback_complete))
-                    }
+                    handlePlaybackBoundary()
                     updatePlayPauseButton()
                 }
                 Player.STATE_IDLE -> {
@@ -422,15 +453,28 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             }
         }
 
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
+                handlePlaybackBoundary()
+            }
+            updatePlayPauseButton()
+        }
+
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (isPlaying) completedBoundaryId = null
             Timber.d("Playback playing changed: $isPlaying")
             if (isPlaying) startProgressUpdates() else stopProgressUpdates()
             if (isPlaying) startPlaybackProgressTracking() else stopPlaybackProgressTracking()
             updatePlayPauseButton()
         }
 
+        override fun onTracksChanged(tracks: Tracks) {
+            audioChoices = tvTrackChoices(tracks, C.TRACK_TYPE_AUDIO) { getString(R.string.tv_track_number, it) }
+            refreshTrackButtons()
+        }
+
         override fun onPlayerError(error: PlaybackException) {
-            Timber.e(error, "ExoPlayer error occurred. Message: ${error.message}")
+            Timber.e("ExoPlayer error: code=%d", error.errorCode)
 
             val errorUrl = getErrorUrl(error)
             val currentUrl = getCurrentPlaybackUrl()
@@ -439,7 +483,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             if (movie != null) {
                 // Логика исключения битых ссылок: для DASH ошибка часто приходит по сегменту,
                 // поэтому исключаем и URL текущего MediaItem, чтобы перейти с HD на обычную ссылку.
-                tvExcludeUrls = tvExcludeUrls + listOfNotNull(errorUrl, currentUrl).filter { it.isNotBlank() }
+                // MediaItem URI may be escaped or mirror-prefixed; also exclude the exact catalog candidate.
+                tvExcludeUrls = tvExcludeUrls + listOfNotNull(errorUrl, currentUrl, activeSourceUrl).filter { it.isNotBlank() }
                 Timber.w(
                     "URL excluded due to error: errorUrl=$errorUrl, currentUrl=$currentUrl. " +
                             "New exclusion list size: ${tvExcludeUrls.size}"
@@ -447,12 +492,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
                 val hasMoreUrls = when (movie.type) {
                     MovieType.CINEMA -> movie.getAllCinemaUrls().any { it.isNotBlank() && it !in tvExcludeUrls }
-                    MovieType.SERIAL -> {
-                        allEpisodes.any { ep ->
-                            (ep.hls.isNotBlank() && ep.hls !in tvExcludeUrls) ||
-                                    (ep.dash.isNotBlank() && ep.dash !in tvExcludeUrls)
-                        }
-                    }
+                    MovieType.SERIAL -> currentPlayableRef()?.let { ref ->
+                        listOfNotNull(ref.hlsUrl, ref.dashUrl).any { it.isNotBlank() && it !in tvExcludeUrls }
+                    } ?: false
                     else -> false
                 }
 
@@ -460,7 +502,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     Timber.i("Attempting to retry playback with alternative URL")
                     toast(getString(R.string.try_open_next_link))
                     when (movie.type) {
-                        MovieType.CINEMA -> playCinema(movie)
+                        MovieType.CINEMA -> playCinema(movie, player?.currentPosition ?: 0L)
                         MovieType.SERIAL -> {
                             val ref = currentPlayableRef()
                             playSerial(
@@ -480,10 +522,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                         }
                         else -> true
                     }) {
-                    // Все ссылки пусты или недоступны - запускаем обновление
                     Timber.e("All URLs exhausted for movie: ${movie.title}")
-                    toast(getString(R.string.update_available_title))
-                    findNavController().navigate(R.id.actionToHome)
+                    showError(getString(R.string.tv_sources_unavailable))
                 } else {
                     showError(getString(R.string.playback_error_detail, error.localizedMessage.orEmpty()))
                 }
@@ -496,20 +536,19 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             super.onMediaItemTransition(mediaItem, reason)
 
             val newIndex = player?.currentMediaItemIndex ?: 0
+            if (currentMovie?.type == MovieType.SERIAL) activeSourceUrl = playlistSourceUrls.getOrNull(newIndex)
             Timber.d("Media transition: index $currentEpisodeIndex -> $newIndex, reason=$reason")
 
-            if (newIndex != currentEpisodeIndex) {
-                stopPlaybackProgressTracking()
-                currentEpisodeIndex = newIndex
-                updateEpisodeInfoFromIndex(newIndex)
-                updateDuration()
-                // НОВОЕ: обновляем состояние кнопок при смене эпизода
-                updateNavigationButtonsState()
-                if (player?.isPlaying == true) {
-                    startPlaybackProgressTracking()
-                }
-                resetQualitySelection()
-            }
+            if (nextEpisodeRef != null) dismissNextEpisodePanel()
+            completedBoundaryId = null
+            if (newIndex != currentEpisodeIndex) stopPlaybackProgressTracking()
+            currentEpisodeIndex = newIndex
+            // The initial target may already equal newIndex; its metadata still needs refreshing.
+            updateEpisodeInfoFromIndex(newIndex)
+            updateDuration()
+            updateNavigationButtonsState()
+            if (player?.isPlaying == true) startPlaybackProgressTracking()
+            resetQualitySelection()
         }
 
         override fun onPositionDiscontinuity(
@@ -549,6 +588,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         binding.tvTitle.visibility = View.VISIBLE
         binding.btnAspectRatio.visibility = View.VISIBLE
         binding.btnQuality.isVisible = qualityOptions.size > 1
+        refreshTrackButtons()
 
         if (allEpisodes.isNotEmpty()) {
             binding.tvEpisodeInfo.visibility = View.VISIBLE
@@ -572,20 +612,15 @@ class TvPlayerFragment : Fragment(), KoinComponent {
      * выглядит как SD. Пункт «Авто» в диалоге возвращает адаптацию.
      */
     private fun refreshQualityOptions() {
-        val selector = trackSelector ?: return
         val currentBinding = _binding ?: return
+        qualityOptions = tvVideoQualityChoices(player?.currentTracks ?: Tracks.EMPTY)
 
-        qualityOptions = runCatching { selector.generateQualityList(requireContext()) }
-            .getOrElse { error ->
-                Timber.w(error, "refreshQualityOptions: failed to read tracks")
-                emptyList()
-            }
-
-        currentBinding.btnQuality.isVisible = qualityOptions.size > 1
+        currentBinding.btnQuality.isVisible = currentBinding.controlsGroup.isVisible &&
+            !currentBinding.errorPanel.isVisible && !currentBinding.nextEpisodePanel.isVisible && qualityOptions.size > 1
         if (qualityOptions.isEmpty()) return
 
         if (!userSelectedQuality) {
-            // Список отсортирован от высокого разрешения к низкому (см. generateQualityList),
+            // Список отсортирован от высокого разрешения к низкому (см. tvVideoQualityChoices),
             // поэтому пункт 1 — максимальное качество.
             selectedQualityIndex = 1
         }
@@ -619,7 +654,8 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         labels.add(getString(R.string.quality_auto))
         qualityOptions.forEach { labels.add(it.first) }
 
-        AlertDialog.Builder(ctx)
+        qualityDialog?.dismiss()
+        qualityDialog = AlertDialog.Builder(ctx)
             .setTitle(R.string.video_quality)
             .setSingleChoiceItems(labels.toTypedArray(), selectedQualityIndex) { dialog, which ->
                 userSelectedQuality = true
@@ -636,6 +672,77 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 }
             }
             .show()
+    }
+
+    private fun refreshTrackButtons() {
+        val view = _binding ?: return
+        val show = view.controlsGroup.isVisible && !view.errorPanel.isVisible && !view.nextEpisodePanel.isVisible
+        view.btnAudio.isVisible = show && audioChoices.isNotEmpty()
+        view.btnRewind.nextFocusUpId = when {
+            view.btnAudio.isVisible -> R.id.btnAudio
+            else -> R.id.btnAspectRatio
+        }
+    }
+
+    private fun showAudioDialog() {
+        val p = player ?: return
+        val choices = audioChoices
+        if (choices.isEmpty()) return
+        hideHandler.removeCallbacks(hideRunnable)
+        val labels = listOf(getString(R.string.tv_audio_default)) + tvDistinctLabels(choices.map { it.label })
+        val selected = choices.indexOfFirst { it.selected } + 1
+        trackDialog = AlertDialog.Builder(requireContext())
+            .setTitle(R.string.tv_audio_tracks)
+            .setSingleChoiceItems(labels.toTypedArray(), selected) { dialog, which ->
+                p.trackSelectionParameters = tvAudioParameters(p.trackSelectionParameters, choices.getOrNull(which - 1))
+                dialog.dismiss()
+            }.setNegativeButton(android.R.string.cancel, null)
+            .setOnDismissListener { if (_binding != null) { showControls(); scheduleHide() } }
+            .show()
+    }
+
+    fun handleTvBack(): Boolean {
+        val view = _binding ?: return false
+        return when {
+            view.nextEpisodePanel.isVisible -> { dismissNextEpisodePanel(); true }
+            view.errorPanel.isVisible -> false
+            view.controlsGroup.isVisible -> { hideControls(); true }
+            else -> false
+        }
+    }
+
+    /** Activity dispatch makes media keys work while any control, not just the root, has focus. */
+    fun handleMediaKey(event: KeyEvent): Boolean {
+        val supported = event.keyCode in setOf(
+            KeyEvent.KEYCODE_MEDIA_PLAY, KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+            KeyEvent.KEYCODE_MEDIA_NEXT, KeyEvent.KEYCODE_MEDIA_PREVIOUS, KeyEvent.KEYCODE_MEDIA_STOP,
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, KeyEvent.KEYCODE_MEDIA_REWIND,
+        )
+        val view = _binding ?: return false
+        if (!supported) return false
+        if (event.action != KeyEvent.ACTION_DOWN || view.errorPanel.isVisible) return true
+        if (event.repeatCount > 0 && event.keyCode !in setOf(KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, KeyEvent.KEYCODE_MEDIA_REWIND)) return true
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_MEDIA_PLAY -> if (nextEpisodeRef != null) playNextEpisode() else player?.play()
+            KeyEvent.KEYCODE_MEDIA_PAUSE, KeyEvent.KEYCODE_MEDIA_STOP -> {
+                cancelNextEpisodeCountdown()
+                player?.pause()
+                savePosition()
+            }
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> if (nextEpisodeRef != null) playNextEpisode() else togglePlayPause()
+            KeyEvent.KEYCODE_MEDIA_NEXT -> if (nextEpisodeRef != null) playNextEpisode() else nextEpisode()
+            KeyEvent.KEYCODE_MEDIA_PREVIOUS -> { dismissNextEpisodePanel(); previousEpisode() }
+            KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { if (nextEpisodeRef != null) dismissNextEpisodePanel(); seekForward(seekStepFor(event)) }
+            KeyEvent.KEYCODE_MEDIA_REWIND -> { if (nextEpisodeRef != null) dismissNextEpisodePanel(); seekBackward(seekStepFor(event)) }
+        }
+        updatePlayPauseButton()
+        return true
+    }
+
+    private fun cancelNextEpisodeCountdown() {
+        nextEpisodeJob?.cancel()
+        nextEpisodeJob = null
+        if (nextEpisodeRef != null) _binding?.tvNextEpisodeCountdown?.setText(R.string.tv_next_ready)
     }
 
     private fun setupDpadListener() {
@@ -718,7 +825,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                 }
 
                 KeyEvent.KEYCODE_BACK -> {
-                    savePositionAndExit()
+                    if (!handleTvBack()) savePositionAndExit()
                     true
                 }
 
@@ -779,20 +886,25 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     binding.tvTitle.text = movie.title.ifBlank { getString(R.string.unknown_movie) }
 
                     // Резолвим сохранённую позицию/серию до старта: раньше TV всегда начинал с 0.
+                    val previousVersion = viewModel.uiState.value.version
                     viewModel.setPlayData(
                         path = null,
                         movie = movie,
                         seasonIndex = args.seasonIndex,
                         episodeIndex = args.episodeIndex,
                     )
-                    val saved = runCatching {
-                        viewModel.uiState.filter { it.movie != null }.first()
-                    }.getOrNull()
+                    val saved = viewModel.uiState.filter {
+                        it.movie?.dbId == movieId && it.version > previousVersion
+                    }.first()
+                    val target = resolveTvPlaybackTarget(
+                        movie, args.playableId, saved.season ?: args.seasonIndex,
+                        saved.episode ?: args.episodeIndex, saved.time,
+                    )
                     playMovie(
                         movie = movie,
-                        seasonIndex = saved?.season ?: args.seasonIndex,
-                        episodeIndex = saved?.episode ?: args.episodeIndex,
-                        position = saved?.time ?: 0L,
+                        seasonIndex = target.ref?.seasonIndex ?: args.seasonIndex,
+                        episodeIndex = target.ref?.episodeIndex ?: args.episodeIndex,
+                        position = target.positionMs,
                     )
                 }
 
@@ -822,7 +934,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         when (movie.type) {
             MovieType.CINEMA -> {
                 Timber.i("Playing Cinema Movie: ${movie.title}")
-                playCinema(movie)
+                playCinema(movie, position)
                 hideEpisodeNavigation()
             }
             MovieType.SERIAL -> {
@@ -833,7 +945,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         }
     }
 
-    private fun playCinema(movie: Movie) {
+    private fun playCinema(movie: Movie, positionMs: Long = 0L) {
         val selectedUrl = args.sharedUrl.takeIf { it.isNotBlank() && it !in tvExcludeUrls }
 
         val url = selectedUrl ?: movie.getAllCinemaUrls().firstOrNull {
@@ -849,8 +961,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         binding.tvEpisodeInfo.visibility = View.GONE
         val filmRef = movie.playableRefs().firstOrNull()
         playlistRefs.clear()
+        playlistSourceUrls.clear()
         if (filmRef != null) playlistRefs.add(filmRef)
-        playUrl(url, movie.title, filmRef?.id?.value)
+        playUrl(url, movie.title, filmRef?.id?.value, positionMs)
     }
 
     private fun playSerial(movie: Movie, seasonIndex: Int, episodeIndex: Int, position: Long = 0L) {
@@ -867,10 +980,16 @@ class TvPlayerFragment : Fragment(), KoinComponent {
                     episodeIndex = episodeIndex,
                     position = position,
                     excludeUrls = tvExcludeUrls,
-                    selectedUrl = args.sharedUrl.takeIf { it.isNotBlank() }
+                    selectedUrl = args.sharedUrl.takeIf {
+                        val sourceId = args.playableId.ifBlank {
+                            movie.legacyPlayableRef(args.seasonIndex, args.episodeIndex)?.id?.value.orEmpty()
+                        }
+                        it.isNotBlank() && sourceId == movie.legacyPlayableRef(seasonIndex, episodeIndex)?.id?.value
+                    }
                 )
 
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Timber.e(e, "Error loading serial data structure")
                 showError(e.localizedMessage ?: getString(R.string.series_load_error))
             }
@@ -960,6 +1079,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         val selectedFlatIndex = movie.flatPlayableIndex(seasonIndex ?: 0, episodeIndex ?: 0)
         val mediaSources = mutableListOf<MediaSource>()
         val orderedRefs = mutableListOf<PlayableRef>()
+        val orderedUrls = mutableListOf<String>()
         var selectedMediaIndex = -1
 
         refs.forEachIndexed { flatIndex, ref ->
@@ -992,17 +1112,20 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             if (isSelected) selectedMediaIndex = mediaSources.size
             mediaSources.add(source)
             orderedRefs.add(ref)
+            orderedUrls.add(url)
         }
 
         playlistRefs.clear()
         playlistRefs.addAll(orderedRefs)
+        playlistSourceUrls.clear()
+        playlistSourceUrls.addAll(orderedUrls)
         Timber.d("fillPlayerEpisodes: ${mediaSources.size} sources, selected media index $selectedMediaIndex")
         player?.setMediaSources(mediaSources)
 
         return selectedMediaIndex
     }
 
-    private fun playUrl(url: String, title: String, mediaId: String? = null) {
+    private fun playUrl(url: String, title: String, mediaId: String? = null, positionMs: Long = 0L) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 Timber.i("playUrl: Preparing source. URL: ${url.take(50)}..., Title: $title")
@@ -1011,16 +1134,16 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
                 val source = playerSource.getSource(url, title, mediaId = mediaId)
                 if (source != null) {
+                    activeSourceUrl = url
                     player?.apply {
-                        setMediaSource(source)
-                        prepare()
-                        playWhenReady = true
+                        prepareTvSource(source, positionMs)
                         Timber.i("playUrl: Source prepared successfully")
                     }
                 } else {
                     showError(getString(R.string.video_source_error))
                 }
             } catch (e: Exception) {
+                if (e is CancellationException) throw e
                 Timber.e(e, "playUrl error during preparation for title: $title")
                 showError(e.localizedMessage ?: getString(R.string.playback_error))
             }
@@ -1180,6 +1303,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         binding.tvTitle.visibility = View.GONE
         binding.btnAspectRatio.visibility = View.GONE
         binding.btnQuality.visibility = View.GONE
+        binding.btnAudio.visibility = View.GONE
         binding.root.requestFocus()
         Timber.d("hideControls: UI controls hidden")
     }
@@ -1197,9 +1321,9 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         Timber.e("UI Error Displayed: $msg")
         showLoading(false)
         dismissNextEpisodePanel()
+        hideControls()
         binding.tvError.text = msg
         binding.errorPanel.visibility = View.VISIBLE
-        binding.controlsGroup.visibility = View.GONE
         binding.btnRetry.requestFocus()
     }
 
@@ -1215,7 +1339,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             return
         }
         when (movie.type) {
-            MovieType.CINEMA -> playCinema(movie)
+            MovieType.CINEMA -> playCinema(movie, player?.currentPosition ?: 0L)
             MovieType.SERIAL -> {
                 val ref = currentPlayableRef()
                 playSerial(
@@ -1240,14 +1364,19 @@ class TvPlayerFragment : Fragment(), KoinComponent {
             append(label)
             ref.episodeTitle?.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
         }
+        hideControls()
         binding.nextEpisodePanel.visibility = View.VISIBLE
-        binding.controlsGroup.visibility = View.GONE
         binding.btnNextPlay.requestFocus()
         startNextEpisodeCountdown()
     }
 
     private fun startNextEpisodeCountdown() {
         nextEpisodeJob?.cancel()
+        if (prefs.get<Boolean>(PrefsConstants.PREF_KEY_AUTOPLAY_NEXT) == false) {
+            nextEpisodeJob = null
+            binding.tvNextEpisodeCountdown.text = getString(R.string.tv_next_ready)
+            return
+        }
         nextEpisodeJob = viewLifecycleOwner.lifecycleScope.launch {
             var seconds = NEXT_EPISODE_SECONDS
             while (isActive && seconds > 0) {

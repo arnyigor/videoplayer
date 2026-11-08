@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.arny.mobilecinema.presentation.player
 
 import android.content.Context
@@ -8,7 +10,6 @@ import androidx.media3.exoplayer.text.SubtitleDecoderFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.trackselection.MappingTrackSelector.MappedTrackInfo
 import androidx.media3.common.TrackSelectionOverride
-import androidx.media3.common.TrackSelectionParameters
 
 fun Movie.getCinemaUrl(): String = getAllCinemaUrls().firstOrNull().orEmpty()
 
@@ -42,10 +43,7 @@ fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<Stri
                             if (track.getFormat(trackIndex).selectionFlags == C.SELECTION_FLAG_AUTOSELECT) {
                                 trackName.plus(" (Default)")
                             }
-                            val builder = TrackSelectionParameters.Builder(context).clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-                            val override = TrackSelectionOverride(track, listOf(trackIndex)).apply {
-                                setParameters(builder.build())
-                            }
+                            val override = TrackSelectionOverride(track, listOf(trackIndex))
                             if (trackName.isNotBlank()) {
                                 trackOverrideList.add(Pair(trackName, override))
                             }
@@ -55,7 +53,7 @@ fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<Stri
             }
         }
     }
-    return trackOverrideList.distinctBy { it.first }.sortedByDescending { it.first }
+    return trackOverrideList.sortedByDescending { it.first }
 }
 
 fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String, TrackSelectionOverride>> {
@@ -83,11 +81,7 @@ fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String
                             if (format.selectionFlags == C.SELECTION_FLAG_AUTOSELECT) {
                                 trackName.plus(" (Default)")
                             }
-                            val builder = TrackSelectionParameters.Builder(context)
-                                .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-                            val override = TrackSelectionOverride(track, listOf(trackIndex)).apply {
-                                setParameters(builder.build())
-                            }
+                            val override = TrackSelectionOverride(track, listOf(trackIndex))
                             if (trackName.isNotBlank()) {
                                 trackOverrideList.add(Pair(trackName, override))
                             }
@@ -142,12 +136,7 @@ fun DefaultTrackSelector.generateSubTitlesList(context: Context): List<Pair<Stri
                                 if (trackName.isNullOrBlank()) {
                                     trackName = "Субтитры ${trackIndex + 1}"
                                 }
-                                val builder = TrackSelectionParameters.Builder(context)
-                                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                                val override =
-                                    TrackSelectionOverride(track, listOf(trackIndex)).apply {
-                                        setParameters(builder.build())
-                                    }
+                                val override = TrackSelectionOverride(track, listOf(trackIndex))
                                 if (trackName.isNotBlank()) {
                                     trackOverrideList.add(Pair(trackName, override))
                                 }

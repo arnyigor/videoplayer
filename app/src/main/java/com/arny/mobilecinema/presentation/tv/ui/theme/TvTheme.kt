@@ -43,7 +43,14 @@ object TvDimens {
 @Composable
 fun TvTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = darkColorScheme(),
+        colorScheme = darkColorScheme(
+            primary = TvColors.Accent,
+            onPrimary = Color(0xFF24143D),
+            background = TvColors.Background,
+            onBackground = TvColors.OnBackground,
+            surface = TvColors.Surface,
+            onSurface = TvColors.OnBackground,
+        ),
         typography = Typography(),
         content = content,
     )

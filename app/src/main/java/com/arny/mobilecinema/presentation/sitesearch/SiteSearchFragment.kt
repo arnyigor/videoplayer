@@ -82,6 +82,7 @@ class SiteSearchFragment : Fragment(R.layout.f_site_search), KoinComponent {
         searchAdapter = SiteSearchAdapter(
             imageBaseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty(),
         ) { hit -> viewModel.openHit(hit) }
+        searchAdapter.stateRestorationPolicy = RecyclerView.Adapter.StateRestorationPolicy.PREVENT_WHEN_EMPTY
         binding.rvSiteSearch.layoutManager = LinearLayoutManager(requireContext())
         binding.rvSiteSearch.adapter = searchAdapter
         // Пагинация inline: следующая страница подгружается при подходе к концу списка,
@@ -140,19 +141,14 @@ class SiteSearchFragment : Fragment(R.layout.f_site_search), KoinComponent {
 
         observeState()
 
-        viewModel.setSearchType(args.searchType)
-        // scope=CATALOG открывает поиск сразу по локальному каталогу (переход с главной).
-        if (args.scope.equals(SCOPE_CATALOG, ignoreCase = true)) {
-            viewModel.setSource(SearchSource.LOCAL)
-        }
-
-        val initialQuery = args.query.orEmpty()
-        if (initialQuery.isNotBlank()) {
-            binding.tiedtSiteSearch.setText(initialQuery)
-            binding.tiedtSiteSearch.setSelection(initialQuery.length)
-            viewModel.setQuery(initialQuery)
-            viewModel.search()
-        }
+        viewModel.initialize(
+            query = args.query.orEmpty(),
+            searchType = args.searchType,
+            source = SearchSource.LOCAL.takeIf { args.scope.equals(SCOPE_CATALOG, ignoreCase = true) },
+        )
+        val restoredQuery = viewModel.uiState.value.query
+        binding.tiedtSiteSearch.setText(restoredQuery)
+        binding.tiedtSiteSearch.setSelection(restoredQuery.length)
     }
 
     private fun showFiltersSheet() {

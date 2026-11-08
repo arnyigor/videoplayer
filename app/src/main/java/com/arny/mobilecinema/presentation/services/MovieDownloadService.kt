@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.arny.mobilecinema.presentation.services
 
 
@@ -260,7 +262,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
                     silent = false,
                     addUpdateActions = false
                 ),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
             )
         } else {
             startForeground(
@@ -327,7 +329,7 @@ class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
     }
 
     private fun downloadAndSaveMp4File(title: String, fileName: String, url: String) {
-        fileDownloadJob = lifecycleScope.launch(coroutineContext) {
+        fileDownloadJob = lifecycleScope.launch {
             updateNotification(
                 title = getString(R.string.downloading_filename, title),
                 text = getString(
@@ -338,8 +340,6 @@ class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
                 false
             )
             downloadHelper.reset()
-            // Video-only cleanup must not run when the same progress API downloads a catalog ZIP.
-            updateRepository.removeOldMP4Downloads()
             updateRepository.downloadFileWithProgress(url, fileName).collectLatest { download ->
                 when (download) {
                     is DataResultWithProgress.Error -> {
@@ -393,13 +393,15 @@ class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
                 file.name
             )
             if (copy) {
+                file.delete()
+                // Successful publication is the only point where stale temporary downloads are safe to drop.
                 updateRepository.removeOldMP4Downloads()
+                Toast.makeText(applicationContext, R.string.saved_downloaded_file, Toast.LENGTH_SHORT).show()
+                sendLocalBroadcast(AppConstants.ACTION_DOWNLOAD_FILE_COMPLETE)
+            } else {
+                // Keep the downloaded original when publishing to Downloads fails.
+                Toast.makeText(applicationContext, R.string.download_save_failed, Toast.LENGTH_LONG).show()
             }
-            Toast.makeText(
-                applicationContext,
-                getString(R.string.saved_downloaded_file),
-                Toast.LENGTH_SHORT
-            ).show()
         } else {
             Toast.makeText(
                 applicationContext,
@@ -407,7 +409,6 @@ class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
                 Toast.LENGTH_SHORT
             ).show()
         }
-        sendLocalBroadcast(AppConstants.ACTION_DOWNLOAD_FILE_COMPLETE)
         stopCurrentService()
     }
 
@@ -483,6 +484,13 @@ class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
         if (isCurrentActionPause && download != null && hasDownloads) {
             addToDownloadList(download)
         }
+    }
+
+    override fun onDestroy() {
+        fileDownloadJob?.cancel()
+        supervisorJob.cancel()
+        playerSource.removeListener()
+        super.onDestroy()
     }
 
     private fun stopCurrentService() {

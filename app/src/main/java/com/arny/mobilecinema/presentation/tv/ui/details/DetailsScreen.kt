@@ -36,7 +36,7 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.Card
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
+import com.arny.mobilecinema.presentation.utils.PosterImage
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.utils.getWithDomain
@@ -101,8 +101,8 @@ fun DetailsScreen(
             recommendedPlayableId = DetailsContentFactory.recommendedRef(resumeTarget)?.id?.value,
         )
     }
-    val sources = remember(movie, episodes, cta) {
-        DetailsContentFactory.sources(movie, cta.playableId)
+    val sources = remember(movie, selectedSeasonIndex, cta.playableId) {
+        DetailsContentFactory.sourcesForSeason(movie, selectedSeasonIndex, cta.playableId)
     }
     val genres = remember(movie) { DetailsContentFactory.genres(movie) }
     val actors = remember(movie) { DetailsContentFactory.actors(movie) }
@@ -224,7 +224,7 @@ private fun DetailsHero(movie: Movie, imageBaseUrl: String) {
             .fillMaxWidth()
             .height(340.dp),
     ) {
-        AsyncImage(
+        PosterImage(
             model = movie.img.takeIf { it.isNotBlank() }?.getWithDomain(imageBaseUrl),
             contentDescription = null,
             contentScale = ContentScale.Crop,
@@ -294,7 +294,7 @@ private fun EpisodeCard(
                     .fillMaxWidth()
                     .height(TvDimens.EpisodeHeight),
             ) {
-                AsyncImage(
+                PosterImage(
                     model = imageUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,

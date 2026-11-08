@@ -134,6 +134,37 @@ class DetailsContentFactoryTest {
     }
 
     @Test
+    fun `sources carry the exact episode coordinates and playable id`() {
+        val movie = series()
+        val ref = DetailsContentFactory.playableRefs(movie).last()
+        val sources = DetailsContentFactory.sources(movie, ref.id.value)
+        assertTrue(sources.isNotEmpty())
+        assertTrue(sources.all { it.playableId == ref.id.value })
+        assertTrue(sources.all { it.seasonIndex == ref.seasonIndex && it.episodeIndex == ref.episodeIndex })
+    }
+
+    @Test
+    fun `selected season sources do not belong to resume episode in another season`() {
+        val movie = series()
+        val oldResume = DetailsContentFactory.playableRefs(movie).last()
+        val sources = DetailsContentFactory.sourcesForSeason(movie, 0, oldResume.id.value)
+        val first = DetailsContentFactory.playableRefs(movie).first()
+        assertTrue(sources.isNotEmpty())
+        assertTrue(sources.all { it.playableId == first.id.value && it.seasonIndex == 0 })
+    }
+
+    @Test
+    fun `season without playable episodes does not borrow another season sources`() {
+        val movie = testSeries(listOf(
+            testSeason(1, testEpisode(11, "1", hls = "")),
+            testSeason(2, testEpisode(21, "1")),
+        ))
+        val resume = DetailsContentFactory.playableRefs(movie).last()
+        assertTrue(DetailsContentFactory.sourcesForSeason(movie, 0, resume.id.value).isEmpty())
+        assertTrue(DetailsContentFactory.sourcesForSeason(movie, 99, resume.id.value).isEmpty())
+    }
+
+    @Test
     fun `cta for series continues exact episode`() {
         val movie = series()
         val ref = DetailsContentFactory.playableRefs(movie)

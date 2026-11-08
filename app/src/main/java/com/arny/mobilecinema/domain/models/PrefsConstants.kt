@@ -14,4 +14,7 @@ object PrefsConstants {
     const val PREF_KEY_HOME_HIGHLIGHTS_ENABLED = "pref_key_home_highlights_enabled"
     const val PREF_KEY_COMPOSE_HOME = "pref_compose_home"
     const val PREF_KEY_AUTOPLAY_NEXT = "pref_autoplay_next"
+
+    /** Показывали ли уже системный запрос уведомлений (Android 13+); повторно не спрашиваем. */
+    const val PREF_KEY_NOTIFICATION_PROMPT_SHOWN = "pref_notification_prompt_shown"
 }

@@ -108,6 +108,9 @@ jobs:
             printf 'FEEDBACK_API_KEY=%s\n' "$FEEDBACK_API_KEY"
           } > secrets.properties
 
+      - name: Unit tests (required before publishing)
+        run: ./gradlew :app:testDebugUnitTest --no-daemon
+
       - name: Restore release signing material
         if: ${{ steps.build_meta.outputs.build_type == 'release' }}
         env:

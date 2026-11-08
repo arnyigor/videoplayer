@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.presentation
 
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
@@ -8,6 +9,19 @@ import androidx.activity.OnBackPressedCallback
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.navigation.NavOptions
+import androidx.core.os.bundleOf
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import android.widget.Toast
+import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.domain.interactors.jsoupupdate.JsoupUpdateInteractor
+import com.arny.mobilecinema.presentation.splash.StartActivity
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.NavigationUI
@@ -24,6 +38,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: AMainBinding
     private lateinit var navController: NavController
     private var backPressedTime: Long = 0
+    private val linkInteractor: JsoupUpdateInteractor by inject()
+    private var sharedUrlJob: Job? = null
 
     /**
      * Вкладка, выбранная пользователем в нижнем меню. Отличает корень вкладки от экрана,
@@ -60,6 +76,33 @@ class MainActivity : AppCompatActivity() {
 
         initOnBackPress()
         initUI()
+        handleSharedUrl()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleSharedUrl()
+    }
+
+    private fun handleSharedUrl() {
+        val sharedUrl = intent.getStringExtra(StartActivity.KEY_SHARED_URL)?.takeIf { it.isNotBlank() } ?: return
+        sharedUrlJob?.cancel()
+        sharedUrlJob = lifecycleScope.launch {
+            Toast.makeText(this@MainActivity, R.string.loading, Toast.LENGTH_SHORT).show()
+            when (val result = linkInteractor.fetchAndSaveMovieCard(sharedUrl)) {
+                is DataResult.Success -> {
+                    lifecycle.currentStateFlow.first { it.isAtLeast(Lifecycle.State.RESUMED) }
+                    navController.navigate(R.id.nav_details, bundleOf("id" to result.result),
+                        NavOptions.Builder().setPopUpTo(R.id.nav_home, false).build())
+                }
+                is DataResult.Error -> {
+                    if (result.throwable is CancellationException) throw result.throwable
+                    Toast.makeText(this@MainActivity, R.string.tv_shared_link_error, Toast.LENGTH_SHORT).show()
+                }
+            }
+            intent.removeExtra(StartActivity.KEY_SHARED_URL)
+        }
     }
 
     private fun initUI() {
@@ -76,8 +119,11 @@ class MainActivity : AppCompatActivity() {
             // Программный переход на корневой экран (действие на экране, deep link) должен
             // подсвечивать соответствующую вкладку, иначе нижняя панель противоречит экрану.
             val tabItem = binding.bottomNavView.menu.findItem(destination.id)
-            if (tabItem != null && binding.bottomNavView.selectedItemId != tabItem.itemId) {
-                binding.bottomNavView.selectedItemId = tabItem.itemId
+            if (tabItem != null) {
+                selectedTabId = tabItem.itemId
+                if (binding.bottomNavView.selectedItemId != tabItem.itemId) {
+                    binding.bottomNavView.selectedItemId = tabItem.itemId
+                }
             }
         }
     }

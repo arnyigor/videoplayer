@@ -3,114 +3,160 @@ package com.arny.mobilecinema.presentation.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdatePhase
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdateStatus
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdateTracker
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-/**
- * Состояние служебных операций с каталогом (SYNC-01).
- *
- * Модель аудита: `check` (без записи в базу) → `preview` (диалог с датой и объёмом) →
- * `apply` (идемпотентная загрузка) → `report` (последний результат в настройках).
- * Три операции сведены в одну точку учёта, чтобы не показывать пользователю три
- * разных входа с неясной разницей (аудит v2, §5 и §5.2).
- */
+/** Service-owned progress survives leaving settings and creating another ViewModel. */
 data class CatalogSyncState(
     val isChecking: Boolean = false,
     val isLoading: Boolean = false,
-    /** Дата доступного обновления; null — обновления нет или ещё не проверяли. */
     val updateDate: String? = null,
-    /** У сайта есть частичное обновление — можно загрузить его вместо полного пакета. */
     val hasPartUpdate: Boolean = false,
     val error: Boolean = false,
-    /** Результат последней операции для строки статуса. */
     val lastResult: SyncResult = SyncResult.NONE,
+    val phase: CatalogUpdatePhase = CatalogUpdatePhase.IDLE,
+    val progress: Int? = null,
+    val processedMovies: Int? = null,
 )
 
 enum class SyncResult {
-    NONE,
-    CHECKED_NO_UPDATE,
-    UPDATE_AVAILABLE,
-    LOADING_STARTED,
-    /** Загрузка идёт или уже поставлена в очередь — состояние неизвестно точно. */
-    LOADING_IN_PROGRESS,
-    FAILED,
+    NONE, CHECKED_NO_UPDATE, UPDATE_AVAILABLE, LOADING_STARTED, LOADING_IN_PROGRESS, FAILED,
+    SUCCEEDED, CANCELLED,
 }
 
 class CatalogSyncViewModel(
     private val interactor: DataUpdateInteractor,
+    private val updates: CatalogUpdateTracker = CatalogUpdateTracker(),
 ) : ViewModel() {
-
-    private val _state = MutableStateFlow(CatalogSyncState())
+    private val initialStatus = updates.status.value
+    private val _state = MutableStateFlow(applyStatus(CatalogSyncState(), initialStatus))
     val state = _state.asStateFlow()
+    private var checkJob: Job? = null
 
-    /** Проверка без мутаций каталога: читается только файл даты обновления. */
-    fun check() {
-        if (_state.value.isChecking || _state.value.isLoading) return
+    init {
         viewModelScope.launch {
-            _state.update { it.copy(isChecking = true, error = false) }
-            interactor.getUpdateDate(force = true)
-                .collect { result ->
+            var observed = initialStatus
+            updates.status.collect { status ->
+                if (status != observed) {
+                    observed = status
+                    _state.update { applyStatus(it, status) }
+                }
+            }
+        }
+    }
+
+    /** Read-only update availability check, not the catalog executor. */
+    fun check() {
+        if (_state.value.isChecking || updates.status.value.isRunning) return
+        _state.update { it.copy(isChecking = true, error = false) }
+        checkJob = viewModelScope.launch {
+            try {
+                interactor.getUpdateDate(force = true).collect { result ->
+                    if (updates.status.value.isRunning) return@collect
                     when (result) {
                         is DataResult.Success -> {
                             val date = result.result.updateDateTime
                             _state.update {
                                 it.copy(
                                     isChecking = false,
-                                    updateDate = date.takeIf { value -> value.isNotBlank() },
+                                    updateDate = date.takeIf(String::isNotBlank),
                                     hasPartUpdate = result.result.hasPartUpdate,
-                                    lastResult = if (date.isBlank()) {
-                                        SyncResult.CHECKED_NO_UPDATE
-                                    } else {
-                                        SyncResult.UPDATE_AVAILABLE
-                                    },
+                                    lastResult = if (date.isBlank()) SyncResult.CHECKED_NO_UPDATE else SyncResult.UPDATE_AVAILABLE,
                                 )
                             }
                         }
-
                         is DataResult.Error -> {
+                            if (result.throwable is CancellationException) throw result.throwable
                             Timber.e(result.throwable, "catalog check failed")
-                            _state.update {
-                                it.copy(isChecking = false, error = true, lastResult = SyncResult.FAILED)
-                            }
+                            _state.update { it.copy(error = true, lastResult = SyncResult.FAILED) }
                         }
                     }
                 }
-        }
-    }
-
-    /**
-     * Загрузка найденного обновления. Повторный вызов безопасен: сервис идемпотентно
-     * обновляет записи каталога, дубликатов не создаёт.
-     */
-    fun loadUpdate() {
-        val state = _state.value
-        if (state.isLoading || state.updateDate == null) return
-        viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, error = false, lastResult = SyncResult.LOADING_STARTED) }
-            runCatching {
-                interactor.requestFile(force = false, hasPartUpdate = state.hasPartUpdate)
-            }.onFailure { error ->
-                Timber.e(error, "catalog load failed")
-                _state.update { it.copy(isLoading = false, error = true, lastResult = SyncResult.FAILED) }
-                return@launch
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Timber.e(error, "catalog check failed")
+                _state.update { it.copy(error = true, lastResult = SyncResult.FAILED) }
+            } finally {
+                _state.update { it.copy(isChecking = false) }
             }
-            _state.update { it.copy(isLoading = false, lastResult = SyncResult.LOADING_IN_PROGRESS) }
         }
     }
 
-    /** Полное обновление обходом сайта: дороже по времени, перезаписывает ссылки. */
+    fun loadUpdate() {
+        val selected = _state.value
+        if (selected.updateDate == null || !queue()) return
+        // Start dispatch immediately, so leaving the screen cannot abandon a queued command.
+        viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                interactor.requestFile(force = false, hasPartUpdate = selected.hasPartUpdate)
+                // A returned startService call is not a completed download/import.
+            } catch (error: CancellationException) {
+                if (updates.status.value.phase == CatalogUpdatePhase.QUEUED) {
+                    updates.update(CatalogUpdatePhase.CANCELLED)
+                }
+                throw error
+            } catch (error: Exception) {
+                Timber.e(error, "catalog load failed")
+                updates.update(CatalogUpdatePhase.FAILED)
+            }
+        }
+    }
+
     fun fullUpdate() {
-        if (_state.value.isLoading) return
-        interactor.updateAll()
-        _state.update { it.copy(lastResult = SyncResult.LOADING_IN_PROGRESS, updateDate = null) }
+        if (!queue()) return
+        try {
+            interactor.updateAll()
+        } catch (error: Exception) {
+            Timber.e(error, "catalog full update failed")
+            updates.update(CatalogUpdatePhase.FAILED)
+        }
     }
 
     fun cancelUpdate() {
-        interactor.cancelUpdate()
-        _state.update { it.copy(isLoading = false, lastResult = SyncResult.NONE) }
+        if (!updates.status.value.isRunning) return
+        try {
+            interactor.cancelUpdate()
+            // Only the executor can confirm that the operation was cancelled.
+        } catch (error: Exception) {
+            Timber.e(error, "catalog cancellation request failed")
+            _state.update { it.copy(error = true) }
+        }
+    }
+
+    private fun queue(): Boolean {
+        if (_state.value.isChecking || !updates.tryQueue()) return false
+        checkJob?.cancel()
+        _state.update { applyStatus(it, updates.status.value) }
+        return true
+    }
+
+    private fun applyStatus(state: CatalogSyncState, status: CatalogUpdateStatus): CatalogSyncState {
+        if (status.phase == CatalogUpdatePhase.IDLE) return state
+        return state.copy(
+            isChecking = false,
+            isLoading = status.isRunning,
+            updateDate = null,
+            error = status.phase == CatalogUpdatePhase.FAILED,
+            lastResult = when (status.phase) {
+                CatalogUpdatePhase.SUCCEEDED -> SyncResult.SUCCEEDED
+                CatalogUpdatePhase.FAILED -> SyncResult.FAILED
+                CatalogUpdatePhase.CANCELLED, CatalogUpdatePhase.INTERRUPTED -> SyncResult.CANCELLED
+                else -> SyncResult.LOADING_IN_PROGRESS
+            },
+            phase = status.phase,
+            progress = status.progress,
+            processedMovies = status.processedMovies,
+        )
     }
 }

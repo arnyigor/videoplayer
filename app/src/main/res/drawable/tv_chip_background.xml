@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chip with an inset so neighbouring items read as separate pills instead of one strip. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:left="6dp"
+        android:right="6dp"
+        android:top="4dp"
+        android:bottom="4dp">
+        <selector>
+            <item android:state_focused="true">
+                <shape>
+                    <solid android:color="#B6A0FF" />
+                    <corners android:radius="22dp" />
+                </shape>
+            </item>
+            <item android:state_selected="true">
+                <shape>
+                    <solid android:color="#33304A" />
+                    <corners android:radius="22dp" />
+                </shape>
+            </item>
+            <item>
+                <shape>
+                    <solid android:color="#1B1E27" />
+                    <corners android:radius="22dp" />
+                </shape>
+            </item>
+        </selector>
+    </item>
+</layer-list>

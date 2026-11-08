@@ -6,7 +6,9 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdatePhase
+import com.arny.mobilecinema.presentation.tv.settings.catalogStatusText
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.ComposeView
@@ -32,6 +34,11 @@ class TvComposeHomeFragment : Fragment(), org.koin.core.component.KoinComponent 
     private val viewModel: TvHomeViewModel by viewModel()
     private val prefs: Prefs by inject()
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshData()
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -41,8 +48,11 @@ class TvComposeHomeFragment : Fragment(), org.koin.core.component.KoinComponent 
         setContent {
             TvTheme {
                 val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
-                val content by viewModel.homeContent.collectAsState(
-                    initial = HomeContent(hero = null, rows = emptyList()),
+                val loading by viewModel.homeLoading.collectAsStateWithLifecycle()
+                val error by viewModel.homeError.collectAsStateWithLifecycle()
+                val catalog by viewModel.catalogStatus.collectAsStateWithLifecycle()
+                val content by viewModel.homeContent.collectAsStateWithLifecycle(
+                    initialValue = HomeContent(hero = null, rows = emptyList()),
                 )
                 val listState = remember {
                     LazyListState(
@@ -82,12 +92,20 @@ class TvComposeHomeFragment : Fragment(), org.koin.core.component.KoinComponent 
                     onSearch = { findNavController().navigate(R.id.actionToSearch) },
                     onOpenCatalog = { section ->
                         findNavController().navigate(
-                            R.id.actionToCatalog,
+                            if (section.name == "SERIES") R.id.tvSeriesCatalogFragment else R.id.tvCatalogFragment,
                             bundleOf(TvCatalogFragment.ARG_SECTION to section.name),
                         )
                     },
                     restoreFocusTitleId = viewModel.focusedTitleId,
                     onTitleFocused = viewModel::saveFocusedTitle,
+                    restoreFocusRowId = viewModel.focusedRowId,
+                    onCardFocused = viewModel::saveHomeFocus,
+                    isLoading = loading,
+                    error = error,
+                    onRetry = viewModel::refreshData,
+                    catalogStatus = if (catalog.phase == CatalogUpdatePhase.IDLE) null else
+                        catalogStatusText(requireContext(), catalog.phase, catalog.progress, catalog.processedMovies),
+                    onSettings = { findNavController().navigate(R.id.tvSettingsFragment) },
                     imageBaseUrl = baseUrl,
                 )
             }

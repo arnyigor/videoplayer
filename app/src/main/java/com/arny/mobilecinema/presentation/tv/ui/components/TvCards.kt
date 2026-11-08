@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Card
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
+import com.arny.mobilecinema.presentation.utils.PosterImage
 import com.arny.mobilecinema.presentation.tv.ui.theme.TvColors
 import com.arny.mobilecinema.presentation.tv.ui.theme.TvDimens
 import com.arny.mobilecinema.presentation.tv.ui.theme.TvTheme
@@ -43,7 +43,7 @@ fun PosterCard(
             .height(TvDimens.PosterHeight),
     ) {
         Box(Modifier.fillMaxSize()) {
-            AsyncImage(
+            PosterImage(
                 model = posterUrl,
                 contentDescription = title,
                 contentScale = ContentScale.Crop,
@@ -96,7 +96,7 @@ fun ContinueWatchingCard(
                     .fillMaxWidth()
                     .height(TvDimens.EpisodeHeight)
             ) {
-                AsyncImage(
+                PosterImage(
                     model = imageUrl,
                     contentDescription = title,
                     contentScale = ContentScale.Crop,

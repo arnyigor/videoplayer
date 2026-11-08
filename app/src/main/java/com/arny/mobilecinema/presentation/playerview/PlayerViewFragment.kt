@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.arny.mobilecinema.presentation.playerview
 
 import android.annotation.SuppressLint
@@ -18,6 +20,7 @@ import android.view.GestureDetector
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowInsetsController
 import androidx.appcompat.app.AppCompatActivity
@@ -33,6 +36,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.arny.mobilecinema.R
+import com.github.vkay94.dtpv.DoubleTapPlayerView
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.ConnectionType
@@ -49,7 +53,6 @@ import com.arny.mobilecinema.presentation.listeners.OnPictureInPictureListener
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
-import com.arny.mobilecinema.presentation.player.generateSubTitlesList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.utils.getOrientation
 import com.arny.mobilecinema.presentation.utils.initAudioManager
@@ -81,6 +84,8 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.common.util.Util
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -113,11 +118,17 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var qualityVisible: Boolean = false
     private var volumeObserver: ContentObserver? = null
     private var langVisible: Boolean = false
-    private var subtitleVisible: Boolean = false
     private var mediaItemIndex: Int = 0
     private var movie: Movie? = null
 
     private var brightnessVolumeController: BrightnessVolumeController? = null
+
+    // Вертикальный свайп: справа — громкость, слева — яркость.
+    private var swipeActive = false
+    private var swipeIsVolume = false
+    private var swipeStartY = 0f
+    private var swipeStartVolume = 0f
+    private var swipeStartBrightness = 0.5f
 
     private val btnsHandler = Handler(Looper.getMainLooper())
     private val volumeHandler = Handler(Looper.getMainLooper())
@@ -132,7 +143,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private var qualityPopUp: PopupMenu? = null
     private var langPopUp: PopupMenu? = null
-    private var subtitlePopUp: PopupMenu? = null
     private val playbackSession = PlaybackSession<ExoPlayer> { engine ->
         engine.removeListener(listener)
         engine.removeAnalyticsListener(analytic)
@@ -143,6 +153,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var trackSelector: DefaultTrackSelector? = null
     private var resizeModeIndex = 0
     private var setupPopupMenus = true
+    private var qualitySelectionInitialized = false
     private var enhancer: LoudnessEnhancer? = null
 
     private var _binding: FPlayerViewBinding? = null
@@ -176,12 +187,15 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var volumeObs: Int by Delegates.observable(-1) { _, old, newVolume ->
         if (old != newVolume) {
             volume = newVolume
-            boost = 0
-            updateGain()
+            if (newVolume < (audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15)) {
+                boost = 0
+                updateGain()
+            }
             showVolumeIndicator()
             audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
             updateUIByVolume()
-            hideVolumeBrightViews()
+            // Во время свайпа индикатор гасится один раз в конце жеста, иначе он мигает.
+            if (!swipeActive) hideVolumeBrightViews()
             brightnessVolumeController?.updateVolumeExternal(
                 volume ?: 0,
                 audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15
@@ -191,7 +205,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private val focusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         if (focusChange <= 0) {
-            forcePausedOnRestore()
+            pauseForAudioFocusLoss()
         }
     }
 
@@ -212,9 +226,33 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 distanceX: Float,
                 distanceY: Float
             ): Boolean {
-                // Полноэкранные свайпы яркости/громкости выключены.
-                // Управление через иконки и BrightnessVolumeController.
-                return false
+                val down = e1 ?: return false
+                val view = _binding?.root ?: return false
+                val height = view.height.takeIf { it > 0 } ?: return false
+                val totalDy = event.y - down.y
+                val totalDx = event.x - down.x
+                if (!swipeActive) {
+                    // Свайп считаем вертикальным только если он заметно длиннее горизонтального:
+                    // иначе перехватывали бы обычные тапы и двойной тап.
+                    val slop = (ViewConfiguration.get(view.context)?.scaledTouchSlop ?: 8) * 2
+                    if (abs(totalDy) < slop || abs(totalDy) <= abs(totalDx) * 1.5f) return false
+                    swipeActive = true
+                    swipeIsVolume = down.x >= view.width / 2f
+                    swipeStartY = down.y
+                    val maxVolume = audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15
+                    swipeStartVolume = (audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: 0).toFloat()
+                    if (maxBoost > 0 && swipeStartVolume >= maxVolume) {
+                        swipeStartVolume += boost.coerceAtLeast(0).toFloat() / maxBoost * maxVolume
+                    }
+                    swipeStartBrightness = currentBrightnessFraction()
+                    btnsHandler.removeCallbacksAndMessages(null)
+                    // Двойной тап не должен «доживать» до конца свайпа.
+                    (binding.playerView as? DoubleTapPlayerView)?.cancelInDoubleTapMode()
+                }
+                // Вверх — прибавляем, вниз — убавляем; 70% высоты экрана = полный диапазон.
+                val fraction = (swipeStartY - event.y) / (height * 0.7f)
+                if (swipeIsVolume) applyVolumeSwipe(fraction) else applyBrightnessSwipe(fraction)
+                return true
             }
 
             override fun onLongPress(e: MotionEvent) {}
@@ -314,6 +352,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            qualitySelectionInitialized = false
             updateCurrentEpisodeFromPlayer()
         }
 
@@ -534,6 +573,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private fun forcePausedOnRestore() {
         if (isInPictureInPictureMode()) return
+        pauseForAudioFocusLoss()
+    }
+
+    private fun pauseForAudioFocusLoss() {
         shouldStartPaused = true
         player?.pause()
     }
@@ -548,22 +591,52 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
+    /** Текущая яркость окна как доля 0..1 (BRIGHTNESS_OVERRIDE_NONE → 0.5). */
+    private fun currentBrightnessFraction(): Float {
+        val value = activity?.window?.attributes?.screenBrightness ?: -1f
+        return if (value in 0.01f..1f) value else 0.5f
+    }
+
+    private fun applyVolumeSwipe(fraction: Float) {
+        val manager = audioManager ?: return
+        val max = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        // 0..max � ��������� ���������; max..2*max � �������� 0..maxBoost (���������).
+        val level = (swipeStartVolume + fraction * max).coerceIn(0f, max * 2f)
+        val target = level.roundToInt().coerceIn(0, max)
+        val targetBoost = ((level - max).coerceAtLeast(0f) / max * maxBoost.coerceAtLeast(0)).roundToInt()
+        if (target != manager.getStreamVolume(AudioManager.STREAM_MUSIC)) {
+            manager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+        }
+        // Обновляем UI прямо в MOVE, не ждём асинхронный ContentObserver.
+        volumeObs = manager.getStreamVolume(AudioManager.STREAM_MUSIC)
+        boost = if (volumeObs == max) targetBoost else 0
+        updateGain()
+        brightnessVolumeController?.initializeBoost(boost)
+        updateUIByVolume()
+        showVolumeIndicator()
+    }
+
+    private fun applyBrightnessSwipe(fraction: Float) {
+        val window = activity?.window ?: return
+        val target = (swipeStartBrightness + fraction).coerceIn(0.01f, 1f)
+        window.attributes = window.attributes.apply { screenBrightness = target }
+        brightness = (target * 30).roundToInt().coerceIn(1, 30)
+        binding.tvBrightness.text = "${(target * 100).roundToInt()}%"
+        showBrightnessIndicator()
+    }
+
     private fun showVolumeIndicator() {
-        binding.tvVolume.alpha = 0f
+        // Отменяем и отложенный endAction скрытия: он не должен погасить новый жест.
+        binding.tvVolume.animate().withEndAction(null).cancel()
+        binding.tvVolume.alpha = 1f
         binding.tvVolume.isVisible = true
-        binding.tvVolume.animate()
-            .alpha(1f)
-            .setDuration(150)
-            .start()
     }
 
     private fun showBrightnessIndicator() {
-        binding.tvBrightness.alpha = 0f
+        // Отменяем и отложенный endAction скрытия: он не должен погасить новый жест.
+        binding.tvBrightness.animate().withEndAction(null).cancel()
+        binding.tvBrightness.alpha = 1f
         binding.tvBrightness.isVisible = true
-        binding.tvBrightness.animate()
-            .alpha(1f)
-            .setDuration(150)
-            .start()
     }
 
     private fun hideVolumeBrightViews() {
@@ -590,7 +663,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     }
 
     private fun updateUIByVolume() {
-        binding.tvVolume.text = volume.toString()
+        binding.tvVolume.text = if (boost > 0) "$volume (+${boost / 100f} dB)" else volume.toString()
         binding.tvVolume.setTextColorRes(R.color.textColorPrimary)
     }
 
@@ -857,7 +930,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         with(currentBinding) {
             ivQuality.setOnClickListener { qualityPopUp?.show() }
             ivLang.setOnClickListener { langPopUp?.show() }
-            ivSubtitle.setOnClickListener { subtitlePopUp?.show() }
             ivResizes.setOnClickListener { changeResize() }
             ivBack.setOnClickListener { findNavController().popBackStack() }
             ivScreenRotation.setOnClickListener { toggleScreenOrientation() }
@@ -1308,6 +1380,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 AdaptiveTrackSelection.Factory()
             ).apply {
                 parameters = parameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                     .setPreferredAudioLanguage("rus")
                     .build()
             }
@@ -1360,7 +1433,21 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
             playerView.setOnTouchListener { _, event ->
                 gestureDetectorCompat?.onTouchEvent(event)
-                false
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        val wasSwipe = swipeActive
+                        swipeActive = false
+                        if (wasSwipe) {
+                            (binding.playerView as? DoubleTapPlayerView)?.cancelInDoubleTapMode()
+                            hideVolumeBrightViews()
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    MotionEvent.ACTION_MOVE -> swipeActive
+                    else -> false
+                }
             }
 
             setupPopupMenus = true
@@ -1463,7 +1550,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             ivScreenRotation,
             ivBack,
             ivLang,
-            ivSubtitle,
             ivBrightness,
             ivVolume
         )
@@ -1475,8 +1561,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 val shouldBeVisible = when (view) {
                     ivQuality -> qualityVisible
                     ivLang -> langVisible
-                    // S-075: выбор субтитров не работает — кнопка не показывается.
-                    ivSubtitle -> false
                     else -> true
                 }
                 view.animate().cancel()
@@ -1563,34 +1647,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
         }
 
-        // S-011 п.7: субтитры. Раньше список дорожек собирался, но кнопки в разметке не было,
-        // поэтому включить субтитры на потоке с ними было нельзя.
-        trackSelector?.generateSubTitlesList(requireContext())?.let { list ->
-            subtitleVisible = list.isNotEmpty()
-            // S-075: выбор субтитров не работает, поэтому кнопку не показываем совсем.
-            binding.ivSubtitle.isVisible = false
-            if (list.isNotEmpty()) {
-                subtitlePopUp = PopupMenu(requireContext(), binding.ivSubtitle).apply {
-                    menu.add(0, SUBTITLE_OFF_ITEM_ID, 0, getString(R.string.subtitles_off))
-                    list.forEachIndexed { i, item ->
-                        menu.add(0, i + 1, 0, item.first)
-                    }
-                    setOnMenuItemClickListener {
-                        val itemId = it.itemId
-                        if (itemId == SUBTITLE_OFF_ITEM_ID) {
-                            trackSelector?.parameters = trackSelector!!.parameters
-                                .buildUpon()
-                                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
-                                .build()
-                        } else {
-                            setLang(list[itemId - 1].second)
-                        }
-                        true
-                    }
-                }
-            }
-        }
-
         trackSelector?.generateQualityList(requireContext())?.let { list ->
             qualityVisible = list.size > 1
             binding.ivQuality.isVisible = qualityVisible && controlsShown == true
@@ -1604,7 +1660,10 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                         true
                     }
                 }
-                setQuality(list[0].second)
+                if (!qualitySelectionInitialized) {
+                    qualitySelectionInitialized = true
+                    setQuality(list[0].second)
+                }
             }
         }
     }
@@ -1613,9 +1672,8 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         trackSelector?.let { selector ->
             selector.parameters = selector.parameters
                 .buildUpon()
-                .clearOverrides()
+                .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
                 .addOverride(trackSelectionOverride)
-                .setTunnelingEnabled(true)
                 .build()
         }
     }
@@ -1624,7 +1682,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         trackSelector?.let { selector ->
             selector.parameters = selector.parameters
                 .buildUpon()
-                .clearOverrides()
+                .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
                 .addOverride(override)
                 .build()
         }
@@ -1667,9 +1725,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         playbackSession.release()
 
         isPlayerPrepared = false
+        qualitySelectionInitialized = false
         setupPopupMenus = true
         qualityPopUp = null
         langPopUp = null
-        subtitlePopUp = null
     }
 }

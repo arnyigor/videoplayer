@@ -100,8 +100,9 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
         }
 
         val genreOptions = listOf(getString(R.string.search_filters_genre_any)) + genres
+        binding.actGenre.setDropDownBackgroundResource(R.drawable.bg_dropdown_dark)
         binding.actGenre.setAdapter(
-            ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, genreOptions)
+            ArrayAdapter(requireContext(), R.layout.item_dropdown_dark, genreOptions)
         )
         binding.actGenre.setText(current.genre ?: genreOptions.first(), false)
         binding.actGenre.setOnItemClickListener { _, _, position, _ ->
@@ -112,8 +113,9 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
         }
 
         val sortTitles = SearchSort.entries.map { getString(it.titleRes) }
+        binding.actSort.setDropDownBackgroundResource(R.drawable.bg_dropdown_dark)
         binding.actSort.setAdapter(
-            ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, sortTitles)
+            ArrayAdapter(requireContext(), R.layout.item_dropdown_dark, sortTitles)
         )
         binding.actSort.setText(sortTitles[current.sort.ordinal], false)
         binding.actSort.setOnItemClickListener { _, _, position, _ ->

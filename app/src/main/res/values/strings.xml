@@ -93,6 +93,11 @@
     <string name="episodes_not_found">Не найдены эпизоды</string>
     <string name="more">больше</string>
     <string name="less">меньше</string>
+    <string name="update_movie_error_title">Не удалось обновить «%1$s»</string>
+    <string name="update_movie_error_text">%1$s. Сохранённые ссылки остаются доступны — фильм можно смотреть.</string>
+    <string name="update_movie_error_unknown">Причина неизвестна</string>
+    <string name="update_movie_failed_toast">Не удалось обновить «%1$s». Сохранённые ссылки остаются доступны.</string>
+    <string name="update_timeout">Сайт не ответил вовремя</string>
     <string name="update_finished_success">Обновление завершено успешно</string>
     <string name="update_finished_error">Обновление не завершено %s</string>
     <string name="update_error_simple">Обновление не завершено. Произошла ошибка.</string>

@@ -44,45 +44,79 @@ fun formatFileSize(size: Long, digits: Int = 3): String {
     ).orEmpty())
 }
 
-fun Context.unzipData(zipFile: File, extension: String): List<File> {
-    val path = filesDir.path
-    zipFile.unzip(path)
-    val files = File(path).listFiles()?.filter { it.name.endsWith(extension) }
-    val checkAllFiles = files?.all {
-        it.isFileExists() && it.length() > 0
+fun Context.unzipData(zipFile: File, extension: String): List<File> =
+    extractCatalogData(zipFile, filesDir, extension)
+
+/** The caller owns the returned files and must delete their temporary directory after import. */
+internal fun extractCatalogData(zipFile: File, filesDir: File, extension: String): List<File> {
+    val directory = File.createTempFile("catalog-", "", filesDir)
+    if (!directory.delete() || !directory.mkdir()) {
+        throw IOException("Cannot create catalog extraction directory")
     }
-    return if (checkAllFiles == true) {
-        zipFile.delete()
-        files.toList()
-    } else {
-        emptyList()
+    try {
+        zipFile.unzip(directory.path)
+        // Catalog packages contain top-level JSON files. Never import leftovers from filesDir.
+        val files = directory.listFiles().orEmpty().filter { it.isFile && it.name.endsWith(extension) }
+        if (files.isEmpty() || files.any { it.length() == 0L }) {
+            throw IOException("Archive contains no valid catalog files")
+        }
+        return files
+    } catch (e: Exception) {
+        directory.deleteRecursively()
+        throw e
     }
 }
 
-/**
- * @param zipFilePath
- * @param destDirectory
- * @throws IOException
- */
 @Throws(IOException::class)
 fun File.unzip(destDirectory: String) {
-    val zipFilePath = this
-    File(destDirectory).run {
-        if (!exists()) {
-            mkdirs()
+    extractZip(File(destDirectory))
+}
+
+/** Check declared sizes before writing, and enforce the same limit on actual streamed bytes. */
+internal fun File.extractZip(
+    destination: File,
+    maxEntries: Int = 10_000,
+    maxBytes: Long = 512L * 1024 * 1024,
+) {
+    val root = destination.canonicalFile
+    if (!root.isDirectory && !root.mkdirs()) throw IOException("Cannot create extraction directory")
+    val prefix = root.path + File.separator
+    ZipFile(this).use { zip ->
+        val entries = zip.entries().asSequence().take(maxEntries + 1).toList()
+        if (entries.size > maxEntries) throw IOException("Too many ZIP entries")
+        val paths = mutableSetOf<String>()
+        var declaredBytes = 0L
+        val targets = entries.map { entry ->
+            val name = entry.name.replace('\\', '/')
+            val target = File(root, name).canonicalFile
+            if (name.startsWith('/') || Regex("^[A-Za-z]:").containsMatchIn(name) ||
+                !target.path.startsWith(prefix) || !paths.add(target.path)
+            ) {
+                throw IOException("Unsafe or duplicate ZIP entry: ${entry.name}")
+            }
+            if (entry.size > maxBytes - declaredBytes) throw IOException("ZIP size limit exceeded")
+            if (entry.size > 0) declaredBytes += entry.size
+            entry to target
         }
-    }
-    ZipFile(zipFilePath).use { zip ->
-        zip.entries().asSequence().forEach { entry ->
+        var extractedBytes = 0L
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        for ((entry, target) in targets) {
+            if (entry.isDirectory) {
+                if (!target.isDirectory && !target.mkdirs()) throw IOException("Cannot create ZIP directory")
+                continue
+            }
+            if (!target.parentFile.isDirectory && !target.parentFile.mkdirs()) {
+                throw IOException("Cannot create ZIP parent directory")
+            }
             zip.getInputStream(entry).use { input ->
-                val filePath = destDirectory + File.separator + entry.name
-                if (!entry.isDirectory) {
-                    // if the entry is a file, extracts it
-                    FileOutputStream(filePath).use { input.copyTo(it) }
-                } else {
-                    // if the entry is a directory, make the directory
-                    val dir = File(filePath)
-                    dir.mkdir()
+                FileOutputStream(target).use { output ->
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count == -1) break
+                        if (count.toLong() > maxBytes - extractedBytes) throw IOException("ZIP size limit exceeded")
+                        output.write(buffer, 0, count)
+                        extractedBytes += count
+                    }
                 }
             }
         }

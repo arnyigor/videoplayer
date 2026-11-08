@@ -11,6 +11,12 @@ import com.arny.mobilecinema.domain.models.SimpleIntRange
 @Dao
 interface MovieDao : BaseDao<MovieEntity> {
 
+    /** One transaction includes removals and every insert/update of a catalog package. */
+    @Transaction
+    suspend fun updateCatalog(block: suspend () -> Unit) {
+        block()
+    }
+
     @Query("SELECT COUNT(*) FROM movies")
     fun getCount(): Int
 
@@ -40,6 +46,15 @@ interface MovieDao : BaseDao<MovieEntity> {
 
     @Query("DELETE FROM movies WHERE dbId in (:idList)")
     fun deleteAll(idList: List<Long>): Int
+
+    /** Keep unavailable titles while they are referenced by the user's library or progress. */
+    @Query("""
+        DELETE FROM movies WHERE dbId IN (:idList)
+        AND dbId NOT IN (SELECT movie_dbid FROM history)
+        AND dbId NOT IN (SELECT movie_dbid FROM favorites)
+        AND dbId NOT IN (SELECT movie_dbid FROM playback_progress)
+    """)
+    fun deleteUnreferenced(idList: List<Long>): Int
 
     @Query(
         """

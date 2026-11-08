@@ -156,6 +156,7 @@ fun MobileCatalogScreen(
                     contentPadding = contentPadding,
                     onOpenTitle = onOpenTitle,
                     onLoadMore = onLoadMore,
+                    onRetry = onRetry,
                 )
             }
         }
@@ -302,6 +303,7 @@ private fun CatalogGrid(
     contentPadding: PaddingValues,
     onOpenTitle: (Long) -> Unit,
     onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
 ) {
     LaunchedEffect(gridState, state.items.size, state.endReached, state.error) {
         if (state.endReached || state.error) return@LaunchedEffect
@@ -326,6 +328,11 @@ private fun CatalogGrid(
                 subtitle = movie.year.takeIf { it > 0 }?.toString(),
                 onClick = { onOpenTitle(movie.dbId) },
             )
+        }
+        if (state.error) {
+            item(key = "append-error", span = { GridItemSpan(maxLineSpan) }) {
+                MobileErrorState(stringResource(R.string.tv_catalog_error), onRetry)
+            }
         }
         if (state.isLoadingMore) {
             item(key = "loading-more", span = { GridItemSpan(maxLineSpan) }) {

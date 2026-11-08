@@ -32,9 +32,7 @@ class SplashViewModel constructor(
     }
 
     fun onIntentUrl(url: String) {
-        viewModelScope.launch {
-            interactor.setIntentUrl(url)
-            _sharedUrl.value = url
-        }
+        // Activity extras survive cold start; an unobserved SharedFlow event does not.
+        _sharedUrl.value = url
     }
 }

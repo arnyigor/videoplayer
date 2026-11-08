@@ -1,6 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="MissingLeanbackLauncher,ImpliedTouchscreenHardware,MissingLeanbackSupport">
 
+    <!--
+      Debug-only test activity. Lint analyses this source manifest on its own and therefore
+      cannot see the TV declarations: leanback launcher intent filter, leanback/touchscreen
+      uses-feature and banner are declared in src/main/AndroidManifest.xml and are present in
+      the merged debug manifest. Suppression is limited to those three checks.
+    -->
     <application>
         <activity
             android:name=".presentation.compose.ComposeTestActivity"

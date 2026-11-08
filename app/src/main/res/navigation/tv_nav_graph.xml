@@ -10,7 +10,7 @@
             android:label="Home">
         <action
                 android:id="@+id/actionToSearch"
-                app:destination="@id/tvSearchFragment" />
+                app:destination="@id/tvSiteSearchFragment" />
         <action
                 android:id="@+id/actionToSiteSearch"
                 app:destination="@id/tvSiteSearchFragment" />
@@ -67,6 +67,10 @@
             android:name="com.arny.mobilecinema.presentation.tv.player.TvPlayerFragment"
             android:label="Player">
         <argument
+                android:name="playableId"
+                app:argType="string"
+                android:defaultValue="" />
+        <argument
                 android:name="movieId"
                 app:argType="long"
                 android:defaultValue="0L" />
@@ -108,5 +112,29 @@
         <action
                 android:id="@+id/actionToDetails"
                 app:destination="@id/tvDetailsFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/tvLibraryFragment"
+        android:name="com.arny.mobilecinema.presentation.tv.library.TvLibraryFragment"
+        android:label="Library">
+        <argument android:name="kind" app:argType="string" android:defaultValue="FAVORITES" />
+        <action android:id="@id/actionToDetails" app:destination="@id/tvDetailsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/tvSettingsFragment"
+        android:name="com.arny.mobilecinema.presentation.tv.settings.TvSettingsFragment"
+        android:label="Settings" />
+    <fragment android:id="@+id/tvSeriesCatalogFragment"
+        android:name="com.arny.mobilecinema.presentation.tv.catalog.TvCatalogFragment"
+        android:label="Series">
+        <argument android:name="section" app:argType="string" android:defaultValue="SERIES" />
+        <action android:id="@id/actionToDetails" app:destination="@id/tvDetailsFragment" />
+    </fragment>
+    <fragment android:id="@+id/tvFavoritesLibraryFragment"
+        android:name="com.arny.mobilecinema.presentation.tv.library.TvLibraryFragment"
+        android:label="Favorites">
+        <argument android:name="kind" app:argType="string" android:defaultValue="FAVORITES" />
+        <action android:id="@id/actionToDetails" app:destination="@id/tvDetailsFragment" />
     </fragment>
 </navigation>

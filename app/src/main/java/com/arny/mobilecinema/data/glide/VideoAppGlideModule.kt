@@ -49,7 +49,7 @@ class VideoAppGlideModule : AppGlideModule() {
     private fun browserImageHeadersInterceptor(): Interceptor = Interceptor { chain ->
         val request = chain.request().newBuilder()
             .header("User-Agent", BROWSER_USER_AGENT)
-            .header("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+            .header("Accept", "image/webp,image/png,image/jpeg,image/gif,image/*;q=0.8")
             .header("Accept-Language", "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7")
             .build()
         chain.proceed(request)

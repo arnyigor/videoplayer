@@ -1,0 +1,503 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 8,
+    "identityHash": "6027ae5d361eadc6701763d6c43d2d71",
+    "entities": [
+      {
+        "tableName": "movies",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`dbId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `movie_id` INTEGER NOT NULL, `title` TEXT NOT NULL, `origTitle` TEXT NOT NULL, `type` INTEGER NOT NULL, `pageUrl` TEXT NOT NULL, `img` TEXT NOT NULL, `year` INTEGER NOT NULL, `quality` TEXT NOT NULL, `translate` TEXT NOT NULL, `durationSec` INTEGER NOT NULL, `age` INTEGER NOT NULL, `countries` TEXT NOT NULL, `genre` TEXT NOT NULL, `likes` INTEGER NOT NULL, `dislikes` INTEGER NOT NULL, `ratingImdb` REAL NOT NULL, `ratingKp` REAL NOT NULL, `directors` TEXT NOT NULL, `actors` TEXT NOT NULL, `description` TEXT NOT NULL, `updated` INTEGER NOT NULL, `detailsFetchedAt` INTEGER NOT NULL DEFAULT 0, `seasons` TEXT NOT NULL, `hdUrls` TEXT NOT NULL, `hdUrlsPoster` TEXT NOT NULL, `cinemaUrls` TEXT NOT NULL, `cinemaUrlsPoster` TEXT NOT NULL, `trailerUrls` TEXT NOT NULL, `trailerUrlsPoster` TEXT NOT NULL, `addedToHistory` INTEGER NOT NULL, `customData` TEXT)",
+        "fields": [
+          {
+            "fieldPath": "dbId",
+            "columnName": "dbId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "movieId",
+            "columnName": "movie_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "origTitle",
+            "columnName": "origTitle",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pageUrl",
+            "columnName": "pageUrl",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "img",
+            "columnName": "img",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "year",
+            "columnName": "year",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "quality",
+            "columnName": "quality",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "translate",
+            "columnName": "translate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationSec",
+            "columnName": "durationSec",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "age",
+            "columnName": "age",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "countries",
+            "columnName": "countries",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "genre",
+            "columnName": "genre",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "likes",
+            "columnName": "likes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dislikes",
+            "columnName": "dislikes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ratingImdb",
+            "columnName": "ratingImdb",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ratingKp",
+            "columnName": "ratingKp",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "directors",
+            "columnName": "directors",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "actors",
+            "columnName": "actors",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updated",
+            "columnName": "updated",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detailsFetchedAt",
+            "columnName": "detailsFetchedAt",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "seasons",
+            "columnName": "seasons",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hdUrls",
+            "columnName": "hdUrls",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hdUrlsPoster",
+            "columnName": "hdUrlsPoster",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cinemaUrls",
+            "columnName": "cinemaUrls",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cinemaUrlsPoster",
+            "columnName": "cinemaUrlsPoster",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trailerUrls",
+            "columnName": "trailerUrls",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trailerUrlsPoster",
+            "columnName": "trailerUrlsPoster",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "addedToHistory",
+            "columnName": "addedToHistory",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "customData",
+            "columnName": "customData",
+            "affinity": "TEXT",
+            "notNull": false
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "dbId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_movies_title_pageUrl",
+            "unique": true,
+            "columnNames": [
+              "title",
+              "pageUrl"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_movies_title_pageUrl` ON `${TABLE_NAME}` (`title`, `pageUrl`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "history",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`dbId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `movie_dbid` INTEGER NOT NULL, `position` INTEGER NOT NULL, `episode` INTEGER NOT NULL, `season` INTEGER NOT NULL, `latest_time` INTEGER NOT NULL DEFAULT 0, `last_playable_id` TEXT NOT NULL DEFAULT '', `duration_ms` INTEGER NOT NULL DEFAULT 0, `completed` INTEGER NOT NULL DEFAULT 0)",
+        "fields": [
+          {
+            "fieldPath": "dbId",
+            "columnName": "dbId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "movieDbId",
+            "columnName": "movie_dbid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "position",
+            "columnName": "position",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episode",
+            "columnName": "episode",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "season",
+            "columnName": "season",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latestTime",
+            "columnName": "latest_time",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "lastPlayableId",
+            "columnName": "last_playable_id",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "duration_ms",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "completed",
+            "columnName": "completed",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "dbId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_history_movie_dbid",
+            "unique": true,
+            "columnNames": [
+              "movie_dbid"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_history_movie_dbid` ON `${TABLE_NAME}` (`movie_dbid`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "favorites",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`dbId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `movie_dbid` INTEGER NOT NULL, `latest_time` INTEGER NOT NULL DEFAULT 0)",
+        "fields": [
+          {
+            "fieldPath": "dbId",
+            "columnName": "dbId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "movieDbId",
+            "columnName": "movie_dbid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latestTime",
+            "columnName": "latest_time",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "dbId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_favorites_movie_dbid",
+            "unique": true,
+            "columnNames": [
+              "movie_dbid"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_favorites_movie_dbid` ON `${TABLE_NAME}` (`movie_dbid`)"
+          },
+          {
+            "name": "index_favorites_latest_time",
+            "unique": false,
+            "columnNames": [
+              "latest_time"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_favorites_latest_time` ON `${TABLE_NAME}` (`latest_time`)"
+          }
+        ],
+        "foreignKeys": []
+      },
+      {
+        "tableName": "playback_progress",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`dbId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `movie_dbid` INTEGER NOT NULL, `season` INTEGER NOT NULL, `episode` INTEGER NOT NULL, `played_ms` INTEGER NOT NULL DEFAULT 0, `latest_time` INTEGER NOT NULL DEFAULT 0, `playable_id` TEXT NOT NULL DEFAULT '', `profile_id` TEXT NOT NULL DEFAULT 'default', `position_ms` INTEGER NOT NULL DEFAULT 0, `duration_ms` INTEGER NOT NULL DEFAULT 0, `season_number` INTEGER NOT NULL DEFAULT 0, `episode_number` INTEGER NOT NULL DEFAULT 0, `completed` INTEGER NOT NULL DEFAULT 0, `updated_at` INTEGER NOT NULL DEFAULT 0)",
+        "fields": [
+          {
+            "fieldPath": "dbId",
+            "columnName": "dbId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "movieDbId",
+            "columnName": "movie_dbid",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "season",
+            "columnName": "season",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "episode",
+            "columnName": "episode",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "playedMs",
+            "columnName": "played_ms",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "latestTime",
+            "columnName": "latest_time",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "playableId",
+            "columnName": "playable_id",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          },
+          {
+            "fieldPath": "profileId",
+            "columnName": "profile_id",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'default'"
+          },
+          {
+            "fieldPath": "positionMs",
+            "columnName": "position_ms",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "durationMs",
+            "columnName": "duration_ms",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "seasonNumber",
+            "columnName": "season_number",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "episodeNumber",
+            "columnName": "episode_number",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "completed",
+            "columnName": "completed",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "dbId"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_playback_progress_movie_dbid",
+            "unique": false,
+            "columnNames": [
+              "movie_dbid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_progress_movie_dbid` ON `${TABLE_NAME}` (`movie_dbid`)"
+          },
+          {
+            "name": "index_playback_progress_latest_time",
+            "unique": false,
+            "columnNames": [
+              "latest_time"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_playback_progress_latest_time` ON `${TABLE_NAME}` (`latest_time`)"
+          },
+          {
+            "name": "index_playback_progress_profile_id_playable_id",
+            "unique": true,
+            "columnNames": [
+              "profile_id",
+              "playable_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_playback_progress_profile_id_playable_id` ON `${TABLE_NAME}` (`profile_id`, `playable_id`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6027ae5d361eadc6701763d6c43d2d71')"
+    ]
+  }
+}

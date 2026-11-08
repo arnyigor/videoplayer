@@ -55,9 +55,16 @@ jobs:
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon
 
-      - name: Lint (report only)
-        continue-on-error: true
+      - name: Lint
         run: ./gradlew :app:lintDebug --no-daemon
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
 
       - name: Upload test report
         if: always()

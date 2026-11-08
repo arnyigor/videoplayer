@@ -1,17 +1,19 @@
 package com.arny.mobilecinema.presentation.tv.presenters
 
+import com.arny.mobilecinema.presentation.sitesearch.ratingLabel
+import com.arny.mobilecinema.presentation.utils.loadPoster
+import com.arny.mobilecinema.presentation.utils.clearPoster
+
 import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.prefs.Prefs
-import com.arny.mobilecinema.data.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.dpToPx
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.domain.search.SearchHit
-import com.bumptech.glide.Glide
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -56,7 +58,7 @@ class SiteSearchCardPresenter : Presenter(), KoinComponent {
                     else -> ""
                 }
             )
-            if (siteItem.rating > 0f) add(String.format("%.1f", siteItem.rating))
+            siteItem.ratingLabel()?.let { add(it) }
         }.filter { it.isNotBlank() }.joinToString(" • ")
 
         cardView.apply {
@@ -68,16 +70,7 @@ class SiteSearchCardPresenter : Presenter(), KoinComponent {
 
             TvCardFocusHelper.applyFocusState(this, hasFocus())
 
-            if (siteItem.posterUrl.isNotBlank()) {
-                Glide.with(context)
-                    .load(siteItem.posterUrl.getWithDomain(baseUrl))
-                    .centerCrop()
-                    .placeholder(R.drawable.placeholder_movie)
-                    .error(R.drawable.placeholder_movie)
-                    .into(mainImageView!!)
-            } else {
-                mainImageView?.setImageResource(R.drawable.placeholder_movie)
-            }
+            mainImageView?.loadPoster(siteItem.posterUrl, baseUrl)
         }
     }
 
@@ -85,6 +78,7 @@ class SiteSearchCardPresenter : Presenter(), KoinComponent {
         val cardView = viewHolder.view as ImageCardView
         TvCardFocusHelper.reset(cardView)
         cardView.badgeImage = null
+        cardView.mainImageView?.clearPoster()
         cardView.mainImage = null
     }
 }

@@ -107,6 +107,7 @@ ktor-serialization-gson = { module = "io.ktor:ktor-serialization-gson", version.
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 room-paging = { module = "androidx.room:room-paging", version.ref = "room" }
 androidx-paging-runtime-ktx = { module = "androidx.paging:paging-runtime-ktx", version.ref = "paging" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }

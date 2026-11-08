@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:color="#24143D" />
+    <!-- Как на мобиле: активный, но не в фокусе пункт — акцентный текст на тёмной подложке. -->
+    <item android:state_selected="true" android:color="@color/colorAccent" />
+    <item android:color="#ABA9B9" />
+</selector>

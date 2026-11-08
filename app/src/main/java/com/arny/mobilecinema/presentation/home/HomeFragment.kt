@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.presentation.home
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -193,6 +194,8 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
     }
 
     /** Launches permission request for WRITE_EXTERNAL_STORAGE. */
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* не блокирует работу */ }
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
@@ -233,7 +236,9 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
         initAdapters()
         observeData()
         observeResult()
-        requestPermissions()
+        // Internal catalog loading must not depend on optional notification/storage grants.
+        downloadData()
+        askNotificationsOnce()
     }
 
     private fun initToolbar() {
@@ -367,6 +372,20 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
                 }
             }
         }
+    }
+
+    /**
+     * Уведомления нужны сервисам обновления и загрузки, но не первому экрану: спрашиваем один раз
+     * и не блокируем каталог. Раньше запрос был частью стартовой цепочки разрешений.
+     */
+    private fun askNotificationsOnce() {
+        if (SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (DeviceUtils.isTV(requireContext())) return
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED) return
+        if (prefs.get<Boolean>(PrefsConstants.PREF_KEY_NOTIFICATION_PROMPT_SHOWN) == true) return
+        prefs.put(PrefsConstants.PREF_KEY_NOTIFICATION_PROMPT_SHOWN, true)
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     /** Handles pending notification permission request. */

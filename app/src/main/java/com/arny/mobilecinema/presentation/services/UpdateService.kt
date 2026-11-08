@@ -25,20 +25,21 @@
     import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_FILE
     import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_FORCE_ALL
     import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_UPDATE_URL
+    import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_UPDATE_TITLE
     import com.arny.mobilecinema.data.repository.AppConstants.SERVICE_PARAM_URL
     import com.arny.mobilecinema.data.utils.unzipData
+    import com.arny.mobilecinema.data.utils.readCatalogFiles
     import com.arny.mobilecinema.domain.interactors.jsoupupdate.JsoupUpdateInteractor
+    import com.arny.mobilecinema.domain.interactors.update.CatalogUpdateTracker
+    import com.arny.mobilecinema.domain.interactors.update.CatalogUpdatePhase
     import com.arny.mobilecinema.domain.models.LoadingData
     import com.arny.mobilecinema.domain.models.Movie
-    import com.arny.mobilecinema.domain.models.MoviesData
     import com.arny.mobilecinema.domain.models.UpdateType
     import com.arny.mobilecinema.domain.repository.UpdateRepository
     import com.arny.mobilecinema.presentation.utils.ActivityNavigator
     import com.arny.mobilecinema.presentation.utils.DeviceUtils
     import com.arny.mobilecinema.presentation.utils.getAvailableMemory
     import com.arny.mobilecinema.presentation.utils.sendLocalBroadcast
-    import com.google.gson.GsonBuilder
-    import com.google.gson.stream.JsonReader
     import kotlinx.coroutines.cancelChildren
     import kotlinx.coroutines.Dispatchers
     import kotlinx.coroutines.Job
@@ -48,13 +49,9 @@
     import kotlinx.coroutines.launch
     import kotlinx.coroutines.withContext
     import timber.log.Timber
-    import java.io.BufferedInputStream
-    import java.io.BufferedReader
     import java.io.File
+    import java.io.IOException
     import java.io.FileInputStream
-    import java.io.FileReader
-    import java.io.InputStreamReader
-    import java.nio.charset.StandardCharsets
     import kotlin.coroutines.CoroutineContext
 
     /**
@@ -75,9 +72,15 @@
     import org.koin.core.component.inject
 
     import kotlinx.coroutines.CancellationException
+    import kotlinx.coroutines.withTimeoutOrNull
     import kotlinx.coroutines.CoroutineScope
     import kotlinx.coroutines.currentCoroutineContext
+    import kotlinx.coroutines.ensureActive
+    import com.arny.mobilecinema.domain.interactors.jsoupupdate.ParsingStopException
     import kotlinx.coroutines.isActive
+
+    /** Верхняя граница разбора одной карточки: дольше сервис держать в фоне нельзя. */
+    private const val URL_UPDATE_TIMEOUT_MS = 120_000L
 
     internal fun normalizeUpdateUrl(
         url: String,
@@ -147,9 +150,11 @@
 
         /** Interactor used to fetch data from remote websites via Jsoup. */
         private val jsoupUpdateInteractor: JsoupUpdateInteractor by inject()
+        private val catalogUpdates: CatalogUpdateTracker by inject()
+        private var catalogOperation = false
 
         private val supervisorJob = SupervisorJob()
-        private var canceled = false
+        @Volatile private var canceled = false
         private var downloadAllJob: Job? = null
         private var archiveJob: Job? = null
 
@@ -177,7 +182,7 @@
                         text = "",
                         silent = true
                     ),
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                 )
             } else {
                 startForeground(
@@ -227,6 +232,9 @@
          */
         private fun cancelAllAndStop() {
             downloadAllJob?.cancel()
+            archiveJob?.cancel()
+            if (catalogUpdates.status.value.isRunning) catalogUpdates.update(CatalogUpdatePhase.CANCELLED)
+            catalogOperation = false
 
             // Send broadcast for TV UI to know that update was cancelled
             sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
@@ -258,7 +266,11 @@
                         )
                     }
 
-                    getPageData(url, background)
+                    getPageData(
+                        url = url,
+                        background = background,
+                        movieTitle = intent?.getStringExtra(SERVICE_PARAM_UPDATE_TITLE).orEmpty(),
+                    )
                 } catch (e: Exception) {
                     e.printStackTrace()
                     updateCompleteWithError(background = background)
@@ -274,46 +286,72 @@
          *
          * @param url URL of the remote resource to download.
          */
-        private suspend fun getPageData(url: String?, background: Boolean) {
-            if (!url.isNullOrBlank()) {
-                val normalizedUrl = normalizeUpdateUrl(url)
+        private suspend fun getPageData(url: String?, background: Boolean, movieTitle: String = "") {
+            if (url.isNullOrBlank()) throw DataThrowable(R.string.url_is_empty)
+            val normalizedUrl = normalizeUpdateUrl(url)
 
-                // --- 1. Парсим movieId из URL ------------------------------------
-                val movieId = Regex("""/(films|serials)/(\d+)""")
-                    .find(normalizedUrl)
-                    ?.groups?.get(2)
-                    ?.value
-                    ?.toLongOrNull()
-                    ?: throw DataThrowable(R.string.url_is_empty)
+            // --- 1. Парсим movieId из URL ------------------------------------
+            val movieId = Regex("""/(films|serials)/(\d+)""")
+                .find(normalizedUrl)
+                ?.groups?.get(2)
+                ?.value
+                ?.toLongOrNull()
+                ?: throw DataThrowable(R.string.url_is_empty)
 
+            val caption = movieTitle.ifBlank { normalizedUrl.substringAfterLast('/') }
+            var finished = false
+            fun finish(success: Boolean) {
+                if (finished) return
+                finished = true
+                lifecycleScope.launch { updateComplete(success, movieId, background) }
+            }
+
+            // Сетевой/разборочный сбой раньше оставлял сервис и спиннер деталей навсегда:
+            // поток не присылал терминальное событие. Теперь есть и таймаут, и страховка ниже.
+            val timedOut = withTimeoutOrNull(URL_UPDATE_TIMEOUT_MS) {
                 jsoupUpdateInteractor.getPageData(normalizedUrl, true) { data ->
                     when (data) {
                         is DataResultWithProgress.Error -> {
-                            val message = data.throwable.localizedMessage
-                            updateNotification(
-                                title = getString(R.string.update_finished_error, message),
-                                text = "",
-                                silent = false
-                            )
-                            if (data.throwable is CancellationException) return@getPageData
-
-                            updateComplete(false, movieId, background)
+                            if (data.throwable is CancellationException) throw data.throwable
+                            notifyUpdateFailed(caption, data.throwable.localizedMessage)
+                            finish(false)
                         }
 
                         is DataResultWithProgress.Progress -> {
                             val result = data.result
-                            val progressMap = result.progress
-                            handleProgress(progressMap, result, movieId, background)
+                            // 404 и подобное: понятный текст вместо «Ошибка 404» в заголовке.
+                            if (result.complete && !result.success) {
+                                notifyUpdateFailed(caption, result.progress[UpdateType.LINK])
+                            }
+                            handleProgress(result.progress, result, movieId, background)
+                            // Завершение уже обработано выше — вторая попытка не нужна.
+                            if (result.complete) finished = true
                         }
 
-                        is DataResultWithProgress.Success -> {
-                            updateComplete(true, movieId, background)
-                        }
+                        is DataResultWithProgress.Success -> finish(true)
                     }
                 }
-            } else {
-                throw DataThrowable(R.string.url_is_empty)
+                true
             }
+            if (timedOut == null) {
+                notifyUpdateFailed(caption, getString(R.string.update_timeout))
+                finish(false)
+            } else if (!finished) {
+                finish(false)
+            }
+        }
+
+        /** Уведомление об ошибке обновления карточки: с названием и подсказкой, что делать. */
+        private fun notifyUpdateFailed(caption: String, reason: String?) {
+            updateNotification(
+                title = getString(R.string.update_movie_error_title, caption),
+                text = getString(
+                    R.string.update_movie_error_text,
+                    reason?.takeIf { it.isNotBlank() } ?: getString(R.string.update_movie_error_unknown),
+                ),
+                silent = false,
+                addStopAction = false,
+            )
         }
 
         private fun normalizeUpdateUrl(url: String): String =
@@ -387,6 +425,7 @@
             success: Boolean,
             movieId: Long = 0L,
             background: Boolean = false,
+            catalog: Boolean = false,
         ) {
             // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Если корутину отменили, просто выходим
             if (!currentCoroutineContext().isActive) return
@@ -420,7 +459,11 @@
                 )
             }
             delay(1000)
-            stopIfNoActiveParses()
+            if (catalog) {
+                finishCatalogOperation(if (success) CatalogUpdatePhase.SUCCEEDED else CatalogUpdatePhase.FAILED)
+            } else {
+                stopIfNoActiveParses()
+            }
         }
 
         /**
@@ -429,7 +472,7 @@
          * Текущий разбор тоже в счётчике, поэтому порог «1».
          */
         private fun stopIfNoActiveParses() {
-            if (activeUrlParses <= 1) {
+            if (activeUrlParses <= 1 && !catalogOperation) {
                 stop()
             }
         }
@@ -441,7 +484,9 @@
          */
         private fun actionDownload(intent: Intent?) {
             // Do not import the same catalog concurrently on repeated manual requests.
-            if (archiveJob?.isActive == true) return
+            if (archiveJob?.isActive == true || downloadAllJob?.isActive == true) return
+            catalogOperation = true
+            catalogUpdates.update(CatalogUpdatePhase.DOWNLOADING)
             archiveJob = lifecycleScope.launch {
                 try {
                     download(
@@ -451,7 +496,7 @@
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     e.printStackTrace()
-                    updateCompleteWithError()
+                    updateCompleteWithError(catalog = true)
                 }
             }
         }
@@ -461,8 +506,9 @@
          * and starts a new coroutine that performs the complete update.
          */
         private fun actionDownloadAll() {
-            downloadAllJob?.cancel()
-
+            if (archiveJob?.isActive == true || downloadAllJob?.isActive == true) return
+            catalogOperation = true
+            catalogUpdates.update(CatalogUpdatePhase.SCRAPING)
             downloadAllJob = lifecycleScope.launch {
                 try {
                     downloadAll()
@@ -472,7 +518,7 @@
 
                     e.printStackTrace()
                     ensureActive()
-                    updateCompleteWithError()
+                    updateCompleteWithError(catalog = true)
                 }
             }
         }
@@ -511,6 +557,7 @@
                     repository.downloadFileWithProgress(url, "tmp_${System.currentTimeMillis()}.zip").collect { result ->
                         when (result) {
                             is DataResultWithProgress.Progress -> {
+                                catalogUpdates.update(CatalogUpdatePhase.DOWNLOADING, result.result.progress)
                                 downloaded = result.result.size ?: downloaded
                                 total = result.result.total ?: total
                                 updateNotification(
@@ -539,6 +586,7 @@
          * Performs a full update by scraping data from the website and updating local storage.
          */
         private suspend fun downloadAll() {
+            catalogUpdates.update(CatalogUpdatePhase.SCRAPING)
             // Сброс прогресса перед новым обновлением
             lastKnownCurrent = -1
             lastKnownTotal = -1
@@ -555,104 +603,119 @@
                 silent = silent
             )
 
-            jsoupUpdateInteractor.parsing { data ->
-                when (data) {
-                    is DataResultWithProgress.Error -> {
-                        updateComplete(false)
-                    }
-
-                    is DataResultWithProgress.Progress -> {
-                        val result = data.result
-                        val progress = result.progress
-
-                        val currentRaw = progress[UpdateType.CURRENT_INDEX]?.toIntOrNull()
-                        val totalRaw = progress[UpdateType.TOTAL_COUNT]?.toIntOrNull()
-
-                        // Обновляем только если есть новые данные
-                        if (currentRaw != null) {
-                            lastKnownCurrent = currentRaw
-                        }
-                        if (totalRaw != null && totalRaw > 0) {
-                            lastKnownTotal = totalRaw
+            var hadErrors = false
+            try {
+                jsoupUpdateInteractor.parsing { data ->
+                    when (data) {
+                        is DataResultWithProgress.Error -> {
+                            if (data.throwable is CancellationException) throw data.throwable
+                            hadErrors = true
+                            Timber.tag(TAG).w(data.throwable, "Skipping failed catalog item")
                         }
 
-                        // Вычисляем процент только если есть валидные данные
-                        if (lastKnownCurrent >= 0 && lastKnownTotal > 0) {
-                            lastKnownPercent = ((lastKnownCurrent * 100f) / lastKnownTotal).toInt().coerceIn(0, 100)
-                        }
+                        is DataResultWithProgress.Progress -> {
+                            val result = data.result
+                            val progress = result.progress
 
-                        for (progressItem in progress.keys) {
-                            when (progressItem) {
-                                UpdateType.TITLE -> {
-                                    val title = progress[UpdateType.TITLE]
-                                    if (!title.isNullOrBlank()) {
-                                        lastKnownTitleForUi = title
-                                        updateNotification(
-                                            title = getString(
-                                                R.string.update_cinema_formatted,
-                                                title
-                                            ),
-                                            addStopAction = true,
-                                            text = "",
-                                            silent = silent
-                                        )
+                            val currentRaw = progress[UpdateType.CURRENT_INDEX]?.toIntOrNull()
+                            val totalRaw = progress[UpdateType.TOTAL_COUNT]?.toIntOrNull()
+
+                            // Обновляем только если есть новые данные
+                            if (currentRaw != null) {
+                                lastKnownCurrent = currentRaw
+                            }
+                            if (totalRaw != null && totalRaw > 0) {
+                                lastKnownTotal = totalRaw
+                            }
+
+                            // Вычисляем процент только если есть валидные данные
+                            if (lastKnownCurrent >= 0 && lastKnownTotal > 0) {
+                                lastKnownPercent = ((lastKnownCurrent * 100f) / lastKnownTotal).toInt().coerceIn(0, 100)
+                            }
+
+                            for (progressItem in progress.keys) {
+                                when (progressItem) {
+                                    UpdateType.TITLE -> {
+                                        val title = progress[UpdateType.TITLE]
+                                        if (!title.isNullOrBlank()) {
+                                            lastKnownTitleForUi = title
+                                            updateNotification(
+                                                title = getString(
+                                                    R.string.update_cinema_formatted,
+                                                    title
+                                                ),
+                                                addStopAction = true,
+                                                text = "",
+                                                silent = silent
+                                            )
+                                        }
                                     }
-                                }
 
-                                UpdateType.LINK -> {
-                                    val link = progress[UpdateType.LINK]
-                                    if (!link.isNullOrBlank() && lastKnownTitleForUi.isNullOrBlank()) {
-                                        lastKnownTitleForUi = link
-                                        updateNotification(
-                                            title = link,
-                                            text = "",
-                                            addStopAction = true,
-                                            silent = silent
-                                        )
+                                    UpdateType.LINK -> {
+                                        val link = progress[UpdateType.LINK]
+                                        if (!link.isNullOrBlank() && lastKnownTitleForUi.isNullOrBlank()) {
+                                            lastKnownTitleForUi = link
+                                            updateNotification(
+                                                title = link,
+                                                text = "",
+                                                addStopAction = true,
+                                                silent = silent
+                                            )
+                                        }
                                     }
-                                }
 
-                                else -> {}
+                                    else -> {}
+                                }
+                            }
+
+                            catalogUpdates.update(CatalogUpdatePhase.SCRAPING, lastKnownPercent)
+                            // Send broadcast for TV UI progress
+                            sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                                putString(
+                                    AppConstants.ACTION_UPDATE_STATUS,
+                                    AppConstants.ACTION_UPDATE_STATUS_PROGRESS
+                                )
+                                putString(
+                                    "update_title",
+                                    lastKnownTitleForUi ?: getString(R.string.updating_all)
+                                )
+                                // Используем сохранённый прогресс вместо вычисленного из текущего события
+                                putInt("progress_percent", lastKnownPercent)
+                                putInt("progress_current", lastKnownCurrent)
+                                putInt("progress_total", lastKnownTotal)
                             }
                         }
 
-                        // Send broadcast for TV UI progress
-                        sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
-                            putString(
-                                AppConstants.ACTION_UPDATE_STATUS,
-                                AppConstants.ACTION_UPDATE_STATUS_PROGRESS
-                            )
-                            putString(
-                                "update_title",
-                                lastKnownTitleForUi ?: getString(R.string.updating_all)
-                            )
-                            // Используем сохранённый прогресс вместо вычисленного из текущего события
-                            putInt("progress_percent", lastKnownPercent)
-                            putInt("progress_current", lastKnownCurrent)
-                            putInt("progress_total", lastKnownTotal)
-                        }
-                    }
-
-                    is DataResultWithProgress.Success -> {
-                        updateComplete(true)
+                        // The scraper emits per-item events; only returning completes the operation.
+                        is DataResultWithProgress.Success -> Unit
                     }
                 }
+            } catch (_: ParsingStopException) {
+                // The scraper also uses this to finish after consecutive already-current titles.
+                currentCoroutineContext().ensureActive()
+                if (canceled) throw CancellationException("Update cancelled")
             }
+            currentCoroutineContext().ensureActive()
+            updateComplete(!hadErrors, catalog = true)
         }
 
         /**
          * Handles an `ACTION_UPDATE` request.  Parses the local file and updates movies.
          */
         private fun actionUpdate(intent: Intent?) {
-            lifecycleScope.launch {
+            if (archiveJob?.isActive == true || downloadAllJob?.isActive == true) return
+            catalogOperation = true
+            catalogUpdates.update(CatalogUpdatePhase.UNPACKING)
+            archiveJob = lifecycleScope.launch {
                 try {
                     update(
                         filePath = intent?.getStringExtra(SERVICE_PARAM_FILE),
                         forceAll = intent?.getBooleanExtra(SERVICE_PARAM_FORCE_ALL, false) ?: false
                     )
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     e.printStackTrace()
-                    updateCompleteWithError()
+                    updateCompleteWithError(catalog = true)
                 }
             }
         }
@@ -663,6 +726,7 @@
         private suspend fun updateCompleteWithError(
             movieId: Long = 0L,
             background: Boolean = false,
+            catalog: Boolean = false,
         ) {
             // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: Если корутину отменили, просто выходим
             if (!currentCoroutineContext().isActive) return
@@ -679,7 +743,7 @@
                 )
             }
             delay(1000)
-            stopIfNoActiveParses()
+            if (catalog) finishCatalogOperation(CatalogUpdatePhase.FAILED) else stopIfNoActiveParses()
         }
 
         /**
@@ -713,6 +777,7 @@
         private suspend fun readFile(filePath: String, forceAll: Boolean) {
             // 100% referred to transfer; the database still needs unpacking, parsing and import.
             updateNotification(getString(R.string.updating_data), text = "", silent = true, indeterminate = true)
+            catalogUpdates.update(CatalogUpdatePhase.UNPACKING)
             val file = File(filePath)
             if (!file.isZipArchive()) {
                 Timber.tag(TAG).e("Downloaded update file is not a ZIP: %s, size=%d", file.absolutePath, file.length())
@@ -729,8 +794,7 @@
                     title = getString(R.string.update_finished_error, "Invalid update archive"),
                     text = "", silent = false
                 )
-                delay(3000)
-                stop()
+                finishCatalogOperation(CatalogUpdatePhase.FAILED)
                 return
             }
 
@@ -745,91 +809,93 @@
                     title = getString(R.string.update_finished_error, e.message ?: "Zip error"),
                     text = "", silent = false
                 )
-                delay(3000)
-                stop()
+                finishCatalogOperation(CatalogUpdatePhase.FAILED)
                 return@readFile
             }
 
-            if (dataFiles.isNotEmpty()) {
-                if (forceAll && dataFiles.all { it.name == "data_0.json" }) {
-                    Timber.tag(TAG).e("Refusing full update from partial archive: %s", dataFiles.map { it.name })
-                    sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
-                        putString(AppConstants.ACTION_UPDATE_STATUS, AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR)
+            try {
+                if (dataFiles.isNotEmpty()) {
+                    if (forceAll && dataFiles.all { it.name == "data_0.json" }) {
+                        Timber.tag(TAG).e("Refusing full update from partial archive: %s", dataFiles.map { it.name })
+                        sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                            putString(AppConstants.ACTION_UPDATE_STATUS, AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR)
+                        }
+                        updateNotification(
+                            title = getString(R.string.update_finished_error, "Partial archive for full update"),
+                            text = "", silent = false
+                        )
+                        finishCatalogOperation(CatalogUpdatePhase.FAILED)
+                        return@readFile
                     }
-                    updateNotification(
-                        title = getString(R.string.update_finished_error, "Partial archive for full update"),
-                        text = "", silent = false
-                    )
-                    delay(3000)
-                    stop()
-                    return@readFile
-                }
 
-                var success = false
-                val hasUpdate = !forceAll && repository.hasLastUpdates()
-
-                var anwapMovies: List<Movie> = emptyList()
-                if (!getAvailableMemory().lowMemory) {
-                    anwapMovies = readData(dataFiles, hasUpdate)
-                }
-
-                if (anwapMovies.isNotEmpty()) {
-                    file.delete()
-                    dataFiles.forEach { it.delete() }
+                    var success = false
+                    var processedMovies: Int? = null
+                    val hasUpdate = !forceAll && repository.hasLastUpdates()
 
                     try {
-                        repository.updateMovies(
-                            anwapMovies,
-                            hasUpdate,
-                            forceAll
-                        ) { percent ->
-                            // Прерываем работу, если сервис был отменен
+                        if (getAvailableMemory().lowMemory) {
+                            throw IOException("Not enough memory to import the catalog")
+                        }
+                        val anwapMovies = readCatalogFiles(dataFiles, hasUpdate)
+                        if (canceled) throw CancellationException("Update cancelled")
+                        catalogUpdates.update(CatalogUpdatePhase.IMPORTING, 0)
+                        repository.updateMovies(anwapMovies, hasUpdate, forceAll) { percent ->
                             if (canceled) throw CancellationException("Update cancelled")
-
+                            catalogUpdates.update(CatalogUpdatePhase.IMPORTING, percent)
                             updateNotification(getString(R.string.updating, percent), text = "", silent = true,
                                 progress = percent, progressMax = 100)
-                            // Broadcast progress for TV UI
                             sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
-                                putString(
-                                    AppConstants.ACTION_UPDATE_STATUS,
-                                    AppConstants.ACTION_UPDATE_STATUS_PROGRESS
-                                )
+                                putString(AppConstants.ACTION_UPDATE_STATUS, AppConstants.ACTION_UPDATE_STATUS_PROGRESS)
                                 putInt("progress_percent", percent)
                             }
                         }
+                        processedMovies = anwapMovies.size
                         repository.setLastUpdate()
-
+                        file.delete()
                         updateNotification(
-                            title = getString(R.string.update_finished_success),
-                            text = "", silent = false
+                            title = getString(R.string.update_finished_success), text = "", silent = false
                         )
                         success = true
+                    } catch (e: CancellationException) {
+                        Timber.tag(TAG).d("Update cancelled by user")
+                        throw e
                     } catch (e: Exception) {
-                        // Если это отмена - не показываем сообщение об ошибке
-                        if (e is CancellationException) {
-                            Timber.tag(TAG).d("Update cancelled by user")
-                            return@readFile
-                        }
-                        e.printStackTrace()
+                        Timber.tag(TAG).e(e, "Catalog import failed")
                         updateNotification(
-                            title = getString(R.string.update_finished_error, e.message),
-                            text = "", silent = false
+                            title = getString(R.string.update_finished_error, e.message), text = "", silent = false
                         )
-                        success = false
                     }
-                }
 
-                val completeStatus = if (success) {
-                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS
-                } else {
-                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
+                    val completeStatus = if (success) {
+                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_SUCCESS
+                    } else {
+                        AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR
+                    }
+                    sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
+                        putString(AppConstants.ACTION_UPDATE_STATUS, completeStatus)
+                    }
+                    finishCatalogOperation(
+                        if (success) CatalogUpdatePhase.SUCCEEDED else CatalogUpdatePhase.FAILED, processedMovies
+                    )
                 }
-                sendLocalBroadcast(AppConstants.ACTION_UPDATE_STATUS) {
-                    putString(AppConstants.ACTION_UPDATE_STATUS, completeStatus)
-                }
-                delay(3000) // wait for sending broadcast FIXME
-                stop()
+            } finally {
+                dataFiles.firstOrNull()?.parentFile?.deleteRecursively()
             }
+        }
+
+        private suspend fun finishCatalogOperation(phase: CatalogUpdatePhase, processedMovies: Int? = null) {
+            withContext(Dispatchers.Main.immediate) {
+                catalogOperation = false
+                catalogUpdates.update(phase, processedMovies = processedMovies)
+                if (activeUrlParses == 0) stop()
+            }
+        }
+
+        override fun onDestroy() {
+            if (catalogOperation && catalogUpdates.status.value.isRunning) {
+                catalogUpdates.update(CatalogUpdatePhase.CANCELLED)
+            }
+            super.onDestroy()
         }
 
         /**
@@ -847,76 +913,6 @@
             return FileInputStream(this).use { stream ->
                 stream.read() == 'P'.code && stream.read() == 'K'.code
             }
-        }
-
-        /**
-         * Reads a list of JSON files and converts them into a flat list of {@link Movie} objects.
-         *
-         * @param files List of extracted JSON files.
-         * @param hasUpdateByPeriod If `true`, only the file named `data_0.json` is processed,
-         * otherwise all files are merged together.
-         * @return List of movies parsed from the given files.
-         */
-        private fun readData(files: List<File>, hasUpdateByPeriod: Boolean): List<Movie> {
-            val movies = if (hasUpdateByPeriod) {
-                val targetFile = files.find { it.name == "data_0.json" }
-                if (targetFile != null) {
-                    readFile(targetFile)
-                } else {
-                    getAllMovies(files)
-                }
-            } else {
-                val list = ArrayList<Movie>(10000)
-                val gson = GsonBuilder().setLenient().create()
-                for (file in files) {
-                    var reader: JsonReader? = null
-                    val data: MoviesData? = try {
-                        reader = JsonReader(BufferedReader(FileReader(file)))
-                        gson.fromJson(reader, MoviesData::class.java)
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        null
-                    } finally {
-                        reader?.close()
-                    }
-                    if (data != null) {
-                        list.addAll(data.movies)
-                    }
-                }
-                list
-            }
-            return movies
-        }
-
-        /**
-         * Concatenates movie lists from all JSON files.
-         *
-         * @param files List of extracted JSON files.
-         * @return Combined list of all movies found in the provided files.
-         */
-        private fun getAllMovies(files: List<File>) = files.flatMap {
-            readFile(it)
-        }
-
-        /**
-         * Reads a single JSON file and converts it into a list of {@link Movie} objects.
-         *
-         * @param file File to parse.
-         * @return List of movies contained in the file or an empty list on error.
-         */
-        private fun readFile(file: File): List<Movie> = try {
-            val buf = BufferedInputStream(FileInputStream(file), 32 * 1024)
-            val inputStreamReader = InputStreamReader(buf, StandardCharsets.UTF_8)
-            GsonBuilder()
-                .setLenient()
-                .create()
-                .fromJson(
-                    inputStreamReader,
-                    MoviesData::class.java
-                ).movies
-        } catch (e: Exception) {
-            e.printStackTrace()
-            emptyList()
         }
 
         /**

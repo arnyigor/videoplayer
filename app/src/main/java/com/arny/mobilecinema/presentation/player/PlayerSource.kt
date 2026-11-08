@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.arny.mobilecinema.presentation.player
 
 import android.content.Context

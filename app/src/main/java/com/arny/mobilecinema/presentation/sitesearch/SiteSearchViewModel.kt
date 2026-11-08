@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.presentation.sitesearch
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.data.repository.AppConstants
@@ -12,6 +13,7 @@ import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.SiteSearchItem
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.search.SearchFilters
+import com.arny.mobilecinema.domain.search.RatingSource
 import com.arny.mobilecinema.domain.search.SearchHit
 import com.arny.mobilecinema.domain.search.SearchMerge
 import com.arny.mobilecinema.domain.search.SearchOrigin
@@ -20,6 +22,7 @@ import com.arny.mobilecinema.domain.search.SearchSource
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
 import com.arny.mobilecinema.presentation.utils.strings.IWrappedString
 import com.arny.mobilecinema.presentation.utils.strings.ResourceString
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -66,6 +69,7 @@ data class SearchUiState(
     val hasMoreFilms: Boolean = false,
     val genres: List<String> = emptyList(),
     val yearsRange: SimpleIntRange? = null,
+    val countries: List<String> = emptyList(),
 ) {
     /** Состояние локального источника — для раздельной индикации и текстов. */
     val localSection: ResultSection
@@ -114,6 +118,7 @@ data class SearchUiState(
 class SiteSearchViewModel(
     private val jsoupInteractor: JsoupUpdateInteractor,
     private val moviesInteractor: MoviesInteractor,
+    private val savedStateHandle: SavedStateHandle = SavedStateHandle(),
 ) : ViewModel() {
 
     private companion object {
@@ -122,9 +127,23 @@ class SiteSearchViewModel(
 
         /** Сколько локальных результатов показываем без пагинации. */
         const val LOCAL_LIMIT = 40
+
+        const val QUERY = "search_query"
+        const val SEARCH_TYPE = "search_type"
+        const val SOURCE = "search_source"
+        const val FILTERS = "search_filters"
+        const val EXECUTED_QUERY = "search_executed_query"
+        const val EXECUTED_TYPE = "search_executed_type"
+        const val INITIALIZED = "search_initialized"
     }
 
-    private val _uiState = MutableStateFlow(SearchUiState())
+    private val _uiState = MutableStateFlow(SearchUiState(
+        query = savedStateHandle[QUERY] ?: "",
+        searchType = savedStateHandle[SEARCH_TYPE] ?: AppConstants.SearchType.TITLE,
+        source = SearchSource.entries.firstOrNull { it.name == savedStateHandle.get<String>(SOURCE) } ?: SearchSource.ALL,
+        filters = SearchFilters.decode(savedStateHandle[FILTERS]),
+    ))
+    private var initialized = savedStateHandle.get<Boolean>(INITIALIZED) == true || savedStateHandle.contains(QUERY)
     val uiState = _uiState.asStateFlow()
 
     private val _toast = BufferedChannel<IWrappedString>()
@@ -136,6 +155,10 @@ class SiteSearchViewModel(
     /** Текущий запрос: новый запрос отменяет предыдущий, чтобы устаревший ответ не перетёр свежий. */
     private var searchJob: Job? = null
 
+    // Paging belongs to the submitted search, not to the editable text field.
+    private var activeQuery: String? = null
+    private var activeSearchType: String = AppConstants.SearchType.TITLE
+
     /**
      * Идентификатор актуального запроса (S-015). Сравнения строки запроса мало: при смене scope
      * или фильтров строка прежняя, а выдача должна быть новой. Ответ с чужим id отбрасывается.
@@ -144,6 +167,21 @@ class SiteSearchViewModel(
 
     init {
         loadFilterData()
+        val executedQuery = savedStateHandle.get<String>(EXECUTED_QUERY)
+        if (!executedQuery.isNullOrBlank()) {
+            executeSearch(executedQuery, savedStateHandle[EXECUTED_TYPE] ?: _uiState.value.searchType)
+        }
+    }
+
+    /** Navigation arguments are initial defaults, never an override of a restored search. */
+    fun initialize(query: String, searchType: String, source: SearchSource? = null) {
+        if (initialized) return
+        initialized = true
+        savedStateHandle[INITIALIZED] = true
+        setSearchType(searchType)
+        source?.let(::setSource)
+        setQuery(query)
+        if (query.isNotBlank()) search()
     }
 
     /** Жанры и границы годов для панели фильтров — один раз на экран. */
@@ -151,20 +189,25 @@ class SiteSearchViewModel(
         viewModelScope.launch {
             val genres = runCatching { moviesInteractor.loadCanonicalGenres() }.getOrDefault(emptyList())
             val years = runCatching { moviesInteractor.getMinMaxYears() }.getOrNull()
-            _uiState.update { it.copy(genres = genres, yearsRange = years) }
+            val countries = runCatching { moviesInteractor.getCountries() }.getOrNull().orEmpty()
+            _uiState.update { it.copy(genres = genres, yearsRange = years, countries = countries) }
         }
     }
 
     fun setSearchType(searchType: String) {
+        savedStateHandle[SEARCH_TYPE] = searchType
         _uiState.update { it.copy(searchType = searchType) }
     }
 
     fun setQuery(query: String) {
+        savedStateHandle[QUERY] = query
         _uiState.update { it.copy(query = query) }
+        if (query.isBlank()) search()
     }
 
     fun setSource(source: SearchSource) {
         if (_uiState.value.source == source) return
+        savedStateHandle[SOURCE] = source.name
         _uiState.update { it.copy(source = source) }
         // Смена источника при готовом запросе сразу пересобирает выдачу.
         if (_uiState.value.query.isNotBlank()) {
@@ -173,6 +216,7 @@ class SiteSearchViewModel(
     }
 
     fun setFilters(filters: SearchFilters) {
+        savedStateHandle[FILTERS] = filters.encode()
         _uiState.update { it.copy(filters = filters) }
         if (_uiState.value.query.isNotBlank()) {
             search()
@@ -184,20 +228,31 @@ class SiteSearchViewModel(
     }
 
     fun search() {
-        val query = _uiState.value.query.trim()
+        executeSearch(_uiState.value.query.trim(), _uiState.value.searchType)
+    }
+
+    private fun executeSearch(query: String, searchType: String) {
+        searchJob?.cancel()
+        val generation = ++requestId
         if (query.isBlank()) {
+            savedStateHandle[EXECUTED_QUERY] = null
+            savedStateHandle[EXECUTED_TYPE] = null
+            activeQuery = null
             _uiState.update {
                 it.copy(
                     hits = emptyList(), searched = false, localError = false, remoteError = false,
-                    pendingRequestId = ++requestId
+                    isLoadingLocal = false, isLoadingRemote = false,
+                    filmsPage = 0, hasMoreFilms = false, pendingRequestId = generation,
                 )
             }
             return
         }
         val source = _uiState.value.source
         val filters = _uiState.value.filters
-        searchJob?.cancel()
-        val generation = ++requestId
+        activeQuery = query
+        activeSearchType = searchType
+        savedStateHandle[EXECUTED_QUERY] = query
+        savedStateHandle[EXECUTED_TYPE] = searchType
         searchJob = viewModelScope.launch {
             _uiState.update {
                 it.copy(
@@ -214,18 +269,18 @@ class SiteSearchViewModel(
             }
 
             val local = if (source != SearchSource.REMOTE) {
-                loadLocal(query, filters)
+                loadLocal(query, filters, searchType)
             } else {
                 LocalResult(hits = emptyList(), failed = false)
             }
             // Локальная выдача показывается сразу, не дожидаясь сайта.
             if (generation != requestId) return@launch
-            if (local.hits.isNotEmpty()) {
-                _uiState.update { it.copy(hits = local.hits, isLoadingLocal = false) }
+            _uiState.update {
+                it.copy(hits = local.hits, isLoadingLocal = false, localError = local.failed)
             }
 
             val remote = if (source != SearchSource.LOCAL) {
-                loadRemote(query, page = 1)
+                loadRemote(query, page = 1, searchType = searchType)
             } else {
                 RemoteResult(items = emptyList(), failed = false)
             }
@@ -264,13 +319,14 @@ class SiteSearchViewModel(
             return
         }
         if (state.source == SearchSource.LOCAL) return
-        val query = state.query.trim()
-        if (query.isBlank()) return
-        viewModelScope.launch {
-            val generation = requestId
-            val nextPage = state.filmsPage + 1
-            _uiState.update { it.copy(isLoadingRemote = true) }
-            val remote = loadRemote(query, nextPage)
+        val query = activeQuery ?: return
+        val searchType = activeSearchType
+        val generation = requestId
+        val nextPage = state.filmsPage + 1
+        // Reserve the page before launching so two scroll events cannot request it twice.
+        _uiState.update { it.copy(isLoadingRemote = true) }
+        searchJob = viewModelScope.launch {
+            val remote = loadRemote(query, nextPage, searchType)
             // Пока грузилась страница, запрос или источник могли смениться.
             if (generation != requestId) return@launch
             if (remote.failed) {
@@ -322,7 +378,7 @@ class SiteSearchViewModel(
         }
     }
 
-    private suspend fun loadLocal(query: String, filters: SearchFilters): LocalResult {
+    private suspend fun loadLocal(query: String, filters: SearchFilters, searchType: String): LocalResult {
         val result = runCatching {
             moviesInteractor.searchLocal(
                 query = query,
@@ -332,25 +388,34 @@ class SiteSearchViewModel(
                 years = filters.yearRange,
                 order = filters.sort.order,
                 limit = LOCAL_LIMIT,
-                searchType = _uiState.value.searchType,
+                searchType = searchType,
             )
         }
         return result.fold(
             onSuccess = { movies -> LocalResult(movies.map { it.toHit(query) }, failed = false) },
             onFailure = { error ->
+                if (error is CancellationException) throw error
                 Timber.e(error, "local search failed")
                 LocalResult(emptyList(), failed = true)
             }
         )
     }
 
-    private suspend fun loadRemote(query: String, page: Int): RemoteResult =
-        when (val result = jsoupInteractor.searchOnSite(query = query, page = page, searchType = _uiState.value.searchType)) {
-            is DataResult.Success -> RemoteResult(items = result.result, failed = false)
-            is DataResult.Error -> {
-                Timber.e(result.throwable, "site search failed")
-                RemoteResult(items = emptyList(), failed = true)
+    private suspend fun loadRemote(query: String, page: Int, searchType: String): RemoteResult =
+        try {
+            when (val result = jsoupInteractor.searchOnSite(query = query, page = page, searchType = searchType)) {
+                is DataResult.Success -> RemoteResult(items = result.result, failed = false)
+                is DataResult.Error -> {
+                    if (result.throwable is CancellationException) throw result.throwable
+                    Timber.e(result.throwable, "site search failed")
+                    RemoteResult(items = emptyList(), failed = true)
+                }
             }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Timber.e(error, "site search failed")
+            RemoteResult(items = emptyList(), failed = true)
         }
 
     private fun ViewMovie.toHit(query: String): SearchHit = SearchHit(
@@ -361,6 +426,7 @@ class SiteSearchViewModel(
         kind = MovieType.fromValue(type),
         posterUrl = img,
         rating = ratingImdb.toFloat(),
+        ratingSource = if (ratingImdb > 0.0) RatingSource.IMDB else RatingSource.NONE,
         matchScore = SearchRelevance.score(query, title),
         stableId = dbId,
     )
@@ -374,6 +440,7 @@ class SiteSearchViewModel(
         posterUrl = img,
         description = description,
         rating = rating,
+        ratingSource = if (rating > 0f) RatingSource.SITE else RatingSource.NONE,
         matchScore = SearchRelevance.score(query, title, origTitle),
         siteRef = pageUrl,
     )

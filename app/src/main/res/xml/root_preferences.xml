@@ -50,6 +50,11 @@
             android:key="@string/pref_key_sync_full"
             android:summary="@string/pref_sync_full_summary"
             android:title="@string/pref_sync_full" />
+
+        <Preference
+            android:key="@string/pref_key_sync_cancel"
+            android:title="@string/pref_sync_cancel"
+            app:isPreferenceVisible="false" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="@string/pref_player">

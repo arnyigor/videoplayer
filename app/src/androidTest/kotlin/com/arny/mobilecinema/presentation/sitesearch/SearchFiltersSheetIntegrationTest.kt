@@ -59,9 +59,11 @@ class SearchFiltersSheetIntegrationTest {
             onView(withId(R.id.tiedtYearTo)).check(matches(withText("2024")))
             onView(withId(R.id.actSort)).check(matches(withText(R.string.search_sort_rating)))
             onView(withId(R.id.btnFiltersApply)).perform(click())
+            //  нопка показывает подпись с числом, а не голую цифру: текст и описание совпадают.
+            val appliedLabel = context.getString(R.string.search_filters_count, 2)
             onView(withId(R.id.btnSearchFilters))
-                .check(matches(withContentDescription(context.getString(R.string.search_filters_count, 2))))
-                .check(matches(withText("2")))
+                .check(matches(withContentDescription(appliedLabel)))
+                .check(matches(withText(appliedLabel)))
 
             onView(withId(R.id.btnSearchFilters)).perform(click())
             onView(withId(R.id.btnFiltersReset)).perform(click())

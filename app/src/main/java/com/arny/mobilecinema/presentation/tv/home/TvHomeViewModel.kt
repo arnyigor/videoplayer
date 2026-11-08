@@ -11,6 +11,11 @@ import com.arny.mobilecinema.data.repository.playback.PlaybackProgressStore
 import com.arny.mobilecinema.domain.interactors.history.HistoryInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdateTracker
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdatePhase
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import com.arny.mobilecinema.domain.models.CacheChangeType
 import com.arny.mobilecinema.domain.models.HomeHighlights
 import com.arny.mobilecinema.domain.models.ViewMovie
@@ -42,6 +47,7 @@ class TvHomeViewModel(
     private val moviesInteractor: MoviesInteractor,
     private val historyInteractor: HistoryInteractor,
     private val progressStore: PlaybackProgressStore,
+    private val catalogUpdates: CatalogUpdateTracker = CatalogUpdateTracker(),
 ) : ViewModel() {
 
     private val _updateAvailable = MutableStateFlow(false)
@@ -61,6 +67,18 @@ class TvHomeViewModel(
 
     /** Витрина как на телефоне: новинки, лучшее сейчас, для вас. */
     private val _homeHighlights = MutableStateFlow(HomeHighlights())
+    private val _homeLoading = MutableStateFlow(true)
+    val homeLoading = _homeLoading.asStateFlow()
+    private val _homeError = MutableStateFlow(false)
+    val homeError = _homeError.asStateFlow()
+    val catalogStatus = catalogUpdates.status
+    private var highlightsJob: Job? = null
+    var focusedRowId: String? = null
+        private set
+    fun saveHomeFocus(rowId: String, titleId: Long) {
+        focusedRowId = rowId
+        saveFocusedTitle(titleId)
+    }
     val homeHighlights = _homeHighlights.asStateFlow()
 
     /** Готовый контент главной для Compose: порядок блоков и «Продолжить просмотр». */
@@ -140,6 +158,11 @@ class TvHomeViewModel(
         loadHomeHighlights()
         checkForUpdate()
         observeHistoryChanges()
+        viewModelScope.launch {
+            catalogUpdates.status.collect { status ->
+                if (status.phase == CatalogUpdatePhase.SUCCEEDED) refreshData()
+            }
+        }
     }
 
     fun setContentType(type: HomeContentType) {
@@ -150,14 +173,19 @@ class TvHomeViewModel(
     }
 
     private fun loadHomeHighlights() {
-        viewModelScope.launch {
-            runCatching {
-                moviesInteractor.getHomeHighlights(searchAddTypes = _contentType.value.searchTypes)
-            }.onSuccess { highlights ->
-                _homeHighlights.value = highlights
-            }.onFailure { throwable ->
-                Timber.e(throwable, "Failed to load TV home highlights")
-                _homeHighlights.value = HomeHighlights()
+        highlightsJob?.cancel()
+        _homeLoading.value = true
+        _homeError.value = false
+        highlightsJob = viewModelScope.launch {
+            try {
+                _homeHighlights.value = moviesInteractor.getHomeHighlights(searchAddTypes = _contentType.value.searchTypes)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Timber.e(error, "Failed to load TV home highlights")
+                _homeError.value = true
+            } finally {
+                if (isActive) _homeLoading.value = false
             }
         }
     }
@@ -175,6 +203,7 @@ class TvHomeViewModel(
 
     fun refreshData() {
         _refreshTrigger.value++
+        loadHomeHighlights()
     }
 
     fun reloadHistory() {

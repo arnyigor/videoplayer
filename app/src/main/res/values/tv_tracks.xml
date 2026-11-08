@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_audio_tracks">Звук</string>
+    <string name="tv_audio_default">По умолчанию</string>
+    <string name="tv_track_number">Дорожка %1$d</string>
+</resources>

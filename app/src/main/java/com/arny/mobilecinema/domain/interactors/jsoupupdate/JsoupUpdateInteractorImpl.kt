@@ -45,6 +45,8 @@ import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
+internal const val NOT_FOUND_MESSAGE = "Страница не найдена на сайте (404)"
+
 class JsoupUpdateInteractorImpl constructor(
     private val jsoupService: JsoupService,
     private val repository: JsoupUpdateRepository,
@@ -296,6 +298,27 @@ class JsoupUpdateInteractorImpl constructor(
         try {
             val doc = loadPage(filmLink)
             val code = doc.connection().response().statusCode()
+            // 404 разбирать нечем: страница ошибки иначе превращалась в «фильм» с названием
+            // «Ошибка 404», а поток не завершался — сервис висел, спиннер в деталях крутился вечно.
+            if (code == 404) {
+                val known = dbMovie
+                flowCollector.emit(loading(UpdateType.LINK to NOT_FOUND_MESSAGE))
+                flowCollector.emit(
+                    loading(
+                        UpdateType.MOVIE to (known?.toString() ?: filmLink),
+                        success = false,
+                        complete = true,
+                    )
+                )
+                curTry = 1
+                if (known != null) {
+                    if (ignoreCount >= IGNORE_COUNT_MAX) isParsing = false
+                    ignoreCount++
+                }
+                // Локальные данные не трогаем: карточка могла исчезнуть с сайта,
+                // но сохранённые ссылки продолжают работать.
+                return
+            }
             val anwapMovie = getAnwapMovie(
                 doc = doc,
                 full = false,
@@ -305,21 +328,6 @@ class JsoupUpdateInteractorImpl constructor(
             )
             flowCollector.emit(loading(UpdateType.TITLE to "\"${anwapMovie.title}\""))
             when {
-                code == 404 && dbMovie != null -> {
-                    flowCollector.emit(loading(UpdateType.LINK to "Не найден результат - 404"))
-                    flowCollector.emit(loading(UpdateType.MOVIE to dbMovie.toString()))
-                    curTry = 1
-                    if (ignoreCount >= IGNORE_COUNT_MAX) {
-                        isParsing = false
-                    }
-                    ignoreCount++
-                }
-
-                code == 404 -> {
-                    flowCollector.emit(loading(UpdateType.LINK to "Не найден результат - 404"))
-                    curTry = 1
-                    ignoreCount++
-                }
 
                 dbMovie == null -> {
                     val message = "Новая загрузка \"${anwapMovie.title}\""

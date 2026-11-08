@@ -88,6 +88,7 @@ android {
         }
         getByName("androidTest") {
             java.srcDir("src/androidTest/kotlin")
+            assets.srcDir("$projectDir/schemas")
         }
     }
 
@@ -134,11 +135,12 @@ android {
         }
 
         debug {
-            resValue("string", "app_name", "[DEBUG]Anwap Movies")
-            applicationIdSuffix = if (providers.gradleProperty("perfIsolated").orNull == "true") {
-                ".perfdebug"
-            } else {
-                ".debug"
+            val isolatedTv = providers.gradleProperty("tvIsolated").orNull == "true"
+            resValue("string", "app_name", if (isolatedTv) "[TV TEST]Anwap Movies" else "[DEBUG]Anwap Movies")
+            applicationIdSuffix = when {
+                isolatedTv -> ".tvdebug"
+                providers.gradleProperty("perfIsolated").orNull == "true" -> ".perfdebug"
+                else -> ".debug"
             }
             versionNameSuffix = "-DEBUG"
             isDebuggable = true
@@ -147,11 +149,13 @@ android {
             testProguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguardTest-rules.pro")
         }
     }
-    if (providers.gradleProperty("perfIsolated").orNull == "true") {
-        // Local fixtures are opt-in and never part of production/TV builds.
-        sourceSets.getByName("debug").res.srcDir("src/perfFixtures/res")
-        sourceSets.getByName("benchmark").res.srcDir("src/perfFixtures/res")
-        listOf("debug", "benchmark").forEach { name ->
+    val isolatedPerf = providers.gradleProperty("perfIsolated").orNull == "true"
+    val isolatedTv = providers.gradleProperty("tvIsolated").orNull == "true"
+    if (isolatedPerf || isolatedTv) {
+        // Local fixture networking is enabled only in explicitly isolated test APKs.
+        val fixtureTypes = if (isolatedPerf) listOf("debug", "benchmark") else listOf("debug")
+        fixtureTypes.forEach { name -> sourceSets.getByName(name).res.srcDir("src/perfFixtures/res") }
+        fixtureTypes.forEach { name ->
             buildTypes.getByName(name).apply {
                 buildConfigField("String", "UPDATE_LINK", "\"http://127.0.0.1:8765/update.txt\"")
                 buildConfigField("String", "DATA_0_LINK", "\"http://127.0.0.1:8765/data.zip\"")
@@ -242,8 +246,9 @@ gradle.taskGraph.whenReady {
     val releaseRequested = allTasks.any { task ->
         task.project == project && task.name.lowercase().contains("release")
     }
-    if (releaseRequested && providers.gradleProperty("perfIsolated").orNull == "true") {
-        throw GradleException("perfIsolated is restricted to debug/benchmark fixture APKs, not release.")
+    if (releaseRequested && (providers.gradleProperty("perfIsolated").orNull == "true" ||
+            providers.gradleProperty("tvIsolated").orNull == "true")) {
+        throw GradleException("Isolated fixture APKs are restricted to debug/benchmark, not release.")
     }
     if (releaseRequested && !releaseSigningConfigured) {
         throw GradleException("Release signing is not configured. Provide all ANDROID_* values via the environment or ignored signing.properties.")
@@ -256,7 +261,8 @@ secrets {
     ignoreList.add("sdk.*")
     // Secrets plugin 2.0.1 retains its mutable ignore list across daemon builds.
     ignoreList.removeAll(listOf("UPDATE_LINK", "DATA_0_LINK", "DATA_LINK"))
-    if (providers.gradleProperty("perfIsolated").orNull == "true") {
+    if (providers.gradleProperty("perfIsolated").orNull == "true" ||
+        providers.gradleProperty("tvIsolated").orNull == "true") {
         // Prevent secrets plugin from overwriting isolated fixture endpoints.
         ignoreList.addAll(listOf("UPDATE_LINK", "DATA_0_LINK", "DATA_LINK"))
     }
@@ -353,6 +359,7 @@ dependencies {
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")

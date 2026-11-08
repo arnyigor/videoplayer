@@ -77,56 +77,80 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/filterChipsScroll">
 
-            <com.google.android.material.button.MaterialButtonToggleGroup
-                android:id="@+id/homeContentTypeGroup"
+            <!-- При крупном шрифте ряд прокручивается: подписи не обрезаются и не сжимаются. -->
+            <HorizontalScrollView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                app:checkedButton="@id/btnHomeContentAll"
-                app:selectionRequired="true"
-                app:singleSelection="true">
+                android:fillViewport="false"
+                android:scrollbars="none">
 
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnHomeContentAll"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/homeContentTypeGroup"
                     android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:checkable="true"
-                    android:text="@string/home_content_all"
-                    android:textColor="@color/home_content_toggle_text"
-                    app:backgroundTint="@color/home_content_toggle_bg"
-                    app:cornerRadius="8dp"
-                    app:strokeColor="@color/home_content_toggle_stroke"
-                    app:strokeWidth="1dp" />
+                    android:layout_height="wrap_content"
+                    app:checkedButton="@id/btnHomeContentAll"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnHomeContentCinema"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:checkable="true"
-                    android:text="@string/home_content_cinema"
-                    android:textColor="@color/home_content_toggle_text"
-                    app:backgroundTint="@color/home_content_toggle_bg"
-                    app:cornerRadius="8dp"
-                    app:strokeColor="@color/home_content_toggle_stroke"
-                    app:strokeWidth="1dp" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnHomeContentSerial"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:checkable="true"
-                    android:text="@string/home_content_serial"
-                    android:textColor="@color/home_content_toggle_text"
-                    app:backgroundTint="@color/home_content_toggle_bg"
-                    app:cornerRadius="8dp"
-                    app:strokeColor="@color/home_content_toggle_stroke"
-                    app:strokeWidth="1dp" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHomeContentAll"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:maxLines="1"
+                        android:ellipsize="none"
+                        android:paddingHorizontal="10dp"
+                        android:checkable="true"
+                        android:text="@string/home_content_all"
+                        android:textColor="@color/home_content_toggle_text"
+                        app:backgroundTint="@color/home_content_toggle_bg"
+                        app:cornerRadius="8dp"
+                        app:strokeColor="@color/home_content_toggle_stroke"
+                        app:strokeWidth="1dp" />
 
-            </com.google.android.material.button.MaterialButtonToggleGroup>
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHomeContentCinema"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:maxLines="1"
+                        android:ellipsize="none"
+                        android:paddingHorizontal="10dp"
+                        android:checkable="true"
+                        android:text="@string/home_content_cinema"
+                        android:textColor="@color/home_content_toggle_text"
+                        app:backgroundTint="@color/home_content_toggle_bg"
+                        app:cornerRadius="8dp"
+                        app:strokeColor="@color/home_content_toggle_stroke"
+                        app:strokeWidth="1dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnHomeContentSerial"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:maxLines="1"
+                        android:ellipsize="none"
+                        android:paddingHorizontal="10dp"
+                        android:checkable="true"
+                        android:text="@string/home_content_serial"
+                        android:textColor="@color/home_content_toggle_text"
+                        app:backgroundTint="@color/home_content_toggle_bg"
+                        app:cornerRadius="8dp"
+                        app:strokeColor="@color/home_content_toggle_stroke"
+                        app:strokeWidth="1dp" />
+
+                </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            </HorizontalScrollView>
 
             <ImageButton
                 android:id="@+id/btnCatalogSort"
@@ -136,7 +160,7 @@
                 android:contentDescription="@string/catalog_sort_title"
                 android:padding="12dp"
                 android:src="@drawable/ic_sort"
-                android:tint="@color/home_content_toggle_text" />
+                app:tint="@color/home_content_toggle_text" />
         </LinearLayout>
 
         <!-- Градиент снизу списка -->

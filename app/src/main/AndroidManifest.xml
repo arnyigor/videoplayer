@@ -25,6 +25,7 @@
     <uses-permission android:name="android.permission.STORAGE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:name=".VideoApp"
@@ -78,14 +79,14 @@
         <service
             android:name=".presentation.services.UpdateService"
             android:enabled="true"
-            android:foregroundServiceType="mediaPlayback"
+            android:foregroundServiceType="dataSync"
             android:exported="false"
             android:stopWithTask="false" />
 
         <service
             android:name=".presentation.services.MovieDownloadService"
             android:enabled="true"
-            android:foregroundServiceType="mediaPlayback"
+            android:foregroundServiceType="dataSync"
             android:exported="false" />
     </application>
 </manifest>

@@ -20,6 +20,8 @@
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:itemTextAppearance">@style/ItemMenuTextAppearance</item>
         <item name="popupMenuStyle">@style/popupMenuStyle</item>
+        <item name="actionOverflowMenuStyle">@style/popupMenuStyle</item>
+        <item name="android:actionOverflowMenuStyle">@style/popupMenuStyle</item>
 
         <item name="md_background_color">@color/colorPrimaryDark</item>
         <item name="md_color_title">@color/textColorPrimary</item>
@@ -36,13 +38,19 @@
         <item name="materialButtonStyle">@style/AccentButton</item>
     </style>
 
-    <style name="ItemMenuTextAppearance">
-        <item name="android:textColor">@color/colorPrimaryDark</item>
-        <item name="android:itemBackground">@android:color/white</item>
+    <!-- S-021: меню в цветах приложения, а не белая плашка на тёмном экране. -->
+    <style name="ItemMenuTextAppearance" parent="TextAppearance.AppCompat.Widget.PopupMenu.Large">
+        <item name="android:textColor">@color/textColorPrimary</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:itemBackground">@color/colorPrimaryDark</item>
     </style>
 
     <style name="popupMenuStyle" parent="Widget.MaterialComponents.PopupMenu">
-        <item name="android:popupBackground">@android:color/white</item>
+        <item name="android:popupBackground">@color/colorPrimaryDark</item>
+        <item name="android:itemBackground">@color/colorPrimaryDark</item>
+        <item name="android:colorBackground">@color/colorPrimaryDark</item>
+        <item name="android:textColor">@color/textColorPrimary</item>
+        <item name="actionOverflowMenuStyle">@style/popupMenuStyle</item>
     </style>
 
     <!--Input label style-->
@@ -56,6 +64,9 @@
     </style>
 
 <style name="MyDialogStyle" parent="Theme.MaterialComponents.DayNight.Dialog">
+        <!-- Радиокнопки/чекбоксы в диалогах: единый акцент вместо вторичного бирюзового. -->
+        <item name="colorSecondary">@color/colorAccent</item>
+        <item name="colorControlActivated">@color/colorAccent</item>
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
@@ -94,6 +105,9 @@
 
 <!-- TV Styles -->
     <style name="AppTheme.TV" parent="Theme.Leanback">
+        <!-- Платформенные диалоги берут активный цвет контролов из темы активности. -->
+        <item name="android:colorControlActivated">@color/colorAccent</item>
+        <item name="android:colorAccent">@color/colorAccent</item>
         <!-- Штатный стиль подзаголовка ограничен одной строкой: год/сезоны/страны/рейтинги
              обрезались многоточием. -->
         <item name="detailsDescriptionSubtitleStyle">@style/TvDetailsDescriptionSubtitleStyle</item>
@@ -115,6 +129,10 @@
         <item name="android:textColorPrimary">@color/textColorPrimary</item>
         <item name="android:windowBackground">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <!-- Радиокнопки в списках выбора берут вторичный акцент; сводим к основному. -->
+        <item name="colorSecondary">@color/colorAccent</item>
+        <item name="colorControlActivated">@color/colorAccent</item>
+        <item name="android:colorControlActivated">@color/colorAccent</item>
         <item name="android:windowTitleStyle">@style/DialogTitleStyle</item>
         <item name="windowNoTitle">true</item>
     </style>

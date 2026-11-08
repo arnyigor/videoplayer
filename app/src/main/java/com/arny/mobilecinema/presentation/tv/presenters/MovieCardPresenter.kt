@@ -1,16 +1,17 @@
 package com.arny.mobilecinema.presentation.tv.presenters
 
+import com.arny.mobilecinema.presentation.utils.loadPoster
+import com.arny.mobilecinema.presentation.utils.clearPoster
+
 import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.prefs.Prefs
-import com.arny.mobilecinema.data.utils.getWithDomain
 import com.arny.mobilecinema.presentation.utils.dpToPx
 import com.arny.mobilecinema.domain.models.PrefsConstants
 import com.arny.mobilecinema.domain.models.ViewMovie
-import com.bumptech.glide.Glide
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -53,17 +54,7 @@ class MovieCardPresenter : Presenter(), KoinComponent {
 
             TvCardFocusHelper.applyFocusState(this, hasFocus())
 
-            if (movie.img.isNotBlank()) {
-                val fullUrl = movie.img.getWithDomain(baseUrl)
-                Glide.with(context)
-                    .load(fullUrl)
-                    .centerCrop()
-                    .placeholder(R.drawable.placeholder_movie)
-                    .error(R.drawable.placeholder_movie)
-                    .into(mainImageView!!)
-            } else {
-                mainImageView?.setImageResource(R.drawable.placeholder_movie)
-            }
+            mainImageView?.loadPoster(movie.img, baseUrl)
         }
     }
 
@@ -71,6 +62,7 @@ class MovieCardPresenter : Presenter(), KoinComponent {
         val cardView = viewHolder.view as ImageCardView
         TvCardFocusHelper.reset(cardView)
         cardView.badgeImage = null
+        cardView.mainImageView?.clearPoster()
         cardView.mainImage = null
     }
 }

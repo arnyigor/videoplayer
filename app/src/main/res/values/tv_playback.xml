@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_sources_unavailable">Не удалось воспроизвести ни одну ссылку. Повторите попытку позже или вернитесь в карточку и обновите данные.</string>
+</resources>

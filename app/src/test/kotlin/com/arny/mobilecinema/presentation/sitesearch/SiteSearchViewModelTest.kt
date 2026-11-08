@@ -1,5 +1,10 @@
 package com.arny.mobilecinema.presentation.sitesearch
 
+import androidx.lifecycle.SavedStateHandle
+import com.arny.mobilecinema.data.repository.AppConstants
+import com.arny.mobilecinema.domain.search.SearchFilters
+import com.arny.mobilecinema.domain.search.SearchSort
+
 import com.arny.mobilecinema.data.models.DataResult
 import com.arny.mobilecinema.domain.interactors.jsoupupdate.JsoupUpdateInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
@@ -73,6 +78,206 @@ class SiteSearchViewModelTest {
             override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> =
                 gate.await()
         }
+
+    private fun restoredHandle(handle: SavedStateHandle) = SavedStateHandle(
+        handle.keys().associateWith { handle.get<Any?>(it) }
+    )
+
+    @Test
+    fun `restoration preserves query source filters and sort instead of navigation defaults`() = scope.runTest {
+        val handle = SavedStateHandle()
+        val filters = SearchFilters(kinds = listOf(MovieType.CINEMA), genre = "Action", country = "USA",
+            yearFrom = 1999, yearTo = 2020, sort = SearchSort.RATING)
+        val remote = site(CompletableDeferred(DataResult.Success(emptyList())))
+        val first = SiteSearchViewModel(remote, movies(emptyList()), handle)
+        first.initialize("matrix", AppConstants.SearchType.TITLE, SearchSource.LOCAL)
+        first.setFilters(filters)
+        advanceUntilIdle()
+        val restored = SiteSearchViewModel(remote, movies(emptyList()), restoredHandle(handle))
+        restored.initialize("old navigation query", AppConstants.SearchType.DIRECTORS, SearchSource.REMOTE)
+        advanceUntilIdle()
+        assertEquals("matrix", restored.uiState.value.query)
+        assertEquals(SearchSource.LOCAL, restored.uiState.value.source)
+        assertEquals(AppConstants.SearchType.TITLE, restored.uiState.value.searchType)
+        assertEquals(filters, restored.uiState.value.filters)
+        assertTrue(restored.uiState.value.searched)
+    }
+
+    @Test
+    fun `unsubmitted draft survives without silently executing it`() = scope.runTest {
+        var requests = 0
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> {
+                requests++
+                return DataResult.Success(emptyList())
+            }
+        }
+        val handle = SavedStateHandle()
+        val first = SiteSearchViewModel(remote, movies(emptyList()), handle)
+        first.initialize("", AppConstants.SearchType.TITLE, SearchSource.REMOTE)
+        first.setQuery("draft")
+        val restored = SiteSearchViewModel(remote, movies(emptyList()), restoredHandle(handle))
+        restored.initialize("navigation default", AppConstants.SearchType.TITLE)
+        advanceUntilIdle()
+        assertEquals("draft", restored.uiState.value.query)
+        assertFalse(restored.uiState.value.searched)
+        assertEquals(0, requests)
+    }
+
+    @Test
+    fun `restored paging belongs to executed query and type while preserving draft`() = scope.runTest {
+        val calls = mutableListOf<Triple<String, Int, String>>()
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> {
+                calls += Triple(query, page, searchType)
+                return DataResult.Success((1..10).map {
+                    SiteSearchItem(title = "$query $it", pageUrl = "/films/${page * 100 + it}", type = MovieType.CINEMA)
+                })
+            }
+        }
+        val handle = SavedStateHandle()
+        val first = SiteSearchViewModel(remote, movies(emptyList()), handle)
+        first.initialize("matrix", AppConstants.SearchType.TITLE, SearchSource.REMOTE)
+        advanceUntilIdle()
+        first.setQuery("alien")
+        first.setSearchType(AppConstants.SearchType.DIRECTORS)
+        val restored = SiteSearchViewModel(remote, movies(emptyList()), restoredHandle(handle))
+        advanceUntilIdle()
+        restored.loadMore()
+        advanceUntilIdle()
+        assertEquals("alien", restored.uiState.value.query)
+        assertEquals(AppConstants.SearchType.DIRECTORS, restored.uiState.value.searchType)
+        assertEquals(listOf(Triple("matrix", 1, AppConstants.SearchType.TITLE),
+            Triple("matrix", 1, AppConstants.SearchType.TITLE), Triple("matrix", 2, AppConstants.SearchType.TITLE)), calls)
+    }
+
+    @Test
+    fun `initializing existing view model does not reset or repeat search`() = scope.runTest {
+        var requests = 0
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> {
+                requests++
+                return DataResult.Success(emptyList())
+            }
+        }
+        val vm = SiteSearchViewModel(remote, movies(emptyList()))
+        vm.initialize("matrix", AppConstants.SearchType.TITLE, SearchSource.REMOTE)
+        advanceUntilIdle()
+        vm.setQuery("new draft")
+        vm.initialize("matrix", AppConstants.SearchType.TITLE, SearchSource.LOCAL)
+        advanceUntilIdle()
+        assertEquals(1, requests)
+        assertEquals("new draft", vm.uiState.value.query)
+        assertEquals(SearchSource.REMOTE, vm.uiState.value.source)
+    }
+
+    @Test
+    fun `cleared query is not resubmitted on restoration`() = scope.runTest {
+        val handle = SavedStateHandle()
+        val remote = site(CompletableDeferred(DataResult.Success(emptyList())))
+        val first = SiteSearchViewModel(remote, movies(emptyList()), handle)
+        first.initialize("matrix", AppConstants.SearchType.TITLE)
+        advanceUntilIdle()
+        first.setQuery("")
+        val restored = SiteSearchViewModel(remote, movies(emptyList()), restoredHandle(handle))
+        advanceUntilIdle()
+        assertEquals("", restored.uiState.value.query)
+        assertFalse(restored.uiState.value.searched)
+        assertFalse(restored.uiState.value.isLoading)
+    }
+
+    @Test
+    fun `clearing query cancels search and resets loading and paging`() = scope.runTest {
+        var cancelled = false
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> {
+                try {
+                    return CompletableDeferred<DataResult<List<SiteSearchItem>>>().await()
+                } finally {
+                    cancelled = true
+                }
+            }
+        }
+        val viewModel = SiteSearchViewModel(remote, movies(emptyList()))
+        viewModel.setQuery("matrix")
+        viewModel.search()
+        runCurrent()
+        assertTrue(viewModel.uiState.value.isLoadingRemote)
+        viewModel.setQuery("")
+        viewModel.search()
+        runCurrent()
+        assertTrue(cancelled)
+        val state = viewModel.uiState.value
+        assertFalse(state.isLoading)
+        assertFalse(state.searched)
+        assertFalse(state.hasMoreFilms)
+        assertEquals(0, state.filmsPage)
+        assertTrue(state.hits.isEmpty())
+    }
+
+    @Test
+    fun `empty local section completes before slow site`() = scope.runTest {
+        val gate = CompletableDeferred<DataResult<List<SiteSearchItem>>>()
+        val viewModel = SiteSearchViewModel(site(gate), movies(emptyList()))
+        viewModel.setQuery("matrix")
+        viewModel.search()
+        runCurrent()
+        assertEquals(ResultSection.EMPTY, viewModel.uiState.value.localSection)
+        assertEquals(ResultSection.LOADING, viewModel.uiState.value.remoteSection)
+        gate.complete(DataResult.Success(emptyList()))
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `local error is published before slow site`() = scope.runTest {
+        val gate = CompletableDeferred<DataResult<List<SiteSearchItem>>>()
+        val viewModel = SiteSearchViewModel(site(gate), movies(emptyList(), fail = true))
+        viewModel.setQuery("matrix")
+        viewModel.search()
+        runCurrent()
+        assertEquals(ResultSection.ERROR, viewModel.uiState.value.localSection)
+        assertEquals(ResultSection.LOADING, viewModel.uiState.value.remoteSection)
+        gate.complete(DataResult.Success(emptyList()))
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `paging uses executed query instead of unsubmitted text and starts only once`() = scope.runTest {
+        val calls = mutableListOf<Pair<String, Int>>()
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> {
+                calls += query to page
+                return DataResult.Success((1..10).map {
+                    SiteSearchItem(title = "$query $page $it", pageUrl = "/films/${page * 100 + it}", type = MovieType.CINEMA)
+                })
+            }
+        }
+        val viewModel = SiteSearchViewModel(remote, movies(emptyList()))
+        viewModel.setSource(SearchSource.REMOTE)
+        viewModel.setQuery("matrix")
+        viewModel.search()
+        advanceUntilIdle()
+        viewModel.setQuery("alien")
+        viewModel.loadMore()
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertEquals(listOf("matrix" to 1, "matrix" to 2), calls)
+        assertEquals(20, viewModel.uiState.value.hits.size)
+    }
+
+    @Test
+    fun `unexpected remote exception finishes loading with source error`() = scope.runTest {
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> =
+                error("unexpected network failure")
+        }
+        val viewModel = SiteSearchViewModel(remote, movies(emptyList()))
+        viewModel.setQuery("matrix")
+        viewModel.search()
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isLoading)
+        assertEquals(ResultSection.ERROR, viewModel.uiState.value.remoteSection)
+    }
 
     @Test
     fun `local hits appear while slow site is still loading`() = scope.runTest {

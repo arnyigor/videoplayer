@@ -1,5 +1,6 @@
 package com.arny.mobilecinema.presentation.catalog
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
@@ -20,19 +21,22 @@ import timber.log.Timber
 class CatalogViewModel(
     private val moviesInteractor: MoviesInteractor,
     sectionKey: String,
+    private val savedState: SavedStateHandle = SavedStateHandle(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
-        CatalogUiState(section = CatalogSection.fromKey(sectionKey))
+        CatalogUiState(section = CatalogSection.fromKey(sectionKey),
+            genre = savedState["genre"],
+            sort = CatalogSort.entries.firstOrNull { it.name == savedState.get<String>("sort") } ?: CatalogSort.NEW)
     )
     val uiState = _uiState.asStateFlow()
 
-    var gridFirstIndex: Int = 0
+    var gridFirstIndex: Int = savedState["grid_index"] ?: 0
         private set
-    var gridScrollOffset: Int = 0
+    var gridScrollOffset: Int = savedState["grid_offset"] ?: 0
         private set
 
-    var focusedTitleId: Long? = null
+    var focusedTitleId: Long? = savedState["focused_id"]
         private set
 
     private var pageJob: Job? = null
@@ -45,20 +49,27 @@ class CatalogViewModel(
     fun saveGridScroll(index: Int, offset: Int) {
         gridFirstIndex = index
         gridScrollOffset = offset
+        savedState["grid_index"] = index
+        savedState["grid_offset"] = offset
     }
 
     fun saveFocusedTitle(titleId: Long?) {
         focusedTitleId = titleId
+        savedState["focused_id"] = titleId
     }
 
     fun selectGenre(genre: String?) {
         if (_uiState.value.genre == genre) return
+        savedState["genre"] = genre
+        resetGrid()
         _uiState.update { CatalogPaging.withFilter(it, genre = genre) }
         reload()
     }
 
     fun selectSort(sort: CatalogSort) {
         if (_uiState.value.sort == sort) return
+        savedState["sort"] = sort.name
+        resetGrid()
         _uiState.update { CatalogPaging.withFilter(it, sort = sort) }
         reload()
     }
@@ -69,8 +80,20 @@ class CatalogViewModel(
     }
 
     fun retry() {
-        _uiState.update { it.copy(items = emptyList(), isLoading = true, error = false, endReached = false) }
-        reload()
+        val state = _uiState.value
+        if (state.isLoadingMore) return
+        if (state.error && state.items.isNotEmpty()) {
+            _uiState.update(CatalogPaging::withLoadingMore)
+            loadPage(reset = false)
+        } else {
+            _uiState.update { it.copy(items = emptyList(), isLoading = true, error = false, endReached = false) }
+            reload()
+        }
+    }
+
+    private fun resetGrid() {
+        saveGridScroll(0, 0)
+        saveFocusedTitle(null)
     }
 
     /** Сетка сообщает о подходе к концу списка; повторные вызовы отсекаются флагами состояния. */
@@ -95,7 +118,7 @@ class CatalogViewModel(
                     movieType = state.section.movieType,
                     order = state.sort.order,
                     genres = listOfNotNull(state.genre),
-                    limit = CatalogPaging.PAGE_SIZE,
+                    limit = if (reset) maxOf(CatalogPaging.PAGE_SIZE, gridFirstIndex + CatalogPaging.PAGE_SIZE) else CatalogPaging.PAGE_SIZE,
                     offset = offset,
                 )
                 _uiState.update { CatalogPaging.withNextPage(it, page) }

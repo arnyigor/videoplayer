@@ -18,6 +18,15 @@ enum class SearchOrigin {
     SITE,
 }
 
+/** Откуда взялся рейтинг в результате: без подписи число непонятно пользователю. */
+enum class RatingSource {
+    NONE,
+    /** Каталог хранит IMDb. */
+    IMDB,
+    /** Сайт отдаёт своё значение из карточки выдачи. */
+    SITE,
+}
+
 /**
  * Одна модель результата для двух источников (аудит v2, §4.3).
  *
@@ -33,6 +42,7 @@ data class SearchHit(
     val posterUrl: String = "",
     val description: String = "",
     val rating: Float = 0f,
+    val ratingSource: RatingSource = RatingSource.NONE,
     val matchScore: Int = 0,
     /** dbId локального тайтла; null для результата, которого нет в каталоге. */
     val stableId: Long? = null,

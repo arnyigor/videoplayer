@@ -1,6 +1,7 @@
 package com.arny.mobilecinema.presentation.tv.ui.catalog
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -79,11 +81,13 @@ fun CatalogScreen(
             title = stringResource(state.section.titleRes),
             count = state.items.size.takeIf { it > 0 },
         )
-        Row(
+        // Прокручиваемый ряд: в обычном Row длинные подписи не помещались по ширине,
+        // текст переносился, и ряд вырастал почти на пол-экрана, уводя сетку вниз.
+        LazyRow(
             modifier = Modifier.padding(horizontal = TvDimens.ScreenHorizontal),
             horizontalArrangement = Arrangement.spacedBy(TvDimens.CardGap),
         ) {
-            CatalogSort.entries.forEach { sort ->
+            items(items = CatalogSort.entries, key = { it.name }) { sort ->
                 TvFilterChip(
                     label = stringResource(sort.titleRes),
                     selected = state.sort == sort,
@@ -111,6 +115,7 @@ fun CatalogScreen(
                     gridState = gridState,
                     onOpenTitle = onOpenTitle,
                     onLoadMore = onLoadMore,
+                    onRetry = onRetry,
                     restoreFocusTitleId = restoreFocusTitleId,
                     onTitleFocused = onTitleFocused,
                     imageBaseUrl = imageBaseUrl,
@@ -160,6 +165,7 @@ private fun CatalogGrid(
     restoreFocusTitleId: Long?,
     onTitleFocused: (Long) -> Unit,
     imageBaseUrl: String,
+    onRetry: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
     var focusRestored by remember { mutableStateOf(false) }
@@ -221,6 +227,11 @@ private fun CatalogGrid(
                             if (focusState.isFocused) onTitleFocused(movie.dbId)
                         },
                 )
+            }
+        }
+        if (state.error) {
+            item(key = "append-error", span = { GridItemSpan(maxLineSpan) }) {
+                TvErrorState(stringResource(R.string.tv_catalog_error), onRetry, Modifier.height(240.dp))
             }
         }
     }

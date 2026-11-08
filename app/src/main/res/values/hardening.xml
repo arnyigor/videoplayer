@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="download_save_failed">Не удалось сохранить файл в «Загрузки». Загруженный оригинал сохранён во внутреннем хранилище приложения.</string>
+    <string name="catalog_update_interrupted">Обновление прервано перезапуском приложения. Запустите его повторно.</string>
+    <item name="poster_image" type="id" />
+</resources>

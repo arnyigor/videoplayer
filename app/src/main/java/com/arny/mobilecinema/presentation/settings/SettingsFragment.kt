@@ -10,6 +10,7 @@ import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceScreen
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdatePhase
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.toast
 import com.arny.mobilecinema.presentation.utils.updateTitle
@@ -97,6 +98,12 @@ class SettingsFragment : PreferenceFragmentCompat(), KoinComponent {
                 true
             }
 
+        findPreference<Preference>(getString(R.string.pref_key_sync_cancel))
+            ?.setOnPreferenceClickListener {
+                syncViewModel.cancelUpdate()
+                true
+            }
+
         // lifecycle фрагмента, а не viewLifecycleOwner: onCreatePreferences вызывается
         // до создания view, и viewLifecycleOwner там ещё не существует.
         lifecycleScope.launch {
@@ -111,10 +118,30 @@ class SettingsFragment : PreferenceFragmentCompat(), KoinComponent {
     private fun renderSyncState(state: CatalogSyncState) {
         val status = findPreference<Preference>(getString(R.string.pref_key_sync_status)) ?: return
         val date = state.updateDate
+        val busy = state.isChecking || state.isLoading
+        findPreference<Preference>(getString(R.string.pref_key_sync_check))?.isEnabled = !busy
+        findPreference<Preference>(getString(R.string.pref_key_sync_load))?.isEnabled = !busy && date != null
+        findPreference<Preference>(getString(R.string.pref_key_sync_full))?.isEnabled = !busy
+        findPreference<Preference>(getString(R.string.pref_key_sync_cancel))?.isVisible = state.isLoading
         status.summary = when {
+            state.phase == CatalogUpdatePhase.INTERRUPTED -> getString(R.string.catalog_update_interrupted)
+            state.isLoading -> {
+                val stage = getString(when (state.phase) {
+                    CatalogUpdatePhase.DOWNLOADING -> R.string.pref_sync_downloading
+                    CatalogUpdatePhase.UNPACKING -> R.string.pref_sync_unpacking
+                    CatalogUpdatePhase.IMPORTING -> R.string.pref_sync_importing
+                    CatalogUpdatePhase.SCRAPING -> R.string.pref_sync_scraping
+                    else -> R.string.pref_sync_status_started
+                })
+                state.progress?.let { getString(R.string.pref_sync_progress, stage, it) } ?: stage
+            }
             state.isChecking -> getString(R.string.pref_sync_checking)
             state.error -> getString(R.string.pref_sync_status_error)
             date != null -> getString(R.string.pref_sync_status_available, date)
+            state.lastResult == SyncResult.SUCCEEDED -> state.processedMovies?.let {
+                getString(R.string.pref_sync_success_count, it)
+            } ?: getString(R.string.pref_sync_success)
+            state.lastResult == SyncResult.CANCELLED -> getString(R.string.pref_sync_cancelled)
             state.lastResult == SyncResult.CHECKED_NO_UPDATE -> getString(R.string.pref_sync_status_no_update)
             state.lastResult == SyncResult.LOADING_STARTED ||
                     state.lastResult == SyncResult.LOADING_IN_PROGRESS ->
@@ -152,7 +179,7 @@ class SettingsFragment : PreferenceFragmentCompat(), KoinComponent {
             shownError = true
             alertDialog(
                 title = getString(R.string.error_loading_data),
-                content = getString(R.string.internet_connection_error),
+                content = getString(R.string.pref_sync_status_error),
                 cancelable = true,
             )
         }

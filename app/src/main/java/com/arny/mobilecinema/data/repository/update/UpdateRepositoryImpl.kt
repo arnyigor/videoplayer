@@ -27,7 +27,10 @@ import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
 import com.arny.mobilecinema.presentation.utils.DeviceUtils
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.withContext
@@ -172,74 +175,83 @@ class UpdateRepositoryImpl constructor(
         forceAll: Boolean,
         onUpdate: (ind: Int) -> Unit
     ) {
-        var entity = MovieEntity()
-        val size = movies.size
-        val currentDbCount = moviesDao.getCount()
-        if (currentDbCount == 0) {
-            validateFullUpdatePayloadSize(size, currentDbCount, forceAll)
-            for ((ind, movie) in movies.withIndex()) {
-                entity = entity.setData(movie)
-                moviesDao.insert(entity)
-                if (ind % 1000 == 0) {
-                    onUpdate(getPercent(ind, size))
-                }
-            }
-        } else {
-            // remove movies each not in updates
-            if (!hasLastYearUpdate && forceAll) {
+        moviesDao.updateCatalog {
+            currentCoroutineContext().ensureActive()
+            var entity = MovieEntity()
+            val size = movies.size
+            val currentDbCount = moviesDao.getCount()
+            if (currentDbCount == 0) {
                 validateFullUpdatePayloadSize(size, currentDbCount, forceAll)
-                removeNotInUpdates(movies)
-            }
-            val dbList = moviesDao.getUpdateMovies()
-            val dbMoviesByPageUrl = dbList.groupBy { it.pageUrl }
-            val moviesByTitle = movies.associateBy { it.title.lowercase() }
-            var lastId = moviesDao.getLastId()
-
-            movies.forEachIndexed { index, movie ->
-                val dbMovies = dbMoviesByPageUrl[movie.pageUrl].orEmpty()
-                val notCorrectDbMovies = dbMovies.filter { isEqualsUrlAndNotTitle(it, movie) }
-                for (ncm in notCorrectDbMovies) {
-                    entity.clear()
-                    // Ищем в серверных данных фильм с тем же названием
-                    val correctMovie = moviesByTitle[ncm.title.lowercase()] ?: continue
-
-                    // Создаём новую сущность из серверного DTO и сохраняем старый dbId
-                    entity = entity.setData(correctMovie).copy(
-                        dbId = ncm.dbId,
-                        detailsFetchedAt = ncm.detailsFetchedAt
-                    )
-
-                    // Проверяем, не существует ли уже строка с таким title+pageUrl
-                    val conflict = moviesDao.findByTitleAndPageUrl(entity.title, entity.pageUrl)
-
-                    if (conflict != null && conflict.dbId != entity.dbId) {
-                        moviesDao.safeUpsert(entity)
-                    } else {
-                        moviesDao.insert(entity)
+                for ((ind, movie) in movies.withIndex()) {
+                    currentCoroutineContext().ensureActive()
+                    entity = entity.setData(movie)
+                    moviesDao.insert(entity)
+                    if (ind % 1000 == 0) {
+                        onUpdate(getPercent(ind, size))
                     }
                 }
-                val dbMovie = dbMovies.find { isEqualsUrlAndTitle(it, movie) }
-                entity.clear()
-                try {
-                    val dbId = dbMovie?.dbId
-                    if (dbId != null) {
-                        entity = entity.setData(movie).copy(
-                            dbId = dbId,
-                            detailsFetchedAt = dbMovie.detailsFetchedAt
+            } else {
+                // remove movies each not in updates
+                if (!hasLastYearUpdate && forceAll) {
+                    validateFullUpdatePayloadSize(size, currentDbCount, forceAll)
+                    removeNotInUpdates(movies)
+                }
+                val dbList = moviesDao.getUpdateMovies()
+                val dbMoviesByPageUrl = dbList.groupBy { it.pageUrl }
+                val moviesByTitle = movies.associateBy { it.title.lowercase() }
+                var lastId = moviesDao.getLastId()
+
+                movies.forEachIndexed { index, movie ->
+                    currentCoroutineContext().ensureActive()
+                    val dbMovies = dbMoviesByPageUrl[movie.pageUrl].orEmpty()
+                    val notCorrectDbMovies = dbMovies.filter { isEqualsUrlAndNotTitle(it, movie) }
+                    for (ncm in notCorrectDbMovies) {
+                        entity.clear()
+                        // Ищем в серверных данных фильм с тем же названием
+                        val correctMovie = moviesByTitle[ncm.title.lowercase()] ?: continue
+
+                        // Создаём новую сущность из серверного DTO и сохраняем старый dbId
+                        entity = entity.setData(correctMovie).copy(
+                            dbId = ncm.dbId,
+                            detailsFetchedAt = ncm.detailsFetchedAt
                         )
-                        moviesDao.update(entity)
-                    } else {
-                        lastId += 1
-                        entity = entity.setData(movie).copy(dbId = lastId)
-                        moviesDao.insert(entity)
+
+                        // Проверяем, не существует ли уже строка с таким title+pageUrl
+                        val conflict = moviesDao.findByTitleAndPageUrl(entity.title, entity.pageUrl)
+
+                        if (conflict != null && conflict.dbId != entity.dbId) {
+                            moviesDao.safeUpsert(entity)
+                        } else {
+                            moviesDao.insert(entity)
+                        }
                     }
-                } catch (e: Exception) {
-                    error("Update error for $entity has error:${e.stackTraceToString()}")
-                }
-                if (index % 1000 == 0) {
-                    onUpdate(getPercent(index, size))
+                    val dbMovie = dbMovies.find { isEqualsUrlAndTitle(it, movie) }
+                    entity.clear()
+                    try {
+                        val dbId = dbMovie?.dbId
+                        if (dbId != null) {
+                            entity = entity.setData(movie).copy(
+                                dbId = dbId,
+                                detailsFetchedAt = dbMovie.detailsFetchedAt
+                            )
+                            moviesDao.update(entity)
+                        } else {
+                            lastId += 1
+                            entity = entity.setData(movie).copy(dbId = lastId)
+                            moviesDao.insert(entity)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        error("Update error for $entity has error:${e.stackTraceToString()}")
+                    }
+                    if (index % 1000 == 0) {
+                        onUpdate(getPercent(index, size))
+                    }
                 }
             }
+            onUpdate(100)
+            currentCoroutineContext().ensureActive()
         }
     }
 
@@ -264,7 +276,7 @@ class UpdateRepositoryImpl constructor(
     ) {
         val moviesDiff = diffByGroup(moviesUpdates, moviesDao.getUpdateMovies())
         val dbMoviesNotInUpdates = moviesDiff.filterIsInstance<MovieUpdate>()
-        moviesDao.deleteAll(dbMoviesNotInUpdates.map { it.dbId })
+        moviesDao.deleteUnreferenced(dbMoviesNotInUpdates.map { it.dbId })
     }
 
     private fun isEqualsUrlAndTitle(

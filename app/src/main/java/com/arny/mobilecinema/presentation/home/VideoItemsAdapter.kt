@@ -47,6 +47,13 @@ class VideoItemsAdapter(
                     onItemClick(item)
                 }
                 tvVideoTitle.text = item.title
+                // TalkBack: у карточки-постера собственный текст может оказаться обрезанным
+                // за пределами вьюпорта, поэтому имя узла задаётся на корне.
+                root.contentDescription = buildList {
+                    if (item.title.isNotBlank()) add(item.title)
+                    if (item.year > 0) add(item.year.toString())
+                    item.ratingLabel()?.let(::add)
+                }.joinToString(". ")
                 ivVideoIcon.loadMoviePoster(item.img, baseUrl, posterWidthPx)
                 val type = getType(item, context)
                 val isFresh = showFreshness &&

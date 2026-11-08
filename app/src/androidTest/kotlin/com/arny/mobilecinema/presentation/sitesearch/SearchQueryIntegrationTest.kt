@@ -11,6 +11,15 @@ import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.data.models.DataResult
+import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
+import com.arny.mobilecinema.domain.models.DataUpdateResult
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import org.junit.After
+import org.koin.core.context.GlobalContext
+import org.koin.core.context.loadKoinModules
+import org.koin.dsl.module
 import com.arny.mobilecinema.presentation.MainActivity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -23,9 +32,26 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class SearchQueryIntegrationTest {
+    private lateinit var originalUpdates: DataUpdateInteractor
+
+    @After
+    fun restoreUpdateChecks() {
+        if (::originalUpdates.isInitialized) loadKoinModules(module { single<DataUpdateInteractor> { originalUpdates } })
+    }
 
     @org.junit.Before
     fun grantStorage() {
+        com.arny.mobilecinema.presentation.DeviceGuard.requireApprovedDevice()
+        // A live update check can put a modal dialog above navigation at any time.
+        originalUpdates = GlobalContext.get().get()
+        val noUpdates = object : DataUpdateInteractor by originalUpdates {
+            override suspend fun getUpdateDate(force: Boolean): Flow<DataResult<DataUpdateResult>> = emptyFlow()
+            override suspend fun isAutoUpdateAllowed() = false
+            override suspend fun requestFile(force: Boolean, hasPartUpdate: Boolean) {
+                error("Navigation test must not download a catalog")
+            }
+        }
+        loadKoinModules(module { single<DataUpdateInteractor> { noUpdates } })
         // Иначе системный диалог разрешений перекрывает активность и Espresso не видит RESUMED.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val packageName = instrumentation.targetContext.packageName

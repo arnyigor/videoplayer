@@ -1,5 +1,7 @@
     package com.arny.mobilecinema.presentation.details
 
+import com.arny.mobilecinema.presentation.utils.loadPoster
+
     import android.annotation.SuppressLint
     import android.content.BroadcastReceiver
     import android.content.Context
@@ -9,6 +11,7 @@
 import android.os.SystemClock
     import android.view.LayoutInflater
     import android.view.View
+import android.widget.Toast
     import android.view.ViewGroup
     import android.widget.AdapterView
     import androidx.core.content.ContextCompat
@@ -57,8 +60,7 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
     import com.arny.mobilecinema.presentation.utils.unregisterLocalReceiver
     import com.arny.mobilecinema.presentation.utils.updateSpinnerItems
     import com.arny.mobilecinema.presentation.utils.updateTitle
-    import com.bumptech.glide.Glide
-    import com.google.android.material.chip.Chip
+        import com.google.android.material.chip.Chip
     import kotlinx.coroutines.flow.collectLatest
     import org.joda.time.DateTime
     import timber.log.Timber
@@ -554,11 +556,13 @@ override fun onResume() {
             isAutoUpdateRunning = true
             setAutoUpdateIndicatorVisible(true)
             updatePlayButtonEnabled()
+            val title = currentMovie?.title.orEmpty()
             requireContext().sendServiceMessage(
                 Intent(requireContext().applicationContext, UpdateService::class.java),
                 AppConstants.ACTION_UPDATE_BY_URL
             ) {
                 putString(AppConstants.SERVICE_PARAM_UPDATE_URL, url)
+                putString(AppConstants.SERVICE_PARAM_UPDATE_TITLE, title)
                 // Разбор начат с экрана деталей: не просим Home-экран открывать карточку
                 // и показывать тосты после завершения.
                 putBoolean(AppConstants.SERVICE_PARAM_UPDATE_BACKGROUND, true)
@@ -570,11 +574,7 @@ override fun onResume() {
                 val baseUrl = prefs.get<String>(PrefsConstants.BASE_URL).orEmpty()
 
                 // Загружаем картинку
-                Glide.with(this@DetailsFragment)
-                    .load(movie.img.getWithDomain(baseUrl))
-                    .placeholder(R.drawable.placeholder_movie)
-                    .error(R.drawable.placeholder_movie)
-                    .into(binding.ivBanner)
+                binding.ivBanner.loadPoster(movie.img, baseUrl)
 
                 collapsingToolbar.title = movie.title
                 updateTitle(movie.title)
@@ -1342,7 +1342,18 @@ override fun onResume() {
                         viewModel.handleEvent(DetailsEvent.LoadMovie)
                     }
 
-                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR,
+                    AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
+                        isAutoUpdateRunning = false
+                        setAutoUpdateIndicatorVisible(false)
+                        updatePlayButtonEnabled()
+                        // Системное уведомление живёт только пока жив сервис: итог дублируем тостом.
+                        Toast.makeText(
+                            requireContext(),
+                            getString(R.string.update_movie_failed_toast, currentMovie?.title.orEmpty()),
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+
                     AppConstants.ACTION_UPDATE_STATUS_CANCELLED -> {
                         isAutoUpdateRunning = false
                         setAutoUpdateIndicatorVisible(false)

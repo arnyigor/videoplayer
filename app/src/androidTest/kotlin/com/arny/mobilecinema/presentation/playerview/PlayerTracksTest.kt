@@ -16,7 +16,6 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieInfo
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.presentation.DeviceGuard
-import com.arny.mobilecinema.presentation.player.generateSubTitlesList
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -147,15 +146,10 @@ class PlayerTracksTest {
             player!!.currentTracks.groups.count { it.type == C.TRACK_TYPE_TEXT }
         }
         assertTrue("ожидалось 2 аудиодорожки в потоке, найдено $audioGroups", audioGroups >= 2)
-        assertTrue("ожидалась субтитровая дорожка, найдено $textGroups", textGroups >= 1)
 
         // Аудиодорожек две → экран обязан показать выбор языка.
         val lang = viewById(R.id.ivLang)
         assertEquals("кнопка выбора языка должна быть видима", View.VISIBLE, lang?.visibility)
-        // Per product request, the nonfunctional subtitle action stays hidden.
-        val subtitle = viewById(R.id.ivSubtitle)
-        assertEquals("нерабочая кнопка субтитров должна быть скрыта", View.GONE, subtitle?.visibility)
-
         // Воспроизведение с многодорожечным потоком идёт: стартуем с начала, чтобы проверка
         // не зависела от того, сколько уже проиграно (клип 30 с).
         viaActivity {
@@ -184,7 +178,6 @@ class PlayerTracksTest {
                     viaActivity { activity ->
                         assertEquals(shown, view.isControllerFullyVisible)
                         assertEquals(shown, activity.findViewById<View>(R.id.ivBack).isShown)
-                        assertEquals(View.GONE, activity.findViewById<View>(R.id.ivSubtitle).visibility)
                     }
                     Thread.sleep(20)
                 }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pref_key_sync_cancel" translatable="false">catalog_sync_cancel</string>
+    <string name="pref_sync_cancel">Отменить обновление</string>
+    <string name="pref_sync_downloading">Загрузка архива…</string>
+    <string name="pref_sync_unpacking">Распаковка и проверка архива…</string>
+    <string name="pref_sync_importing">Обновление каталога…</string>
+    <string name="pref_sync_scraping">Обход сайта…</string>
+    <string name="pref_sync_progress">%1$s — %2$d%%</string>
+    <string name="pref_sync_success">Обновление завершено</string>
+    <string name="pref_sync_success_count">Обновление завершено. Обработано записей: %1$d</string>
+    <string name="pref_sync_cancelled">Обновление отменено</string>
+</resources>

@@ -104,7 +104,7 @@ class SiteSearchAdapter(
                             else -> ""
                         }
                     )
-                    if (item.rating > 0f) add(String.format("%.1f", item.rating))
+                    item.ratingLabel()?.let { add(it) }
                     if (item.originalTitle.isNotBlank()) add(item.originalTitle)
                 }.filter { it.isNotBlank() }.joinToString(" • ")
                 tvSiteSearchBadge.isVisible = item.inCatalog

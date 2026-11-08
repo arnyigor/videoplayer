@@ -1,5 +1,7 @@
 package com.arny.mobilecinema.presentation.history
 
+import com.arny.mobilecinema.presentation.utils.loadPoster
+
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.view.isVisible
@@ -11,9 +13,6 @@ import com.arny.mobilecinema.databinding.IHistoryRowBinding
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.domain.playback.PlaybackProgress
 import com.arny.mobilecinema.presentation.utils.diffItemCallback
-import com.arny.mobilecinema.presentation.utils.getWithDomain
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import org.joda.time.DateTime
 
 /**
@@ -99,16 +98,6 @@ class HistoryRowAdapter(
         baseUrl: String,
         widthPx: Int,
     ) {
-        val request = Glide.with(view)
-            .load(path.getWithDomain(baseUrl))
-            .placeholder(R.drawable.placeholder_movie)
-            .error(R.drawable.placeholder_movie)
-            .transition(DrawableTransitionOptions.withCrossFade(200))
-            .centerCrop()
-        if (widthPx > 0) {
-            // Превью 16:9 в строке: просим декодировать ровно этот размер.
-            request.override(widthPx, widthPx * 9 / 16)
-        }
-        request.into(view)
+        view.loadPoster(path, baseUrl, widthPx, widthPx * 9 / 16)
     }
 }

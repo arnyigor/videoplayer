@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tv_search_source">Источник</string>
+    <string name="tv_search_country">Страна</string>
+    <string name="tv_search_years">Годы</string>
+    <string name="tv_search_status">Состояние поиска</string>
+    <string name="tv_search_status_line">%1$s: %2$s</string>
+    <string name="tv_search_idle">Введите запрос</string>
+    <string name="tv_search_success">Найдены результаты</string>
+    <string name="tv_search_error">Ошибка — повторите запрос</string>
+    <string name="tv_voice_unavailable">Голосовой ввод недоступен. Используйте клавиатуру.</string>
+</resources>

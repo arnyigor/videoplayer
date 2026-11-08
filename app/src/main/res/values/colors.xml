@@ -26,6 +26,8 @@
     <!-- Дополнительные цвета -->
     <color name="colorIcon">#FFFFFF</color>
     <color name="colorOverlay">#66000000</color>
+    <!-- S-021: граница невыбранного сегмента — контраст 3.37:1 к фону (нужно ≥3:1). -->
+    <color name="colorOutlineControl">#64647F</color>
     <color name="colorSeparator">#2A2A3D</color>
 
     <!-- Чипсы -->

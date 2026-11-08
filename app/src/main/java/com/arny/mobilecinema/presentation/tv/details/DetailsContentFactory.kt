@@ -41,6 +41,9 @@ data class SourceUi(
     val url: String,
     val label: String,
     val isHd: Boolean,
+    val playableId: String? = null,
+    val seasonIndex: Int = 0,
+    val episodeIndex: Int = 0,
 )
 
 /** Подпись и координаты главного действия (ТЗ §5/§6): считается resolver'ом, а не экраном. */
@@ -98,6 +101,16 @@ object DetailsContentFactory {
             MovieType.SERIAL -> episodeSources(ref)
             else -> emptyList()
         }
+    }
+
+    /** Keep the sources in the selected season; a resume target from another season is not selected. */
+    fun sourcesForSeason(movie: Movie, seasonIndex: Int, recommendedPlayableId: String?): List<SourceUi> {
+        if (movie.type != MovieType.SERIAL) return sources(movie, null)
+        val available = movie.playableRefs().filter { it.seasonIndex == seasonIndex && it.isAvailable }
+        val selected = available.firstOrNull { it.id.value == recommendedPlayableId }
+            ?: available.firstOrNull()
+            ?: return emptyList()
+        return sources(movie, selected.id.value)
     }
 
     fun cta(movie: Movie, target: ResumeTarget?): CtaUi {
@@ -202,7 +215,8 @@ object DetailsContentFactory {
         val data = movie.cinemaUrlData ?: return emptyList()
         val hdUrls = data.hdUrl?.urls.orEmpty().filter { it.isNotBlank() }
         val urls = (hdUrls + data.cinemaUrl?.urls.orEmpty().filter { it.isNotBlank() }).distinct()
-        return urls.map { url -> source(url, isHd = url in hdUrls) }
+        val playableId = movie.playableRefs().firstOrNull()?.id?.value
+        return urls.map { url -> source(url, isHd = url in hdUrls).copy(playableId = playableId) }
     }
 
     private fun episodeSources(ref: PlayableRef?): List<SourceUi> {
@@ -212,7 +226,13 @@ object DetailsContentFactory {
             false to ref.hlsUrl,
         ).mapNotNull { (isHd, url) -> url?.takeIf { it.isNotBlank() }?.let { isHd to it } }
             .distinctBy { (_, url) -> url }
-        return urls.map { (isHd, url) -> source(url, isHd) }
+        return urls.map { (isHd, url) ->
+            source(url, isHd).copy(
+                playableId = ref.id.value,
+                seasonIndex = ref.seasonIndex,
+                episodeIndex = ref.episodeIndex,
+            )
+        }
     }
 
     private fun source(url: String, isHd: Boolean): SourceUi {

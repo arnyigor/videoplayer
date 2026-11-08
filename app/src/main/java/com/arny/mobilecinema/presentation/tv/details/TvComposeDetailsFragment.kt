@@ -131,7 +131,7 @@ class TvComposeDetailsFragment : Fragment(), KoinComponent {
                             isFavorite = state.isFavorite,
                             resumeTarget = state.resumeTarget,
                             progress = state.progress,
-                            selectedSeasonIndex = viewModel.selectedSeasonIndex,
+                            selectedSeasonIndex = state.selectedSeasonIndex,
                             cta = DetailsContentFactory.cta(movie, state.resumeTarget),
                             isUpdating = isUpdating,
                             updatePercent = updatePercent,
@@ -143,7 +143,7 @@ class TvComposeDetailsFragment : Fragment(), KoinComponent {
                                     showPleaseWait()
                                 } else {
                                     viewModel.selectSeason(episode.seasonIndex)
-                                    navigateToPlayer(episode.seasonIndex, episode.episodeIndex)
+                                    navigateToPlayer(episode.seasonIndex, episode.episodeIndex, playableId = episode.playableId)
                                 }
                             },
                             onPlaySource = { source ->
@@ -151,9 +151,10 @@ class TvComposeDetailsFragment : Fragment(), KoinComponent {
                                     showPleaseWait()
                                 } else {
                                     navigateToPlayer(
-                                        seasonIndex = viewModel.selectedSeasonIndex,
-                                        episodeIndex = 0,
+                                        seasonIndex = source.seasonIndex,
+                                        episodeIndex = source.episodeIndex,
                                         selectedUrl = source.url,
+                                        playableId = source.playableId.orEmpty(),
                                     )
                                 }
                             },
@@ -226,15 +227,17 @@ class TvComposeDetailsFragment : Fragment(), KoinComponent {
         navigateToPlayer(
             seasonIndex = ref?.seasonIndex ?: 0,
             episodeIndex = ref?.episodeIndex ?: 0,
+            playableId = ref?.id?.value.orEmpty(),
         )
     }
 
-    private fun navigateToPlayer(seasonIndex: Int, episodeIndex: Int, selectedUrl: String = "") {
+    private fun navigateToPlayer(seasonIndex: Int, episodeIndex: Int, selectedUrl: String = "", playableId: String = "") {
         findNavController().navigate(
             R.id.tvPlayerFragment,
             bundleOf(
                 ARG_MOVIE_ID to movieId,
                 "sharedUrl" to selectedUrl,
+                "playableId" to playableId,
                 "seasonIndex" to seasonIndex,
                 "episodeIndex" to episodeIndex,
             ),
@@ -243,7 +246,7 @@ class TvComposeDetailsFragment : Fragment(), KoinComponent {
 
     private fun navigateToSearch(query: String, searchType: String) {
         findNavController().navigate(
-            R.id.tvSearchFragment,
+            R.id.tvSiteSearchFragment,
             bundleOf("query" to query, "searchType" to searchType),
         )
     }
@@ -309,6 +312,7 @@ class TvComposeDetailsFragment : Fragment(), KoinComponent {
             AppConstants.ACTION_UPDATE_BY_URL,
         ) {
             putString(AppConstants.SERVICE_PARAM_UPDATE_URL, url)
+            putString(AppConstants.SERVICE_PARAM_UPDATE_TITLE, viewModel.uiState.value.movie?.title.orEmpty())
             // Разбор начат с экрана деталей — главная не должна сама открывать карточку.
             putBoolean(AppConstants.SERVICE_PARAM_UPDATE_BACKGROUND, true)
         }
@@ -337,8 +341,12 @@ class TvComposeDetailsFragment : Fragment(), KoinComponent {
                 AppConstants.ACTION_UPDATE_STATUS_COMPLETE_ERROR -> {
                     isUpdating = false
                     updatePercent = -1
+                    // То же сообщение, что на мобиле: название карточки и что локальные ссылки живы.
                     val errorMsg = intent.getStringExtra("error_message")
-                        ?: getString(R.string.error_loading_data)
+                        ?: getString(
+                            R.string.update_movie_failed_toast,
+                            viewModel.uiState.value.movie?.title.orEmpty(),
+                        )
                     Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show()
                 }
 

@@ -45,6 +45,9 @@ object AppConstants {
     const val SERVICE_PARAM_DOWNLOAD_TYPE = "SERVICE_PARAM_DOWNLOAD_TYPE"
     const val SERVICE_PARAM_UPDATE_URL = "SERVICE_PARAM_UPDATE_URL"
 
+    /** Название карточки для уведомления: без него пользователь видел «Обновление \"Ошибка 404\"». */
+    const val SERVICE_PARAM_UPDATE_TITLE = "SERVICE_PARAM_UPDATE_TITLE"
+
     /** Разбор запущен экраном деталей (фоновое обновление карточки), а не импортом ссылки. */
     const val SERVICE_PARAM_UPDATE_BACKGROUND = "SERVICE_PARAM_UPDATE_BACKGROUND"
     const val SERVICE_PARAM_DOWNLOAD_FILENAME = "SERVICE_PARAM_DOWNLOAD_FILENAME"

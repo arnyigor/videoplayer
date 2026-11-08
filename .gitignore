@@ -56,6 +56,11 @@ signing.properties.*
 !.env.example
 google-services.json
 schemas/
+# Room schema snapshots are versioned migration-test fixtures.
+!app/schemas/
+!app/schemas/**
+# This unverified local v1 snapshot already contains v3 columns; do not use it as a fixture.
+app/schemas/com.arny.mobilecinema.data.db.AppDatabase/1.json
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
@@ -96,3 +101,7 @@ task-context.md
 
 # Архив скриншотов аудита: 18 МБ изображений не место в истории Git (план v3, §2.6)
 Anwap_Mobile_Screens_*.zip
+
+# Python-кэш вспомогательных скриптов стенда
+__pycache__/
+*.pyc

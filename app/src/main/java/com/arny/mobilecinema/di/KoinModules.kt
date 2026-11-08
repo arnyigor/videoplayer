@@ -28,6 +28,9 @@ import com.arny.mobilecinema.domain.interactors.jsoupupdate.JsoupUpdateInteracto
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractor
 import com.arny.mobilecinema.domain.interactors.movies.MoviesInteractorImpl
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdatePhase
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdateStatus
+import com.arny.mobilecinema.domain.interactors.update.CatalogUpdateTracker
 import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractorImpl
 import com.arny.mobilecinema.domain.playback.NextEpisodeResolver
 import com.arny.mobilecinema.domain.playback.ProgressCompletionPolicy
@@ -111,6 +114,19 @@ val dataModule = module {
 }
 
 val domainModule = module {
+    single {
+        val prefs = get<Prefs>()
+        CatalogUpdateTracker(CatalogUpdateStatus(
+            phase = CatalogUpdatePhase.entries.firstOrNull { it.name == prefs.get<String>("catalog_update_phase") }
+                ?: CatalogUpdatePhase.IDLE,
+            progress = prefs.get<Int>("catalog_update_progress")?.takeIf { it >= 0 },
+            processedMovies = prefs.get<Int>("catalog_update_count")?.takeIf { it >= 0 },
+        )) { status ->
+            prefs.settings.edit().putString("catalog_update_phase", status.phase.name)
+                .putInt("catalog_update_progress", status.progress ?: -1)
+                .putInt("catalog_update_count", status.processedMovies ?: -1).apply()
+        }
+    }
     single { ProgressCompletionPolicy() }
     single { NextEpisodeResolver(get()) }
     single<MoviesInteractor> { MoviesInteractorImpl(get(), get(), get(), get<CoroutineDispatcher>()) }
@@ -125,18 +141,20 @@ val presentationModule = module {
     viewModel { (id: Long) -> DetailsViewModel(id, get(), get(), get(), get(), get()) }
     viewModel { (pageUrl: String, title: String) -> CommentsViewModel(pageUrl, title, get()) }
     viewModel { ExtendedSearchViewModel(get()) }
-    viewModel { SiteSearchViewModel(get(), get()) }
-    viewModel { CatalogSyncViewModel(get()) }
+    viewModel { SiteSearchViewModel(get(), get(), get()) }
+    viewModel { CatalogSyncViewModel(get(), get()) }
     viewModel { FavoritesViewModel(get()) }
     viewModel { HistoryViewModel(get(), get(), get()) }
     viewModel { PlayerViewModel(get(), get(), get(), get()) }
     viewModel { MobileHomeViewModel(get(), get(), get()) }
     viewModel { SplashViewModel(get()) }
-    viewModel { TvHomeViewModel(get(), get(), get(), get()) }
-    viewModel { (sectionKey: String) -> CatalogViewModel(get(), sectionKey) }
+    viewModel { TvHomeViewModel(get(), get(), get(), get(), get()) }
+    viewModel { (sectionKey: String) -> CatalogViewModel(get(), sectionKey, get()) }
     // The qualifier is also part of the ViewModelStore key within HomeFragment.
-    viewModel(named(CatalogSection.FILMS.name)) { CatalogViewModel(get(), CatalogSection.FILMS.name) }
-    viewModel(named(CatalogSection.SERIES.name)) { CatalogViewModel(get(), CatalogSection.SERIES.name) }
+    viewModel(named(CatalogSection.FILMS.name)) { CatalogViewModel(get(), CatalogSection.FILMS.name, get()) }
+    viewModel(named(CatalogSection.SERIES.name)) { CatalogViewModel(get(), CatalogSection.SERIES.name, get()) }
     viewModel { TvDetailsViewModel(get(), get(), get()) }
     viewModel { TvSearchViewModel(get()) }
+    viewModel { com.arny.mobilecinema.presentation.tv.library.TvLibraryViewModel(get(), get(), get()) }
+    viewModel { com.arny.mobilecinema.presentation.tv.settings.TvSettingsViewModel(get()) }
 }

@@ -28,7 +28,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import com.arny.mobilecinema.presentation.utils.PosterImage
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.presentation.mobile.ui.theme.MobileColors
 import com.arny.mobilecinema.presentation.mobile.ui.theme.MobileDimens
@@ -58,7 +58,7 @@ fun MobilePosterCard(
         colors = CardDefaults.cardColors(containerColor = MobileColors.Surface),
     ) {
         Column {
-            AsyncImage(
+            PosterImage(
                 model = posterUrl,
                 contentDescription = title,
                 contentScale = ContentScale.Crop,
@@ -120,7 +120,7 @@ fun MobileContinueCard(
                     .fillMaxWidth()
                     .aspectRatio(MobileDimens.ContinueCardAspect),
             ) {
-                AsyncImage(
+                PosterImage(
                     model = imageUrl,
                     contentDescription = title,
                     contentScale = ContentScale.Crop,

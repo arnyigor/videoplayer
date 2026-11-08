@@ -32,6 +32,7 @@ data class TvDetailsUiState(
     /** Прогресс по всем сериям тайтла: статусы карточек эпизодов считаются из него. */
     val progress: Map<String, PlaybackProgress> = emptyMap(),
     val error: Boolean = false,
+    val selectedSeasonIndex: Int = 0,
 )
 
 // ============ Actions (One-time effects) ============
@@ -63,11 +64,13 @@ class TvDetailsViewModel(
      * Выбранный сезон деталей. Живёт во ViewModel, чтобы возврат из плеера не сбрасывал
      * сезон и список серий на первый (ТЗ §9.2, `SERIES-FOCUS-02`).
      */
-    var selectedSeasonIndex: Int = 0
-        private set
+    val selectedSeasonIndex: Int get() = _uiState.value.selectedSeasonIndex
 
     fun selectSeason(seasonIndex: Int) {
-        selectedSeasonIndex = seasonIndex
+        _uiState.update { state ->
+            val lastIndex = state.movie?.seasons?.lastIndex?.coerceAtLeast(0) ?: Int.MAX_VALUE
+            state.copy(selectedSeasonIndex = seasonIndex.coerceIn(0, lastIndex))
+        }
     }
 
     /** Позиция прокрутки деталей: возврат из плеера не должен отправлять экран наверх. */
@@ -94,7 +97,9 @@ class TvDetailsViewModel(
                             val movieData = result.result
                             _uiState.value = _uiState.value.copy(
                                 movie = movieData,
-                                isLoading = false
+                                isLoading = false,
+                                error = false,
+                                selectedSeasonIndex = selectedSeasonIndex.coerceIn(0, movieData.seasons.lastIndex.coerceAtLeast(0))
                             )
                             movie.value = movieData
                             // Ленивая миграция прогресса старого формата (DOM-08).

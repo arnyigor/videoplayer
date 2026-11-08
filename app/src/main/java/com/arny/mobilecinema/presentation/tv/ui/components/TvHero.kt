@@ -23,7 +23,7 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.OutlinedButton
 import androidx.tv.material3.Text
-import coil.compose.AsyncImage
+import com.arny.mobilecinema.presentation.utils.PosterImage
 import com.arny.mobilecinema.presentation.tv.ui.theme.TvColors
 import com.arny.mobilecinema.presentation.tv.ui.theme.TvDimens
 import com.arny.mobilecinema.presentation.tv.ui.theme.TvTheme
@@ -48,7 +48,7 @@ fun TvHero(
             .fillMaxWidth()
             .height(360.dp)
     ) {
-        AsyncImage(
+        PosterImage(
             model = imageUrl,
             contentDescription = null,
             contentScale = ContentScale.Crop,
