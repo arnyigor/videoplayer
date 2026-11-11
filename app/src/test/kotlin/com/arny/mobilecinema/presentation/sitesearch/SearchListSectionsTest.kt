@@ -29,7 +29,7 @@ class SearchListSectionsTest {
                 hit("Сайт 1", SearchOrigin.SITE),
             ),
             source = SearchSource.ALL,
-            filters = SearchFilters(genre = "Драма"),
+            filters = SearchFilters(genres = listOf("Драма")),
         )
         assertEquals(4, items.size)
         assertEquals(

@@ -116,7 +116,7 @@
     <string name="serial_episode_cache_attention_links_title">Вы хотите продолжить загрузку \"%s\" (%s сезон,%s серия)?</string>
     <string name="cache_attention_links_not_equals">Вы хотите загрузить фильм "%s" с другой ссылкой?</string>
     <string name="update_attention">Вы хотите обновить фильм/сериал?</string>
-    <string name="mobile_network_play">Вы не подключены к WIFI\nПродолжить?</string>
+    <string name="mobile_network_play">Сеть может тарифицироваться оператором. Продолжить?</string>
     <string name="connection_network_none_dialog_content">Отсутствует интернет соединение\nПродолжить?</string>
     <string name="cache_description">При отмене загруженные данные будут удалены\nПродолжить?</string>
     <string name="update_description">Данные и сылки будут автоматически обновлены\nПродолжить?</string>
@@ -163,6 +163,7 @@
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
     <string name="player_max_cache_time_sec">Максимальный буфер, сек</string>
     <string name="internet_connection_error">Отсутствует интернет соединение</string>
+    <string name="internet_not_validated_error">Сеть подключена, но доступа в интернет нет. Проверьте роутер или Wi-Fi.</string>
     <string name="duration_format">Длительность: %s</string>
     <string name="updated_format">Обновлен: %s</string>
     <string name="movie_viewhistory_cleared">Фильм удален из истории</string>
@@ -411,12 +412,14 @@
     <string name="search_filters">Фильтры</string>
     <string name="search_filters_count">Фильтры: %1$d</string>
     <string name="search_filters_site_notice">Фильтры применяются только к каталогу: сайт их не поддерживает</string>
+    <string name="search_filters_local_only">При активных фильтрах поиск идёт только по каталогу</string>
     <string name="search_in_catalog">В каталоге</string>
     <string name="search_filters_title">Фильтры каталога</string>
     <string name="search_filters_kind">Тип</string>
     <string name="search_filters_kind_all">Все</string>
     <string name="search_filters_genre">Жанр</string>
     <string name="search_filters_genre_any">Любой</string>
+    <string name="search_filters_genre_count">%1$s +%2$d</string>
     <string name="search_filters_year_from">Год от</string>
     <string name="search_filters_year_to">Год до</string>
     <string name="search_filters_sort">Сортировка</string>
@@ -487,6 +490,10 @@
     <string name="pref_key_autoplay_next">pref_autoplay_next</string>
     <string name="pref_title_autoplay_next">Автопереход к серии</string>
     <string name="pref_summary_autoplay_next">Запускать следующую серию после таймера (10 секунд)</string>
+    <string name="open_external_player">Открыть во внешнем плеере</string>
+    <string name="external_player_not_found">Не найдено приложение для воспроизведения видео</string>
+    <string name="external_player_unsupported_source">Некоторым источникам нужны специальные заголовки запроса, которые внешний плеер может не поддерживать. Если видео не запустится, вернитесь во встроенный плеер. Позиция просмотра во внешнем приложении не синхронизируется.</string>
+    <string name="external_player_needs_internal_headers">Этот источник работает только во встроенном плеере</string>
     <string name="home_continue">Продолжить просмотр</string>
     <string name="home_for_you">Для вас</string>
     <string name="home_new">Новинки</string>

@@ -222,8 +222,13 @@ class SiteSearchFragment : Fragment(R.layout.f_site_search), KoinComponent {
         // Объяснение не раздувает кнопку фильтров до нескольких строк.
         binding.tvFiltersNotice.isVisible = !filtersAvailable || state.filtersNotAppliedToSite
         binding.tvFiltersNotice.setText(
-            if (!filtersAvailable) R.string.search_filters_disabled_for_site
-            else R.string.search_filters_site_notice
+            when {
+                !filtersAvailable -> R.string.search_filters_disabled_for_site
+                // При активных фильтрах в «Везде» сайт сознательно не опрашивается.
+                state.filters.isActive && state.source == SearchSource.ALL ->
+                    R.string.search_filters_local_only
+                else -> R.string.search_filters_site_notice
+            }
         )
 
         renderSourceStatus(state)
@@ -241,6 +246,8 @@ class SiteSearchFragment : Fragment(R.layout.f_site_search), KoinComponent {
                 state.remoteError -> R.string.site_search_error
                 state.query.isBlank() -> R.string.search_empty_hint
                 // Пустая выдача называется тем источником, по которому искали.
+                // При активных фильтрах в «Везде» реально искали только по каталогу.
+                state.filters.isActive -> R.string.search_catalog_empty
                 state.source == SearchSource.LOCAL -> R.string.search_catalog_empty
                 state.source == SearchSource.REMOTE -> R.string.site_search_empty
                 else -> R.string.search_all_empty

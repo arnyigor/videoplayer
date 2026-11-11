@@ -78,15 +78,32 @@
             app:strokeWidth="1dp" />
     </com.google.android.material.button.MaterialButtonToggleGroup>
 
+    <HorizontalScrollView
+        android:id="@+id/scrollQuickGenres"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/margin"
+        android:scrollbars="none">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipsQuickGenres"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:singleLine="true"
+            app:singleSelection="false" />
+    </HorizontalScrollView>
+
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/tilGenre"
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/margin"
+        android:textColorHint="@color/textColorSecondary"
         android:hint="@string/search_filters_genre"
         app:boxStrokeColor="@color/colorAccent"
-        app:endIconTint="@color/colorAccent">
+        app:endIconTint="@color/colorAccent"
+        app:hintTextColor="@color/textColorPrimary">
 
         <com.google.android.material.textfield.MaterialAutoCompleteTextView
             android:id="@+id/actGenre"
@@ -109,7 +126,8 @@
             android:layout_weight="1"
             android:hint="@string/search_filters_year_from"
             android:textColorHint="@color/textColorSecondary"
-            app:boxStrokeColor="@color/colorAccent">
+            app:boxStrokeColor="@color/colorAccent"
+            app:hintTextColor="@color/textColorPrimary">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/tiedtYearFrom"
@@ -128,7 +146,8 @@
             android:layout_weight="1"
             android:hint="@string/search_filters_year_to"
             android:textColorHint="@color/textColorSecondary"
-            app:boxStrokeColor="@color/colorAccent">
+            app:boxStrokeColor="@color/colorAccent"
+            app:hintTextColor="@color/textColorPrimary">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/tiedtYearTo"
@@ -146,9 +165,11 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/margin"
+        android:textColorHint="@color/textColorSecondary"
         android:hint="@string/search_filters_sort"
         app:boxStrokeColor="@color/colorAccent"
-        app:endIconTint="@color/colorAccent">
+        app:endIconTint="@color/colorAccent"
+        app:hintTextColor="@color/textColorPrimary">
 
         <com.google.android.material.textfield.MaterialAutoCompleteTextView
             android:id="@+id/actSort"

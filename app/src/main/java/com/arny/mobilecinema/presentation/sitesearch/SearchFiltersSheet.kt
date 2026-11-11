@@ -3,6 +3,7 @@ package com.arny.mobilecinema.presentation.sitesearch
 import android.os.Bundle
 import android.graphics.Rect
 import androidx.core.view.doOnLayout
+import androidx.core.view.forEach
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -32,6 +33,11 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
         private const val ARG_GENRES = "arg_genres"
         private const val ARG_YEAR_MIN = "arg_year_min"
         private const val ARG_YEAR_MAX = "arg_year_max"
+        /** Быстрые жанры для мульти-выбора прямо в шторке: частые запросы пользователей. */
+        private val QUICK_GENRES = listOf(
+            "Аниме", "Мультфильм", "Боевик", "Комедия", "Драма", "Триллер",
+            "Ужасы", "Фантастика", "Фэнтези", "Приключения", "Детектив", "Мелодрама",
+        )
         private const val STATE_DRAFT = "draft_filters"
         private const val STATE_YEAR_FROM = "draft_year_from"
         private const val STATE_YEAR_TO = "draft_year_to"
@@ -99,18 +105,7 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
             )
         }
 
-        val genreOptions = listOf(getString(R.string.search_filters_genre_any)) + genres
-        binding.actGenre.setDropDownBackgroundResource(R.drawable.bg_dropdown_dark)
-        binding.actGenre.setAdapter(
-            ArrayAdapter(requireContext(), R.layout.item_dropdown_dark, genreOptions)
-        )
-        binding.actGenre.setText(current.genre ?: genreOptions.first(), false)
-        binding.actGenre.setOnItemClickListener { _, _, position, _ ->
-            current = current.copy(
-                genre = genreOptions.getOrNull(position)
-                    ?.takeIf { position > 0 }
-            )
-        }
+        setupGenrePicker()
 
         val sortTitles = SearchSort.entries.map { getString(it.titleRes) }
         binding.actSort.setDropDownBackgroundResource(R.drawable.bg_dropdown_dark)
@@ -128,7 +123,10 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
         binding.btnFiltersReset.setOnClickListener {
             current = current.reset()
             binding.kindGroup.check(R.id.btnKindAll)
-            binding.actGenre.setText(genreOptions.first(), false)
+            // Чипы — только отображение current: без перерисовки они оставались
+            // отмеченными, хотя жанры уже сброшены.
+            renderQuickChips()
+            renderGenreSelection()
             binding.tiedtYearFrom.setText("")
             binding.tiedtYearTo.setText("")
             // Domain reset() сохраняет сортировку — подпись не должна обещать другую.
@@ -149,6 +147,85 @@ class SearchFiltersSheet : BottomSheetDialogFragment() {
                 Bundle().apply { putString(RESULT_FILTERS, filters.encode()) },
             )
             dismiss()
+        }
+    }
+
+    /**
+     * Мульти-выбор жанров: быстрые чипы популярных категорий в шторке плюс
+     * полный список чекбоксами. Выбранные жанры объединяются по ИЛИ.
+     */
+    private fun setupGenrePicker() {
+        binding.chipsQuickGenres.removeAllViews()
+        QUICK_GENRES.forEach { title ->
+            val chip = com.google.android.material.chip.Chip(requireContext()).apply {
+                text = title
+                isCheckable = true
+                isChecked = current.genres.any { it.equals(title, ignoreCase = true) }
+                setChipBackgroundColorResource(R.color.chip_bg)
+                setTextColor(requireContext().getColor(R.color.chip_text))
+                setOnCheckedChangeListener { _, checked ->
+                    current = if (checked) {
+                        current.copy(genres = current.genres + title)
+                    } else {
+                        current.copy(genres = current.genres.filterNot { it.equals(title, ignoreCase = true) })
+                    }
+                    renderGenreSelection()
+                }
+            }
+            binding.chipsQuickGenres.addView(chip)
+        }
+        binding.actGenre.inputType = android.text.InputType.TYPE_NULL
+        binding.actGenre.setText(genreSummary(), false)
+        binding.tilGenre.setStartIconDrawable(null)
+        binding.tilGenre.endIconMode = com.google.android.material.textfield.TextInputLayout.END_ICON_DROPDOWN_MENU
+        binding.actGenre.setOnClickListener { showAllGenresDialog() }
+        binding.tilGenre.setEndIconOnClickListener { showAllGenresDialog() }
+    }
+
+    private fun showAllGenresDialog() {
+        val selection = BooleanArray(genres.size) { index ->
+            current.genres.any { selected -> selected.equals(genres[index], ignoreCase = true) }
+        }
+        androidx.appcompat.app.AlertDialog.Builder(requireContext(), R.style.PlayerAlertDialogTheme)
+            .setTitle(R.string.search_filters_genre)
+            .setMultiChoiceItems(genres.toTypedArray(), selection) { _, which, checked ->
+                val genre = genres[which]
+                current = if (checked) {
+                    current.copy(genres = current.genres + genre)
+                } else {
+                    current.copy(genres = current.genres.filterNot { it.equals(genre, ignoreCase = true) })
+                }
+                renderQuickChips()
+                renderGenreSelection()
+            }
+            .setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.search_filters_genre_any) { _, _ ->
+                current = current.copy(genres = emptyList())
+                renderQuickChips()
+                renderGenreSelection()
+            }
+            .show()
+    }
+
+    private fun genreSummary(): String = when (current.genres.size) {
+        0 -> getString(R.string.search_filters_genre_any)
+        1 -> current.genres.first()
+        else -> getString(
+            R.string.search_filters_genre_count,
+            current.genres.first(),
+            current.genres.size - 1,
+        )
+    }
+
+    private fun renderGenreSelection() {
+        binding.actGenre.setText(genreSummary(), false)
+    }
+
+    private fun renderQuickChips() {
+        binding.chipsQuickGenres.forEach { view ->
+            (view as? com.google.android.material.chip.Chip)?.let { chip ->
+                chip.isChecked = current.genres.any { it.equals(chip.text.toString(), ignoreCase = true) }
+            }
         }
     }
 

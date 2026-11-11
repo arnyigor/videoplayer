@@ -40,20 +40,25 @@ import com.github.vkay94.dtpv.DoubleTapPlayerView
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.data.utils.ConnectionType
+import com.arny.mobilecinema.data.utils.NetworkStatus
 import com.arny.mobilecinema.data.utils.findByGroup
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getErrorUrl
 import com.arny.mobilecinema.data.utils.getFullError
+import com.arny.mobilecinema.data.utils.hasValidatedInternet
+import com.arny.mobilecinema.data.utils.networkStatus
 import com.arny.mobilecinema.databinding.FPlayerViewBinding
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.SerialSeason
 import com.arny.mobilecinema.presentation.listeners.OnPictureInPictureListener
+import com.arny.mobilecinema.presentation.player.ExternalPlayerLauncher
 import com.arny.mobilecinema.presentation.player.PlayerSource
 import com.arny.mobilecinema.presentation.player.generateLanguagesList
 import com.arny.mobilecinema.presentation.player.generateQualityList
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
+import com.arny.mobilecinema.presentation.utils.DeviceUtils
 import com.arny.mobilecinema.presentation.utils.getOrientation
 import com.arny.mobilecinema.presentation.utils.initAudioManager
 import com.arny.mobilecinema.presentation.utils.isPiPAvailable
@@ -116,6 +121,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var currentCinemaUrl: String? = null
 
     private var qualityVisible: Boolean = false
+    private var externalPlayerVisible: Boolean = false
     private var volumeObserver: ContentObserver? = null
     private var langVisible: Boolean = false
     private var mediaItemIndex: Int = 0
@@ -153,7 +159,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private var trackSelector: DefaultTrackSelector? = null
     private var resizeModeIndex = 0
     private var setupPopupMenus = true
-    private var qualitySelectionInitialized = false
     private var enhancer: LoudnessEnhancer? = null
 
     private var _binding: FPlayerViewBinding? = null
@@ -291,10 +296,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             decoderReuseEvaluation: DecoderReuseEvaluation?
         ) {
             Timber.tag("PlayChain").d(
-                "%s videoFormat %s mime=%s",
+                "%s videoFormat %s mime=%s size=%dx%d",
                 playId,
                 format.id,
-                format.sampleMimeType
+                format.sampleMimeType,
+                format.width,
+                format.height
             )
         }
     }
@@ -304,9 +311,12 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             // PlayerError: типизированная ветка контракта — пользователь всегда видит причину.
             Timber.tag("PlayChain").e(error, "%s playerError %s", playId, error.errorCodeName)
             binding.progressBar.isVisible = false
-            val lastError = when (getConnectionType(requireContext())) {
-                ConnectionType.NONE -> getString(R.string.internet_connection_error)
-                else -> getFullError(error)
+            val lastError = when (
+                networkStatus(getConnectionType(requireContext()), hasValidatedInternet(requireContext()))
+            ) {
+                NetworkStatus.NONE -> getString(R.string.internet_connection_error)
+                NetworkStatus.UNVALIDATED -> getString(R.string.internet_not_validated_error)
+                NetworkStatus.ONLINE -> getFullError(error)
             }
             viewModel.setLastPlayerError(lastError)
             val errorUrl = getErrorUrl(error)
@@ -352,8 +362,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            qualitySelectionInitialized = false
+            setQuality(null)
             updateCurrentEpisodeFromPlayer()
+            updateExternalPlayerVisibility()
         }
 
         override fun onTracksChanged(tracks: Tracks) {
@@ -398,6 +409,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
 
         binding.progressBar.isVisible = true
+        updateExternalPlayerVisibility()
         lastProcessedVersion = -1
 
         observeState()
@@ -600,7 +612,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
     private fun applyVolumeSwipe(fraction: Float) {
         val manager = audioManager ?: return
         val max = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-        // 0..max � ��������� ���������; max..2*max � �������� 0..maxBoost (���������).
+        // 0..max � ��������� ���������; max..2*max � �������� 0..maxBoost (���������).
         val level = (swipeStartVolume + fraction * max).coerceIn(0f, max * 2f)
         val target = level.roundToInt().coerceIn(0, max)
         val targetBoost = ((level - max).coerceAtLeast(0f) / max * maxBoost.coerceAtLeast(0)).roundToInt()
@@ -811,8 +823,16 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 }
             }
 
-            (ivResizes.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+            (ivExternalPlayer.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
                 val topMargin = topInset + 24.dpToPx()
+                if (params.topMargin != topMargin) {
+                    params.topMargin = topMargin
+                    ivExternalPlayer.layoutParams = params
+                }
+            }
+
+            (ivResizes.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                val topMargin = topInset + 32.dpToPx()
                 if (params.topMargin != topMargin) {
                     params.topMargin = topMargin
                     ivResizes.layoutParams = params
@@ -820,7 +840,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
 
             (ivLang.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
-                val topMargin = topInset + 32.dpToPx()
+                val topMargin = topInset + 40.dpToPx()
                 if (params.topMargin != topMargin) {
                     params.topMargin = topMargin
                     ivLang.layoutParams = params
@@ -828,7 +848,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
 
             (ivScreenRotation.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
-                val topMargin = topInset + 40.dpToPx()
+                val topMargin = topInset + 48.dpToPx()
                 if (params.topMargin != topMargin) {
                     params.topMargin = topMargin
                     ivScreenRotation.layoutParams = params
@@ -836,7 +856,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
 
             (ivBrightness.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
-                val topMargin = topInset + 48.dpToPx()
+                val topMargin = topInset + 56.dpToPx()
                 if (params.topMargin != topMargin) {
                     params.topMargin = topMargin
                     ivBrightness.layoutParams = params
@@ -844,7 +864,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             }
 
             (ivVolume.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
-                val topMargin = topInset + 56.dpToPx()
+                val topMargin = topInset + 64.dpToPx()
                 if (params.topMargin != topMargin) {
                     params.topMargin = topMargin
                     ivVolume.layoutParams = params
@@ -859,6 +879,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
 
     private fun hideSystemUIImmediately() {
         val window = activity?.window ?: return
+        // При пересоздании активити (поворот, смена размера) окно ещё без DecorView:
+        // window.insetsController в этом состоянии падает NPE внутри фреймворка.
+        if (!window.decorView.isAttachedToWindow) return
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
@@ -928,9 +951,16 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         val currentBinding = _binding ?: return
 
         with(currentBinding) {
-            ivQuality.setOnClickListener { qualityPopUp?.show() }
+            ivQuality.setOnClickListener {
+                // Selecting the already playing track need not emit onTracksChanged.
+                // Re-read overrides so the radio selection never stays stale.
+                setupPopupMenus = true
+                setUpPopups()
+                qualityPopUp?.show()
+            }
             ivLang.setOnClickListener { langPopUp?.show() }
             ivResizes.setOnClickListener { changeResize() }
+            ivExternalPlayer.setOnClickListener { openExternalPlayer() }
             ivBack.setOnClickListener { findNavController().popBackStack() }
             ivScreenRotation.setOnClickListener { toggleScreenOrientation() }
             ivBrightness.setOnClickListener { showBrightnessSlider() }
@@ -1546,6 +1576,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         val views = listOf(
             tvTitle,
             ivQuality,
+            ivExternalPlayer,
             ivResizes,
             ivScreenRotation,
             ivBack,
@@ -1561,6 +1592,7 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
                 val shouldBeVisible = when (view) {
                     ivQuality -> qualityVisible
                     ivLang -> langVisible
+                    ivExternalPlayer -> externalPlayerVisible
                     else -> true
                 }
                 view.animate().cancel()
@@ -1622,10 +1654,49 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
     }
 
+    private fun openExternalPlayer() {
+        if (DeviceUtils.isTV(requireContext())) return
+        // Use the current MediaItem, including the selected episode or fallback URL.
+        val url = getCurrentPlaybackUrl()
+        if (url.isNullOrBlank()) {
+            toast(getString(R.string.video_link_not_found))
+            return
+        }
+        playbackErrorDialog?.dismiss()
+        playbackErrorDialog = androidx.appcompat.app.AlertDialog.Builder(
+            requireContext(), R.style.PlayerAlertDialogTheme
+        )
+            .setTitle(R.string.open_external_player)
+            .setMessage(R.string.external_player_unsupported_source)
+            .setPositiveButton(R.string.open_external_player) { _, _ ->
+                // Возврат из внешнего плеера не должен сам запускать воспроизведение:
+                // позиция во внешнем приложении неизвестна, продолжаем только по кнопке Play.
+                shouldStartPaused = true
+                player?.let { engine ->
+                    pauseForAudioFocusLoss()
+                    saveCurrentPosition(engine)
+                    saveMoviePosition(engine)
+                }
+                val opened = ExternalPlayerLauncher(requireContext()).open(url, binding.tvTitle.text.toString())
+                if (!opened) toast(getString(R.string.external_player_not_found))
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun updateExternalPlayerVisibility() {
+        if (_binding == null) return
+        // Keep the action discoverable even while the MediaItem is still preparing.
+        // Source availability is checked when the user presses it.
+        externalPlayerVisible = !DeviceUtils.isTV(requireContext())
+        binding.ivExternalPlayer.isVisible = externalPlayerVisible && controlsShown == true
+    }
+
     private fun setUpPopups() {
         if (!setupPopupMenus) return
 
         setupPopupMenus = false
+        updateExternalPlayerVisibility()
 
         trackSelector?.generateLanguagesList(requireContext())?.let { list ->
             Timber.tag("PlayChain").d(
@@ -1648,32 +1719,41 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         }
 
         trackSelector?.generateQualityList(requireContext())?.let { list ->
-            qualityVisible = list.size > 1
+            qualityPopUp?.dismiss()
+            qualityPopUp = null
+            qualityVisible = list.isNotEmpty()
             binding.ivQuality.isVisible = qualityVisible && controlsShown == true
             if (qualityVisible) {
+                val overrides = trackSelector?.parameters?.overrides.orEmpty().values
                 qualityPopUp = PopupMenu(requireContext(), binding.ivQuality).apply {
-                    list.forEachIndexed { i, item ->
-                        menu.add(0, i, 0, item.first)
+                    menu.add(0, 0, 0, R.string.quality_auto).apply {
+                        isCheckable = true
+                        isChecked = list.none { it.second in overrides }
                     }
+                    list.forEachIndexed { i, item ->
+                        menu.add(0, i + 1, i + 1, item.first).apply {
+                            isCheckable = true
+                            isChecked = item.second in overrides
+                        }
+                    }
+                    menu.setGroupCheckable(0, true, true)
                     setOnMenuItemClickListener {
-                        setQuality(list[it.itemId].second)
+                        setQuality(if (it.itemId == 0) null else list[it.itemId - 1].second)
+                        it.isChecked = true
                         true
                     }
-                }
-                if (!qualitySelectionInitialized) {
-                    qualitySelectionInitialized = true
-                    setQuality(list[0].second)
                 }
             }
         }
     }
 
-    private fun setQuality(trackSelectionOverride: TrackSelectionOverride) {
+    /** Null restores adaptation; changing video quality must not reset audio or subtitles. */
+    private fun setQuality(trackSelectionOverride: TrackSelectionOverride?) {
         trackSelector?.let { selector ->
             selector.parameters = selector.parameters
                 .buildUpon()
                 .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-                .addOverride(trackSelectionOverride)
+                .apply { if (trackSelectionOverride != null) addOverride(trackSelectionOverride) }
                 .build()
         }
     }
@@ -1725,7 +1805,6 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
         playbackSession.release()
 
         isPlayerPrepared = false
-        qualitySelectionInitialized = false
         setupPopupMenus = true
         qualityPopUp = null
         langPopUp = null

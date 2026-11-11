@@ -139,6 +139,22 @@
             app:tint="@android:color/white" />
 
     <ImageView
+            android:id="@+id/ivExternalPlayer"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/bg_player_icon"
+            android:contentDescription="@string/open_external_player"
+            android:padding="10dp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/ivQuality"
+            app:srcCompat="@drawable/ic_open_external"
+            app:tint="@android:color/white"
+            tools:visibility="visible" />
+
+    <ImageView
             android:id="@+id/ivResizes"
             android:layout_width="44dp"
             android:layout_height="44dp"
@@ -148,7 +164,7 @@
             android:contentDescription="@string/resize"
             android:padding="10dp"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/ivQuality"
+            app:layout_constraintTop_toBottomOf="@+id/ivExternalPlayer"
             app:srcCompat="@drawable/ic_overscan"
             app:tint="@android:color/white" />
 

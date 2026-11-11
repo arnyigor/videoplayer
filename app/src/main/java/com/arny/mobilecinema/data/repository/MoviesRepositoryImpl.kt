@@ -139,7 +139,7 @@ class MoviesRepositoryImpl(
     override suspend fun searchLocal(
         query: String,
         kinds: List<MovieType>,
-        genre: String?,
+        genres: List<String>,
         country: String?,
         years: SimpleIntRange?,
         order: String,
@@ -152,7 +152,7 @@ class MoviesRepositoryImpl(
             order = order,
             searchType = searchType,
             movieTypes = kinds,
-            genres = listOfNotNull(genre?.takeIf { it.isNotBlank() }),
+            genres = genres.map { it.trim() }.filter { it.isNotBlank() },
             countries = listOfNotNull(country?.takeIf { it.isNotBlank() }),
             years = years,
             likesPriority = true,

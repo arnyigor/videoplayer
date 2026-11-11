@@ -63,7 +63,7 @@ class SiteSearchViewModelTest {
             override suspend fun searchLocal(
                 query: String,
                 kinds: List<MovieType>,
-                genre: String?,
+                genres: List<String>,
                 country: String?,
                 years: SimpleIntRange?,
                 order: String,
@@ -86,7 +86,7 @@ class SiteSearchViewModelTest {
     @Test
     fun `restoration preserves query source filters and sort instead of navigation defaults`() = scope.runTest {
         val handle = SavedStateHandle()
-        val filters = SearchFilters(kinds = listOf(MovieType.CINEMA), genre = "Action", country = "USA",
+        val filters = SearchFilters(kinds = listOf(MovieType.CINEMA), genres = listOf("Action"), country = "USA",
             yearFrom = 1999, yearTo = 2020, sort = SearchSort.RATING)
         val remote = site(CompletableDeferred(DataResult.Success(emptyList())))
         val first = SiteSearchViewModel(remote, movies(emptyList()), handle)
@@ -341,7 +341,7 @@ class SiteSearchViewModelTest {
             override suspend fun searchLocal(
                 query: String,
                 kinds: List<MovieType>,
-                genre: String?,
+                genres: List<String>,
                 country: String?,
                 years: SimpleIntRange?,
                 order: String,
@@ -456,7 +456,7 @@ class SiteSearchViewModelTest {
         var remoteType = ""
         val local = object : MoviesInteractor by movies(emptyList()) {
             override suspend fun searchLocal(
-                query: String, kinds: List<MovieType>, genre: String?, country: String?,
+                query: String, kinds: List<MovieType>, genres: List<String>, country: String?,
                 years: SimpleIntRange?, order: String, limit: Int, offset: Int, searchType: String,
             ): List<ViewMovie> {
                 localType = searchType
@@ -479,4 +479,38 @@ class SiteSearchViewModelTest {
         assertEquals(1, viewModel.uiState.value.hits.size)
     }
 
+    @Test
+    fun `active filters in ALL mode search the catalog only and never call the site`() = scope.runTest {
+        var remoteCalls = 0
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> {
+                remoteCalls++
+                return DataResult.Success(listOf(SiteSearchItem(title = "Matrix reloaded", pageUrl = "/x")))
+            }
+        }
+        // Каталог отдаёт пусто: у «матрицы» нет жанра «Аниме».
+        val viewModel = SiteSearchViewModel(remote, movies(emptyList()), SavedStateHandle())
+        viewModel.initialize("matrix", AppConstants.SearchType.TITLE, SearchSource.ALL)
+        viewModel.setFilters(SearchFilters(genres = listOf("Аниме", "Мультфильм")))
+        advanceUntilIdle()
+
+        assertEquals(0, remoteCalls, "active filters must not query the site")
+        assertTrue(viewModel.uiState.value.hits.isEmpty())
+        assertTrue(viewModel.uiState.value.isEmpty, "empty result must render empty state")
+    }
+
+    @Test
+    fun `active filters keep the catalog hits and report filtered source`() = scope.runTest {
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String): DataResult<List<SiteSearchItem>> =
+                DataResult.Success(emptyList())
+        }
+        val viewModel = SiteSearchViewModel(remote, movies(listOf(ViewMovie(dbId = 7, title = "Matrix"))), SavedStateHandle())
+        viewModel.initialize("matrix", AppConstants.SearchType.TITLE, SearchSource.ALL)
+        viewModel.setFilters(SearchFilters(genres = listOf("Фантастика")))
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.hits.size)
+        assertTrue(viewModel.uiState.value.filtersNotAppliedToSite)
+    }
 }

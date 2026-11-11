@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Диалоги плеера используют ту же тёмную alert-тему, что и остальные экраны.
+         Отдельное имя оставлено, чтобы код вызывал её явно и правка не «расползлась». -->
+    <style name="PlayerAlertDialogTheme" parent="AppAlertDialogTheme" />
+</resources>

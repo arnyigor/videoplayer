@@ -150,6 +150,9 @@ class DetailsViewModel constructor(
 
     // Флаг для отслеживания первой загрузки
     private var isInitialLoadComplete = false
+
+    /** Выход после удаления истории только один раз за жизнь экрана. */
+    private var navigateBackSent = false
     private var progressJob: Job? = null
 
     private fun refreshPlaybackProgress() {
@@ -917,26 +920,13 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
         movieType: MovieType?,
         event: DetailsEvent.ClearViewHistory
     ) {
-        when (movieType) {
-            MovieType.CINEMA -> {
-                if (event.total) {
-                    _actions.send(DetailsAction.ShowToast(ResourceString(R.string.movie_viewhistory_cleared)))
-                    _actions.send(DetailsAction.NavigateBack)
-                } else {
-                    _actions.send(DetailsAction.ShowToast(ResourceString(R.string.movie_cache_cleared)))
-                }
-            }
-
-            MovieType.SERIAL -> {
-                if (event.total) {
-                    _actions.send(DetailsAction.ShowToast(ResourceString(R.string.serial_history_cleared)))
-                    _actions.send(DetailsAction.NavigateBack)
-                } else {
-                    _actions.send(DetailsAction.ShowToast(ResourceString(R.string.serial_episode_cache_cleared)))
-                }
-            }
-
-            else -> {}
+        val outcome = historyClearOutcome(movieType, event.total) ?: return
+        _actions.send(DetailsAction.ShowToast(ResourceString(outcome.messageRes)))
+        // Ровно один выход: повторный NavigateBack уводил из истории на предыдущий экран
+        // и карточка открывалась снова.
+        if (outcome.navigateBack && !navigateBackSent) {
+            navigateBackSent = true
+            _actions.send(DetailsAction.NavigateBack)
         }
     }
 

@@ -123,6 +123,21 @@ def generate():
 
 NL = chr(10)
 
+# K-3: три реальных рендишна для проверки выбора качества. height, width, bitrate.
+MULTIREND_VARIANTS = ((180, 320, 400_000), (360, 640, 900_000), (720, 1280, 2_500_000))
+
+
+def multirend_segment(idx):
+    """Сегмент нужного разрешения, сгенерированный локально (без внешних ассетов)."""
+    height, width, _ = MULTIREND_VARIANTS[idx]
+    segment = OUT / ('v%d.ts' % idx)
+    if not segment.exists():
+        subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi',
+                        '-i', 'color=c=blue:s=%dx%d:r=15:d=6' % (width, height), '-an',
+                        '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '30', '-pix_fmt', 'yuv420p',
+                        '-f', 'mpegts', str(segment)], check=True)
+    return segment
+
 
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -149,6 +164,31 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_response(200); self.send_header('Content-Type', 'text/plain')
             self.send_header('Content-Length', str(len(data))); self.end_headers()
             self.wfile.write(data); return
+        if url.path == '/multirend/master.m3u8':
+            # K-3: настоящий адаптивный поток с тремя рендишнами (180p/360p/720p),
+            # чтобы проверить выбор качества и его сброс при смене серии.
+            body = '#EXTM3U' + NL + '#EXT-X-VERSION:3' + NL
+            for idx, (height, width, bitrate) in enumerate(MULTIREND_VARIANTS):
+                body += ('#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d' % (bitrate, width, height)) + NL
+                body += '/multirend/v%d.m3u8' % idx + NL
+            data = body.encode('ascii')
+            self.send_response(200); self.send_header('Content-Type', 'application/vnd.apple.mpegurl')
+            self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data); return
+        variant = re.fullmatch(r'/multirend/v(\d+)\.(m3u8|ts)', url.path)
+        if variant:
+            idx = int(variant[1])
+            if idx >= len(MULTIREND_VARIANTS):
+                self.send_error(404); return
+            if variant[2] == 'm3u8':
+                body = ('#EXTM3U' + NL + '#EXT-X-VERSION:3' + NL + '#EXT-X-TARGETDURATION:6' + NL +
+                        '#EXT-X-MEDIA-SEQUENCE:0' + NL + '#EXTINF:6.0,' + NL +
+                        '/multirend/v%d.ts' % idx + NL + '#EXT-X-ENDLIST' + NL).encode('ascii')
+                self.send_response(200); self.send_header('Content-Type', 'application/vnd.apple.mpegurl')
+                self.send_header('Content-Length', str(len(body))); self.end_headers(); self.wfile.write(body)
+                return
+            data = multirend_segment(idx).read_bytes()
+            self.send_response(200); self.send_header('Content-Type', 'video/mp2t')
+            self.send_header('Content-Length', str(len(data))); self.end_headers(); self.wfile.write(data); return
         if url.path in ('/test.m3u8', '/test-hls/index.m3u8'):
             body = (
                 '#EXTM3U' + NL +

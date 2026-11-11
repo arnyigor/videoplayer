@@ -22,6 +22,7 @@ import androidx.navigation.fragment.findNavController
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.search.SearchFilters
 import com.arny.mobilecinema.domain.search.SearchHit
 import com.arny.mobilecinema.domain.search.SearchSort
 import com.arny.mobilecinema.domain.search.SearchSource
@@ -178,7 +179,7 @@ class TvSiteSearchFragment : SearchSupportFragment(), SearchSupportFragment.Sear
             "sort" -> choose(getString(R.string.search_filters_sort), SearchSort.entries.map { getString(it.titleRes) }) {
                 model.setFilters(f.copy(sort = SearchSort.entries[it]))
             }
-            "genre" -> chooseNullable(getString(R.string.search_filters_genre), model.uiState.value.genres, f.genre) { model.setFilters(f.copy(genre = it)) }
+            "genre" -> chooseGenres(f)
             "country" -> chooseNullable(getString(R.string.tv_search_country), model.uiState.value.countries, f.country) { model.setFilters(f.copy(country = it)) }
             "years" -> showYears()
             "reset" -> model.setFilters(f.reset())
@@ -192,6 +193,43 @@ class TvSiteSearchFragment : SearchSupportFragment(), SearchSupportFragment.Sear
             apply(which); dialog.dismiss()
         }.setNegativeButton(android.R.string.cancel, null).show()
     }
+    /**
+     * Мульти-выбор жанров: несколько значений объединяются по ИЛИ (как в мобильной шторке).
+     * Диалог держит выбор в одном списке, чтобы D-pad и Back не теряли состояние.
+     */
+    private fun chooseGenres(f: SearchFilters) {
+        val values = model.uiState.value.genres
+        if (values.isEmpty()) return
+        val checked = BooleanArray(values.size) { index ->
+            f.genres.any { it.equals(values[index], ignoreCase = true) }
+        }
+        var selected = f.genres
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.search_filters_genre)
+            .setMultiChoiceItems(values.toTypedArray(), checked) { _, which, isChecked ->
+                val genre = values[which]
+                selected = if (isChecked) {
+                    selected + genre
+                } else {
+                    selected.filterNot { it.equals(genre, ignoreCase = true) }
+                }
+            }
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                model.setFilters(f.copy(genres = selected))
+            }
+            .setNeutralButton(R.string.search_filters_genre_any) { _, _ ->
+                model.setFilters(f.copy(genres = emptyList()))
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun genreLabel(f: SearchFilters): String = when (f.genres.size) {
+        0 -> getString(R.string.search_filters_genre)
+        1 -> f.genres.first()
+        else -> getString(R.string.search_filters_genre_count, f.genres.first(), f.genres.size - 1)
+    }
+
     private fun chooseNullable(title: String, values: List<String>, current: String?, apply: (String?) -> Unit) {
         choose(title, listOf(getString(R.string.search_filters_genre_any)) + values,
             if (current == null) 0 else values.indexOf(current) + 1) { apply(if (it == 0) null else values[it - 1]) }
@@ -215,7 +253,7 @@ class TvSiteSearchFragment : SearchSupportFragment(), SearchSupportFragment.Sear
         val kind = when (f.kinds.singleOrNull()) { MovieType.CINEMA -> getString(R.string.home_content_cinema); MovieType.SERIAL -> getString(R.string.home_content_serial); else -> getString(R.string.search_filters_kind_all) }
         filters.setItems(listOf(
             SearchAction("kinds", getString(R.string.search_filters_kind) + ": " + kind, f.kinds.isNotEmpty()),
-            SearchAction("genre", f.genre ?: getString(R.string.search_filters_genre), f.genre != null),
+            SearchAction("genre", genreLabel(f), f.genres.isNotEmpty()),
             SearchAction("country", f.country ?: getString(R.string.tv_search_country), f.country != null),
             SearchAction("years", if (f.yearRange == null) getString(R.string.tv_search_years) else "${f.yearFrom ?: "…"}–${f.yearTo ?: "…"}", f.yearRange != null),
             // Без префикса подпись «По совпадению» читалась как отдельный фильтр, а не сортировка.

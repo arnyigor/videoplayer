@@ -433,7 +433,7 @@ suspend fun getSource(
         url: String,
         cacheFactory: CacheDataSource.Factory
     ): SegmentsData = suspendCoroutine { continuation ->
-        if (getConnectionType(context) != ConnectionType.NONE) {
+        if (getConnectionType(context) !is ConnectionType.NONE) {
             val mediaItem = getMediaItem(url)
             DownloadHelper.forMediaItem(
                 /* context = */ context,
@@ -719,11 +719,7 @@ private fun initCacheFactory() {
         return OkHttpDataSourceFactory(unsafeClient, VIDEO_USER_AGENT)
     }
 
-    private fun getReferer(url: String): String = when {
-        url.contains("interkh.com", ignoreCase = true) -> "https://api.ortified.ws/"
-        url.contains("ortified.ws", ignoreCase = true) -> "https://mm.anwap.media/"
-        else -> ""
-    }
+    private fun getReferer(url: String): String = requiredVideoReferer(url).orEmpty()
 
     private companion object {
         const val VIDEO_USER_AGENT =

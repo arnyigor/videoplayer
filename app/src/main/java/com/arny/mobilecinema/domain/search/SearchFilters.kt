@@ -22,7 +22,8 @@ enum class SearchSort(val order: String, val titleRes: Int) {
  */
 data class SearchFilters(
     val kinds: List<MovieType> = emptyList(),
-    val genre: String? = null,
+    /** Несколько жанров объединяются по ИЛИ: «аниме ИЛИ мультфильм» — как выбор на сайте. */
+    val genres: List<String> = emptyList(),
     val country: String? = null,
     val yearFrom: Int? = null,
     val yearTo: Int? = null,
@@ -32,7 +33,7 @@ data class SearchFilters(
     /** Есть ли активные критерии (сортировка по релевантности — не критерий). */
     val activeCount: Int
         get() = (if (kinds.isNotEmpty()) 1 else 0) +
-                (if (!genre.isNullOrBlank()) 1 else 0) +
+                (if (genres.isNotEmpty()) 1 else 0) +
                 (if (!country.isNullOrBlank()) 1 else 0) +
                 (if (yearFrom != null || yearTo != null) 1 else 0)
 
@@ -59,7 +60,7 @@ data class SearchFilters(
     /** Компактное представление для бандла/`FragmentResult` — без Parcelable-обвязки. */
     fun encode(): String = listOf(
         kinds.joinToString(",") { it.name },
-        genre.orEmpty(),
+        genres.joinToString(","),
         country.orEmpty(),
         yearFrom?.toString().orEmpty(),
         yearTo?.toString().orEmpty(),
@@ -78,7 +79,9 @@ data class SearchFilters(
             return SearchFilters(
                 kinds = parts[0].split(",").filter { it.isNotBlank() }
                     .mapNotNull { name -> MovieType.entries.firstOrNull { it.name == name } },
-                genre = parts[1].ifBlank { null },
+                // Одна запятая может прийти из старого формата (один жанр) — это
+                // частный случай списка, обратная совместимость сохраняется.
+                genres = parts[1].split(",").map { it.trim() }.filter { it.isNotBlank() },
                 country = parts[2].ifBlank { null },
                 yearFrom = parts[3].toIntOrNull(),
                 yearTo = parts[4].toIntOrNull(),

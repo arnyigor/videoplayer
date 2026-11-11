@@ -91,6 +91,7 @@ fun DetailsScreen(
     LaunchedEffect(movie.dbId) {
         runCatching { focusRequester.requestFocus() }
     }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val seasons = remember(movie) { DetailsContentFactory.seasons(movie) }
     val episodes = remember(movie, selectedSeasonIndex, progress, resumeTarget) {
@@ -104,7 +105,9 @@ fun DetailsScreen(
     val sources = remember(movie, selectedSeasonIndex, cta.playableId) {
         DetailsContentFactory.sourcesForSeason(movie, selectedSeasonIndex, cta.playableId)
     }
-    val genres = remember(movie) { DetailsContentFactory.genres(movie) }
+    // Словарь нужен фабрике жанров: часть карточек приходит жанрами одной строкой без запятых.
+    val genreDictionary = remember { com.arny.mobilecinema.data.utils.GenreSplitter.loadDictionary(context) }
+    val genres = remember(movie) { DetailsContentFactory.genres(movie, dictionary = genreDictionary) }
     val actors = remember(movie) { DetailsContentFactory.actors(movie) }
 
     LazyColumn(
@@ -113,7 +116,7 @@ fun DetailsScreen(
         contentPadding = PaddingValues(bottom = TvDimens.SectionGap),
     ) {
         item(key = "hero") {
-            DetailsHero(movie = movie, imageBaseUrl = imageBaseUrl)
+            DetailsHero(movie = movie, imageBaseUrl = imageBaseUrl, genreDictionary = genreDictionary)
         }
 
         item(key = "actions") {
@@ -218,7 +221,7 @@ fun DetailsScreen(
 }
 
 @Composable
-private fun DetailsHero(movie: Movie, imageBaseUrl: String) {
+private fun DetailsHero(movie: Movie, imageBaseUrl: String, genreDictionary: List<String> = emptyList()) {
     Box(
         Modifier
             .fillMaxWidth()
@@ -254,7 +257,7 @@ private fun DetailsHero(movie: Movie, imageBaseUrl: String) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            val meta = heroMeta(movie)
+            val meta = heroMeta(movie, genreDictionary)
             if (meta.isNotBlank()) {
                 Text(
                     text = meta,
@@ -428,7 +431,7 @@ private fun episodeImage(movie: Movie, episode: EpisodeUi, imageBaseUrl: String)
     return (poster ?: movie.img).takeIf { it.isNotBlank() }?.getWithDomain(imageBaseUrl)
 }
 
-private fun heroMeta(movie: Movie): String = buildList {
+private fun heroMeta(movie: Movie, genreDictionary: List<String>): String = buildList {
     val info = movie.info
     if (info.year > 0) add(info.year.toString())
     if (info.age >= 0) add("${info.age}+")
@@ -436,12 +439,8 @@ private fun heroMeta(movie: Movie): String = buildList {
     if (minutes > 0) add("${minutes} мин")
     if (info.quality.isNotBlank()) add(info.quality)
     addAll(
-        info.genres.asSequence()
-            .flatMap { it.split(",").asSequence() }
-            .map { it.trim() }
-            .filter { it.isNotBlank() }
+        com.arny.mobilecinema.data.utils.GenreSplitter.split(info.genres, genreDictionary)
             .take(2)
-            .toList()
     )
 }.joinToString(" · ")
 

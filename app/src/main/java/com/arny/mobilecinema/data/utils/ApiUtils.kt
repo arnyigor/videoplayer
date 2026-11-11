@@ -56,32 +56,70 @@ sealed class ConnectionType(open val speedKbps: Int) {
     object NONE : ConnectionType(0)
     data class MOBILE(override val speedKbps: Int) : ConnectionType(speedKbps)
     data class WIFI(override val speedKbps: Int) : ConnectionType(speedKbps)
-    data class VPN(override val speedKbps: Int) : ConnectionType(speedKbps)
+    data class ETHERNET(override val speedKbps: Int) : ConnectionType(speedKbps)
+    data class VPN(
+        override val speedKbps: Int,
+        val isMetered: Boolean = true,
+    ) : ConnectionType(speedKbps)
 }
 
+/** Returns the active transport; Ethernet is a valid unmetered connection, not NONE. */
 fun getConnectionType(context: Context): ConnectionType {
-    var type: ConnectionType = ConnectionType.NONE
-    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
-    cm?.let {
-        val capabilities = cm.getNetworkCapabilities(cm.activeNetwork)
-        val downSpeedKbps = (capabilities?.linkDownstreamBandwidthKbps) ?: 0
-        capabilities?.run {
-            when {
-                hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
-                    type = ConnectionType.WIFI(downSpeedKbps)
-                }
-
-                hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> {
-                    type = ConnectionType.MOBILE(downSpeedKbps)
-                }
-
-                hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> {
-                    type = ConnectionType.VPN(downSpeedKbps)
-                }
-            }
-        }
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        ?: return ConnectionType.NONE
+    val capabilities = cm.getNetworkCapabilities(cm.activeNetwork)
+        ?: return ConnectionType.NONE
+    if (!capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+        return ConnectionType.NONE
     }
-    return type
+    val downSpeedKbps = capabilities.linkDownstreamBandwidthKbps
+
+    return when {
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ->
+            ConnectionType.VPN(downSpeedKbps,
+                isMetered = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED))
+
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ->
+            ConnectionType.ETHERNET(downSpeedKbps)
+
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ->
+            ConnectionType.WIFI(downSpeedKbps)
+
+        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ->
+            ConnectionType.MOBILE(downSpeedKbps)
+
+        else -> ConnectionType.NONE
+    }
+}
+
+fun ConnectionType.allowsUnmeteredOperations(): Boolean = when (this) {
+    is ConnectionType.WIFI,
+    is ConnectionType.ETHERNET -> true
+    is ConnectionType.VPN -> !isMetered
+    else -> false
+}
+
+/** Состояние сети для текста ошибки: нет сети / сеть есть, но интернета нет / всё хорошо. */
+enum class NetworkStatus {
+    NONE,
+    UNVALIDATED,
+    ONLINE,
+}
+
+/** Чистое рещение по статусу: позволяет проверить тексты ошибок без Android. */
+fun networkStatus(connection: ConnectionType, validated: Boolean): NetworkStatus = when {
+    connection is ConnectionType.NONE -> NetworkStatus.NONE
+    !validated -> NetworkStatus.UNVALIDATED
+    else -> NetworkStatus.ONLINE
+}
+
+/** Подтверждённый доступ в интернет (captive portal и мёртвый роутер дают false). */
+fun hasValidatedInternet(context: Context): Boolean {
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        ?: return false
+    val capabilities = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+    return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 }
 
 private fun getMaxSpeedKbps(it: NetworkInfo): Int = when (it.subtype) {

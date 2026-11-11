@@ -34,6 +34,12 @@
         app:showAsAction="ifRoom" />
 
     <item
+        android:id="@+id/menu_action_external_player"
+        android:title="@string/open_external_player"
+        android:icon="@drawable/ic_open_external"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/menu_action_copy_mp4_link"
         android:title="@string/menu_copy_mp4_link"
         android:icon="@drawable/outline_content_copy_24"

@@ -470,6 +470,10 @@ class TvPlayerFragment : Fragment(), KoinComponent {
 
         override fun onTracksChanged(tracks: Tracks) {
             audioChoices = tvTrackChoices(tracks, C.TRACK_TYPE_AUDIO) { getString(R.string.tv_track_number, it) }
+            // Track groups may be published after STATE_READY (notably for DASH/HLS).
+            // Refresh quality here as well, otherwise the TV button can remain hidden
+            // until the player is recreated.
+            refreshQualityOptions()
             refreshTrackButtons()
         }
 
@@ -607,7 +611,7 @@ class TvPlayerFragment : Fragment(), KoinComponent {
     /**
      * Пересобирает список качеств текущего трека.
      *
-     * Как и в мобильном плеере, по умолчанию фиксируем максимальное доступное качество:
+     * На ТВ по умолчанию фиксируем максимальное доступное качество:
      * адаптивный выбор на ТВ часто залипает на низком битрейте, и HD-источник
      * выглядит как SD. Пункт «Авто» в диалоге возвращает адаптацию.
      */
@@ -634,7 +638,11 @@ class TvPlayerFragment : Fragment(), KoinComponent {
         val parameters = selector.parameters.buildUpon()
             .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
         if (dialogIndex > 0) {
-            val override = qualityOptions.getOrNull(dialogIndex - 1)?.second ?: return
+            val override = qualityOptions.getOrNull(dialogIndex - 1)?.second
+                ?: run {
+                    selector.parameters = parameters.build()
+                    return
+                }
             parameters.addOverride(override)
         }
         selector.parameters = parameters.build()

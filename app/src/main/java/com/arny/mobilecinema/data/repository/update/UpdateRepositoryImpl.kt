@@ -15,8 +15,8 @@ import com.arny.mobilecinema.data.network.jsoup.JsoupService
 import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.data.repository.prefs.Prefs
 import com.arny.mobilecinema.domain.models.PrefsConstants
-import com.arny.mobilecinema.data.utils.ConnectionType
 import com.arny.mobilecinema.data.utils.create
+import com.arny.mobilecinema.data.utils.allowsUnmeteredOperations
 import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getDomainName
 import com.arny.mobilecinema.data.utils.saveFileToDownloadFolder
@@ -24,7 +24,6 @@ import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.repository.UpdateRepository
 import com.arny.mobilecinema.presentation.services.UpdateService
 import com.arny.mobilecinema.presentation.utils.BufferedSharedFlow
-import com.arny.mobilecinema.presentation.utils.DeviceUtils
 import com.arny.mobilecinema.presentation.utils.getTime
 import com.arny.mobilecinema.presentation.utils.sendServiceMessage
 import kotlinx.coroutines.CancellationException
@@ -75,15 +74,9 @@ class UpdateRepositoryImpl constructor(
 
     override fun hasMovies(): Boolean = moviesDao.getCount() != 0
 
-    /**
-     * Разрешает авто-обновление базы фильмов без подтверждения пользователя:
-     * - TV — всегда (мобильной сети нет, Ethernet не детектится как WIFI);
-     * - телефон/планшет — только по WiFi (мобильный интернет/показывается диалог).
-     */
-    override fun isAutoUpdateAllowed(): Boolean {
-        if (DeviceUtils.isTV(context)) return true
-        return getConnectionType(context) is ConnectionType.WIFI
-    }
+    /** Разрешает фоновое обновление только в не тарифицируемых сетях. */
+    override fun isAutoUpdateAllowed(): Boolean =
+        getConnectionType(context).allowsUnmeteredOperations()
 
 
     override fun setLastUpdate() {

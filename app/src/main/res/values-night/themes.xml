@@ -42,10 +42,16 @@
         <item name="android:popupBackground">@color/colorPrimary</item>
     </style>
 
-    <style name="MyDialogStyle" parent="Theme.MaterialComponents.DayNight.Dialog">
+    <style name="MyDialogStyle" parent="Theme.MaterialComponents.Dialog">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
+        <item name="colorSurface">@color/colorPrimaryDark</item>
+        <item name="colorOnSurface">@color/textColorPrimary</item>
+        <item name="alertDialogTheme">@style/AppAlertDialogTheme</item>
+        <item name="android:alertDialogTheme">@style/AppAlertDialogTheme</item>
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:textColorSecondary">@color/textColorSecondary</item>
         <item name="android:background">@color/colorPrimaryDark</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:textViewStyle">@style/DialogTextViewStyle</item>

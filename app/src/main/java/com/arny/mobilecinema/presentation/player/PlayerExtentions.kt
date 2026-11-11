@@ -57,7 +57,7 @@ fun DefaultTrackSelector.generateLanguagesList(context: Context): List<Pair<Stri
 }
 
 fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String, TrackSelectionOverride>> {
-    val trackOverrideList = ArrayList<Pair<String, TrackSelectionOverride>>()
+    val qualities = ArrayList<Triple<Int, Int, TrackSelectionOverride>>()
     val renderTrack = this.currentMappedTrackInfo
     val renderCount = renderTrack?.rendererCount ?: 0
     for (rendererIndex in 0 until renderCount) {
@@ -77,13 +77,9 @@ fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String
                         if (isTrackSupported) {
                             val track = trackGroups[groupIndex]
                             val format = track.getFormat(trackIndex)
-                            val trackName = "${format.width} x ${format.height}"
-                            if (format.selectionFlags == C.SELECTION_FLAG_AUTOSELECT) {
-                                trackName.plus(" (Default)")
-                            }
-                            val override = TrackSelectionOverride(track, listOf(trackIndex))
-                            if (trackName.isNotBlank()) {
-                                trackOverrideList.add(Pair(trackName, override))
+                            if (format.width > 0 && format.height > 0) {
+                                qualities.add(Triple(format.width, format.height,
+                                    TrackSelectionOverride(track, listOf(trackIndex))))
                             }
                         }
                     }
@@ -91,15 +87,7 @@ fun DefaultTrackSelector.generateQualityList(context: Context): List<Pair<String
             }
         }
     }
-    // Разрешение сравниваем численно: при строковой сортировке «848 x 480»
-    // оказывается «выше» «1920 x 1080», и выбиралось не максимальное качество.
-    return trackOverrideList.distinctBy { it.first }.sortedWith(
-        compareByDescending<Pair<String, TrackSelectionOverride>> {
-            it.first.substringBefore(" x ").toIntOrNull() ?: 0
-        }.thenByDescending {
-            it.first.substringAfter(" x ", "0").toIntOrNull() ?: 0
-        }
-    )
+    return videoQualityMenu(qualities)
 }
 
 fun DefaultTrackSelector.generateSubTitlesList(context: Context): List<Pair<String, TrackSelectionOverride>> {

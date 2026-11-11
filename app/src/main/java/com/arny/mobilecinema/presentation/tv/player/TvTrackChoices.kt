@@ -6,6 +6,7 @@ import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
+import com.arny.mobilecinema.presentation.player.videoQualityMenu
 
 internal data class TvTrackChoice(
     val label: String,
@@ -31,15 +32,13 @@ internal fun tvTrackChoices(tracks: Tracks, type: Int, unnamed: (Int) -> String)
 
 /** Unlike the legacy selector extension, enumerating quality must not reset audio/subtitle preferences. */
 internal fun tvVideoQualityChoices(tracks: Tracks): List<Pair<String, TrackSelectionOverride>> =
-    tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }.flatMap { group ->
+    videoQualityMenu(tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }.flatMap { group ->
         (0 until group.length).mapNotNull { index ->
             val format = group.getTrackFormat(index)
             if (!group.isTrackSupported(index) || format.width <= 0 || format.height <= 0) null
             else Triple(format.width, format.height, TrackSelectionOverride(group.mediaTrackGroup, listOf(index)))
         }
-    }.distinctBy { it.first to it.second }
-        .sortedWith(compareByDescending<Triple<Int, Int, TrackSelectionOverride>> { it.first }.thenByDescending { it.second })
-        .map { "${it.first} x ${it.second}" to it.third }
+    })
 
 /** Only the audio override is touched; video quality and the global text-off rule stay intact. */
 /** Equal languages are common (two Russian dubs); numbering keeps the dialog unambiguous. */

@@ -45,7 +45,7 @@ interface MoviesInteractor {
     suspend fun searchLocal(
         query: String,
         kinds: List<MovieType>,
-        genre: String? = null,
+        genres: List<String> = emptyList(),
         country: String? = null,
         years: SimpleIntRange? = null,
         order: String = AppConstants.Order.SMART,

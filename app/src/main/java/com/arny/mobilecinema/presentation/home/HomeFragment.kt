@@ -250,9 +250,11 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
     /** Обновляет видимость пунктов меню */
     private fun updateMenuVisibility() {
         val menu = binding.toolbar.menu
-        menu.findItem(R.id.action_search).isVisible = hasQuery
-        menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
-        menu.findItem(R.id.action_order_settings).isVisible = hasQuery
+        // Иконка поиска видна всегда — это вход в поиск; привязка к наличию
+        // контента (hasQuery) прятала её после сброса, пока список перезагружался.
+        menu.findItem(R.id.action_search).isVisible = true
+        menu.findItem(R.id.action_search_settings).isVisible = !emptySearch
+        menu.findItem(R.id.action_order_settings).isVisible = !emptySearch
     }
 
     /** Sets up button listeners. */
@@ -783,21 +785,7 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
             }
         }
 
-        // Чип сортировки
-        if (currentOrder.isNotBlank()) {
-            val orderLabel = when (currentOrder) {
-                AppConstants.Order.SMART -> "Рекомендуемые"
-                AppConstants.Order.NONE -> "По дате обновления"
-                AppConstants.Order.TITLE -> "По названию"
-                AppConstants.Order.RATINGS -> "По рейтингам"
-                AppConstants.Order.YEAR_DESC -> "По году ↓"
-                AppConstants.Order.YEAR_ASC -> "По году ↑"
-                else -> currentOrder
-            }
-            addFilterChip("Сортировка: $orderLabel") {
-                resetFilters()
-            }
-        }
+        // Чип сортировки убран: появлялся при поиске и не исчезал при сбросе состояния.
     }
 
     private fun addFilterChip(text: String, onClose: () -> Unit) {
@@ -963,6 +951,9 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
     /** Прежний диалог «Настройки сортировки»: один выбор из шести режимов каталога. */
     private fun setupCatalogSort() {
         binding.btnCatalogSort.setOnClickListener {
+            // Во время поиска каталоги скрыты: сортировать их диалогом бессмысленно —
+            // выдача поиска не менялась. Кнопка всегда сортирует активную выдачу.
+            if (!emptySearch) return@setOnClickListener showCustomOrderDialog()
             val catalog = when (viewModel.contentType.value) {
                 HomeContentType.CINEMA -> filmsCatalogViewModel
                 HomeContentType.SERIAL -> seriesCatalogViewModel
@@ -1070,7 +1061,32 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
         (itemsAdapter?.itemCount ?: 0) > 0 || shouldShowHighlights()
 
  /** Resets search state and UI when the user collapses the search view. */
+    override fun isSearchOpen(): Boolean = searchMenuItem?.isActionViewExpanded == true
+
+    override fun resetSearchContent() {
+        // Первое «Назад»: текст и результаты сбрасываются, поиск остаётся открытым.
+        searchView?.setQuery("", false)
+        viewModel.loadMovies(resetAll = true)
+        emptySearch = true
+        extendSearch = false
+        extendSearchResult = null
+        searchType = AppConstants.SearchType.TITLE
+        updateMenuVisibility()
+        updateHighlightsVisibility()
+        updateFilterChips()
+    }
+
     override fun collapseSearch() {
+        // Второе «Назад»: закрыть поиск и вернуть экран в обычное состояние.
+        searchView?.setQuery("", false)
+        // Фокус на поле + программное сворачивание — известный баг Toolbar:
+        // иконки не возвращаются. Снимаем фокус, сворачиваем виджет и пункт меню,
+        // а отрисовку чиним пост-переключением видимости пункта.
+        searchView?.clearFocus()
+        searchView?.isIconified = true
+        searchMenuItem?.collapseActionView()
+        searchMenuItem?.isVisible = false
+        searchMenuItem?.isVisible = true
         viewModel.loadMovies(resetAll = true)
         emptySearch = true
         extendSearch = false
@@ -1089,9 +1105,11 @@ class HomeFragment : Fragment(), OnSearchListener, OnScrollToTopListener, KoinCo
         // Обновление видимости пунктов меню
         fun updateMenuVisibility() {
             val menu = binding.toolbar.menu
-            menu.findItem(R.id.action_search).isVisible = hasQuery
-            menu.findItem(R.id.action_search_settings).isVisible = hasQuery && !emptySearch
-            menu.findItem(R.id.action_order_settings).isVisible = hasQuery
+            // Иконка поиска видна всегда — это вход в поиск; привязка к наличию
+            // контента (hasQuery) прятала её после сброса, пока список перезагружался.
+            menu.findItem(R.id.action_search).isVisible = true
+            menu.findItem(R.id.action_search_settings).isVisible = !emptySearch
+            menu.findItem(R.id.action_order_settings).isVisible = !emptySearch
             }
 
         val menu = binding.toolbar.menu

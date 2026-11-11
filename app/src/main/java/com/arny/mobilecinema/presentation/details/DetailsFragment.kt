@@ -26,6 +26,8 @@ import androidx.core.widget.doAfterTextChanged
     import com.arny.mobilecinema.data.repository.AppConstants
     import com.arny.mobilecinema.data.repository.prefs.Prefs
     import com.arny.mobilecinema.data.utils.ConnectionType
+    import com.arny.mobilecinema.data.utils.GenreSplitter
+    import com.arny.mobilecinema.data.utils.allowsUnmeteredOperations
     import com.arny.mobilecinema.data.utils.findByGroup
     import com.arny.mobilecinema.data.utils.formatFileSize
     import com.arny.mobilecinema.data.utils.getConnectionType
@@ -39,7 +41,8 @@ import androidx.core.widget.doAfterTextChanged
     import com.arny.mobilecinema.domain.models.RequestDownloadFile
     import com.arny.mobilecinema.domain.models.SerialEpisode
     import com.arny.mobilecinema.domain.models.SerialSeason
-    import com.arny.mobilecinema.presentation.player.PlayerSource
+    import com.arny.mobilecinema.presentation.player.externalVideoMimeType
+    import com.arny.mobilecinema.presentation.player.sourceLabel
     import com.arny.mobilecinema.presentation.services.MovieDownloadService
     import com.arny.mobilecinema.presentation.services.UpdateService
     import com.arny.mobilecinema.presentation.uimodels.Alert
@@ -105,6 +108,7 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
         private var canDownload: Boolean = false
         private var canDownloadFile: Boolean = false
         private var feedbackText = ""
+        private var externalPlayerDialog: androidx.appcompat.app.AlertDialog? = null
         private var isAutoUpdateRunning = false
         private var autoUpdateRequestedForUrl: String? = null
 
@@ -276,6 +280,8 @@ override fun onResume() {
         }
 
         override fun onDestroyView() {
+            externalPlayerDialog?.dismiss()
+            externalPlayerDialog = null
             super.onDestroyView()
             _binding = null
         }
@@ -329,6 +335,8 @@ override fun onResume() {
             // БЫЛО: requireActivity().addMenuProvider(...)
             // СТАЛО: используем свой toolbar
             binding.toolbar.inflateMenu(R.menu.details_menu)
+            binding.toolbar.menu.findItem(R.id.menu_action_external_player)?.isVisible =
+                !com.arny.mobilecinema.presentation.utils.DeviceUtils.isTV(requireContext())
 
             binding.toolbar.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
@@ -355,6 +363,11 @@ override fun onResume() {
 
                     R.id.menu_action_send_feedback -> {
                         showFeedbackDialog()
+                        true
+                    }
+
+                    R.id.menu_action_external_player -> {
+                        openExternalPlayer()
                         true
                     }
 
@@ -688,8 +701,9 @@ override fun onResume() {
 
         private fun FDetailsBinding.initGenres(genres: List<String>) {
             chgrGenres.removeAllViews()
-            val genresMap =
-                genres.flatMap { it.split(",") }.map { it.trim() }.filter { it.isNotBlank() }
+            // Сайт присылает часть карточек жанрами одной строкой без запятых —
+            // разбираем по словарю жанров, иначе всё показывалось одним блоком.
+            val genresMap = GenreSplitter.split(genres, GenreSplitter.loadDictionary(requireContext()))
             tvGenres.isVisible = genresMap.isNotEmpty()
 
             for (genre in genresMap) {
@@ -955,13 +969,7 @@ override fun onResume() {
          */
         private fun getVideoUrlsItems(movie: Movie): List<Pair<String, String>> =
             PlayStartResolver.sources(movie, currentSeasonPosition, currentEpisodePosition)
-                .mapIndexed { index, source ->
-                    getString(
-                        R.string.details_source_label,
-                        index + 1,
-                        source.quality
-                    ) to source.url
-                }
+                .map { source -> sourceLabel(source.quality, source.url) to source.url }
 
         /**
          * Отпечаток видео-данных карточки (ссылки фильма / серии сериала).
@@ -993,12 +1001,13 @@ override fun onResume() {
         }
 
         private fun onCache() {
-            when (getConnectionType(requireContext())) {
-                is ConnectionType.WIFI -> {
+            val connection = getConnectionType(requireContext())
+            when {
+                connection.allowsUnmeteredOperations() -> {
                     viewModel.handleEvent(DetailsEvent.ShowCacheDialog)
                 }
 
-                is ConnectionType.MOBILE -> {
+                connection is ConnectionType.MOBILE || connection is ConnectionType.VPN -> {
                     alertDialog(
                         title = getString(R.string.attention),
                         content = getString(R.string.mobile_network_play),
@@ -1010,7 +1019,7 @@ override fun onResume() {
                     )
                 }
 
-                ConnectionType.NONE -> {
+                connection is ConnectionType.NONE -> {
                     toast(getString(R.string.internet_connection_error))
                 }
 
@@ -1019,12 +1028,13 @@ override fun onResume() {
         }
 
         private fun onDownloadFile() {
-            when (getConnectionType(requireContext())) {
-                is ConnectionType.WIFI -> {
+            val connection = getConnectionType(requireContext())
+            when {
+                connection.allowsUnmeteredOperations() -> {
                     viewModel.handleEvent(DetailsEvent.ShowDownloadDialog)
                 }
 
-                is ConnectionType.MOBILE -> {
+                connection is ConnectionType.MOBILE || connection is ConnectionType.VPN -> {
                     alertDialog(
                         title = getString(R.string.attention),
                         content = getString(R.string.mobile_network_play),
@@ -1036,7 +1046,7 @@ override fun onResume() {
                     )
                 }
 
-                ConnectionType.NONE -> {
+                connection is ConnectionType.NONE -> {
                     toast(getString(R.string.internet_connection_error))
                 }
 
@@ -1149,6 +1159,38 @@ override fun onResume() {
             )
         }
 
+        private fun openExternalPlayer() {
+            if (com.arny.mobilecinema.presentation.utils.DeviceUtils.isTV(requireContext())) return
+            val start = PlayStartResolver.resolve(
+                movie = currentMovie,
+                seasonPosition = currentSeasonPosition,
+                episodePosition = currentEpisodePosition,
+                selectedIndex = binding.spinLinks.selectedItemPosition.coerceAtLeast(0)
+            )
+            when (start) {
+                is PlayStart.Failed -> toast(getString(start.reason.messageRes))
+                is PlayStart.Ready -> {
+                    if (com.arny.mobilecinema.presentation.player.externalVideoMimeType(start.source.url) == null) {
+                        toast(getString(R.string.external_player_needs_internal_headers))
+                        return
+                    }
+                    externalPlayerDialog?.dismiss()
+                    externalPlayerDialog = androidx.appcompat.app.AlertDialog.Builder(
+                        requireContext(), R.style.PlayerAlertDialogTheme
+                    )
+                        .setTitle(R.string.open_external_player)
+                        .setMessage(R.string.external_player_unsupported_source)
+                        .setPositiveButton(R.string.open_external_player) { _, _ ->
+                            val opened = com.arny.mobilecinema.presentation.player.ExternalPlayerLauncher(requireContext())
+                                .open(start.source.url, currentMovie?.title)
+                            if (!opened) toast(getString(R.string.external_player_not_found))
+                        }
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                }
+            }
+        }
+
         private fun showCopyMp4LinkDialog() {
             viewModel.handleEvent(DetailsEvent.CopyMp4Link)
         }
@@ -1207,11 +1249,11 @@ override fun onResume() {
                     navigateToPlayer(movie, playId)
                 }
 
-                connectionType is ConnectionType.WIFI -> {
+                connectionType.allowsUnmeteredOperations() -> {
                     navigateToPlayer(movie, playId)
                 }
 
-                connectionType is ConnectionType.MOBILE -> {
+                connectionType is ConnectionType.MOBILE || connectionType is ConnectionType.VPN -> {
                     alertDialog(
                         title = getString(R.string.attention),
                         content = getString(R.string.mobile_network_play),

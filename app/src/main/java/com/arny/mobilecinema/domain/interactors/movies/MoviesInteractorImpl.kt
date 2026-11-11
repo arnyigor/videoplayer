@@ -86,7 +86,7 @@ class MoviesInteractorImpl(
     override suspend fun searchLocal(
         query: String,
         kinds: List<MovieType>,
-        genre: String?,
+        genres: List<String>,
         country: String?,
         years: SimpleIntRange?,
         order: String,
@@ -97,7 +97,7 @@ class MoviesInteractorImpl(
         repository.searchLocal(
             query = query,
             kinds = kinds,
-            genre = genre,
+            genres = genres,
             country = country,
             years = years,
             order = order,

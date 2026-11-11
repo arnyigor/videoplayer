@@ -247,8 +247,13 @@ class SiteSearchViewModel(
             }
             return
         }
-        val source = _uiState.value.source
         val filters = _uiState.value.filters
+        // Фильтры умеет только каталог; сайт их не поддерживает и отдал бы нефильтрованную
+        // выдачу. При активных фильтрах в режиме «Везде» поиск идёт только по каталогу —
+        // иначе пользователь видит «ничего не изменилось».
+        val source = _uiState.value.source.let {
+            if (filters.isActive && it == SearchSource.ALL) SearchSource.LOCAL else it
+        }
         activeQuery = query
         activeSearchType = searchType
         savedStateHandle[EXECUTED_QUERY] = query
@@ -318,7 +323,9 @@ class SiteSearchViewModel(
         if (!state.hasMoreFilms || state.isLoading || state.isLoadingRemote || state.isOpening) {
             return
         }
+        // Пагинация сайта нефильтрованная: при активных фильтрах её нельзя подмешивать.
         if (state.source == SearchSource.LOCAL) return
+        if (state.filters.isActive) return
         val query = activeQuery ?: return
         val searchType = activeSearchType
         val generation = requestId
@@ -383,7 +390,7 @@ class SiteSearchViewModel(
             moviesInteractor.searchLocal(
                 query = query,
                 kinds = filters.movieTypes,
-                genre = filters.genre,
+                genres = filters.genres,
                 country = filters.country,
                 years = filters.yearRange,
                 order = filters.sort.order,

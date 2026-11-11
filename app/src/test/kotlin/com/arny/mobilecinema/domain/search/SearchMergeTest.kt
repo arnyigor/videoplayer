@@ -112,7 +112,7 @@ class SearchFiltersTest {
     fun `encode and decode keep all criteria`() {
         val filters = SearchFilters(
             kinds = listOf(MovieType.SERIAL),
-            genre = "Фантастика",
+            genres = listOf("Фантастика"),
             country = "США",
             yearFrom = 1999,
             yearTo = 2003,
@@ -147,7 +147,7 @@ class SearchFiltersTest {
     fun `active count ignores default sort and reset keeps sort`() {
         val filters = SearchFilters(
             kinds = listOf(MovieType.CINEMA),
-            genre = "Драмы",
+            genres = listOf("Драмы"),
             yearFrom = 2000,
             sort = SearchSort.ALPHABET,
         )

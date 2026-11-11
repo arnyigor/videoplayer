@@ -98,8 +98,7 @@ class DetailsContentFactoryTest {
     }
 
     @Test
-    fun `film sources put hd first and keep labels short`() {
-        val movie = testFilm().copy(
+    fun `film sources put hd first and keep labels short`() {        val movie = testFilm().copy(
             cinemaUrlData = CinemaUrlData(
                 hdUrl = AnwapUrl(urls = listOf("https://cdn.test/hd.m3u8?token=1")),
                 cinemaUrl = AnwapUrl(urls = listOf("https://other.test/film.mp4")),
@@ -112,6 +111,25 @@ class DetailsContentFactoryTest {
         assertTrue(sources.first().isHd)
         assertTrue(sources.first().label.startsWith("HD • cdn.test"))
         assertTrue(sources.last().label.startsWith("SD • other.test"))
+    }
+
+    /** Регресс: экран деталей на телефоне строит подпись тем же кодом, что и TV. */
+    @Test
+    fun `labels match the shared source label used by mobile details`() {
+        val movie = testFilm().copy(
+            cinemaUrlData = CinemaUrlData(
+                hdUrl = AnwapUrl(urls = listOf("https://o11.anwap.be/ohls/abc/index.m3u8?token=secret")),
+                cinemaUrl = AnwapUrl(urls = listOf("https://z36.anwap.be/film/movie.mp4")),
+            )
+        )
+
+        val sources = DetailsContentFactory.sources(movie, playableId = null)
+
+        assertEquals(
+            listOf("HD • o11.anwap.be • M3U8", "SD • z36.anwap.be • MP4"),
+            sources.map { it.label }
+        )
+        assertTrue(sources.none { it.label.contains("secret") }, "query must not leak into the label")
     }
 
     @Test

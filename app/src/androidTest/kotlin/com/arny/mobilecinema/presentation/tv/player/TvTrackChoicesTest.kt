@@ -59,7 +59,7 @@ class TvTrackChoicesTest {
             Format.Builder().setSampleMimeType(MimeTypes.VIDEO_H264).setWidth(1280).setHeight(720).build())
         val choices = tvVideoQualityChoices(Tracks(listOf(group(videoFormats,
             intArrayOf(C.FORMAT_HANDLED, C.FORMAT_HANDLED, C.FORMAT_HANDLED), booleanArrayOf(false, true, false)))))
-        assertEquals(listOf("1920 x 1080", "1280 x 720", "848 x 480"), choices.map { it.first })
+        assertEquals(listOf("1080p (1920 × 1080)", "720p (1280 × 720)", "480p (848 × 480)"), choices.map { it.first })
         assertEquals(listOf(1), choices.first().second.trackIndices)
     }
 

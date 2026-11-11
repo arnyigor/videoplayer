@@ -104,7 +104,25 @@ class FavoritesFragment : Fragment(), OnSearchListener, KoinComponent {
 
     override fun isSearchComplete(): Boolean = emptySearch
 
+    override fun isSearchOpen(): Boolean = searchMenuItem?.isActionViewExpanded == true
+
+    override fun resetSearchContent() {
+        // Первое «Назад»: текст и результаты сбрасываются, поиск остаётся открытым.
+        searchView?.setQuery("", false)
+        viewModel.loadFavorites()
+        emptySearch = true
+    }
+
     override fun collapseSearch() {
+        // Второе «Назад»: закрыть поиск и вернуть экран в обычное состояние.
+        searchView?.setQuery("", false)
+        // Фокус + программное сворачивание — известный баг Toolbar: иконки
+        // не возвращаются. Снимаем фокус, сворачиваем виджет и пункт меню.
+        searchView?.clearFocus()
+        searchView?.isIconified = true
+        searchMenuItem?.collapseActionView()
+        searchMenuItem?.isVisible = false
+        searchMenuItem?.isVisible = true
         viewModel.loadFavorites()
         emptySearch = true
     }

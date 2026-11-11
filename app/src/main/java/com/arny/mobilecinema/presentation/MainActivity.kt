@@ -178,11 +178,13 @@ class MainActivity : AppCompatActivity() {
                 val isLastFragment = navController.currentDestination?.id == selectedTabId
                 val currentFragment = getCurrentFragment()
                 when {
-                    currentFragment is OnSearchListener && currentFragment.isSearchComplete() -> {
-                        onBack(isLastFragment)
+                    // Первое «Назад» при активном поиске — сброс текста и результатов,
+                    // поиск остаётся открытым. Второе — закрытие поиска. И только затем — выход.
+                    currentFragment is OnSearchListener && !currentFragment.isSearchComplete() -> {
+                        currentFragment.resetSearchContent()
                     }
 
-                    currentFragment is OnSearchListener && !currentFragment.isSearchComplete() -> {
+                    currentFragment is OnSearchListener && currentFragment.isSearchOpen() -> {
                         currentFragment.collapseSearch()
                     }
 
@@ -193,15 +195,28 @@ class MainActivity : AppCompatActivity() {
             }
 
             private fun onBack(isLastFragment: Boolean) {
-                if (isLastFragment) {
-                    if (backPressedTime + TIME_DELAY > System.currentTimeMillis()) {
-                        finishAffinity()
-                    } else {
-                        binding.root.showSnackBar(getString(R.string.press_back_again_to_exit))
+                val currentId = navController.currentDestination?.id
+                when {
+                    // Главная — корень: только на ней работает двойной выход.
+                    currentId == R.id.nav_home -> {
+                        if (backPressedTime + TIME_DELAY > System.currentTimeMillis()) {
+                            finishAffinity()
+                        } else {
+                            binding.root.showSnackBar(getString(R.string.press_back_again_to_exit))
+                        }
+                        backPressedTime = System.currentTimeMillis()
                     }
-                    backPressedTime = System.currentTimeMillis()
-                } else {
-                    navController.navigateUp()
+
+                    // Любая другая вкладка: назад ведёт на главную и вычищает стек до неё.
+                    // Ранее здесь был выход по двойному нажатию, хотя nav_home лежал под вкладкой.
+                    isLastFragment -> {
+                        if (!navController.popBackStack(R.id.nav_home, false)) {
+                            // main не в стеке после restore/deep link — идём через bottom nav.
+                            binding.bottomNavView.selectedItemId = R.id.nav_home
+                        }
+                    }
+
+                    else -> navController.navigateUp()
                 }
             }
         })

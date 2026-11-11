@@ -9,6 +9,7 @@ import com.arny.mobilecinema.domain.playback.PlaybackProgress
 import com.arny.mobilecinema.domain.playback.ProgressCompletionPolicy
 import com.arny.mobilecinema.domain.playback.ResumeTarget
 import com.arny.mobilecinema.domain.playback.playableRefs
+import com.arny.mobilecinema.presentation.player.sourceLabel
 import kotlin.math.roundToInt
 
 enum class EpisodeStatus { NOT_STARTED, IN_PROGRESS, COMPLETED }
@@ -162,7 +163,20 @@ object DetailsContentFactory {
         is ResumeTarget.Unavailable, null -> null
     }
 
-    fun genres(movie: Movie, limit: Int = 12): List<String> = movie.info.genres.splitItems(limit)
+    /**
+     * Жанры карточки. Словарь (R.array.genres) нужен, потому что часть карточек
+     * приходит жанрами одной строкой без запятых — без словаря это один тег.
+     */
+    fun genres(movie: Movie, limit: Int = 12, dictionary: List<String> = emptyList()): List<String> {
+        val items = if (dictionary.isEmpty()) {
+            movie.info.genres.splitItems(limit)
+        } else {
+            com.arny.mobilecinema.data.utils.GenreSplitter.split(movie.info.genres, dictionary)
+                .distinct()
+                .take(limit)
+        }
+        return items
+    }
 
     fun actors(movie: Movie, limit: Int = 12): List<String> = movie.info.actors.splitItems(limit)
 
@@ -236,15 +250,7 @@ object DetailsContentFactory {
     }
 
     private fun source(url: String, isHd: Boolean): SourceUi {
-        val label = "${if (isHd) "HD" else "SD"} • ${shortSourceLabel(url)}"
+        val label = sourceLabel(if (isHd) "HD" else "SD", url)
         return SourceUi(url = url, label = label, isHd = isHd)
-    }
-
-    private fun shortSourceLabel(url: String): String {
-        val urlWithoutQuery = url.substringBefore("?")
-        val afterProtocol = urlWithoutQuery.substringAfter("://")
-        val host = afterProtocol.substringBefore("/")
-        val extension = urlWithoutQuery.substringAfterLast(".", "link").uppercase()
-        return "$host • $extension"
     }
 }
