@@ -282,57 +282,70 @@ class UpdateRepositoryImpl constructor(
         movie: Movie
     ) = it.pageUrl == movie.pageUrl && !it.title.equals(movie.title, true)
 
+    /**
+     * Резолв текущего зеркала сайта.
+     *
+     * Домены сайта меняются, поэтому кандидаты перебираются по цепочке и каждый проверяется
+     * живым запросом: если все недоступны, сохранённый адрес не подменяется мёртвым, а вызывающая
+     * сторона получает false — экран покажет честную ошибку «сайт недоступен» вместо пустых постеров.
+     */
     override suspend fun checkBaseUrl(): Boolean = withContext(Dispatchers.IO) {
-        val entryPointUrl = AppConstants.ENTRY_POINT_URL.trim().trimEnd('/')
-
-        // ========================================================================
-        // STRATEGY 1: Determine the actual domain from the stable entry point page.
-        // The app resolves the current working mirror itself on every launch and
-        // stores it, so it does not depend on build-time secrets or external files.
-        // ========================================================================
-        try {
-            val extractedUrl = tryParseFromPage(entryPointUrl)
-
-            baseUrl = extractedUrl
-            Timber.tag("BaseUrlChecker").i("Success: URL parsed from entry point page: %s", baseUrl)
-            return@withContext true
-        } catch (e: Exception) {
-            Timber.tag("BaseUrlChecker").w(
-                e,
-                "Strategy 1 failed: Could not extract from entry point page: %s",
-                entryPointUrl
-            )
-            // Swallow exception and proceed to Strategy 2
-        }
-
-        // ========================================================================
-        // STRATEGY 2: Fallback - try the build-time configured link.
-        // Used only if the stable entry point dies and a fresh mirror is
-        // configured in build-time secrets.
-        // ========================================================================
-        val buildTimeLink = BuildConfig.BASE_LINK.trim().trimEnd('/')
-        if (buildTimeLink.isNotBlank() && buildTimeLink != entryPointUrl) {
+        val candidates = baseUrlCandidates()
+        for (candidate in candidates) {
             try {
-                val extractedUrl = tryParseFromPage(buildTimeLink)
-
-                baseUrl = extractedUrl
-                Timber.tag("BaseUrlChecker").i("Success: URL parsed from build-time page: %s", baseUrl)
+                val resolved = tryParseFromPage(candidate)
+                if (!isMirrorAlive(resolved)) {
+                    Timber.tag("BaseUrlChecker").w(
+                        "Candidate %s resolved to %s, but mirror is not alive",
+                        candidate, resolved
+                    )
+                    continue
+                }
+                baseUrl = resolved
+                Timber.tag("BaseUrlChecker").i("Success: mirror resolved from %s -> %s", candidate, resolved)
                 return@withContext true
             } catch (e: Exception) {
-                Timber.tag("BaseUrlChecker").w(e, "Strategy 2 failed: Could not extract from build-time page.")
+                Timber.tag("BaseUrlChecker").w(e, "Candidate failed: %s", candidate)
             }
         }
 
-        // ========================================================================
-        // FAILURE: Both strategies failed. Keep the previously stored base URL.
-        // ========================================================================
-        Timber.tag("BaseUrlChecker").w("Both strategies failed to resolve base URL. Keeping saved: %s", baseUrl)
+        // Последний шанс — уже сохранённый адрес: мог быть резолвнут ранее и ещё жив.
+        val saved = baseUrl.trim().trimEnd('/')
+        if (saved.startsWith("http", ignoreCase = true) && isMirrorAlive(saved)) {
+            Timber.tag("BaseUrlChecker").i("Using saved base URL: %s", saved)
+            return@withContext true
+        }
+
+        Timber.tag("BaseUrlChecker").e("All mirrors are unavailable. Keeping saved: %s", baseUrl)
         return@withContext false
     }
 
-    /* ------------------------------------------------------------ */
-    /*  Helper Functions                                            */
-    /* ------------------------------------------------------------ */
+    /** Точки входа: стабильная страница, build-time ссылка, файл на GitHub-релизе. */
+    private fun baseUrlCandidates(): List<String> = buildList {
+        add(AppConstants.ENTRY_POINT_URL.trim().trimEnd('/'))
+        add(BuildConfig.BASE_LINK.trim().trimEnd('/'))
+        tryBaseUrlFromFile()?.let(::add)
+        baseUrl.trim().trimEnd('/').takeIf { it.startsWith("http", ignoreCase = true) }?.let(::add)
+    }.filter { it.isNotBlank() }.distinct()
+
+    /** Ссылка из data-файла: обновляется без релиза приложения. */
+    private fun tryBaseUrlFromFile(): String? = runCatching {
+        val fileUrl = BuildConfig.BASE_LINK_FILE.trim()
+        if (fileUrl.isBlank()) return null
+        val doc = jsoup.loadPage(url = fileUrl, timeout = BASE_URL_PAGE_TIMEOUT_MILLIS)
+        val text = doc.wholeText().ifBlank { doc.text() }
+        Regex("""https?://[^\s"'<>]+""").find(text)?.value?.trimEnd('/')
+    }.onFailure {
+        Timber.tag("BaseUrlChecker").w(it, "Base URL file is unavailable")
+    }.getOrNull()
+
+    /** Живость зеркала: страница каталога отвечает 2xx. */
+    private fun isMirrorAlive(mirror: String): Boolean = runCatching {
+        val url = mirror.trimEnd('/') + "/films/"
+        val doc = jsoup.loadPage(url = url, timeout = BASE_URL_PAGE_TIMEOUT_MILLIS)
+        val status = doc.connection().response().statusCode()
+        status in 200..299
+    }.getOrDefault(false)
 
     private fun tryParseFromPage(url: String): String {
         val doc = jsoup.loadPage(url = url, timeout = BASE_URL_PAGE_TIMEOUT_MILLIS)

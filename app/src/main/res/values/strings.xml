@@ -163,6 +163,11 @@
     <string name="player_min_cache_time_sec">Минимальный буфер, сек</string>
     <string name="player_max_cache_time_sec">Максимальный буфер, сек</string>
     <string name="internet_connection_error">Отсутствует интернет соединение</string>
+    <string name="site_unavailable_title">Сайт недоступен</string>
+    <string name="site_unavailable_message">Не удалось подключиться ни к одному из зеркал сайта. Возможно, сайт обновляется или временно недоступен. Можно повторить позже или открыть сохранённый каталог.</string>
+    <string name="site_unavailable_retry">Повторить</string>
+    <string name="site_unavailable_offline">Открыть сохранённое</string>
+    <string name="site_unavailable_restored">Сайт снова доступен — обновите список</string>
     <string name="internet_not_validated_error">Сеть подключена, но доступа в интернет нет. Проверьте роутер или Wi-Fi.</string>
     <string name="duration_format">Длительность: %s</string>
     <string name="updated_format">Обновлен: %s</string>

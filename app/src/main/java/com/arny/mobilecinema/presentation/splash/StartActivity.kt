@@ -26,7 +26,10 @@ class StartActivity : AppCompatActivity(), KoinComponent {
         content.viewTreeObserver.addOnPreDrawListener(
             object : ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
-                    return if (viewModel.readyComplete.value) {
+                    // «Сайт недоступен» тоже завершает сплэш: ошибку покажет MainActivity,
+                    // иначе экран висел бы бесконечно на системном splash.
+                    val unavailable = viewModel.state.value is SplashState.SiteUnavailable
+                    return if (viewModel.readyComplete.value || unavailable) {
                         content.viewTreeObserver.removeOnPreDrawListener(this)
                         val targetActivity = if (DeviceUtils.isTV(this@StartActivity)) {
                             TvMainActivity::class.java
@@ -35,6 +38,7 @@ class StartActivity : AppCompatActivity(), KoinComponent {
                         }
                         val intent = Intent(this@StartActivity, targetActivity)
                         intent.putExtra(KEY_SHARED_URL, viewModel.sharedUrl)
+                        intent.putExtra(KEY_SITE_OFFLINE, viewModel.state.value is SplashState.SiteUnavailable)
                         startActivity(intent)
                         overridePendingTransition(R.anim.fade_in, R.anim.fade_out)
                         finish()
@@ -67,5 +71,9 @@ class StartActivity : AppCompatActivity(), KoinComponent {
 
     companion object {
         const val KEY_SHARED_URL = "KEY_SHARED_URL"
+
+        /** Сайт недоступен: MainActivity покажет ошибку и предложит повтор. */
+        const val KEY_SITE_OFFLINE = "KEY_SITE_OFFLINE"
     }
+
 }

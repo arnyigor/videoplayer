@@ -12,6 +12,7 @@ import androidx.core.view.isVisible
 import androidx.navigation.NavOptions
 import androidx.core.os.bundleOf
 import androidx.lifecycle.Lifecycle
+import androidx.appcompat.app.AlertDialog
 import androidx.lifecycle.lifecycleScope
 import android.widget.Toast
 import com.arny.mobilecinema.data.models.DataResult
@@ -21,6 +22,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import com.arny.mobilecinema.domain.interactors.update.DataUpdateInteractor
 import org.koin.android.ext.android.inject
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
@@ -40,6 +42,8 @@ class MainActivity : AppCompatActivity() {
     private var backPressedTime: Long = 0
     private val linkInteractor: JsoupUpdateInteractor by inject()
     private var sharedUrlJob: Job? = null
+    private var siteUnavailableDialog: AlertDialog? = null
+    private val dataUpdateInteractor: DataUpdateInteractor by inject()
 
     /**
      * Вкладка, выбранная пользователем в нижнем меню. Отличает корень вкладки от экрана,
@@ -77,6 +81,7 @@ class MainActivity : AppCompatActivity() {
         initOnBackPress()
         initUI()
         handleSharedUrl()
+        showSiteUnavailableIfNeeded()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -102,6 +107,39 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             intent.removeExtra(StartActivity.KEY_SHARED_URL)
+        }
+    }
+
+    /**
+     * Сайт недоступен (ни одно зеркало не отвечает): честное сообщение и повтор,
+     * вместо тихого старта с пустыми постерами. Показ здесь, а не на сплэше:
+     * диалог на системном splash-экране не получал фокус.
+     */
+    private fun showSiteUnavailableIfNeeded() {
+        if (!intent.getBooleanExtra(StartActivity.KEY_SITE_OFFLINE, false)) return
+        intent.removeExtra(StartActivity.KEY_SITE_OFFLINE)
+        if (siteUnavailableDialog?.isShowing == true) return
+        siteUnavailableDialog = AlertDialog.Builder(this, R.style.PlayerAlertDialogTheme)
+            .setTitle(R.string.site_unavailable_title)
+            .setMessage(R.string.site_unavailable_message)
+            .setPositiveButton(R.string.site_unavailable_retry) { _, _ -> retrySiteAvailability() }
+            .setNegativeButton(R.string.site_unavailable_offline, null)
+            .show()
+    }
+
+    /** Повтор резолва зеркала; при успехе подсказываем обновить список. */
+    private fun retrySiteAvailability() {
+        siteUnavailableDialog?.dismiss()
+        siteUnavailableDialog = null
+        lifecycleScope.launch {
+            val resolved = runCatching {
+                dataUpdateInteractor.checkBaseUrl().first()
+            }.getOrNull() is DataResult.Success
+            Toast.makeText(
+                this@MainActivity,
+                if (resolved) R.string.site_unavailable_restored else R.string.site_unavailable_title,
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
