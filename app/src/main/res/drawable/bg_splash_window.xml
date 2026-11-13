@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    windowBackground сплэша: градиент + логотип по центру.
+    Рисуется системой ещё до первого кадра приложения, поэтому холодный старт
+    показывает готовую сцену, а не пустой фон, пока идёт инициализация.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/bg_splash_gradient" />
+    <item
+        android:width="120dp"
+        android:height="120dp"
+        android:drawable="@drawable/play_circle_outline"
+        android:gravity="center" />
+</layer-list>

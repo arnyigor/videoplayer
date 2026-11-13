@@ -4,7 +4,8 @@
     <!-- Android 12+ всегда рисует системный splash: делаем его иконку невидимой,
          а фон — совпадающим с нашим первым кадром, чтобы не было «картинка, потом анимация». -->
     <style name="AppTheme.Splash" parent="@style/AppTheme">
-        <item name="android:windowBackground">@drawable/bg_splash_gradient</item>
+        <!-- С логотипом в фоне холодный старт не показывает пустой градиент. -->
+        <item name="android:windowBackground">@drawable/bg_splash_window</item>
         <item name="android:windowSplashScreenBackground">@color/colorPrimaryDark</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_invisible</item>
         <item name="android:windowSplashScreenAnimationDuration">0</item>

@@ -112,7 +112,8 @@
 
     <!-- Сплэш без системной заставки: окно сразу с нашим фоном, анимацию рисует StartActivity. -->
     <style name="AppTheme.Splash" parent="@style/AppTheme">
-        <item name="android:windowBackground">@drawable/bg_splash_gradient</item>
+        <!-- С логотипом в фоне холодный старт не показывает пустой градиент. -->
+        <item name="android:windowBackground">@drawable/bg_splash_window</item>
         <item name="android:statusBarColor">@color/colorPrimaryDark</item>
         <item name="android:navigationBarColor">@color/colorPrimaryDark</item>
     </style>
