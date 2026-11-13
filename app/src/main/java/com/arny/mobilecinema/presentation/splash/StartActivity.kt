@@ -40,11 +40,14 @@ class StartActivity : AppCompatActivity(), KoinComponent {
         binding = ActivitySplashBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        handleIntent(intent)
-        // Анимация стартует с первого реально нарисованного кадра: запуск в onCreate
-        // «съедался» до того, как окно успевало показаться.
-        binding.root.doOnPreDraw { playIntroAnimation() }
-        awaitStartup()
+        // Всё, что требует DI (ViewModel, репозитории, БД), создаётся только после первой
+        // отрисовки: доступ к viewModel в onCreate задерживал первый кадр на секунды,
+        // и пользователь видел пустой фон до появления сцены.
+        binding.root.doOnPreDraw {
+            playIntroAnimation()
+            handleIntent(intent)
+            awaitStartup()
+        }
     }
 
     /**
@@ -95,8 +98,8 @@ class StartActivity : AppCompatActivity(), KoinComponent {
         listOf(binding.ringInner to 0L, binding.ringOuter to SONAR_STAGGER_MS).forEach { (ring, delayMs) ->
             val animator = ObjectAnimator.ofPropertyValuesHolder(
                 ring,
-                PropertyValuesHolder.ofFloat(View.SCALE_X, 0.9f, 1.5f),
-                PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.9f, 1.5f),
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 0.62f, 1.0f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.62f, 1.0f),
                 PropertyValuesHolder.ofFloat(View.ALPHA, 0.45f, 0f),
             ).apply {
                 duration = SONAR_MS

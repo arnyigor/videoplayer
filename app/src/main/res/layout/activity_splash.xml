@@ -25,26 +25,27 @@
         app:layout_constraintTop_toTopOf="parent">
 
         <!-- Сонар-волны лежат под иконкой и растут из неё. -->
-        <!-- clipChildren=false: сонар-волны растут за пределы рамки, иначе арки обрезаются. -->
+        <!--
+            Сцена логотипа 260dp: волны занимают весь этот бокс и НЕ выходят за него,
+            поэтому обрезаться нечему (раньше кольцо 1.9× вылезало за рамку 168dp).
+        -->
         <FrameLayout
             android:id="@+id/logoStage"
-            android:layout_width="168dp"
-            android:layout_height="168dp"
-            android:clipChildren="false"
-            android:clipToPadding="false">
+            android:layout_width="260dp"
+            android:layout_height="260dp">
 
             <View
                 android:id="@+id/ringOuter"
-                android:layout_width="168dp"
-                android:layout_height="168dp"
+                android:layout_width="260dp"
+                android:layout_height="260dp"
                 android:layout_gravity="center"
                 android:alpha="0"
                 android:background="@drawable/bg_splash_ring" />
 
             <View
                 android:id="@+id/ringInner"
-                android:layout_width="168dp"
-                android:layout_height="168dp"
+                android:layout_width="260dp"
+                android:layout_height="260dp"
                 android:layout_gravity="center"
                 android:alpha="0"
                 android:background="@drawable/bg_splash_ring" />
