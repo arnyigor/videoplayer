@@ -1,54 +1,131 @@
 package com.arny.mobilecinema.presentation.splash
 
+import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.view.ViewTreeObserver
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.arny.mobilecinema.R
+import com.arny.mobilecinema.databinding.ActivitySplashBinding
 import com.arny.mobilecinema.presentation.MainActivity
 import com.arny.mobilecinema.presentation.tv.TvMainActivity
 import com.arny.mobilecinema.presentation.utils.DeviceUtils
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.component.KoinComponent
 
 class StartActivity : AppCompatActivity(), KoinComponent {
     private val viewModel: SplashViewModel by viewModel()
 
+    private lateinit var binding: ActivitySplashBinding
+    private var launched = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Koin injection
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        splashScreen.setKeepOnScreenCondition { true }
-        val content: View = findViewById(android.R.id.content)
+        // Свой экран вместо статичной системной заставки: показываем сразу,
+        // а условие удержания системного splash снимаем — иначе наша анимация не рисуется.
+        splashScreen.setKeepOnScreenCondition { false }
+        binding = ActivitySplashBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
         handleIntent(intent)
-        content.viewTreeObserver.addOnPreDrawListener(
-            object : ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    // «Сайт недоступен» тоже завершает сплэш: ошибку покажет MainActivity,
-                    // иначе экран висел бы бесконечно на системном splash.
-                    val unavailable = viewModel.state.value is SplashState.SiteUnavailable
-                    return if (viewModel.readyComplete.value || unavailable) {
-                        content.viewTreeObserver.removeOnPreDrawListener(this)
-                        val targetActivity = if (DeviceUtils.isTV(this@StartActivity)) {
-                            TvMainActivity::class.java
-                        } else {
-                            MainActivity::class.java
-                        }
-                        val intent = Intent(this@StartActivity, targetActivity)
-                        intent.putExtra(KEY_SHARED_URL, viewModel.sharedUrl)
-                        intent.putExtra(KEY_SITE_OFFLINE, viewModel.state.value is SplashState.SiteUnavailable)
-                        startActivity(intent)
-                        overridePendingTransition(R.anim.fade_in, R.anim.fade_out)
-                        finish()
-                        true
-                    } else {
-                        false
-                    }
-                }
-            }
-        )
+        playIntroAnimation()
+        awaitStartup()
+    }
+
+    /**
+     * Логотип «выпрыгивает» с масштабом и прозрачностью, затем плавно дышит;
+     * заголовок и индикатор поднимаются следом. Всё на нативных аниматорах —
+     * без зависимостей и без риска для времени старта.
+     */
+    private fun playIntroAnimation() {
+        binding.ivSplashLogo.apply {
+            alpha = 0f
+            scaleX = 0.6f
+            scaleY = 0.6f
+            animate()
+                .alpha(1f)
+                .scaleX(1f)
+                .scaleY(1f)
+                .setDuration(LOGO_APPEAR_MS)
+                .setInterpolator(OvershootInterpolator(1.4f))
+                .withEndAction { startBreathing() }
+                .start()
+        }
+
+        binding.tvSplashTitle.apply {
+            translationY = 24f
+            animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setStartDelay(TITLE_DELAY_MS)
+                .setDuration(TITLE_FADE_MS)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+
+        binding.pbSplash.apply {
+            translationY = 16f
+            animate()
+                .alpha(1f)
+                .translationY(0f)
+                .setStartDelay(PROGRESS_DELAY_MS)
+                .setDuration(TITLE_FADE_MS)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+    }
+
+    /** Мягкое «дыхание» логотипа, пока идёт резолв зеркала. */
+    private fun startBreathing() {
+        val breath = ObjectAnimator.ofPropertyValuesHolder(
+            binding.ivSplashLogo,
+            PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.06f),
+            PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.06f),
+        ).apply {
+            duration = BREATH_MS
+            repeatMode = ObjectAnimator.REVERSE
+            repeatCount = ObjectAnimator.INFINITE
+            interpolator = DecelerateInterpolator()
+        }
+        breath.start()
+    }
+
+    /** Ждём готовности, но не меньше [MIN_VISIBLE_MS]: анимация не должна мигать. */
+    private fun awaitStartup() {
+        lifecycleScope.launch {
+            val startedAt = System.currentTimeMillis()
+            // Первое определённое состояние: Ready или SiteUnavailable.
+            val state = viewModel.state.first { it !is SplashState.Checking }
+            val elapsed = System.currentTimeMillis() - startedAt
+            if (elapsed < MIN_VISIBLE_MS) delay(MIN_VISIBLE_MS - elapsed)
+            launchMain(state)
+        }
+    }
+
+    private fun launchMain(state: SplashState) {
+        if (launched || isFinishing || isDestroyed) return
+        launched = true
+        val targetActivity = if (DeviceUtils.isTV(this)) {
+            TvMainActivity::class.java
+        } else {
+            MainActivity::class.java
+        }
+        val intent = Intent(this, targetActivity).apply {
+            putExtra(KEY_SHARED_URL, viewModel.sharedUrl)
+            putExtra(KEY_SITE_OFFLINE, state is SplashState.SiteUnavailable)
+        }
+        startActivity(intent)
+        overridePendingTransition(R.anim.fade_in, R.anim.fade_out)
+        finish()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -74,6 +151,12 @@ class StartActivity : AppCompatActivity(), KoinComponent {
 
         /** Сайт недоступен: MainActivity покажет ошибку и предложит повтор. */
         const val KEY_SITE_OFFLINE = "KEY_SITE_OFFLINE"
-    }
 
+        private const val LOGO_APPEAR_MS = 520L
+        private const val TITLE_DELAY_MS = 120L
+        private const val TITLE_FADE_MS = 420L
+        private const val PROGRESS_DELAY_MS = 260L
+        private const val BREATH_MS = 1400L
+        private const val MIN_VISIBLE_MS = 900L
+    }
 }

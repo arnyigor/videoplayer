@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Фон сплэша: мягкий акцентный градиент из угла, чтобы экран не был плоской заливкой. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:centerColor="@color/colorPrimary"
+        android:centerX="0.35"
+        android:centerY="0.25"
+        android:endColor="@color/colorPrimaryDark"
+        android:startColor="#2A1F4D"
+        android:type="linear" />
+</shape>
