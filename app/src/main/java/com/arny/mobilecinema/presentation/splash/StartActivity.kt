@@ -8,7 +8,7 @@ import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.OvershootInterpolator
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.doOnPreDraw
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.ActivitySplashBinding
 import com.arny.mobilecinema.presentation.MainActivity
@@ -28,16 +28,16 @@ class StartActivity : AppCompatActivity(), KoinComponent {
     private var launched = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        // Свой экран вместо статичной системной заставки: показываем сразу,
-        // а условие удержания системного splash снимаем — иначе наша анимация не рисуется.
-        splashScreen.setKeepOnScreenCondition { false }
+        // Системного splash нет вовсе (тема AppTheme.Splash): раньше он показывал статичную
+        // иконку, и пользователь видел две заставки подряд — картинку, затем анимацию.
         binding = ActivitySplashBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         handleIntent(intent)
-        playIntroAnimation()
+        // Анимация стартует с первого реально нарисованного кадра: запуск в onCreate
+        // «съедался» до того, как окно успевало показаться.
+        binding.root.doOnPreDraw { playIntroAnimation() }
         awaitStartup()
     }
 
@@ -157,6 +157,6 @@ class StartActivity : AppCompatActivity(), KoinComponent {
         private const val TITLE_FADE_MS = 420L
         private const val PROGRESS_DELAY_MS = 260L
         private const val BREATH_MS = 1400L
-        private const val MIN_VISIBLE_MS = 900L
+        private const val MIN_VISIBLE_MS = 1200L
     }
 }

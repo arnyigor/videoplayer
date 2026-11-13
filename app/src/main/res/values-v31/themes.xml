@@ -1,17 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
-        <!-- Set the splash screen background, animated icon, and animation duration. -->
-        <item name="windowSplashScreenBackground">@color/colorPrimaryDark</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/play_circle_outline</item>
-        <!-- Use windowSplashScreenAnimatedIcon to add either a drawable or an
-             animated drawable. One of these is required. -->
-        <item name="windowSplashScreenAnimatedIcon">@drawable/play_circle_outline</item>
-        <!-- Required for animated icons -->
-        <item name="windowSplashScreenAnimationDuration">200</item>
-        <!-- Set the theme of the Activity that directly follows your splash screen. -->
-        <!-- Required -->
-        <item name="postSplashScreenTheme">@style/AppTheme</item>
+    <!-- Android 12+ всегда рисует системный splash: делаем его иконку невидимой,
+         а фон — совпадающим с нашим первым кадром, чтобы не было «картинка, потом анимация». -->
+    <style name="AppTheme.Splash" parent="@style/AppTheme">
+        <item name="android:windowBackground">@drawable/bg_splash_gradient</item>
+        <item name="android:windowSplashScreenBackground">@color/colorPrimaryDark</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_splash_invisible</item>
+        <item name="android:windowSplashScreenAnimationDuration">0</item>
+        <item name="android:statusBarColor">@color/colorPrimaryDark</item>
+        <item name="android:navigationBarColor">@color/colorPrimaryDark</item>
     </style>
 </resources>
