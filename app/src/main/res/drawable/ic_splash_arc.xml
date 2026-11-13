@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Дуга-индикатор: 300° окружности акцентным цветом, вращается в коде. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="28"
+    android:viewportHeight="28">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M14,3 A11,11 0 1,1 13.99,3"
+        android:strokeColor="@color/colorAccent"
+        android:strokeLineCap="round"
+        android:strokeWidth="2.4" />
+</vector>

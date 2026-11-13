@@ -7,47 +7,89 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_splash_gradient">
 
-    <!-- Логотип: появляется масштабом с прозрачностью, затем мягко «дышит». -->
-    <ImageView
-        android:id="@+id/ivSplashLogo"
-        android:layout_width="132dp"
-        android:layout_height="132dp"
-        android:contentDescription="@string/app_brand"
-        android:src="@drawable/play_circle_outline"
-        app:layout_constraintBottom_toTopOf="@id/tvSplashTitle"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintVertical_chainStyle="packed"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:ignore="ContentDescription" />
-
-    <TextView
-        android:id="@+id/tvSplashTitle"
+    <!--
+        Вся сцена — один вертикальный блок, отцентрованный в родителе.
+        Так геометрия не зависит от поведения цепочек ConstraintLayout.
+    -->
+    <LinearLayout
+        android:id="@+id/splashStage"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:alpha="0"
-        android:letterSpacing="0.12"
-        android:text="@string/app_brand"
-        android:textColor="@color/textColorPrimary"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/ivSplashLogo" />
-
-    <ProgressBar
-        android:id="@+id/pbSplash"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="120dp"
-        android:layout_height="3dp"
-        android:layout_marginTop="28dp"
-        android:alpha="0"
-        android:indeterminate="true"
-        android:indeterminateTint="@color/colorAccent"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvSplashTitle" />
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Сонар-волны лежат под иконкой и растут из неё. -->
+        <FrameLayout
+            android:id="@+id/logoStage"
+            android:layout_width="168dp"
+            android:layout_height="168dp">
+
+            <View
+                android:id="@+id/ringOuter"
+                android:layout_width="168dp"
+                android:layout_height="168dp"
+                android:layout_gravity="center"
+                android:alpha="0"
+                android:background="@drawable/bg_splash_ring" />
+
+            <View
+                android:id="@+id/ringInner"
+                android:layout_width="168dp"
+                android:layout_height="168dp"
+                android:layout_gravity="center"
+                android:alpha="0"
+                android:background="@drawable/bg_splash_ring" />
+
+            <ImageView
+                android:id="@+id/ivSplashLogo"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_gravity="center"
+                android:contentDescription="@string/app_brand"
+                android:src="@drawable/play_circle_outline"
+                tools:ignore="ContentDescription" />
+        </FrameLayout>
+
+        <!-- Заголовок: текст + бегущий блик поверх него. -->
+        <FrameLayout
+            android:id="@+id/titleStage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:alpha="0">
+
+            <TextView
+                android:id="@+id/tvSplashTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.12"
+                android:text="@string/app_brand"
+                android:textColor="@color/textColorPrimary"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <View
+                android:id="@+id/vShimmer"
+                android:layout_width="72dp"
+                android:layout_height="30dp"
+                android:layout_gravity="center_vertical"
+                android:alpha="0"
+                android:background="@drawable/bg_shimmer_gradient" />
+        </FrameLayout>
+
+        <!-- Дуга-индикатор: компактнее системного ProgressBar и в стиле сцены. -->
+        <ImageView
+            android:id="@+id/ivSplashArc"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_marginTop="26dp"
+            android:alpha="0"
+            android:contentDescription="@string/loading"
+            android:src="@drawable/ic_splash_arc" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
