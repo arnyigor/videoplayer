@@ -7,6 +7,7 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.models.SimpleFloatRange
 import com.arny.mobilecinema.domain.models.SimpleIntRange
 import com.arny.mobilecinema.domain.models.isNotEmpty
+import com.arny.mobilecinema.domain.search.SearchRelevance
 
 fun getMoviesSQL(
     search: String,
@@ -28,7 +29,7 @@ fun getMoviesSQL(
     val args = mutableListOf<Any?>()
     // Изменено: добавлен алиас 'm' и JOIN с favorites, добавлено поле isFavorite
     sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, m.ratingImdb, m.ratingKp, m.updated, CASE WHEN f.movie_dbid IS NOT NULL THEN 1 ELSE 0 END AS isFavorite FROM movies m LEFT JOIN favorites f ON m.dbId = f.movie_dbid ")
-    search(search, sb, whereWrapper, searchType, args)
+    appendSearchFilter(search, sb, whereWrapper, searchType, args)
     movieTypes(movieTypes, whereWrapper, sb)
     years(years, whereWrapper, sb, args)
     countries(countries, whereWrapper, sb, args)
@@ -42,7 +43,7 @@ fun getMoviesSQL(
         likesPriority = likesPriority,
         // Совпадение по названию важнее популярности только когда ищут по названию.
         relevanceQuery = search.trim()
-            .takeIf { it.isNotBlank() && searchType != AppConstants.SearchType.GENRES },
+            .takeIf { it.isNotBlank() && searchType == AppConstants.SearchType.TITLE },
         args = args,
     )
     limit(sb, args, limit, offset)
@@ -77,7 +78,7 @@ private fun genres(
     sb: StringBuilder,
     args: MutableList<Any?>
 ) {
-    val searchTerms = GenreSearchHelper.searchTermsForGenres(genres)
+    val searchTerms = normalizedGenreTerms(genres)
     if (searchTerms.isNotEmpty()) {
         if (!whereWrapper.hasWhere) {
             sb.append(" WHERE")
@@ -90,7 +91,7 @@ private fun genres(
                 prefix = " (",
                 postfix = ") ",
                 separator = " OR "
-            ) { "m.genre LIKE '%' || ? || '%'" }
+            ) { "m.genreSearch LIKE '%' || ? || '%'" }
         )
         args.addAll(searchTerms)
     }
@@ -140,7 +141,7 @@ private fun countries(
     sb: StringBuilder,
     args: MutableList<Any?>
 ) {
-    val countryTerms = countries.map { it.trim() }.filter { it.isNotBlank() }
+    val countryTerms = countries.map(SearchRelevance::searchKey).filter { it.isNotBlank() }.distinct()
     if (countryTerms.isNotEmpty()) {
         if (!whereWrapper.hasWhere) {
             sb.append(" WHERE")
@@ -153,7 +154,7 @@ private fun countries(
                 prefix = " (",
                 postfix = ") ",
                 separator = " OR "
-            ) { "m.countries LIKE '%' || ? || '%'" }
+            ) { "m.countriesSearch LIKE '%' || ? || '%'" }
         )
         args.addAll(countryTerms)
     }
@@ -194,7 +195,7 @@ private fun movieTypes(
     }
 }
 
-private fun search(
+internal fun appendSearchFilter(
     search: String,
     sb: StringBuilder,
     whereWrapper: WhereWrapper,
@@ -212,67 +213,79 @@ private fun search(
     }
     when (searchType) {
         AppConstants.SearchType.GENRES -> {
-            val searchTerms = GenreSearchHelper.searchTermsForGenres(listOf(search))
-            sb.append(
-                searchTerms.joinToString(
-                    prefix = " (",
-                    postfix = ") ",
-                    separator = " OR "
-                ) { "m.genre LIKE '%' || ? || '%'" }
-            )
-            args.addAll(searchTerms)
-        }
-
-        // Название ищется и по оригинальному: латинский запрос иначе не находит
-        // русскоязычную карточку («matrix» → «Матрица», origTitle = «The Matrix»).
-        AppConstants.SearchType.TITLE -> {
-            val needles = titleNeedles(search)
-            sb.append(
-                needles.joinToString(
-                    prefix = " (",
-                    postfix = ") ",
-                    separator = " OR "
-                ) { "(m.title LIKE '%' || ? || '%' OR m.origTitle LIKE '%' || ? || '%')" }
-            )
-            needles.forEach { needle ->
-                args.add(needle)
-                args.add(needle)
+            val searchTerms = normalizedGenreTerms(listOf(search))
+            if (searchTerms.isEmpty()) {
+                sb.append(" 1 = 1 ")
+            } else {
+                sb.append(
+                    searchTerms.joinToString(
+                        prefix = " (",
+                        postfix = ") ",
+                        separator = " OR "
+                    ) { "m.genreSearch LIKE '%' || ? || '%'" }
+                )
+                args.addAll(searchTerms)
             }
         }
 
-        AppConstants.SearchType.DIRECTORS -> {
-            sb.append(" m.directors LIKE '%' || ? || '%' ")
-            args.add(search)
+        // Поиск по названию — по всем словам запроса и по нормализованному ключу:
+        // сырое `LIKE` не находит «жил был пес» в «Жил-был пёс» (дефис, ё) и
+        // «человек паук новый» в «Человек-паук: Новый день» (двоеточие).
+        AppConstants.SearchType.TITLE -> {
+            val tokens = SearchRelevance.tokens(search)
+            if (tokens.isEmpty()) {
+                sb.append(" 1 = 1 ")
+            } else {
+                sb.append(
+                    tokens.joinToString(
+                        prefix = " (",
+                        postfix = ") ",
+                        separator = " AND "
+                    ) { "(m.titleSearch LIKE '%' || ? || '%' OR m.origTitleSearch LIKE '%' || ? || '%')" }
+                )
+                tokens.forEach { token ->
+                    args.add(token)
+                    args.add(token)
+                }
+            }
         }
 
-        AppConstants.SearchType.ACTORS -> {
-            sb.append(" m.actors LIKE '%' || ? || '%' ")
-            args.add(search)
-        }
+        AppConstants.SearchType.DIRECTORS -> appendWordMatch(search, "m.directorsSearch", sb, args)
+        AppConstants.SearchType.ACTORS -> appendWordMatch(search, "m.actorsSearch", sb, args)
 
         else -> sb.append(" 1 = 1 ")
     }
 }
 
-/**
- * Варианты написания названия для запроса из двух слов: сайт хранит часть
- * названий с подчёркиванием вместо пробела («Матрица_Перезагрузка»).
- */
-private fun titleNeedles(search: String): List<String> {
-    val trimmed = search.trim()
-    val words = trimmed.split(" ").filter { it.isNotBlank() }
-    if (words.size != 2) {
-        return listOf(trimmed)
+/** Preserve genre aliases and OR selection while folding case, ё and punctuation. */
+private fun normalizedGenreTerms(genres: List<String>): List<String> =
+    GenreSearchHelper.searchTermsForGenres(genres)
+        .map(SearchRelevance::searchKey)
+        .filter { it.isNotBlank() }
+        .distinct()
+
+private fun appendWordMatch(
+    query: String,
+    column: String,
+    sb: StringBuilder,
+    args: MutableList<Any?>,
+) {
+    val tokens = SearchRelevance.tokens(query).distinct()
+    if (tokens.isEmpty()) {
+        sb.append(" 1 = 1 ")
+    } else {
+        sb.append(tokens.joinToString(prefix = " (", postfix = ") ", separator = " AND ") {
+            "$column LIKE '%' || ? || '%'"
+        })
+        args.addAll(tokens)
     }
-    val first = words[0]
-    val second = words[1]
-    return listOf(
-        "$first $second",
-        "${first}_$second",
-        "${first}_ $second",
-        "$first _ $second",
-    ).distinct()
 }
+
+/**
+ * Приводит запрос к виду, сравнимому с колонками `titleSearch`/`origTitleSearch`:
+ * та же нормализация, что и при запите (нижний регистр, ё→е, разделители → пробел).
+ */
+private fun normalizedSearch(search: String): String = SearchRelevance.searchKey(search)
 
 private fun order(
     order: String,
@@ -282,20 +295,20 @@ private fun order(
     args: MutableList<Any?>? = null,
 ) {
     val terms = mutableListOf<String>()
-    val relevance = relevanceQuery?.trim().orEmpty()
+    val relevance = normalizedSearch(relevanceQuery?.trim().orEmpty())
     if (relevance.isNotBlank() && args != null) {
         // Точное название → название начинается с запроса → с запроса начинается слово
-        // в названии или оригинальном названии. Ранжирование сайта и вспомогательные
-        // поля (алиасы, транслит) здесь не учитываются — это следующий шаг SRCH-04.
+        // в названии или оригинальном названии. Сравнение идёт с нормализованным ключом:
+        // сырое название не совпадёт по регистру/ё для кириллицы.
         terms.add(
             """
                 CASE
-                    WHEN m.title LIKE ? THEN 0
-                    WHEN m.title LIKE ? || '%' THEN 1
-                    WHEN m.title LIKE '% ' || ? || '%' THEN 2
-                    WHEN m.origTitle LIKE ? THEN 3
-                    WHEN m.origTitle LIKE ? || '%' THEN 4
-                    WHEN m.origTitle LIKE '% ' || ? || '%' THEN 5
+                    WHEN m.titleSearch = ? THEN 0
+                    WHEN m.titleSearch LIKE ? || '%' THEN 1
+                    WHEN m.titleSearch LIKE '% ' || ? || '%' THEN 2
+                    WHEN m.origTitleSearch = ? THEN 3
+                    WHEN m.origTitleSearch LIKE ? || '%' THEN 4
+                    WHEN m.origTitleSearch LIKE '% ' || ? || '%' THEN 5
                     ELSE 6
                 END
             """.trimIndent().replace("\n", " ")
@@ -459,32 +472,6 @@ private fun smartOrder(): String {
     """.trimIndent().replace("\n", " ")
 }
 
-private fun extendedSearch(
-    searchType: String,
-    args: MutableList<Any?>,
-    search: String,
-    sb: StringBuilder
-) {
-    if (searchType == AppConstants.SearchType.TITLE) {
-        val words = search.split(" ")
-        if (words.size == 2) {
-            val first = words[0].trim()
-            val second = words[1].trim()
-            args.add("${first}_${second}")
-            sb.append(" OR")
-            sb.append(" title LIKE '%' || ? || '%'")
-            args.add("${first}_ $second")
-            sb.append(" OR")
-            sb.append(" title LIKE '%' || ? || '%'")
-            args.add("$first _ $second")
-        } else {
-            args.add(search)
-        }
-    } else {
-        args.add(search)
-    }
-}
-
 fun getHistorySQL(
     search: String,
     order: String,
@@ -495,30 +482,7 @@ fun getHistorySQL(
     val sb = StringBuilder()
     val args = mutableListOf<Any?>()
     sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, m.ratingImdb, m.ratingKp, m.updated, CASE WHEN f.movie_dbid IS NOT NULL THEN 1 ELSE 0 END AS isFavorite FROM movies m INNER JOIN history h ON m.dbId=h.movie_dbid LEFT JOIN favorites f ON m.dbId = f.movie_dbid ")
-    if (search.isNotBlank()) {
-        sb.append(" WHERE")
-        if (searchType == AppConstants.SearchType.GENRES) {
-            val searchTerms = GenreSearchHelper.searchTermsForGenres(listOf(search))
-            sb.append(
-                searchTerms.joinToString(
-                    prefix = " (",
-                    postfix = ")",
-                    separator = " OR "
-                ) { "m.genre LIKE '%' || ? || '%'" }
-            )
-            args.addAll(searchTerms)
-        } else {
-            sb.append(
-                when (searchType) {
-                    AppConstants.SearchType.TITLE -> " m.title LIKE '%' || ? || '%'"
-                    AppConstants.SearchType.DIRECTORS -> " m.directors LIKE '%' || ? || '%'"
-                    AppConstants.SearchType.ACTORS -> " m.actors LIKE '%' || ? || '%'"
-                    else -> ""
-                }
-            )
-            extendedSearch(searchType, args, search, sb)
-        }
-    }
+    appendSearchFilter(search, sb, WhereWrapper(), searchType, args)
     if (order.isNotBlank()) {
         sb.append(" ORDER BY")
         sb.append(

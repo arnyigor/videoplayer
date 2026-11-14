@@ -9,13 +9,16 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.platform.app.InstrumentationRegistry
 import com.arny.mobilecinema.data.db.AppDatabase
+import com.arny.mobilecinema.data.db.sources.getMoviesSQL
+import com.arny.mobilecinema.data.db.sources.getHistorySQL
+import com.arny.mobilecinema.data.repository.AppConstants
 import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.presentation.DeviceGuard
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 
-/** Historical exported schemas 3-7 -> current schema, using private test databases only. */
+/** Historical exported schemas 3-9 -> current schema, using private test databases only. */
 class DatabaseMigrationTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
 
@@ -26,7 +29,8 @@ class DatabaseMigrationTest {
 
     private val migrations = arrayOf(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3,
         AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5, AppDatabase.MIGRATION_5_6,
-        AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8)
+        AppDatabase.MIGRATION_6_7, AppDatabase.MIGRATION_7_8,
+        AppDatabase.MIGRATION_8_9, AppDatabase.MIGRATION_9_10)
 
     private fun insertRow(db: SupportSQLiteDatabase, table: String, fields: Map<String, Any>) {
         val values = ContentValues()
@@ -58,9 +62,15 @@ class DatabaseMigrationTest {
         try {
             helper.createDatabase(name, from).use { db ->
                 insertRow(db, "movies", mapOf("dbId" to 7L, "title" to "Original film", "origTitle" to "Film original",
-                    "pageUrl" to "/films/7", "type" to MovieType.CINEMA.value, "customData" to "user note"))
+                    "pageUrl" to "/films/7", "type" to MovieType.CINEMA.value, "customData" to "user note",
+                    "actors" to "Пётр Фёдоров,Семён Трескунов", "directors" to "Фёдор Бондарчук",
+                    "genre" to "Чёрный юмор,Фильм-нуар", "countries" to "Южная Корея,США"))
                 insertRow(db, "movies", mapOf("dbId" to 8L, "title" to "Original series", "pageUrl" to "/serials/8",
                     "type" to MovieType.SERIAL.value))
+                if (from >= 9) {
+                    db.execSQL("UPDATE movies SET titleSearch = 'original film', origTitleSearch = 'film original' WHERE dbId = 7")
+                    db.execSQL("UPDATE movies SET titleSearch = 'original series' WHERE dbId = 8")
+                }
                 insertRow(db, "history", mapOf("dbId" to 1L, "movie_dbid" to 8L, "position" to 90000L,
                     "season" to 0, "episode" to 1, "latest_time" to 123456L))
                 if (from >= 4) insertRow(db, "favorites", mapOf("dbId" to 1L, "movie_dbid" to 7L, "latest_time" to 654321L))
@@ -71,7 +81,32 @@ class DatabaseMigrationTest {
                         "season" to 0, "episode" to 1, "played_ms" to 23456L, "latest_time" to 88L))
                 }
             }
-            helper.runMigrationsAndValidate(name, 8, true, *migrations).use { db ->
+            helper.runMigrationsAndValidate(name, 10, true, *migrations).use { db ->
+                listOf(
+                    "ФЕДОРОВ петр" to AppConstants.SearchType.ACTORS,
+                    "БОНДАРЧУК федор" to AppConstants.SearchType.DIRECTORS,
+                    "черный юмор" to AppConstants.SearchType.GENRES,
+                    "фильм нуар" to AppConstants.SearchType.GENRES,
+                ).forEach { (query, type) ->
+                    db.query(getMoviesSQL(query, AppConstants.Order.NONE, type, emptyList(),
+                        likesPriority = false, limit = 20, offset = 0)).use { rows ->
+                        assertTrue("Missing result for $query", rows.moveToFirst())
+                        assertEquals(7L, rows.getLong(0))
+                        assertFalse(rows.moveToNext())
+                    }
+                }
+                db.query(getMoviesSQL("", AppConstants.Order.NONE, AppConstants.SearchType.TITLE,
+                    emptyList(), genres = listOf("Фильм-нуар"), countries = listOf("ЮЖНАЯ КОРЕЯ"),
+                    likesPriority = false, limit = 20, offset = 0)).use { rows ->
+                    assertTrue(rows.moveToFirst())
+                    assertEquals(7L, rows.getLong(0))
+                    assertFalse(rows.moveToNext())
+                }
+                // Searching history must still exclude matching movies that were never watched.
+                db.query(getHistorySQL("петр федоров", AppConstants.Order.NONE,
+                    AppConstants.SearchType.ACTORS, 20, 0)).use { rows ->
+                    assertFalse(rows.moveToFirst())
+                }
                 db.query("SELECT position, season, episode, latest_time, last_playable_id, duration_ms, completed FROM history WHERE movie_dbid = 8").use {
                     assertTrue(it.moveToFirst())
                     assertEquals(90000L, it.getLong(0))
@@ -109,6 +144,13 @@ class DatabaseMigrationTest {
                 val movie = room.movieDao().getMovie(7L)
                 assertNotNull(movie)
                 assertEquals("Film original", movie?.origTitle)
+                assertEquals("original film", movie?.titleSearch)
+                assertEquals("film original", movie?.origTitleSearch)
+                assertEquals("петр федоров семен трескунов", movie?.actorsSearch)
+                assertEquals("федор бондарчук", movie?.directorsSearch)
+                assertEquals("черный юмор фильм нуар", movie?.genreSearch)
+                assertEquals("южная корея сша", movie?.countriesSearch)
+                assertEquals("Пётр Фёдоров,Семён Трескунов", movie?.actors)
                 assertEquals("user note", movie?.customData)
                 assertEquals(0L, movie?.detailsFetchedAt)
                 assertEquals(2, room.movieDao().getCount())
@@ -132,9 +174,11 @@ class DatabaseMigrationTest {
         }
     }
 
-    @Test fun migration3To8PreservesUserData() = verifyMigration(3)
-    @Test fun migration4To8PreservesUserData() = verifyMigration(4)
-    @Test fun migration5To8PreservesUserData() = verifyMigration(5)
-    @Test fun migration6To8PreservesUserData() = verifyMigration(6)
-    @Test fun migration7To8BackfillsProgressAndPreservesUserData() = verifyMigration(7)
+    @Test fun migration3To10PreservesUserData() = verifyMigration(3)
+    @Test fun migration4To10PreservesUserData() = verifyMigration(4)
+    @Test fun migration5To10PreservesUserData() = verifyMigration(5)
+    @Test fun migration6To10PreservesUserData() = verifyMigration(6)
+    @Test fun migration7To10BackfillsProgressAndPreservesUserData() = verifyMigration(7)
+    @Test fun migration8To10BackfillsSearchAndPreservesUserData() = verifyMigration(8)
+    @Test fun migration9To10BackfillsSearchAndPreservesUserData() = verifyMigration(9)
 }

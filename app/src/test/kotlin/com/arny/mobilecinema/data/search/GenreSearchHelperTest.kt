@@ -70,7 +70,7 @@ class GenreSearchHelperTest {
             offset = 0
         ).sql
 
-        assertTrue(query.contains("m.genre LIKE"))
+        assertTrue(query.contains("m.genreSearch LIKE"))
         assertTrue(query.contains(" OR "))
         assertFalse(query.contains("LOWER(m.genre) IN"))
     }

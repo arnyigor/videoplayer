@@ -254,7 +254,9 @@ class SiteSearchFragment : Fragment(R.layout.f_site_search), KoinComponent {
             }
         )
         binding.btnSiteSearchRetry.isVisible = state.isFailed || state.remoteError || state.localError
-        searchAdapter.submitList(SearchListSections.build(state.hits, state.source, state.filters))
+        searchAdapter.submitList(SearchListSections.build(
+            state.hits, state.source, state.filters, state.executedSearchType,
+        ))
     }
 
     /**

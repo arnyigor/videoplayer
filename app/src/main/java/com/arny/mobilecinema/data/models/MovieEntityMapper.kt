@@ -3,10 +3,12 @@ package com.arny.mobilecinema.data.models
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.utils.toJson
 import com.arny.mobilecinema.domain.models.Movie
+import com.arny.mobilecinema.domain.search.SearchRelevance
 
 fun MovieEntity.setData(data: Movie): MovieEntity {
     movieId = data.movieId
     title = data.title
+    titleSearch = SearchRelevance.searchKey(data.title)
     type = data.type.value
     pageUrl = data.pageUrl
     img = data.img
@@ -17,16 +19,22 @@ fun MovieEntity.setData(data: Movie): MovieEntity {
     age = data.info.age
     countries = data.info.countries.joinToString(",")
     genre = data.info.genres.joinToString(",")
+    // Ключи поиска считаются из тех же списков: SQLite не приводит регистр кириллицы.
+    genreSearch = SearchRelevance.searchKey(data.info.genres.joinToString(" "))
+    countriesSearch = SearchRelevance.searchKey(data.info.countries.joinToString(" "))
     likes = data.info.likes
     dislikes = data.info.dislikes
     ratingImdb = data.info.ratingImdb
     ratingKp = data.info.ratingKP
     directors = data.info.directors.joinToString(",")
     actors = data.info.actors.joinToString(",")
+    directorsSearch = SearchRelevance.searchKey(data.info.directors.joinToString(" "))
+    actorsSearch = SearchRelevance.searchKey(data.info.actors.joinToString(" "))
     description = data.info.description
     updated = data.info.updated
     detailsFetchedAt = data.info.detailsFetchedAt
     origTitle = data.info.origTitle
+    origTitleSearch = SearchRelevance.searchKey(data.info.origTitle)
     seasons = data.seasons.takeIf { it.isNotEmpty() }?.toJson().orEmpty()
     hdUrls = data.cinemaUrlData?.hdUrl?.urls?.joinToString(",").orEmpty()
     hdUrlsPoster = data.cinemaUrlData?.hdUrl?.poster.orEmpty()

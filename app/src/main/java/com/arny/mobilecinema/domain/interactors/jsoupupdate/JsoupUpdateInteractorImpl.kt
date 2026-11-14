@@ -656,11 +656,13 @@ class JsoupUpdateInteractorImpl constructor(
                         "&${Selectors.SEARCH_VID_PARAM}=${vid}" +
                         "&${Selectors.SEARCH_PAGE_PARAM}=$page"
                 films.addAll(loadSearchItems(filmsUrl))
-                if (page <= 1 && searchType == AppConstants.SearchType.TITLE) {
-                    // У поиска сериалов пагинации нет — одна страница результатов.
+                if (searchType == AppConstants.SearchType.TITLE) {
+                    // У сериалов тоже есть пагинация, но размер страницы другой (20 против 10),
+                    // поэтому стоп-условие считается отдельно по секциям — см. domain/search/SearchPaging.
                     val serialsUrl = "$baseUrl${Selectors.SEARCH_SERIALS_URL}" +
                             "?${Selectors.SEARCH_SERIALS_QUERY_PARAM}=$encoded" +
-                            "&${Selectors.SEARCH_VID_PARAM}=${vid}"
+                            "&${Selectors.SEARCH_VID_PARAM}=${vid}" +
+                            "&${Selectors.SEARCH_PAGE_PARAM}=$page"
                     serials.addAll(loadSearchItems(serialsUrl))
                 }
                 val items = (films + serials).distinctBy { it.pageUrl }

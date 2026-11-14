@@ -15,6 +15,18 @@ data class MovieEntity(
     @ColumnInfo(name = "movie_id") var movieId: Int = 0,
     @ColumnInfo(name = "title") var title: String = "",
     @ColumnInfo(name = "origTitle") var origTitle: String = "",
+    /**
+     * Ключ поиска по названию: нижний регистр, ё→е, разделители → пробел
+     * (`SearchRelevance.searchKey`). Считается при записи: SQLite не приводит регистр
+     * кириллицы и не знает про ё.
+     */
+    @ColumnInfo(name = "titleSearch", defaultValue = "") var titleSearch: String = "",
+    @ColumnInfo(name = "origTitleSearch", defaultValue = "") var origTitleSearch: String = "",
+    /** Те же ключи для полей-списков: жанры, актёры, режиссёры, страны. */
+    @ColumnInfo(name = "genreSearch", defaultValue = "") var genreSearch: String = "",
+    @ColumnInfo(name = "actorsSearch", defaultValue = "") var actorsSearch: String = "",
+    @ColumnInfo(name = "directorsSearch", defaultValue = "") var directorsSearch: String = "",
+    @ColumnInfo(name = "countriesSearch", defaultValue = "") var countriesSearch: String = "",
     @ColumnInfo(name = "type") var type: Int = MovieType.NO_TYPE.value,
     @ColumnInfo(name = "pageUrl") var pageUrl: String = "",
     @ColumnInfo(name = "img") var img: String = "",
@@ -48,6 +60,12 @@ data class MovieEntity(
         movieId = 0
         title = ""
         origTitle = ""
+        titleSearch = ""
+        origTitleSearch = ""
+        genreSearch = ""
+        actorsSearch = ""
+        directorsSearch = ""
+        countriesSearch = ""
         type = MovieType.NO_TYPE.value
         pageUrl = ""
         img = ""

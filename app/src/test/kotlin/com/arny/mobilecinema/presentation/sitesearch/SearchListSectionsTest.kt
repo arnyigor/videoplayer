@@ -4,6 +4,7 @@ import com.arny.mobilecinema.domain.models.MovieType
 import com.arny.mobilecinema.domain.search.SearchFilters
 import com.arny.mobilecinema.domain.search.SearchHit
 import com.arny.mobilecinema.domain.search.SearchOrigin
+import com.arny.mobilecinema.domain.search.SearchRelevance
 import com.arny.mobilecinema.domain.search.SearchSource
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -13,10 +14,15 @@ import org.junit.jupiter.api.Test
 /** S-013: секции «каталог отфильтрован» / «сайт без фильтров» и доступность фильтров. */
 class SearchListSectionsTest {
 
-    private fun hit(title: String, origin: SearchOrigin) = SearchHit(
+    private fun hit(
+        title: String,
+        origin: SearchOrigin,
+        matchScore: Int = SearchRelevance.EXACT,
+    ) = SearchHit(
         origin = origin,
         title = title,
         kind = MovieType.CINEMA,
+        matchScore = matchScore,
         stableId = if (origin == SearchOrigin.CATALOG) 1L else null,
         siteRef = if (origin == SearchOrigin.CATALOG) "" else "/films/1",
     )
@@ -68,6 +74,59 @@ class SearchListSectionsTest {
         assertTrue(
             SearchListSections.build(emptyList(), SearchSource.ALL, SearchFilters()).isEmpty()
         )
+    }
+
+    /**
+     * Поиск сайта сортирует по рейтингу, а не по совпадению: без секции «Похожие» чужие
+     * тайтлы стоят в одном списке с настоящими совпадениями.
+     */
+    @Test
+    fun `site hits without any name match are moved to a separate trailing section`() {
+        val items = SearchListSections.build(
+            hits = listOf(
+                hit("Найдено", SearchOrigin.SITE),
+                hit("Игра в молчанку", SearchOrigin.SITE, SearchRelevance.NO_MATCH),
+            ),
+            source = SearchSource.REMOTE,
+            filters = SearchFilters(),
+        )
+        assertEquals(3, items.size)
+        assertTrue(items[0] is SearchListItem.Hit)
+        assertEquals(
+            SearchListItem.Header(SearchListItem.Header.Type.SITE_SIMILAR),
+            items[1]
+        )
+        assertEquals("Игра в молчанку", (items[2] as SearchListItem.Hit).hit.title)
+    }
+
+    @Test
+    fun `site hits with matches keep single source unlabelled`() {
+        val items = SearchListSections.build(
+            hits = listOf(
+                hit("Сайт 1", SearchOrigin.SITE),
+                hit("Сайт 2", SearchOrigin.SITE, SearchRelevance.CONTAINS),
+            ),
+            source = SearchSource.REMOTE,
+            filters = SearchFilters(),
+        )
+        assertEquals(2, items.size)
+        assertTrue(items.all { it is SearchListItem.Hit })
+    }
+
+    @Test
+    fun `actor director and genre searches are not judged by film titles`() {
+        listOf(
+            com.arny.mobilecinema.data.repository.AppConstants.SearchType.ACTORS,
+            com.arny.mobilecinema.data.repository.AppConstants.SearchType.DIRECTORS,
+            com.arny.mobilecinema.data.repository.AppConstants.SearchType.GENRES,
+        ).forEach { type ->
+            val items = SearchListSections.build(
+                listOf(hit("Film title", SearchOrigin.SITE, SearchRelevance.NO_MATCH)),
+                SearchSource.REMOTE, SearchFilters(), type,
+            )
+            assertEquals(1, items.size)
+            assertTrue(items.single() is SearchListItem.Hit)
+        }
     }
 
     @Test

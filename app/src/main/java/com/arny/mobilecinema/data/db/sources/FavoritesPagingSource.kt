@@ -5,7 +5,6 @@ import androidx.paging.PagingState
 import com.arny.mobilecinema.data.db.daos.FavoritesDao
 import com.arny.mobilecinema.domain.models.ViewMovie
 import com.arny.mobilecinema.data.repository.AppConstants
-import com.arny.mobilecinema.data.search.GenreSearchHelper
 import androidx.sqlite.db.SimpleSQLiteQuery
 
 class FavoritesPagingSource(
@@ -47,37 +46,10 @@ class FavoritesPagingSource(
     ): SimpleSQLiteQuery {
 
         val sb = StringBuilder()
-        val args = mutableListOf<Any>()
+        val args = mutableListOf<Any?>()
         sb.append("SELECT m.dbId, m.title, m.type, m.img, m.year, m.likes, m.dislikes, m.ratingImdb, m.ratingKp, m.updated, 1 AS isFavorite FROM movies m INNER JOIN favorites f ON m.dbId=f.movie_dbid ")
 
-        // фильтр по поиску
-        if (search.isNotBlank()) {
-            when (searchType) {
-                AppConstants.SearchType.TITLE -> {
-                    sb.append(" WHERE m.title LIKE ?")
-                    args.add("%$search%")
-                }
-                AppConstants.SearchType.DIRECTORS -> {
-                    sb.append(" WHERE m.directors LIKE ?")
-                    args.add("%$search%")
-                }
-                AppConstants.SearchType.ACTORS -> {
-                    sb.append(" WHERE m.actors LIKE ?")
-                    args.add("%$search%")
-                }
-                AppConstants.SearchType.GENRES -> {
-                    val searchTerms = GenreSearchHelper.searchTermsForGenres(listOf(search))
-                    sb.append(
-                        searchTerms.joinToString(
-                            prefix = " WHERE (",
-                            postfix = ")",
-                            separator = " OR "
-                        ) { "m.genre LIKE '%' || ? || '%'" }
-                    )
-                    args.addAll(searchTerms)
-                }
-            }
-        }
+        appendSearchFilter(search, sb, WhereWrapper(), searchType, args)
 
         // сортировка
         val orderClause = when (order) {

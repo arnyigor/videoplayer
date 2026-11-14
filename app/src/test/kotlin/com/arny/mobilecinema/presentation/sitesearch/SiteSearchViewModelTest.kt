@@ -513,4 +513,65 @@ class SiteSearchViewModelTest {
         assertEquals(1, viewModel.uiState.value.hits.size)
         assertTrue(viewModel.uiState.value.filtersNotAppliedToSite)
     }
+
+    /** За последней страницей сайт повторяет её же — полная страница тоже должна остановить обход. */
+    @Test
+    fun `repeated full site page stops paging`() = scope.runTest {
+        val repeated = remotePage(1)
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String) =
+                DataResult.Success(repeated)
+        }
+        val viewModel = SiteSearchViewModel(remote, movies(emptyList()), SavedStateHandle())
+        viewModel.initialize("matrix", AppConstants.SearchType.TITLE, SearchSource.REMOTE)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.hasMoreFilms)
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.hasMoreFilms)
+        assertEquals(10, viewModel.uiState.value.hits.size)
+        assertEquals(2, viewModel.uiState.value.filmsPage)
+    }
+
+    private fun remotePage(start: Int) = (start until start + 10).map {
+        SiteSearchItem(title = "Matrix $it", pageUrl = "/films/$it", type = MovieType.CINEMA, year = 2000)
+    }
+
+    @Test fun `catalog dedup does not hide repeated remote URLs from paging`() = scope.runTest {
+        val local = (1..20).map {
+            ViewMovie(dbId = it.toLong(), title = "Matrix $it", type = MovieType.CINEMA.value, year = 2000)
+        }
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String) =
+                DataResult.Success(remotePage(if (page == 1) 1 else 11))
+        }
+        val viewModel = SiteSearchViewModel(remote, movies(local), SavedStateHandle())
+        viewModel.initialize("matrix", AppConstants.SearchType.TITLE, SearchSource.ALL)
+        advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.hasMoreFilms)
+        viewModel.loadMore()
+        advanceUntilIdle()
+        // A genuinely new page can consist entirely of catalog duplicates: keep paging.
+        assertEquals(20, viewModel.uiState.value.hits.size)
+        assertTrue(viewModel.uiState.value.hasMoreFilms)
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.hasMoreFilms)
+        assertEquals(3, viewModel.uiState.value.filmsPage)
+    }
+
+    @Test fun `displayed search mode stays with submitted results while editing the next mode`() = scope.runTest {
+        val remote = object : JsoupUpdateInteractor by mock() {
+            override suspend fun searchOnSite(query: String, page: Int, searchType: String) =
+                DataResult.Success(remotePage(1))
+        }
+        val viewModel = SiteSearchViewModel(remote, movies(emptyList()), SavedStateHandle())
+        viewModel.initialize("Smith", AppConstants.SearchType.ACTORS, SearchSource.REMOTE)
+        advanceUntilIdle()
+        viewModel.setSearchType(AppConstants.SearchType.TITLE)
+        assertEquals(AppConstants.SearchType.ACTORS, viewModel.uiState.value.executedSearchType)
+        viewModel.search()
+        advanceUntilIdle()
+        assertEquals(AppConstants.SearchType.TITLE, viewModel.uiState.value.executedSearchType)
+    }
 }

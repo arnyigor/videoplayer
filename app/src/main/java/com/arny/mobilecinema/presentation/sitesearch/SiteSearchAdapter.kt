@@ -83,6 +83,7 @@ class SiteSearchAdapter(
                 when (item.type) {
                     SearchListItem.Header.Type.CATALOG_FILTERED -> R.string.search_section_catalog
                     SearchListItem.Header.Type.SITE_UNFILTERED -> R.string.search_section_site
+                    SearchListItem.Header.Type.SITE_SIMILAR -> R.string.search_section_similar
                 }
             )
         }

@@ -444,6 +444,7 @@
     <string name="search_catalog_empty">Ничего не найдено в каталоге</string>
     <string name="search_section_catalog">В каталоге (фильтры применены)</string>
     <string name="search_section_site">На сайте (фильтры недоступны)</string>
+    <string name="search_section_similar">Похожие на сайте (не совпадают с запросом)</string>
     <string name="search_filters_disabled_for_site">Фильтры каталога недоступны в режиме «На сайте»</string>
     <string name="search_all_empty">Ничего не найдено</string>
     <string name="site_search_load_more">Показать ещё</string>

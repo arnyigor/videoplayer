@@ -29,8 +29,10 @@ class SearchSqlTest {
     fun `title search also looks into original title`() {
         val query = moviesSql("matrix")
 
-        assertTrue(query.sql.contains("m.title LIKE"))
-        assertTrue(query.sql.contains("m.origTitle LIKE"))
+        // Сравнение идёт по нормализованным ключам: сырые колонки для кириллицы не работают
+        // (SQLite не приводит регистр и не знает про ё).
+        assertTrue(query.sql.contains("m.titleSearch LIKE"))
+        assertTrue(query.sql.contains("m.origTitleSearch LIKE"))
     }
 
     @Test
@@ -39,21 +41,22 @@ class SearchSqlTest {
 
         val orderBy = query.sql.substringAfter("ORDER BY")
         assertTrue(orderBy.trimStart().startsWith("CASE"))
-        assertTrue(orderBy.contains("WHEN m.title LIKE ? THEN 0"))
-        assertTrue(orderBy.contains("WHEN m.title LIKE ? || '%' THEN 1"))
+        assertTrue(orderBy.contains("WHEN m.titleSearch = ? THEN 0"))
+        assertTrue(orderBy.contains("WHEN m.titleSearch LIKE ? || '%' THEN 1"))
         // Популярность остаётся вторичным ключом сортировки.
         assertTrue(orderBy.contains("m.year DESC, m.likes DESC"))
     }
 
     @Test
-    fun `two word query searches raw and underscore variants`() {
-        val query = moviesSql("matrix 2")
+    fun `every query word is required and matched on the normalised key`() {
+        val where = moviesSql("matrix 2").sql.substringAfter("WHERE").substringBefore("ORDER BY")
 
-        // Раньше сырой запрос в SQL не попадал вовсе, только варианты с подчёркиванием.
-        // Каждый вариант — два поля (title, origTitle).
-        val where = query.sql.substringAfter("WHERE").substringBefore("ORDER BY")
-        assertEquals(4, Regex("m\\.title LIKE").findAll(where).count())
-        assertEquals(4, Regex("m\\.origTitle LIKE").findAll(where).count())
+        // Варианты с подчёркиванием больше не нужны: ключ поиска сам заменяет разделители
+        // на пробел, поэтому каждое слово — отдельный предикат, склеенный через AND.
+        assertEquals(2, Regex("m\\.titleSearch LIKE").findAll(where).count())
+        assertEquals(2, Regex("m\\.origTitleSearch LIKE").findAll(where).count())
+        assertTrue(where.contains(" AND "))
+        assertFalse(where.contains("m.title LIKE"))
     }
 
     @Test
@@ -61,7 +64,7 @@ class SearchSqlTest {
         val query = moviesSql("")
 
         assertFalse(query.sql.substringAfter("ORDER BY").trimStart().startsWith("CASE"))
-        assertFalse(query.sql.contains("m.origTitle LIKE"))
+        assertFalse(query.sql.contains("m.origTitleSearch LIKE"))
     }
 
     @Test

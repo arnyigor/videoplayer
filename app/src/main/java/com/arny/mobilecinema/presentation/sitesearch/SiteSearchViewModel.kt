@@ -17,6 +17,7 @@ import com.arny.mobilecinema.domain.search.RatingSource
 import com.arny.mobilecinema.domain.search.SearchHit
 import com.arny.mobilecinema.domain.search.SearchMerge
 import com.arny.mobilecinema.domain.search.SearchOrigin
+import com.arny.mobilecinema.domain.search.SearchPaging
 import com.arny.mobilecinema.domain.search.SearchRelevance
 import com.arny.mobilecinema.domain.search.SearchSource
 import com.arny.mobilecinema.presentation.utils.BufferedChannel
@@ -47,6 +48,8 @@ enum class ResultSection { IDLE, LOADING, SUCCESS, EMPTY, ERROR }
 data class SearchUiState(
     val query: String = "",
     val searchType: String = AppConstants.SearchType.TITLE,
+    /** Mode used for the displayed results, not the editable next search. */
+    val executedSearchType: String = AppConstants.SearchType.TITLE,
     val source: SearchSource = SearchSource.ALL,
     /**
      * Применённые фильтры. Черновик живёт в [SearchFiltersSheet] и попадает сюда только по
@@ -122,9 +125,6 @@ class SiteSearchViewModel(
 ) : ViewModel() {
 
     private companion object {
-        /** Столько карточек фильмов сайт отдаёт на страницу результатов. */
-        const val FILMS_PAGE_SIZE = 10
-
         /** Сколько локальных результатов показываем без пагинации. */
         const val LOCAL_LIMIT = 40
 
@@ -158,6 +158,8 @@ class SiteSearchViewModel(
     // Paging belongs to the submitted search, not to the editable text field.
     private var activeQuery: String? = null
     private var activeSearchType: String = AppConstants.SearchType.TITLE
+    // Include URLs removed by SearchMerge because a catalog card already represents them.
+    private val seenRemoteUrls = mutableSetOf<String>()
 
     /**
      * Идентификатор актуального запроса (S-015). Сравнения строки запроса мало: при смене scope
@@ -234,6 +236,7 @@ class SiteSearchViewModel(
     private fun executeSearch(query: String, searchType: String) {
         searchJob?.cancel()
         val generation = ++requestId
+        seenRemoteUrls.clear()
         if (query.isBlank()) {
             savedStateHandle[EXECUTED_QUERY] = null
             savedStateHandle[EXECUTED_TYPE] = null
@@ -263,6 +266,7 @@ class SiteSearchViewModel(
                 it.copy(
                     hits = emptyList(),
                     searched = true,
+                    executedSearchType = searchType,
                     isLoadingLocal = source != SearchSource.REMOTE,
                     isLoadingRemote = source != SearchSource.LOCAL,
                     localError = false,
@@ -291,6 +295,7 @@ class SiteSearchViewModel(
             }
             if (generation != requestId) return@launch
 
+            seenRemoteUrls.addAll(remote.items.map { it.pageUrl }.filter { it.isNotBlank() })
             val remoteHits = remote.items.map { it.toHit(query) }
             val merged = SearchMerge.merge(local.hits, remoteHits)
             _uiState.update {
@@ -301,8 +306,7 @@ class SiteSearchViewModel(
                     localError = local.failed,
                     remoteError = remote.failed,
                     filmsPage = if (remote.failed) 0 else 1,
-                    hasMoreFilms = remote.items.count { item -> item.type == MovieType.CINEMA } >=
-                            FILMS_PAGE_SIZE,
+                    hasMoreFilms = !remote.failed && SearchPaging.hasMore(remote.items),
                 )
             }
             if (remote.failed) {
@@ -317,7 +321,7 @@ class SiteSearchViewModel(
         search()
     }
 
-    /** Следующая страница поиска фильмов сайта (у локальной выдачи пагинации нет). */
+    /** Следующая страница поиска сайта: и фильмы, и сериалы (у локальной выдачи пагинации нет). */
     fun loadMore() {
         val state = _uiState.value
         if (!state.hasMoreFilms || state.isLoading || state.isLoadingRemote || state.isOpening) {
@@ -341,19 +345,22 @@ class SiteSearchViewModel(
                 _toast.trySend(ResourceString(R.string.site_search_error))
                 return@launch
             }
-            val films = remote.items.filter { item -> item.type == MovieType.CINEMA }
+            val newHits = remote.items
+                .filter { it.pageUrl.isNotBlank() && it.pageUrl !in seenRemoteUrls }
+                .distinctBy { it.pageUrl }
+                .map { it.toHit(query) }
+            seenRemoteUrls.addAll(remote.items.map { it.pageUrl }.filter { it.isNotBlank() })
             _uiState.update { current ->
                 val merged = SearchMerge.merge(
                     local = current.hits.filter { hit -> hit.inCatalog },
-                    remote = (current.hits.filterNot { hit -> hit.inCatalog } +
-                            films.map { it.toHit(query) })
+                    remote = (current.hits.filterNot { hit -> hit.inCatalog } + newHits)
                         .distinctBy { hit -> hit.siteRef },
                 )
                 current.copy(
                     isLoadingRemote = false,
                     hits = merged,
                     filmsPage = nextPage,
-                    hasMoreFilms = films.size >= FILMS_PAGE_SIZE,
+                    hasMoreFilms = newHits.isNotEmpty() && SearchPaging.hasMore(remote.items),
                 )
             }
         }

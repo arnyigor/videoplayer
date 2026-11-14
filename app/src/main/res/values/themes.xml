@@ -110,7 +110,7 @@
         <item name="android:textColor">@color/textColorPrimary</item>
     </style>
 
-    <!-- Сплэш без системной заставки: окно сразу с нашим фоном, анимацию рисует StartActivity. -->
+    <!-- Статичный стартовый экран: окно и StartActivity показывают один и тот же фон. -->
     <style name="AppTheme.Splash" parent="@style/AppTheme">
         <!-- С логотипом в фоне холодный старт не показывает пустой градиент. -->
         <item name="android:windowBackground">@drawable/bg_splash_window</item>

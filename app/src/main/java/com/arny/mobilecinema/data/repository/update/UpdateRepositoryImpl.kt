@@ -320,12 +320,12 @@ class UpdateRepositoryImpl constructor(
         return@withContext false
     }
 
-    /** Точки входа: стабильная страница, build-time ссылка, файл на GitHub-релизе. */
-    private fun baseUrlCandidates(): List<String> = buildList {
-        add(AppConstants.ENTRY_POINT_URL.trim().trimEnd('/'))
-        add(BuildConfig.BASE_LINK.trim().trimEnd('/'))
-        tryBaseUrlFromFile()?.let(::add)
-        baseUrl.trim().trimEnd('/').takeIf { it.startsWith("http", ignoreCase = true) }?.let(::add)
+    /** Resolve the remote fallback file only if the preceding entry points failed. */
+    private fun baseUrlCandidates(): Sequence<String> = sequence {
+        yield(AppConstants.ENTRY_POINT_URL.trim().trimEnd('/'))
+        yield(BuildConfig.BASE_LINK.trim().trimEnd('/'))
+        tryBaseUrlFromFile()?.let { yield(it) }
+        baseUrl.trim().trimEnd('/').takeIf { it.startsWith("http", ignoreCase = true) }?.let { yield(it) }
     }.filter { it.isNotBlank() }.distinct()
 
     /** Ссылка из data-файла: обновляется без релиза приложения. */

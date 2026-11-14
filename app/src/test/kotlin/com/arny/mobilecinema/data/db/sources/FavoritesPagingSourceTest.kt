@@ -77,6 +77,28 @@ class FavoritesPagingSourceTest {
         assertTrue(source.load(PagingSource.LoadParams.Refresh(null, 20, false)) is PagingSource.LoadResult.Error)
     }
 
+    @Test fun `favorites share normalized search predicates with catalog and history`() = runTest {
+        listOf(AppConstants.SearchType.TITLE, AppConstants.SearchType.ACTORS,
+            AppConstants.SearchType.DIRECTORS, AppConstants.SearchType.GENRES).forEach { type ->
+            var captured: SupportSQLiteQuery? = null
+            val dao = object : RowsDao(0) {
+                override suspend fun getFavoriteMovies(query: SupportSQLiteQuery): List<ViewMovie> {
+                    captured = query
+                    return emptyList()
+                }
+            }
+            val source = FavoritesPagingSource(dao, "ПЁТР Фёдоров", AppConstants.Order.NONE, type)
+            assertTrue(source.load(PagingSource.LoadParams.Refresh(null, 20, false)) is PagingSource.LoadResult.Page)
+            val query = checkNotNull(captured)
+            val expected = getHistorySQL("ПЁТР Фёдоров", AppConstants.Order.NONE, type, 20, 0)
+            assertEquals(
+                expected.sql.substringAfter("WHERE").substringBefore("ORDER BY").substringBefore("LIMIT").trim(),
+                query.sql.substringAfter("WHERE").substringBefore("LIMIT").trim(),
+            )
+            assertEquals(query.sql.count { it == '?' }, query.argCount)
+        }
+    }
+
     private open class RowsDao(count: Int = 95) : FavoritesDao {
         private val rows = (1L..count.toLong()).map { ViewMovie(dbId = it, title = "Favorite $it") }
         override suspend fun getFavoriteMovies(query: SupportSQLiteQuery): List<ViewMovie> {

@@ -110,6 +110,40 @@ object SearchRelevance {
         .replace(Regex("\\s+"), " ")
         .trim()
 
+    /**
+     * Ключ поиска по базе: [normalize] плюс замена любых разделителей (дефис, двоеточие,
+     * подчёркивание, скобки) на пробел.
+     *
+     * Нужен потому, что SQLite не умеет ни `lower()` для кириллицы, ни `ё`→`е`: `LIKE`
+     * приводит регистр только для ASCII. Поэтому сравнение в SQL возможно только по
+     * заранее посчитанному ключу, а не по сырому названию.
+     */
+    fun searchKey(value: String): String {
+        val normalized = normalize(value)
+        val sb = StringBuilder(normalized.length)
+        var pendingSpace = false
+        normalized.forEach { ch ->
+            if (ch.isLetterOrDigit()) {
+                if (pendingSpace && sb.isNotEmpty()) sb.append(' ')
+                pendingSpace = false
+                sb.append(ch)
+            } else {
+                pendingSpace = true
+            }
+        }
+        return sb.toString()
+    }
+
+    /**
+     * Слова запроса для поиска по схеме «все слова должны встретиться».
+     *
+     * Поиск целой строкой не работает там, где сайт поставил разделитель:
+     * «человек паук новый» не является подстрокой «человек паук новый день» в SQL
+     * из-за двоеточия в исходном названии.
+     */
+    fun tokens(value: String): List<String> =
+        searchKey(value).split(' ').filter { it.isNotBlank() }
+
     private val SEPARATORS = charArrayOf(
         ' ', '\t', '\n', ':', ',', '.', '-', '–', '—', '/', '(', ')', '!', '?', '«', '»', '\''
     )

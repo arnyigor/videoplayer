@@ -12,6 +12,7 @@ import com.arny.mobilecinema.data.db.models.FavoriteEntity
 import com.arny.mobilecinema.data.db.models.HistoryEntity
 import com.arny.mobilecinema.data.db.models.MovieEntity
 import com.arny.mobilecinema.data.db.models.PlaybackProgressEntity
+import com.arny.mobilecinema.domain.search.SearchRelevance
 
 @Database(
     entities = [
@@ -20,7 +21,7 @@ import com.arny.mobilecinema.data.db.models.PlaybackProgressEntity
         FavoriteEntity::class,
         PlaybackProgressEntity::class
     ],
-    version = 8,
+    version = 10,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -219,6 +220,60 @@ abstract class AppDatabase : RoomDatabase() {
                     ON `playback_progress` (`movie_dbid`, `season`, `episode`)
                     """.trimIndent()
                 )
+            }
+        }
+
+        /**
+         * Миграция 8 → 9
+         * Добавляет ключи поиска по названию и бэкфиллит их.
+         *
+         * Бэкфилл делается в Kotlin, а не в SQL: `lower()` в SQLite работает только для
+         * ASCII, поэтому нормализовать кириллицу (и `ё`→`е`) в самом запросе нельзя.
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE movies ADD COLUMN titleSearch TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE movies ADD COLUMN origTitleSearch TEXT NOT NULL DEFAULT ''")
+                val update = db.compileStatement(
+                    "UPDATE movies SET titleSearch = ?, origTitleSearch = ? WHERE dbId = ?"
+                )
+                db.query("SELECT dbId, title, origTitle FROM movies").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        update.clearBindings()
+                        update.bindString(1, SearchRelevance.searchKey(cursor.getString(1).orEmpty()))
+                        update.bindString(2, SearchRelevance.searchKey(cursor.getString(2).orEmpty()))
+                        update.bindLong(3, cursor.getLong(0))
+                        update.executeUpdateDelete()
+                    }
+                }
+            }
+        }
+
+        /**
+         * Миграция 9 → 10
+         * Те же ключи поиска для полей-списков: жанры, актёры, режиссёры, страны.
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                listOf("genreSearch", "actorsSearch", "directorsSearch", "countriesSearch")
+                    .forEach { column ->
+                        db.execSQL("ALTER TABLE movies ADD COLUMN $column TEXT NOT NULL DEFAULT ''")
+                    }
+                val update = db.compileStatement(
+                    "UPDATE movies SET genreSearch = ?, actorsSearch = ?, " +
+                        "directorsSearch = ?, countriesSearch = ? WHERE dbId = ?"
+                )
+                db.query("SELECT dbId, genre, actors, directors, countries FROM movies").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        update.clearBindings()
+                        update.bindString(1, SearchRelevance.searchKey(cursor.getString(1).orEmpty()))
+                        update.bindString(2, SearchRelevance.searchKey(cursor.getString(2).orEmpty()))
+                        update.bindString(3, SearchRelevance.searchKey(cursor.getString(3).orEmpty()))
+                        update.bindString(4, SearchRelevance.searchKey(cursor.getString(4).orEmpty()))
+                        update.bindLong(5, cursor.getLong(0))
+                        update.executeUpdateDelete()
+                    }
+                }
             }
         }
     }
