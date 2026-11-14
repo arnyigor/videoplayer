@@ -1,19 +1,28 @@
 package com.arny.mobilecinema.presentation.settings
 
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.text.InputType
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.appcompat.widget.Toolbar
+import androidx.navigation.fragment.findNavController
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
-import androidx.preference.PreferenceScreen
+import androidx.preference.EditTextPreference
+import androidx.preference.SwitchPreferenceCompat
 import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.domain.interactors.update.CatalogUpdatePhase
 import com.arny.mobilecinema.presentation.utils.alertDialog
 import com.arny.mobilecinema.presentation.utils.toast
-import com.arny.mobilecinema.presentation.utils.updateTitle
+import java.text.NumberFormat
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -38,10 +47,59 @@ class SettingsFragment : PreferenceFragmentCompat(), KoinComponent {
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         setPreferencesFromResource(R.xml.root_preferences, rootKey)
-        updateTitle(getString(R.string.action_settings))
-
         setupDeveloperSection()
+        setupPlaybackPreferences()
         setupCatalogSync()
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?,
+    ): View {
+        val root = inflater.inflate(R.layout.f_settings, container, false)
+        root.findViewById<ViewGroup>(R.id.settings_content)
+            .addView(super.onCreateView(inflater, container, savedInstanceState))
+        return root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        view.findViewById<Toolbar>(R.id.toolbar).setNavigationOnClickListener {
+            findNavController().navigateUp()
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                syncViewModel.state.collectLatest { renderSyncState(it) }
+            }
+        }
+    }
+
+    private fun setupPlaybackPreferences() {
+        findPreference<SwitchPreferenceCompat>(getString(R.string.pref_key_pip_mode))?.let { pip ->
+            val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                requireContext().packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+            pip.isEnabled = supported
+            if (!supported) pip.setSummary(R.string.pref_pip_unavailable)
+        }
+        findPreference<EditTextPreference>(getString(R.string.pref_max_boost_size))?.let { boost ->
+            // Preserve the existing storage unit/range; LoudnessEnhancer consumes millibels.
+            if (parseVolumeBoost(boost.text) == null) boost.text = "1000"
+            boost.summaryProvider = Preference.SummaryProvider<EditTextPreference> { preference ->
+                val value = parseVolumeBoost(preference.text) ?: 1000
+                getString(R.string.pref_boost_summary, value,
+                    NumberFormat.getNumberInstance().format(value / 100.0))
+            }
+            boost.setOnBindEditTextListener { edit ->
+                edit.inputType = InputType.TYPE_CLASS_NUMBER
+                edit.setSingleLine()
+                edit.hint = getString(R.string.pref_boost_range)
+                edit.selectAll()
+            }
+            boost.setOnPreferenceChangeListener { _, value ->
+                val valid = parseVolumeBoost(value as? String) != null
+                if (!valid) toast(getString(R.string.pref_boost_range))
+                valid
+            }
+        }
     }
 
     private fun setupDeveloperSection() {
@@ -60,7 +118,7 @@ class SettingsFragment : PreferenceFragmentCompat(), KoinComponent {
         } else {
             // В release технических пунктов быть не должно вовсе, а не просто скрытых.
             developerCategory?.let { category ->
-                (preferenceScreen as PreferenceScreen).removePreference(category)
+                preferenceScreen.removePreference(category)
             }
         }
     }
@@ -103,16 +161,6 @@ class SettingsFragment : PreferenceFragmentCompat(), KoinComponent {
                 syncViewModel.cancelUpdate()
                 true
             }
-
-        // lifecycle фрагмента, а не viewLifecycleOwner: onCreatePreferences вызывается
-        // до создания view, и viewLifecycleOwner там ещё не существует.
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                syncViewModel.state.collectLatest { state ->
-                    renderSyncState(state)
-                }
-            }
-        }
     }
 
     private fun renderSyncState(state: CatalogSyncState) {
@@ -185,3 +233,7 @@ class SettingsFragment : PreferenceFragmentCompat(), KoinComponent {
         }
     }
 }
+
+/** Existing millibel range used by the player; reject invalid/overflowing input before saving. */
+internal fun parseVolumeBoost(value: String?): Int? =
+    value?.toIntOrNull()?.takeIf { it in 100..100000 }

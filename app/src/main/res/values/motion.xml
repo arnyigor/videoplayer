@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Short crossfade only; never a minimum screen display time. -->
+    <integer name="screen_transition_duration">180</integer>
+</resources>

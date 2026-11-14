@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.doOnPreDraw
 import androidx.lifecycle.lifecycleScope
+import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.ActivitySplashBinding
 import com.arny.mobilecinema.presentation.MainActivity
 import com.arny.mobilecinema.presentation.tv.TvMainActivity
@@ -56,7 +57,7 @@ class StartActivity : AppCompatActivity(), KoinComponent {
         }
         startActivity(intent)
         finish()
-        overridePendingTransition(0, 0)
+        overridePendingTransition(R.anim.fade_in, R.anim.fade_out)
     }
 
     override fun onNewIntent(intent: Intent?) {

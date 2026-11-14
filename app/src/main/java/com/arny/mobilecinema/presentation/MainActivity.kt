@@ -9,6 +9,10 @@ import androidx.activity.OnBackPressedCallback
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.DialogFragment
+import androidx.fragment.app.FragmentManager
+import androidx.transition.Fade
 import androidx.navigation.NavOptions
 import androidx.core.os.bundleOf
 import androidx.lifecycle.Lifecycle
@@ -62,6 +66,7 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
+        installScreenTransitions(navHostFragment)
 
         // Hook your navigation controller to bottom navigation view
         binding.bottomNavView.setupWithNavController(navController)
@@ -82,6 +87,38 @@ class MainActivity : AppCompatActivity() {
         initUI()
         handleSharedUrl()
         showSiteUnavailableIfNeeded()
+    }
+
+    private fun installScreenTransitions(navHost: NavHostFragment) {
+        val duration = resources.getInteger(R.integer.screen_transition_duration).toLong()
+        fun apply(fragment: Fragment, view: View) {
+            if (fragment is DialogFragment) return
+            // Target the screen root, not every poster/list item. Fragment transitions take
+            // precedence over action animations, including direct navigation and tab restore.
+            fragment.enterTransition = Fade(Fade.IN).addTarget(view).setDuration(duration)
+            fragment.exitTransition = Fade(Fade.OUT).addTarget(view).setDuration(duration)
+            fragment.reenterTransition = Fade(Fade.IN).addTarget(view).setDuration(duration)
+            fragment.returnTransition = Fade(Fade.OUT).addTarget(view).setDuration(duration)
+        }
+        val manager = navHost.childFragmentManager
+        manager.registerFragmentLifecycleCallbacks(object : FragmentManager.FragmentLifecycleCallbacks() {
+            override fun onFragmentViewCreated(
+                fm: FragmentManager, fragment: Fragment, view: View, savedInstanceState: Bundle?,
+            ) {
+                apply(fragment, view)
+            }
+
+            override fun onFragmentViewDestroyed(fm: FragmentManager, fragment: Fragment) {
+                if (fragment is DialogFragment) return
+                // Back-stack fragments must not retain their destroyed view through targets.
+                fragment.enterTransition = null
+                fragment.exitTransition = null
+                fragment.reenterTransition = null
+                fragment.returnTransition = null
+            }
+        }, false)
+        // The current destination can already have its view after activity restoration.
+        manager.fragments.forEach { fragment -> fragment.view?.let { apply(fragment, it) } }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -152,6 +189,7 @@ class MainActivity : AppCompatActivity() {
                     R.id.nav_details,
                     R.id.nav_extended_search,
                     R.id.nav_comments,
+                    R.id.nav_prefs,
                 )
             )
             // Программный переход на корневой экран (действие на экране, deep link) должен

@@ -273,8 +273,13 @@
     <string name="pref_max_boost_size">pref_max_boost_size</string>
     <string name="pref_title_home_highlights_enabled">Витрина на главной</string>
     <string name="pref_summary_home_highlights_enabled">Включить блоки новинок, лучших фильмов и переключатель Все/Фильмы/Сериалы</string>
-    <string name="pref_title_pip_mode">PIP Режим</string>
-    <string name="pref_summary_pip_mode">Включить режим картинка в картинке по кнопке HOME</string>
+    <string name="pref_title_pip_mode">Картинка в картинке</string>
+    <string name="pref_summary_pip_mode">Продолжать просмотр в небольшом окне при выходе на главный экран телефона</string>
+    <string name="pref_pip_unavailable">Недоступно на этом устройстве</string>
+    <string name="pref_boost_title">Максимальное усиление звука</string>
+    <string name="pref_boost_dialog_title">Усиление звука, мБ (100 мБ = 1 дБ)</string>
+    <string name="pref_boost_range">Введите целое число от 100 до 100000 мБ</string>
+    <string name="pref_boost_summary">%1$d мБ (%2$s дБ) сверх системной громкости. Может вызывать искажения звука</string>
     <string name="pause_download">Приостановить</string>
     <string name="resume_download">Продолжить</string>
     <string name="volume_zero">0</string>

@@ -1,82 +1,105 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!--
-        Переходные флаги интерфейса (витрина, главная на Compose) и технические экраны:
-        категория целиком удаляется в release (DBG-01, аудит v2 §6).
-    -->
     <PreferenceCategory
-        android:key="@string/pref_key_developer_category"
-        app:title="@string/pref_developer">
+        app:iconSpaceReserved="false"
+        app:title="@string/pref_player">
 
-        <CheckBoxPreference
-            android:defaultValue="true"
-            android:key="@string/pref_key_home_highlights_enabled"
-            android:summary="@string/pref_summary_home_highlights_enabled"
-            android:title="@string/pref_title_home_highlights_enabled" />
-
-        <CheckBoxPreference
+        <SwitchPreferenceCompat
             android:defaultValue="false"
-            android:key="@string/pref_key_compose_home"
-            android:summary="@string/pref_summary_compose_home"
-            android:title="@string/pref_title_compose_home" />
+            android:key="@string/pref_key_pip_mode"
+            android:summary="@string/pref_summary_pip_mode"
+            android:title="@string/pref_title_pip_mode"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
 
-        <Preference
-            android:key="@string/pref_key_developer_compose_test"
-            android:summary="@string/pref_summary_compose_test"
-            android:title="@string/menu_compose_test" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:key="@string/pref_key_autoplay_next"
+            android:summary="@string/pref_summary_autoplay_next"
+            android:title="@string/pref_title_autoplay_next"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
+
+        <EditTextPreference
+            android:defaultValue="1000"
+            android:dialogTitle="@string/pref_boost_dialog_title"
+            android:key="@string/pref_max_boost_size"
+            android:title="@string/pref_boost_title"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
     </PreferenceCategory>
 
-    <!-- Служебные операции с каталогом: check → preview → apply → report (SYNC-01). -->
-    <PreferenceCategory app:title="@string/pref_catalog">
+    <PreferenceCategory
+        app:iconSpaceReserved="false"
+        app:title="@string/pref_catalog">
 
         <Preference
             android:key="@string/pref_key_sync_status"
             android:selectable="false"
             android:summary="@string/pref_sync_status_never"
-            android:title="@string/pref_sync_status" />
+            android:title="@string/pref_sync_status"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
 
         <Preference
             android:key="@string/pref_key_sync_check"
             android:summary="@string/pref_sync_check_summary"
-            android:title="@string/pref_sync_check" />
+            android:title="@string/pref_sync_check"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
 
         <Preference
             android:key="@string/pref_key_sync_load"
+            android:enabled="false"
             android:summary="@string/pref_sync_load_summary"
-            android:title="@string/pref_sync_load" />
+            android:title="@string/pref_sync_load"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
 
         <Preference
             android:key="@string/pref_key_sync_full"
             android:summary="@string/pref_sync_full_summary"
-            android:title="@string/pref_sync_full" />
+            android:title="@string/pref_sync_full"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
 
         <Preference
             android:key="@string/pref_key_sync_cancel"
             android:title="@string/pref_sync_cancel"
-            app:isPreferenceVisible="false" />
+            app:iconSpaceReserved="false"
+            app:isPreferenceVisible="false"
+            app:singleLineTitle="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="@string/pref_player">
-        <CheckBoxPreference
-            android:defaultValue="false"
-            android:key="@string/pref_key_pip_mode"
-            android:summary="@string/pref_summary_pip_mode"
-            android:title="@string/pref_title_pip_mode"/>
+    <!-- Debug-only flags retain their keys and values, but never lead the user settings. -->
+    <PreferenceCategory
+        android:key="@string/pref_key_developer_category"
+        app:iconSpaceReserved="false"
+        app:initialExpandedChildrenCount="0"
+        app:title="@string/pref_developer">
 
-        <CheckBoxPreference
+        <SwitchPreferenceCompat
             android:defaultValue="true"
-            android:key="@string/pref_key_autoplay_next"
-            android:summary="@string/pref_summary_autoplay_next"
-            android:title="@string/pref_title_autoplay_next" />
+            android:key="@string/pref_key_home_highlights_enabled"
+            android:summary="@string/pref_summary_home_highlights_enabled"
+            android:title="@string/pref_title_home_highlights_enabled"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
 
-        <EditTextPreference
-            android:defaultValue="1000"
-            android:dialogLayout="@layout/preference_edit_text"
-            android:dialogTitle="Введите максимальное усиление звука(100-100000)"
-            android:key="@string/pref_max_boost_size"
-            android:summary="Установить максимальное усиление звука в процентах(100-100000)"
-            android:title="Усиление звука" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="@string/pref_key_compose_home"
+            android:summary="@string/pref_summary_compose_home"
+            android:title="@string/pref_title_compose_home"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
 
+        <Preference
+            android:key="@string/pref_key_developer_compose_test"
+            android:summary="@string/pref_summary_compose_test"
+            android:title="@string/menu_compose_test"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
     </PreferenceCategory>
 </PreferenceScreen>
