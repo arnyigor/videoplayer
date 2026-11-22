@@ -338,6 +338,7 @@ private fun readEpisode(reader: JsonReader): SerialEpisode {
     var hls = ""
     var dash = ""
     var poster = ""
+    var mp4 = ""
 
     reader.beginObject()
     while (reader.hasNext()) {
@@ -366,6 +367,10 @@ private fun readEpisode(reader: JsonReader): SerialEpisode {
                 poster = reader.nextString()
             }
 
+            "mp4" -> {
+                mp4 = reader.nextString()
+            }
+
             else -> reader.skipValue()
         }
     }
@@ -376,7 +381,8 @@ private fun readEpisode(reader: JsonReader): SerialEpisode {
         title = title,
         hls = hls,
         dash = dash,
-        poster = poster
+        poster = poster,
+        mp4 = mp4
     )
 }
 

@@ -1308,6 +1308,8 @@ private suspend fun getMp4UrlData(
                         episode = "${index + 1}",
                         title = urlData.title.orEmpty(),
                         hls = getUrlsFromFile(urlData.file.orEmpty(), "(.m3u8)").firstOrNull()
+                            .orEmpty(),
+                        mp4 = getUrlsFromFile(urlData.file.orEmpty(), "(.mp4)").firstOrNull()
                             .orEmpty()
                     )
                     episodes.add(

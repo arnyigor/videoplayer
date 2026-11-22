@@ -16,9 +16,11 @@ import com.arny.mobilecinema.domain.models.DownloadManagerData
 import com.arny.mobilecinema.domain.models.Movie
 import com.arny.mobilecinema.domain.models.MovieDownloadedData
 import com.arny.mobilecinema.domain.models.MovieType
+import com.arny.mobilecinema.domain.models.SerialEpisode
 import com.arny.mobilecinema.domain.models.RequestDownloadFile
 import com.arny.mobilecinema.domain.models.SaveData
 import com.arny.mobilecinema.presentation.player.PlayerSource
+import com.arny.mobilecinema.presentation.details.PlayStartResolver
 import com.arny.mobilecinema.presentation.player.getAllCinemaUrls
 import com.arny.mobilecinema.presentation.player.getCinemaUrl
 import com.arny.mobilecinema.presentation.uimodels.Alert
@@ -497,6 +499,10 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
 
     // ============ Cache & Download Logic ============
 
+    /** Первый полностью закешированный URL из списка (для офлайн-запуска). */
+    suspend fun findCachedOfflineUrl(urls: List<String>): String? =
+        urls.firstOrNull { playerSource.isFullyCachedOffline(it) }
+
     /** Полностью ли закеширован контент по URL (для офлайн-запуска без сетевых проверок). */
     suspend fun isCachedOffline(url: String): Boolean = playerSource.isFullyCachedOffline(url)
 
@@ -625,7 +631,14 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
             if (initValid) {
                 checkAllDownload(data)
                 prepareSerialAlerts(downloadData, url, movie, state)
-                _uiState.update { it.copy(canDownload = true, canDownloadFile = false) }
+                _uiState.update {
+                    it.copy(
+                        canDownload = true,
+                        // Для сериалов экспорт MP4 отключён: прямой MP4 у серии
+                        // не гарантирован, экспортный поток «Кеш серии» и так есть.
+                        canDownloadFile = false
+                    )
+                }
             }
         }
     }
@@ -766,6 +779,8 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
             val state = _uiState.value
             if (!state.canDownloadFile) return@launch
             val movie = state.movie ?: return@launch
+            // Сериал не экспортируем файлом — только кеширование серии.
+            if (movie.type == MovieType.SERIAL) return@launch
             initDownloadFileAlert(movie)
             downloadAlert?.let { _actions.send(DetailsAction.ShowAlert(it)) }
         }
@@ -789,11 +804,21 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
 
     private fun initDownloadFileAlert(movie: Movie) {
         val selectedUrl = _uiState.value.selectedCinemaUrl
-        val availableToDownload = movie.isFileDownloadAvailable(selectedUrl)
-        val mp4Link = movie.getAllCinemaUrls()
-            .find { it.endsWith("mp4", ignoreCase = true) }
-            ?.substringAfterLast("/")
-            .orEmpty()
+        val isSerial = movie.type == MovieType.SERIAL
+        val serialMp4Url = if (isSerial) currentSerialEpisode(_uiState.value)?.mp4.orEmpty() else ""
+        val availableToDownload = if (isSerial) {
+            serialMp4Url.isNotBlank()
+        } else {
+            movie.isFileDownloadAvailable(selectedUrl)
+        }
+        val mp4Link = if (isSerial) {
+            serialMp4Url.substringBefore("?").substringAfterLast("/")
+        } else {
+            movie.getAllCinemaUrls()
+                .find { it.endsWith("mp4", ignoreCase = true) }
+                ?.substringAfterLast("/")
+                .orEmpty()
+        }
 
         downloadAlert = when {
             availableToDownload -> {
@@ -815,6 +840,16 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
                 )
             }
         }
+    }
+
+    private fun currentSerialEpisode(state: DetailsUiState): SerialEpisode? {
+        val movie = state.movie ?: return null
+        if (movie.type != MovieType.SERIAL) return null
+        return PlayStartResolver.episodeAt(
+            movie = movie,
+            seasonPosition = state.currentSeasonPosition,
+            episodePosition = state.currentEpisodePosition
+        )
     }
 
     private fun String?.isM3u8DownloadUrl(): Boolean {
@@ -965,6 +1000,11 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
         viewModelScope.launch {
             val state = _uiState.value
             val movie = state.movie ?: return@launch
+            // Сериал не экспортируем файлом: прямой MP4 у серии не гарантирован.
+            if (movie.type == MovieType.SERIAL) {
+                _actions.send(DetailsAction.ShowError(ResourceString(R.string.movie_mp4_links_no_found)))
+                return@launch
+            }
             val selectedUrl = state.selectedCinemaUrl
 
             val file =

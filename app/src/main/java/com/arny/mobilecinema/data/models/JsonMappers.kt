@@ -18,8 +18,9 @@ fun readSeasons(json: JsonElement): List<SerialSeason> {
                     episode = obj["episode"].asString.orEmpty(),
                     title = obj["title"].asString.orEmpty(),
                     hls = obj["hls"].asString.orEmpty(),
-                    dash = obj["dash"].asString.orEmpty(),
-                    poster = obj["poster"].asString.orEmpty(),
+                    dash = obj["dash"]?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
+                    poster = obj["poster"]?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
+                    mp4 = obj["mp4"]?.takeIf { !it.isJsonNull }?.asString.orEmpty(),
                 )
             )
         }

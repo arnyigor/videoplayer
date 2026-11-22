@@ -12,4 +12,5 @@ data class SerialEpisode(
 	@SerializedName("hls") val hls: String = "",
 	@SerializedName("dash") val dash: String = "",
 	@SerializedName("poster") val poster: String = "",
+	@SerializedName("mp4") val mp4: String = "",
 ) : Parcelable

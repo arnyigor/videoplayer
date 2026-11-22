@@ -392,15 +392,21 @@ override fun onResume() {
         }
 
         private fun showDownloadsDialog() {
-            val items = arrayOf(
-                getString(R.string.downloads_option_cache),
-                getString(R.string.downloads_option_mp4)
-            )
+            val isSerial = currentMovie?.type == MovieType.SERIAL
+            if (isSerial) {
+                // Для сериала — только кеширование серии, без лишнего диалога выбора.
+                if (canDownload) onCache()
+                return
+            }
+            val items = buildList {
+                add(getString(R.string.downloads_option_cache))
+                if (canDownloadFile) add(getString(R.string.downloads_option_mp4))
+            }
             androidx.appcompat.app.AlertDialog.Builder(
                 requireContext(), R.style.PlayerAlertDialogTheme
             )
                 .setTitle(R.string.downloads_choose)
-                .setItems(items) { _, which ->
+                .setItems(items.toTypedArray()) { _, which ->
                     when (which) {
                         0 -> onCache()
                         1 -> onDownloadFile()
@@ -1261,6 +1267,15 @@ override fun onResume() {
             val resolvedUrl = (start as? PlayStart.Ready)?.source?.url
             viewLifecycleOwner.lifecycleScope.launch {
             val connectionType = getConnectionType(requireContext())
+            // Офлайн-источник ищем среди всех ссылок серии/фильма: закеширована может быть
+            // и не выбранная сейчас (HD/SD), тогда играем именно закешированную.
+            val candidateUrls = if (movie.type == MovieType.SERIAL) {
+                PlayStartResolver.sources(movie, currentSeasonPosition, currentEpisodePosition)
+                    .map { it.url }
+            } else {
+                listOfNotNull(resolvedUrl)
+            }
+            val cachedUrl = viewModel.findCachedOfflineUrl(candidateUrls)
 
             when {
                 movie.type == MovieType.CINEMA && downloadAll -> {
@@ -1272,8 +1287,8 @@ override fun onResume() {
                 }
 
                 // Полностью закеширован — играем офлайн без сетевых предупреждений.
-                resolvedUrl != null && viewModel.isCachedOffline(resolvedUrl) -> {
-                    navigateToPlayer(movie, playId)
+                cachedUrl != null -> {
+                    navigateToPlayer(movie, playId, cachedUrl)
                 }
 
                 connectionType is ConnectionType.MOBILE || connectionType is ConnectionType.VPN -> {
@@ -1311,7 +1326,11 @@ override fun onResume() {
                 PlayStartFailure.INVALID_SOURCE -> R.string.play_error_invalid_source
             }
 
-        private fun navigateToPlayer(movie: Movie, playId: String) {
+        private fun navigateToPlayer(
+            movie: Movie,
+            playId: String,
+            overrideUrl: String? = null
+        ) {
             val start = PlayStartResolver.resolve(
                 movie = movie,
                 seasonPosition = currentSeasonPosition,
@@ -1327,11 +1346,12 @@ override fun onResume() {
                 toast(getString(start.reason.messageRes))
                 return
             }
-            val selectedUrl = (start as PlayStart.Ready).source.url
+            val ready = start as PlayStart.Ready
+            val selectedUrl = overrideUrl ?: ready.source.url
             // URL логируется только отредактированным: query может содержать токены (§4.2).
             Timber.tag(TAG_PLAY).d(
                 "%s navigate playableId=%s quality=%s url=%s",
-                playId, movie.dbId, start.source.quality, PlayTrace.redactUrl(selectedUrl)
+                playId, movie.dbId, ready.source.quality, PlayTrace.redactUrl(selectedUrl)
             )
 
             try {
