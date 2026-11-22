@@ -2,6 +2,7 @@
     <string name="app_name">Anwap Movies</string>
     <!-- Имя бренда в UI: не зависит от debug-суффикса app_name (аудит §2.1). -->
     <string name="app_brand">Anwap Movies</string>
+    <string name="splash_app_version">Версия %1$s</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
     <string name="rewind">Rewind</string>

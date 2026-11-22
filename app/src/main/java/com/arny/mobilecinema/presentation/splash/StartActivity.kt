@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.doOnPreDraw
 import androidx.lifecycle.lifecycleScope
+import com.arny.mobilecinema.BuildConfig
 import com.arny.mobilecinema.R
 import com.arny.mobilecinema.databinding.ActivitySplashBinding
 import com.arny.mobilecinema.presentation.MainActivity
@@ -23,6 +24,10 @@ class StartActivity : AppCompatActivity(), KoinComponent {
         super.onCreate(savedInstanceState)
         val binding = ActivitySplashBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.splashVersion.text = getString(
+            R.string.splash_app_version,
+            BuildConfig.VERSION_NAME
+        )
 
         // The first frame matches the starting window. Defer DI/database initialization
         // until after it is drawn, without animating or imposing a minimum display time.
@@ -55,9 +60,15 @@ class StartActivity : AppCompatActivity(), KoinComponent {
             putExtra(KEY_SHARED_URL, viewModel.sharedUrl)
             putExtra(KEY_SITE_OFFLINE, state is SplashState.SiteUnavailable)
         }
-        startActivity(intent)
+        // Плавный (не сдвиговый) переход: системная анимация открытия активности на
+        // многих прошивках — сдвиг справа налево, заметный на однотонном сплэше.
+        val options = android.app.ActivityOptions
+            .makeCustomAnimation(this, R.anim.fade_in, R.anim.fade_out)
+            .toBundle()
+        startActivity(intent, options)
         finish()
-        overridePendingTransition(R.anim.fade_in, R.anim.fade_out)
+        // Без fade-перехода: фон StartActivity и главного экрана согласован,
+        // доп. анимация выглядела как ещё одна смена экрана.
     }
 
     override fun onNewIntent(intent: Intent?) {

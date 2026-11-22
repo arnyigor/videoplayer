@@ -110,9 +110,9 @@
         <item name="android:textColor">@color/textColorPrimary</item>
     </style>
 
-    <!-- Статичный стартовый экран: окно и StartActivity показывают один и тот же фон. -->
+    <!-- С логотипом в фоне холодный старт не показывает пустой градиент. -->
     <style name="AppTheme.Splash" parent="@style/AppTheme">
-        <!-- С логотипом в фоне холодный старт не показывает пустой градиент. -->
+        <!-- Статичный однотонный фон окна; совпадает с системным splash Android 12+. -->
         <item name="android:windowBackground">@drawable/bg_splash_window</item>
         <item name="android:statusBarColor">@color/colorPrimaryDark</item>
         <item name="android:navigationBarColor">@color/colorPrimaryDark</item>
