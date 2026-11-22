@@ -65,6 +65,8 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
     import com.arny.mobilecinema.presentation.utils.updateTitle
         import com.google.android.material.chip.Chip
     import kotlinx.coroutines.flow.collectLatest
+    import kotlinx.coroutines.launch
+    import androidx.lifecycle.lifecycleScope
     import org.joda.time.DateTime
     import timber.log.Timber
     import java.util.Locale
@@ -340,13 +342,8 @@ override fun onResume() {
 
             binding.toolbar.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
-                    R.id.menu_action_download_file -> {
-                        onDownloadFile()
-                        true
-                    }
-
-                    R.id.menu_action_cache_movie -> {
-                        onCache()
+                    R.id.menu_action_downloads -> {
+                        showDownloadsDialog()
                         true
                     }
 
@@ -389,9 +386,28 @@ override fun onResume() {
         // Обновление видимости пунктов меню
         private fun updateMenuVisibility() {
             val menu = binding.toolbar.menu
-            menu.findItem(R.id.menu_action_download_file)?.isVisible = canDownloadFile
-            menu.findItem(R.id.menu_action_cache_movie)?.isVisible = canDownload
+            menu.findItem(R.id.menu_action_downloads)?.isVisible =
+                canDownload || canDownloadFile
             menu.findItem(R.id.menu_action_clear_cache)?.isVisible = hasSavedData
+        }
+
+        private fun showDownloadsDialog() {
+            val items = arrayOf(
+                getString(R.string.downloads_option_cache),
+                getString(R.string.downloads_option_mp4)
+            )
+            androidx.appcompat.app.AlertDialog.Builder(
+                requireContext(), R.style.PlayerAlertDialogTheme
+            )
+                .setTitle(R.string.downloads_choose)
+                .setItems(items) { _, which ->
+                    when (which) {
+                        0 -> onCache()
+                        1 -> onDownloadFile()
+                    }
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
         }
 
         private fun observeState() {
@@ -1242,6 +1258,8 @@ override fun onResume() {
             }
 
             if (movie == null) return
+            val resolvedUrl = (start as? PlayStart.Ready)?.source?.url
+            viewLifecycleOwner.lifecycleScope.launch {
             val connectionType = getConnectionType(requireContext())
 
             when {
@@ -1250,6 +1268,11 @@ override fun onResume() {
                 }
 
                 connectionType.allowsUnmeteredOperations() -> {
+                    navigateToPlayer(movie, playId)
+                }
+
+                // Полностью закеширован — играем офлайн без сетевых предупреждений.
+                resolvedUrl != null && viewModel.isCachedOffline(resolvedUrl) -> {
                     navigateToPlayer(movie, playId)
                 }
 
@@ -1276,6 +1299,7 @@ override fun onResume() {
                 else -> {
                     navigateToPlayer(movie, playId)
                 }
+            }
             }
         }
 

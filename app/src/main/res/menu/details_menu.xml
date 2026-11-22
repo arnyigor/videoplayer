@@ -9,15 +9,9 @@
         app:showAsAction="ifRoom" />
 
     <item
-        android:id="@+id/menu_action_download_file"
-        android:title="@string/download"
+        android:id="@+id/menu_action_downloads"
+        android:title="@string/menu_downloads"
         android:icon="@drawable/outline_download_for_offline_24"
-        app:showAsAction="ifRoom" />
-
-    <item
-        android:id="@+id/menu_action_cache_movie"
-        android:title="@string/cache"
-        android:icon="@drawable/ic_save"
         app:showAsAction="ifRoom" />
 
     <item
@@ -43,5 +37,5 @@
         android:id="@+id/menu_action_copy_mp4_link"
         android:title="@string/menu_copy_mp4_link"
         android:icon="@drawable/outline_content_copy_24"
-        app:showAsAction="ifRoom" />
+        app:showAsAction="never" />
 </menu>

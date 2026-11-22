@@ -497,6 +497,9 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
 
     // ============ Cache & Download Logic ============
 
+    /** Полностью ли закеширован контент по URL (для офлайн-запуска без сетевых проверок). */
+    suspend fun isCachedOffline(url: String): Boolean = playerSource.isFullyCachedOffline(url)
+
     private fun updateCinemaDownloadedData() {
         viewModelScope.launch {
             val state = _uiState.value
@@ -786,9 +789,9 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
 
     private fun initDownloadFileAlert(movie: Movie) {
         val selectedUrl = _uiState.value.selectedCinemaUrl
-        val availableToDownload = interactor.isAvailableToDownload(selectedUrl, movie.type)
+        val availableToDownload = movie.isFileDownloadAvailable(selectedUrl)
         val mp4Link = movie.getAllCinemaUrls()
-            .find { it.endsWith("mp4") }
+            .find { it.endsWith("mp4", ignoreCase = true) }
             ?.substringAfterLast("/")
             .orEmpty()
 
@@ -821,7 +824,10 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
 
     private fun Movie?.isFileDownloadAvailable(url: String?): Boolean {
         return this?.let { movie ->
-            interactor.isAvailableToDownload(url, movie.type) && !url.isM3u8DownloadUrl()
+            if (!interactor.isAvailableToDownload(url, movie.type)) return false
+            // Прямая MP4-ссылка — можно качать; HLS/DASH — тоже, если у фильма есть MP4.
+            if (!url.isM3u8DownloadUrl()) return true
+            movie.getAllCinemaUrls().any { it.endsWith("mp4", ignoreCase = true) }
         } == true
     }
 
@@ -962,19 +968,32 @@ private fun handleSerialPositionChanged(event: DetailsEvent.SerialPositionChange
             val selectedUrl = state.selectedCinemaUrl
 
             val file =
-                if (selectedUrl?.endsWith("mpd") == true || selectedUrl?.endsWith("m3u8") == true) {
-                    val mp4Link = movie.getAllCinemaUrls().find { it.endsWith("mp4") }
-                    val fileName = mp4Link?.substringAfterLast("/").orEmpty()
+                if (selectedUrl.isM3u8DownloadUrl()) {
+                    // Выбран HLS/DASH: сохраняем файлом доступный прямой MP4 того же фильма.
+                    val mp4Url = movie.getAllCinemaUrls().find { it.endsWith("mp4", ignoreCase = true) }
+                    if (mp4Url == null) {
+                        _actions.send(DetailsAction.ShowError(ResourceString(R.string.movie_mp4_links_no_found)))
+                        return@launch
+                    }
                     RequestDownloadFile(
-                        url = selectedUrl,
-                        fileName = fileName,
+                        url = mp4Url,
+                        fileName = mp4Url.substringBefore("?").substringAfterLast("/")
+                            .ifBlank { "movie_${movie.dbId}.mp4" },
                         title = movie.title,
-                        isMp4 = false
+                        isMp4 = true
                     )
                 } else {
+                    // Имя файла — из пути выбранного URL без query/fragment (иначе MediaStore
+                    // сохранит мусорное имя вида "movie.mp4?token=..."); сам URL остаётся полным.
+                    val fileName = selectedUrl
+                        ?.substringBefore("?")
+                        ?.substringBefore("#")
+                        ?.substringAfterLast("/")
+                        .orEmpty()
+                        .ifBlank { "movie_${movie.dbId}.mp4" }
                     RequestDownloadFile(
                         url = selectedUrl.orEmpty(),
-                        fileName = selectedUrl?.substringAfterLast("/").orEmpty(),
+                        fileName = fileName,
                         title = movie.title,
                         isMp4 = true
                     )

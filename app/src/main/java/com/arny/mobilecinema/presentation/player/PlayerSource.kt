@@ -14,6 +14,7 @@ import com.arny.mobilecinema.data.utils.getConnectionType
 import com.arny.mobilecinema.data.utils.getDomainName
 import com.arny.mobilecinema.domain.models.DownloadManagerData
 import com.arny.mobilecinema.domain.repository.UpdateRepository
+import timber.log.Timber
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -126,8 +127,27 @@ suspend fun getSource(
         mediaId: String? = null
     ): MediaSource? = url?.let {
         val uri = Uri.parse(url)
-        // Используем factory с отключенной проверкой SSL для обхода проблем с сертификатами
-        val factory = getUnsafeDataSourceFactory()
+        // Скачанный полностью MP4/HLS воспроизводим из кэша без сети (офлайн-режим).
+        val contentType = Util.inferContentType(uri)
+        val factory: DataSource.Factory = when {
+            contentType == C.CONTENT_TYPE_OTHER && isMp4(url) ->
+                withContext(dispatcher) { isFullyCached(url) }
+                    .takeIf { it }
+                    ?.let { getCacheOnlyDataSourceFactory() }
+                    ?: getUnsafeDataSourceFactory()
+            contentType == C.CONTENT_TYPE_HLS || contentType == C.CONTENT_TYPE_DASH -> {
+                if (withContext(dispatcher) { isDownloadComplete(url) }) {
+                    Timber.tag("PlayerSource").i("Offline playback from download cache: %s", url)
+                    getCacheOnlyDataSourceFactory()
+                } else {
+                    // Используем factory с отключенной проверкой SSL для обхода проблем с сертификатами
+                    getUnsafeDataSourceFactory()
+                }
+            }
+            else ->
+                // Используем factory с отключенной проверкой SSL для обхода проблем с сертификатами
+                getUnsafeDataSourceFactory()
+        }
         val mediaItem = getMediaItem(url, title, season, episode, mediaId)
         when (val type: @C.ContentType Int = Util.inferContentType(uri)) {
             C.CONTENT_TYPE_DASH -> getDashMediaSourceFactory(factory, mediaItem)
@@ -343,7 +363,58 @@ suspend fun getSource(
         }
     }
 
-    private fun isMp4(url: String) = url.endsWith(".mp4")
+    private fun isMp4(url: String): Boolean {
+        val path = url.substringBefore("?").substringBefore("#")
+        return path.endsWith(".mp4", ignoreCase = true)
+    }
+
+    /**
+     * Полностью ли файл уже скачан в download cache (MP4/progressive).
+     * Кэш-ключ — тот же, что использовал DownloadManager (uri.toString()),
+     * полнота проверяется по сохранённой длине содержимого.
+     */
+    private fun isFullyCached(url: String): Boolean {
+        val cache = getCache()
+        val key = getCacheKey(url)
+        val spans = cache.getCachedSpans(key).filter { it.isCached }
+        if (spans.isEmpty()) return false
+        val contentLength = androidx.media3.datasource.cache.ContentMetadata
+            .getContentLength(cache.getContentMetadata(key))
+        return contentLength > 0 && spans.sumOf { it.length } >= contentLength
+    }
+
+    /** Источник только из кэша: без upstream — работает при выключенном интернете. */
+    private fun getCacheOnlyDataSourceFactory(): DataSource.Factory {
+        return CacheDataSource.Factory()
+            .setCache(getCache())
+            .setCacheReadDataSourceFactory(FileDataSource.Factory())
+            .setCacheWriteDataSinkFactory(null)
+    }
+
+    /**
+     * Завершена ли офлайн-загрузка по этому URL (DownloadManager хранит состояние в
+     * exoplayer_internal.db). Работает офлайн. Ключ — тот же, что в cacheVideo().
+     */
+    private fun isDownloadComplete(url: String): Boolean {
+        return try {
+            ensureDownloadManagerInitialized(context)
+            val manager = downloadManager
+            if (manager == null || !manager.isInitialized) {
+                Timber.tag("PlayerSource").w("DownloadManager not initialized for offline check")
+                return false
+            }
+            val download = manager.downloadIndex.getDownload(url)
+            val completed = download?.state == Download.STATE_COMPLETED
+            Timber.tag("PlayerSource").i(
+                "isDownloadComplete(%s) -> %s (state=%s)",
+                url, completed, download?.state
+            )
+            completed
+        } catch (e: Exception) {
+            Timber.tag("PlayerSource").e(e, "isDownloadComplete failed")
+            false
+        }
+    }
 
     private fun getCachedSpans(segmentsData: SegmentsData): List<CacheSpan> =
         segmentsData.segments.map { s ->
@@ -463,6 +534,14 @@ suspend fun getSource(
             continuation.resumeWithException(Exception("no_internet_connection"))
         }
         }
+
+    /**
+     * Полностью ли скачан контент по URL (для офлайн-запуска):
+     * MP4 — по полноте кэша, HLS/DASH — по состоянию DownloadManager.
+     */
+    suspend fun isFullyCachedOffline(url: String): Boolean = withContext(dispatcher) {
+        if (isMp4(url)) isFullyCached(url) else isDownloadComplete(url)
+    }
 
     private fun getCacheKey(url: String): String =
         dataSourceFactory().cacheKeyFactory.buildCacheKey(DataSpec(Uri.parse(url)))

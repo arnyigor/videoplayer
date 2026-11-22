@@ -323,7 +323,9 @@ class PlayerViewFragment : Fragment(R.layout.f_player_view), OnPictureInPictureL
             val currentUrl = getCurrentPlaybackUrl()
             val serialEpisode = allEpisodes.getOrNull(currentEpisodeIndex)
             playbackErrorDialog?.dismiss()
-            playbackErrorDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            playbackErrorDialog = androidx.appcompat.app.AlertDialog.Builder(
+                requireContext(), R.style.PlayerAlertDialogTheme
+            )
                 .setTitle(R.string.playback_error)
                 .setMessage(lastError)
                 .setPositiveButton(R.string.retry) { _, _ ->

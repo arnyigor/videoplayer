@@ -191,8 +191,10 @@
     <string name="question_remove_all_favorites">Удалить всё избранное?</string>
     <string name="notification_channel_id">notification_channel_cache</string>
     <string name="notification_title">Загрузка фильма</string>
-    <string name="cache">Кешировать</string>
-    <string name="download">Загрузить</string>
+    <string name="menu_downloads">Загрузки</string>
+    <string name="downloads_choose">Как загрузить фильм?</string>
+    <string name="downloads_option_cache">Кешировать (смотреть без интернета в приложении)</string>
+    <string name="downloads_option_mp4">Скачать MP4 (файл в папку «Загрузки»)</string>
     <string name="download_cinema_title_format">Загрузка \"%s\" - %.01f%%</string>
     <string name="download_cinema_title_short_format">Загрузка ~ %.01f%%</string>
     <string name="download_cinema_state_state_updating">Обновление списка…</string>
@@ -316,7 +318,7 @@
     <string name="feedback_enter_message">Введите сообщение</string>
     <string name="feedback_button_text">Отправить</string>
     <string name="menu_send_feedback">Сообщить об ошибке</string>
-    <string name="menu_copy_mp4_link">Ссылка на mp4</string>
+    <string name="menu_copy_mp4_link">Скопировать ссылку на mp4</string>
     <string name="feedback_dialog_result_ok">Сообщение отправлено!</string>
     <string name="feedback_dialog_result_failed">Сообщение не отправлено!</string>
     <string name="f_favorites_title">Избранное</string>
