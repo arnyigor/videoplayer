@@ -200,6 +200,7 @@
     <string name="download_cinema_title_short_format">Кеширование ~ %.01f%%</string>
     <string name="download_cinema_state_state_updating">Обновление списка…</string>
     <string name="download_cinema_state_state_pause">Пауза</string>
+    <string name="download_cinema_state_state_error">Ошибка кеширования. Попробуйте ещё раз</string>
     <string name="download_text_format">~ %s</string>
     <string name="download_text_format_one_more">Осталось ~ %s, еще %s</string>
     <string name="download_cinema_text_format_empty_downloads">Осталось ~ %s</string>

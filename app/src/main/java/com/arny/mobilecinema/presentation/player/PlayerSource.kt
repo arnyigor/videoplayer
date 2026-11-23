@@ -90,6 +90,18 @@ class PlayerSource(
             download: Download,
             finalException: Exception?
         ) {
+            // Диагностика обрывов кеширования: без неё «зависание на N%» не отличить
+            // от ошибки, паузы или завершения. URL печатаем без query (там токены).
+            Timber.tag(TAG_CACHE).i(
+                "download state=%s percent=%.1f bytes=%d exception=%s",
+                STATE_NAMES[download.state] ?: download.state,
+                download.percentDownloaded,
+                download.bytesDownloaded,
+                finalException?.let { "${it::class.java.simpleName}: ${it.message}" } ?: "none"
+            )
+            if (finalException != null) {
+                Timber.tag(TAG_CACHE).e(finalException, "download failed: %s", download.request.id)
+            }
             onUpdate?.invoke(
                 download.percentDownloaded,
                 download.bytesDownloaded,
@@ -343,7 +355,13 @@ suspend fun getSource(
                 if (!downloadsEmpty) {
                     val download = downloads.find { it.request.id == url }
                     if (download != null) {
-                        downloadPercent = download.percentDownloaded
+                        // Media3 для HLS/DASH оценивает процент по байтам и может «каменеть»
+                        // чуть ниже 100. Завершённую загрузку показываем как 100%.
+                        downloadPercent = if (download.state == Download.STATE_COMPLETED) {
+                            100.0f
+                        } else {
+                            download.percentDownloaded
+                        }
                         downloadBytes = download.bytesDownloaded
                     }
                     title = download?.request?.data?.toString(Charsets.UTF_8).orEmpty()
@@ -801,6 +819,16 @@ private fun initCacheFactory() {
     private fun getReferer(url: String): String = requiredVideoReferer(url).orEmpty()
 
     private companion object {
+        const val TAG_CACHE = "VideoCache"
+        val STATE_NAMES = mapOf(
+            Download.STATE_QUEUED to "QUEUED",
+            Download.STATE_STOPPED to "STOPPED",
+            Download.STATE_DOWNLOADING to "DOWNLOADING",
+            Download.STATE_COMPLETED to "COMPLETED",
+            Download.STATE_FAILED to "FAILED",
+            Download.STATE_REMOVING to "REMOVING",
+            Download.STATE_RESTARTING to "RESTARTING"
+        )
         const val VIDEO_USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                     "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"

@@ -48,6 +48,7 @@ import org.koin.core.component.inject
 
 class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
     private companion object {
+        const val TAG = "MovieDownloadService"
         const val NOTICE_ID = 100002
         const val NOTICE_CHANNEL_ID = "NOTICE_CHANNEL_ID"
         const val NOTICE_CHANNEL_NAME = "NOTICE_CHANNEL_NAME"
@@ -113,7 +114,10 @@ class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
         val sizeDiff = stSize - currentDownloadListSize
 //        Timber.d("progressListener ${state.getStateString()} size:$currentDownloadListSize, s:$stSize, sizeDiff:$sizeDiff, bytes:${bytes.formatSize()}")
         when {
-            isNoticeCanUpdate && state == Download.STATE_QUEUED -> {
+            // Приостановленная загрузка (включая STOPPED — система остановила сервис)
+            // должна показывать «Пауза», иначе экран замирает на последнем проценте.
+            isNoticeCanUpdate &&
+                (state == Download.STATE_QUEUED || state == Download.STATE_STOPPED) -> {
                 updateNotification(
                     title = getString(
                         R.string.download_cinema_title_format,
@@ -186,6 +190,32 @@ class MovieDownloadService : LifecycleService(), CoroutineScope, KoinComponent {
                 sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_COMPLETE)
                 if (stSize == 0) {
                     startNextDownload()
+                }
+            }
+
+            Download.STATE_FAILED -> {
+                // Раньше остановка по ошибке проходила через else: пользователь видел
+                // последний процент и больше ничего.
+                Timber.tag(TAG).e("cache failed: %s", download?.downloadUrl)
+                noticeStopped = true
+                updateNotification(
+                    title = getString(R.string.download_cinema_title_format, stTitle, percent),
+                    text = getString(R.string.download_cinema_state_state_error),
+                    silent = false,
+                    addUpdateActions = false
+                )
+                sendLocalBroadcast(AppConstants.ACTION_CACHE_VIDEO_ERROR) {
+                    putString(
+                        AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL,
+                        download?.pageUrl.orEmpty()
+                    )
+                    if (season != null && episode != null) {
+                        putInt(AppConstants.SERVICE_PARAM_CACHE_SEASON, season)
+                        putInt(AppConstants.SERVICE_PARAM_CACHE_EPISODE, episode)
+                    }
+                }
+                if (stSize == 0) {
+                    stopCurrentService()
                 }
             }
 

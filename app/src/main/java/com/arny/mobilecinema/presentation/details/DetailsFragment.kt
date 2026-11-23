@@ -214,6 +214,19 @@ import com.arny.mobilecinema.presentation.utils.navigateSafely
             }
         }
 
+        /** Ошибка кеширования: показываем, а не оставляем экран на последнем проценте. */
+        private val downloadErrorReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val pageUrl = intent?.getStringExtra(
+                    AppConstants.SERVICE_PARAM_CACHE_MOVIE_PAGE_URL
+                ).orEmpty()
+                val movie = currentMovie ?: return
+                if (pageUrl.isNotBlank() && pageUrl != movie.pageUrl) return
+                toast(getString(R.string.download_cinema_state_state_error))
+                viewModel.refreshDownloadStatus()
+            }
+        }
+
         private val updateReceiver by lazy { makeBroadcastReceiver() }
 
         override fun onCreateView(
@@ -268,6 +281,7 @@ override fun onResume() {
             super.onResume()
             registerReceiver(AppConstants.ACTION_CACHE_VIDEO_COMPLETE, downloadReceiver)
             registerReceiver(AppConstants.ACTION_CACHE_VIDEO_UPDATE, downloadUpdateReceiver)
+            registerReceiver(AppConstants.ACTION_CACHE_VIDEO_ERROR, downloadErrorReceiver)
             registerLocalReceiver(AppConstants.ACTION_UPDATE_STATUS, updateReceiver)
 
             // Обновляем статус загрузки (download), но НЕ перезаписываем позицию
@@ -278,6 +292,7 @@ override fun onResume() {
             super.onPause()
             unregisterReceiver(downloadReceiver)
             unregisterReceiver(downloadUpdateReceiver)
+            unregisterReceiver(downloadErrorReceiver)
             unregisterLocalReceiver(updateReceiver)
         }
 
